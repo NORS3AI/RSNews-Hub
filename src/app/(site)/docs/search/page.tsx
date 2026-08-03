@@ -1,0 +1,41 @@
+import Link from 'next/link';
+import { smartSearch } from '@/lib/recommend';
+import ArticleCard from '@/components/ArticleCard';
+import SearchBar from '@/components/SearchBar';
+import { Search } from '@/components/icons';
+
+export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Search' };
+
+export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+  const q = (searchParams.q ?? '').trim();
+  const results = q ? await smartSearch(q, 30) : [];
+
+  return (
+    <div className="container-page py-8 sm:py-10">
+      <div className="mb-6 flex items-center gap-2"><Search className="text-brand-600" /><h1 className="text-2xl font-bold">Search</h1></div>
+      <div className="mb-8 max-w-2xl"><SearchBar big /></div>
+
+      {q && (
+        <p className="mb-6 text-sm text-[var(--muted)]">
+          {results.length} result{results.length === 1 ? '' : 's'} for <span className="font-medium text-[var(--fg)]">“{q}”</span>
+        </p>
+      )}
+
+      {q && results.length === 0 && (
+        <div className="card p-8 text-center">
+          <p className="text-[var(--muted)]">No articles matched your search.</p>
+          <Link href="/docs" className="mt-3 inline-block text-sm text-brand-600 hover:underline">Browse all articles</Link>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {results.map((a) => <ArticleCard key={a.id} article={a} />)}
+        </div>
+      )}
+
+      {!q && <p className="text-[var(--muted)]">Type a query above to search across every article — titles, tags, categories and content.</p>}
+    </div>
+  );
+}

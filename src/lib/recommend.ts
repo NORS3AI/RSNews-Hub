@@ -1,0 +1,215 @@
+import { prisma } from './db';
+
+export type ArticleCard = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  coverImage: string | null;
+  publishedAt: Date | null;
+  views: number;
+  readMinutes: number;
+  category: { name: string; slug: string; color: string } | null;
+  tags: { name: string; slug: string }[];
+};
+
+const cardSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  coverImage: true,
+  publishedAt: true,
+  views: true,
+  readMinutes: true,
+  category: { select: { name: true, slug: true, color: true } },
+  tags: { select: { tag: { select: { name: true, slug: true } } } },
+} as const;
+
+function toCard(a: any): ArticleCard {
+  return { ...a, tags: (a.tags ?? []).map((t: any) => t.tag) };
+}
+
+/**
+ * Content-based recommendation. Given an article, score every other published
+ * article by how many tags it shares plus a bonus for the same category, then
+ * fall back to recency/popularity. This is the "if you read this, this might
+ * interest you" engine.
+ */
+export async function getRelatedArticles(articleId: string, limit = 4): Promise<ArticleCard[]> {
+  const src = await prisma.article.findUnique({
+    where: { id: articleId },
+    select: { categoryId: true, tags: { select: { tagId: true } } },
+  });
+
+  const tagIds = src?.tags.map((t) => t.tagId) ?? [];
+
+  const candidates = await prisma.article.findMany({
+    where: {
+      status: 'PUBLISHED',
+      id: { not: articleId },
+      OR: [
+        tagIds.length ? { tags: { some: { tagId: { in: tagIds } } } } : {},
+        src?.categoryId ? { categoryId: src.categoryId } : {},
+      ].filter((o) => Object.keys(o).length),
+    },
+    select: { ...cardSelect, categoryId: true, tags: { select: { tag: { select: { name: true, slug: true } }, tagId: true } } },
+    take: 40,
+  });
+
+  const scored = candidates
+    .map((a) => {
+      let score = 0;
+      const shared = a.tags.filter((t: any) => tagIds.includes(t.tagId)).length;
+      score += shared * 3;
+      if (src?.categoryId && a.categoryId === src.categoryId) score += 2;
+      return { a, score };
+    })
+    .sort((x, y) => y.score - x.score || (y.a.views ?? 0) - (x.a.views ?? 0));
+
+  let picks = scored.slice(0, limit).map((s) => toCard(s.a));
+
+  // Backfill with most recent published articles if not enough related found.
+  if (picks.length < limit) {
+    const have = new Set([articleId, ...picks.map((p) => p.id)]);
+    const filler = await prisma.article.findMany({
+      where: { status: 'PUBLISHED', id: { notIn: [...have] } },
+      orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
+      select: cardSelect,
+      take: limit - picks.length,
+    });
+    picks = [...picks, ...filler.map(toCard)];
+  }
+  return picks;
+}
+
+/**
+ * Personalized feed based on a reader's history. Aggregates tags/categories the
+ * reader has engaged with and surfaces fresh articles matching those interests.
+ */
+export async function getPersonalizedFeed(
+  opts: { userId?: string | null; sessionId?: string | null; limit?: number }
+): Promise<ArticleCard[]> {
+  const limit = opts.limit ?? 6;
+  const where = opts.userId
+    ? { userId: opts.userId }
+    : opts.sessionId
+    ? { sessionId: opts.sessionId }
+    : null;
+
+  if (!where) return trendingArticles(limit);
+
+  const history = await prisma.readingLog.findMany({
+    where,
+    orderBy: { readAt: 'desc' },
+    take: 30,
+    select: { articleId: true, article: { select: { categoryId: true, tags: { select: { tagId: true } } } } },
+  });
+
+  if (!history.length) return trendingArticles(limit);
+
+  const readIds = new Set(history.map((h) => h.articleId));
+  const tagWeight = new Map<string, number>();
+  const catWeight = new Map<string, number>();
+  for (const h of history) {
+    if (h.article?.categoryId) catWeight.set(h.article.categoryId, (catWeight.get(h.article.categoryId) ?? 0) + 1);
+    for (const t of h.article?.tags ?? []) tagWeight.set(t.tagId, (tagWeight.get(t.tagId) ?? 0) + 1);
+  }
+
+  const topTags = [...tagWeight.keys()];
+  const topCats = [...catWeight.keys()];
+
+  const candidates = await prisma.article.findMany({
+    where: {
+      status: 'PUBLISHED',
+      id: { notIn: [...readIds] },
+      OR: [
+        topTags.length ? { tags: { some: { tagId: { in: topTags } } } } : {},
+        topCats.length ? { categoryId: { in: topCats } } : {},
+      ].filter((o) => Object.keys(o).length),
+    },
+    select: { ...cardSelect, categoryId: true, tags: { select: { tag: { select: { name: true, slug: true } }, tagId: true } } },
+    take: 50,
+  });
+
+  const scored = candidates
+    .map((a) => {
+      let score = 0;
+      for (const t of a.tags as any[]) score += tagWeight.get(t.tagId) ?? 0;
+      if (a.categoryId) score += (catWeight.get(a.categoryId) ?? 0) * 0.5;
+      return { a, score };
+    })
+    .sort((x, y) => y.score - x.score);
+
+  let picks = scored.slice(0, limit).map((s) => toCard(s.a));
+  if (picks.length < limit) {
+    const have = new Set([...readIds, ...picks.map((p) => p.id)]);
+    const filler = await trendingArticles(limit - picks.length, [...have]);
+    picks = [...picks, ...filler];
+  }
+  return picks;
+}
+
+export async function trendingArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
+  const rows = await prisma.article.findMany({
+    where: { status: 'PUBLISHED', id: excludeIds.length ? { notIn: excludeIds } : undefined },
+    orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
+    select: cardSelect,
+    take: limit,
+  });
+  return rows.map(toCard);
+}
+
+/**
+ * Smart search: ranks by weighted relevance across title, excerpt, content,
+ * category and tags. SQLite-friendly (uses `contains`), tokenizes the query so
+ * multi-word searches match partial term overlap.
+ */
+export async function smartSearch(query: string, limit = 20): Promise<ArticleCard[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const terms = q.split(/\s+/).filter(Boolean).slice(0, 8);
+
+  const rows = await prisma.article.findMany({
+    where: {
+      status: 'PUBLISHED',
+      OR: terms.flatMap((t) => [
+        { title: { contains: t } },
+        { excerpt: { contains: t } },
+        { content: { contains: t } },
+        { category: { name: { contains: t } } },
+        { tags: { some: { tag: { name: { contains: t } } } } },
+      ]),
+    },
+    select: { ...cardSelect, content: true },
+    take: 80,
+  });
+
+  const scored = rows
+    .map((a) => {
+      let score = 0;
+      const title = a.title.toLowerCase();
+      const excerpt = (a.excerpt ?? '').toLowerCase();
+      const content = (a.content ?? '').toLowerCase();
+      const tagNames = (a.tags as any[]).map((t) => t.tag.name.toLowerCase());
+      for (const term of terms) {
+        const t = term.toLowerCase();
+        if (title.includes(t)) score += 10;
+        if (title.startsWith(t)) score += 5;
+        if (excerpt.includes(t)) score += 4;
+        if (tagNames.some((n) => n.includes(t))) score += 4;
+        if (a.category?.name.toLowerCase().includes(t)) score += 3;
+        if (content.includes(t)) score += 1;
+      }
+      score += Math.min(3, Math.log10((a.views ?? 0) + 1));
+      return { a, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((x, y) => y.score - x.score)
+    .slice(0, limit);
+
+  return scored.map((s) => {
+    const { content, ...rest } = s.a as any;
+    return toCard(rest);
+  });
+}

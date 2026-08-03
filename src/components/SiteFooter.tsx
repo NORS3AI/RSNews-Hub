@@ -1,0 +1,45 @@
+import Link from 'next/link';
+import { SITE_NAME } from '@/lib/constants';
+
+export default function SiteFooter() {
+  return (
+    <footer className="mt-16 border-t border-[var(--border)]">
+      <div className="container-page py-10">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-sm">
+            <div className="font-bold">{SITE_NAME}</div>
+            <p className="mt-2 text-sm text-[var(--muted)]">News, articles and documentation — read, discover and subscribe from any device.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-8 text-sm sm:grid-cols-3">
+            <div>
+              <div className="mb-2 font-medium">Read</div>
+              <ul className="space-y-1.5 text-[var(--muted)]">
+                <li><Link href="/docs" className="hover:text-[var(--fg)]">Latest</Link></li>
+                <li><Link href="/docs/categories" className="hover:text-[var(--fg)]">Categories</Link></li>
+                <li><Link href="/docs/archive" className="hover:text-[var(--fg)]">Archive</Link></li>
+              </ul>
+            </div>
+            <div>
+              <div className="mb-2 font-medium">Account</div>
+              <ul className="space-y-1.5 text-[var(--muted)]">
+                <li><Link href="/docs/subscriptions" className="hover:text-[var(--fg)]">Subscriptions</Link></li>
+                <li><Link href="/login" className="hover:text-[var(--fg)]">Sign in</Link></li>
+                <li><Link href="/register" className="hover:text-[var(--fg)]">Sign up</Link></li>
+              </ul>
+            </div>
+            <div>
+              <div className="mb-2 font-medium">More</div>
+              <ul className="space-y-1.5 text-[var(--muted)]">
+                <li><Link href="/docs/page/about" className="hover:text-[var(--fg)]">About</Link></li>
+                <li><Link href="/admin" className="hover:text-[var(--fg)]">Admin</Link></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
+          © {new Date().getFullYear()} {SITE_NAME}. Embeddable news hub.
+        </div>
+      </div>
+    </footer>
+  );
+}
