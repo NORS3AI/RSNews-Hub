@@ -9,11 +9,12 @@ so it can sit alongside a main website today and be embedded later.
 
 ## 🔗 Live site
 
-**https://nors3ai.github.io/rsnews-hub/**
+**https://nors3ai.github.io/RSNews-Hub/**
 
-Published via GitHub Pages (source: `main` branch, `/docs` folder). The URL is
-entirely lowercase — GitHub Pages hostnames are always lowercased, so type it
-without capitals and it will resolve.
+Published via GitHub Pages (source: `main` branch, `/docs` folder). Note the
+casing: the host (`nors3ai.github.io`) is lowercase, but the repository path
+segment is **case-sensitive** and must match the repo name exactly —
+`RSNews-Hub`, not `rsnews-hub`.
 
 ## Features
 
