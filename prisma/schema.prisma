@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Key/value store for site configuration (e.g. the admin-arranged homepage
+// module layout, stored as a JSON string under key "homepage_layout").
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // NOTE: SQLite does not support native enums. Status/role fields are strings
 // with values constrained in the application layer (see src/lib/constants.ts):
 //   Role:          ADMIN | EDITOR | USER
