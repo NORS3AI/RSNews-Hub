@@ -6,6 +6,7 @@ import { prisma } from './db';
 import { requireAdmin, hashPassword, getCurrentUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
+import { getHomeLayout, saveHomeLayout, DEFAULT_LAYOUT } from './homepage';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -228,4 +229,37 @@ export async function deleteUser(id: string) {
   if (actor.id === id) throw new Error('You cannot delete yourself.');
   await prisma.user.delete({ where: { id } });
   revalidatePath('/admin/users');
+}
+
+/* ---------------------------- Homepage layout ---------------------------- */
+
+export async function moveHomeModule(id: string, direction: 'up' | 'down') {
+  await ensureStaff();
+  const layout = await getHomeLayout();
+  const i = layout.findIndex((m) => m.id === id);
+  if (i === -1) return;
+  const j = direction === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= layout.length) return;
+  [layout[i], layout[j]] = [layout[j], layout[i]];
+  await saveHomeLayout(layout);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+export async function toggleHomeModule(id: string) {
+  await ensureStaff();
+  const layout = await getHomeLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.enabled = !m.enabled;
+  await saveHomeLayout(layout);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+export async function resetHomeLayout() {
+  await ensureStaff();
+  await saveHomeLayout(DEFAULT_LAYOUT);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
 }

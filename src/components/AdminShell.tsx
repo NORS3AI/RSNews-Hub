@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Sparkles, Archive } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive } from './icons';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
+  { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/pages', label: 'Pages', icon: Archive },
   { href: '/admin/categories', label: 'Categories', icon: Layers },
@@ -44,7 +45,7 @@ export default function AdminShell({
             {open ? <X /> : <Menu />}
           </button>
           <Link href="/admin" className="flex items-center gap-2 font-bold">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 text-white"><Sparkles width={16} height={16} /></span>
+            <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 text-xs font-black text-white">RS</span>
             <span className="hidden sm:inline">RSNews Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">

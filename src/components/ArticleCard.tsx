@@ -1,12 +1,18 @@
-import Link from 'next/link';
 import { Clock, Eye } from './icons';
 import { formatDate } from '@/lib/utils';
 import type { ArticleCard as Card } from '@/lib/recommend';
+import ArticleLink from './site/ArticleLink';
+import StarButton from './site/StarButton';
 
 export default function ArticleCard({ article, compact = false }: { article: Card; compact?: boolean }) {
   return (
-    <article className="card group flex flex-col overflow-hidden transition-shadow hover:shadow-md">
-      <Link href={`/docs/article/${article.slug}`} className="flex h-full flex-col">
+    <article className="card card-hover group relative flex flex-col overflow-hidden">
+      {/* Floating star — sits above the link, doesn't trigger navigation. */}
+      <div className="absolute right-2.5 top-2.5 z-10">
+        <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} />
+      </div>
+
+      <ArticleLink slug={article.slug} className="flex h-full flex-col">
         {article.coverImage && !compact && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={article.coverImage} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" />
@@ -19,7 +25,7 @@ export default function ArticleCard({ article, compact = false }: { article: Car
               </span>
             )}
           </div>
-          <h3 className={`font-semibold leading-snug text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-sm line-clamp-2' : 'text-lg line-clamp-2'}`}>
+          <h3 className={`pr-8 font-semibold leading-snug text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-sm line-clamp-2' : 'text-lg line-clamp-2'}`}>
             {article.title}
           </h3>
           {!compact && article.excerpt && (
@@ -31,7 +37,7 @@ export default function ArticleCard({ article, compact = false }: { article: Car
             <span className="flex items-center gap-1"><Eye width={13} height={13} />{article.views}</span>
           </div>
         </div>
-      </Link>
+      </ArticleLink>
     </article>
   );
 }

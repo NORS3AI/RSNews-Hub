@@ -7,6 +7,8 @@ import { getRelatedArticles } from '@/lib/recommend';
 import ArticleCard from '@/components/ArticleCard';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
+import StarButton from '@/components/site/StarButton';
+import AdSlot from '@/components/AdSlot';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -74,19 +76,24 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>
         </div>
 
-        {article.category && (
-          <div className="mt-5">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} variant="inline" />
+          {article.category && (
             <SubscribeButton categoryId={article.categoryId} initialSubscribed={subscribed} isAuthed={!!user}
               label={`Follow ${article.category.name}`} />
-          </div>
-        )}
+          )}
+        </div>
 
         {article.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
         )}
 
+        <div className="my-6"><AdSlot size="in-article" slot="article-top" /></div>
+
         <article className="prose-article mt-8" dangerouslySetInnerHTML={{ __html: article.content }} />
+
+        <div className="my-8 flex justify-center"><AdSlot size="rectangle" slot="article-bottom" /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">
