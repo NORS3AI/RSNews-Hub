@@ -7,6 +7,14 @@ subscribe to topics — all fully responsive across mobile, tablet and desktop.
 The public hub lives under **`/docs`** (with `/` and `/main` redirecting there),
 so it can sit alongside a main website today and be embedded later.
 
+## 🔗 Live site
+
+**https://nors3ai.github.io/rsnews-hub/**
+
+Published via GitHub Pages (source: `main` branch, `/docs` folder). The URL is
+entirely lowercase — GitHub Pages hostnames are always lowercased, so type it
+without capitals and it will resolve.
+
 ## Features
 
 ### For readers
