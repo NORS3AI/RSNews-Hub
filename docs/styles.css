@@ -226,6 +226,19 @@ img { max-width:100%; display:block; }
 .cat-chip:hover { box-shadow:var(--shadow-hover); }
 .cat-chip .count { color:var(--muted); margin-left:7px; }
 
+/* Swipeable carousel */
+.carousel { position:relative; }
+.car-track { display:flex; gap:18px; overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth; scrollbar-width:none; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+.car-track::-webkit-scrollbar { display:none; }
+.car-item { flex:0 0 auto; width:300px; scroll-snap-align:start; }
+@media (min-width:640px){ .car-item{ width:334px; } }
+.car-btn { position:absolute; top:calc(50% - 6px); transform:translateY(-50%); height:42px; width:42px; border-radius:999px;
+  border:1px solid var(--border); background:var(--card-top); color:var(--fg); box-shadow:var(--shadow-card); cursor:pointer;
+  display:none; align-items:center; justify-content:center; z-index:5; opacity:0; transition:opacity .15s, color .15s; }
+.car-btn:hover { color:var(--orange); }
+.car-prev { left:-8px; } .car-next { right:-8px; }
+@media (min-width:640px){ .carousel:hover .car-btn { display:flex; opacity:1; } }
+
 /* Ads */
 .ad { margin:0 auto; width:100%; }
 .ad-inner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;

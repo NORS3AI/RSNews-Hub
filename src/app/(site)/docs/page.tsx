@@ -7,6 +7,7 @@ import ArticleCard from '@/components/ArticleCard';
 import AdSlot from '@/components/AdSlot';
 import ArticleLink from '@/components/site/ArticleLink';
 import SaveButtons from '@/components/site/StarButton';
+import Carousel from '@/components/site/Carousel';
 import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -31,7 +32,7 @@ export default async function DocsHome() {
   const user = await getSessionUser();
   const sessionId = getReaderSessionId();
   const [feed, trending] = await Promise.all([
-    getPersonalizedFeed({ userId: user?.id, sessionId, limit: 3 }),
+    getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
     trendingArticles(5),
   ]);
 
@@ -48,8 +49,13 @@ export default async function DocsHome() {
         if (feed.length === 0) return null;
         return (
           <section key={id} className="module">
-            <div className="mb-4"><h2 className="module-title">{user ? 'Recommended for you' : 'You might like'}</h2></div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{feed.map((a) => <ArticleCard key={a.id} article={a} />)}</div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="module-title">{user ? 'Recommended for you' : 'You might like'}</h2>
+              <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
+            </div>
+            <Carousel>
+              {feed.map((a) => <ArticleCard key={a.id} article={a} />)}
+            </Carousel>
           </section>
         );
       case 'categories':
