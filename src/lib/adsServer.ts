@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { DEFAULT_ADS, pickInArticleAd, type AdRow } from './ads';
+import { DEFAULT_ADS, pickTwoInArticleAds, type AdRow } from './ads';
 
 /** Load the active ad inventory (DB), falling back to the built-in defaults. */
 export async function loadAds(): Promise<AdRow[]> {
@@ -14,8 +14,5 @@ export async function loadAds(): Promise<AdRow[]> {
 /** Pick the two in-article ads (top + bottom) for an article's text. */
 export async function pickArticleAds(context: string, prefix: string) {
   const ads = await loadAds();
-  return {
-    top: pickInArticleAd(ads, context, `${prefix}-top`),
-    bottom: pickInArticleAd(ads, context, `${prefix}-bottom`),
-  };
+  return pickTwoInArticleAds(ads, context, prefix);
 }

@@ -146,9 +146,11 @@ export async function saveAd(formData: FormData) {
   const accent = ((formData.get('accent') as string) || '').trim() || '#E97D34';
   const keywords = ((formData.get('keywords') as string) || '').trim();
   const competitors = ((formData.get('competitors') as string) || '').trim();
+  const imageWide = ((formData.get('imageWide') as string) || '').trim();
+  const imageRect = ((formData.get('imageRect') as string) || '').trim();
   const active = formData.get('active') != null;
   if (!brand || !headline) throw new Error('Brand and headline are required');
-  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, active };
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, active };
   if (id) await prisma.ad.update({ where: { id }, data });
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');
