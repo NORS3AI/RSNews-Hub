@@ -137,10 +137,25 @@
   var CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   function carousel(items, build, width) {
     var w = width ? ' style="width:' + width + 'px"' : '';
-    return '<div class="carousel">' +
+    return '<div class="carousel at-start">' +
       '<button class="car-btn car-prev" data-scroll="-1" aria-label="Previous">' + CHEV_L + '</button>' +
       '<div class="car-track">' + items.map(function (a) { return '<div class="car-item"' + w + '>' + build(a) + '</div>'; }).join('') + '</div>' +
       '<button class="car-btn car-next" data-scroll="1" aria-label="Next">' + CHEV_R + '</button></div>';
+  }
+  function refreshCarousels() {
+    document.querySelectorAll('.carousel').forEach(function (car) {
+      var track = car.querySelector('.car-track'); if (!track) return;
+      var max = track.scrollWidth - track.clientWidth;
+      car.classList.toggle('no-scroll', max <= 2);
+      car.classList.toggle('at-start', track.scrollLeft <= 2);
+      car.classList.toggle('at-end', track.scrollLeft >= max - 2);
+    });
+  }
+  function initCarousels() {
+    document.querySelectorAll('.car-track').forEach(function (track) {
+      track.addEventListener('scroll', refreshCarousels, { passive: true });
+    });
+    refreshCarousels();
   }
 
   function related(a) {
@@ -193,7 +208,7 @@
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
     if (youMightLike.length) {
       h += '<section class="module"><div class="module-head"><h2>You might like</h2>' +
-        '<span class="link-orange" style="cursor:default">Swipe to see more &rarr;</span></div>' +
+        '</div>' +
         carousel(youMightLike, function (a) { return articleBlock(a); }) + '</section>';
     }
 
@@ -225,7 +240,7 @@
     /* Editor's picks — swipeable */
     var picks = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
     if (picks.length) {
-      h += '<section class="module"><div class="module-head"><h2>Editor&rsquo;s picks</h2><span class="link-orange" style="cursor:default">Swipe &rarr;</span></div>' +
+      h += '<section class="module"><div class="module-head"><h2>Editor&rsquo;s picks</h2></div>' +
         carousel(picks, function (a) { return articleBlock(a); }) + '</section>';
     }
 
@@ -234,11 +249,11 @@
 
     /* Quick reads — short articles */
     var quick = sorted.slice().sort(function (p, q) { return (p.readMinutes || 1) - (q.readMinutes || 1); });
-    h += '<section class="module"><div class="module-head"><h2>Quick reads</h2><span class="link-orange" style="cursor:default">5 min or less · swipe &rarr;</span></div>' +
+    h += '<section class="module"><div class="module-head"><h2>Quick reads</h2><span class="link-orange" style="cursor:default">5 min or less</span></div>' +
       carousel(quick, function (a) { return articleBlock(a, { sm: true }); }, 250) + '</section>';
 
     /* More to explore — swipeable */
-    h += '<section class="module"><div class="module-head"><h2>More to explore</h2><span class="link-orange" style="cursor:default">Swipe &rarr;</span></div>' +
+    h += '<section class="module"><div class="module-head"><h2>More to explore</h2></div>' +
       carousel(sorted, function (a) { return articleBlock(a, { sm: true }); }, 250) + '</section>';
 
     /* Ad rectangles row */
@@ -259,6 +274,7 @@
     h += '</div>';
     el('main').innerHTML = h;
     syncButtons();
+    initCarousels();
   }
 
   function heroBlock(lead) {
@@ -375,6 +391,7 @@
   /* ---------- init ---------- */
   initTheme();
   initSidebar();
+  window.addEventListener('resize', refreshCarousels, { passive: true });
   renderStrip();
   renderHome();
   var hs = (location.hash || '').replace('#', '');

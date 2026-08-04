@@ -51,7 +51,7 @@ export default async function DocsHome() {
           <section key={id} className="module">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="module-title">{user ? 'Recommended for you' : 'You might like'}</h2>
-              <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
+              
             </div>
             <Carousel>
               {feed.map((a) => <ArticleCard key={a.id} article={a} />)}
@@ -208,7 +208,7 @@ export default async function DocsHome() {
         <section className="module">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="module-title">Editor&rsquo;s picks</h2>
-            <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
+            
           </div>
           <Carousel>{picks.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
         </section>
@@ -219,7 +219,7 @@ export default async function DocsHome() {
       <section className="module">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="module-title">Quick reads</h2>
-          <span className="text-sm font-semibold text-[var(--muted)]">5 min or less · swipe →</span>
+          <span className="text-sm font-semibold text-[var(--muted)]">5 min or less</span>
         </div>
         <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
       </section>
@@ -227,7 +227,7 @@ export default async function DocsHome() {
       <section className="module">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="module-title">More to explore</h2>
-          <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
+          
         </div>
         <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
       </section>
