@@ -74,6 +74,14 @@ export default async function DocsHome() {
     trendingArticles(5),
   ]);
 
+  // A logged-in reader may have already voted / answered — surface that so the
+  // poll and quiz render their results/submitted state rather than re-prompting.
+  const [priorPollVote, priorQuizResponse] = await Promise.all([
+    user && activePoll ? prisma.pollVote.findUnique({ where: { pollId_userId: { pollId: activePoll.id, userId: user.id } }, select: { optionId: true } }) : Promise.resolve(null),
+    user && activeQuiz ? prisma.quizResponse.findUnique({ where: { quizId_userId: { quizId: activeQuiz.id, userId: user.id } }, select: { id: true } }) : Promise.resolve(null),
+  ]);
+  const loggedIn = !!user;
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -103,10 +111,10 @@ export default async function DocsHome() {
           ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
           : null;
         const pollEl = activePoll
-          ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} />
+          ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} loggedIn={loggedIn} votedOptionId={priorPollVote?.optionId ?? null} />
           : null;
         const quizEl = activeQuiz
-          ? <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} />
+          ? <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />
           : null;
         // Poll + Pop Quiz stack together in the narrower right-hand column.
         const asideEl = (pollEl || quizEl) ? <div className="flex flex-col gap-6">{pollEl}{quizEl}</div> : null;

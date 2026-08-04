@@ -37,6 +37,20 @@ model Poll {
   createdAt DateTime     @default(now())
   closesAt  DateTime?
   options   PollOption[]
+  votes     PollVote[]
+}
+
+// One row per account that votes, enforcing a single vote per poll per user.
+model PollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId  String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, userId])
 }
 
 model PollOption {
@@ -84,12 +98,17 @@ model QuizOption {
 }
 
 // One row per reader submission; `answers` is a JSON map of questionId->optionId.
+// Submitting requires a logged-in account and is limited to one per user.
 model QuizResponse {
   id        String   @id @default(cuid())
   quizId    String
   quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers   String
   createdAt DateTime @default(now())
+
+  @@unique([quizId, userId])
 }
 
 // Curated external "Industry News" links, hand-picked by staff. Shown in a
@@ -148,6 +167,8 @@ model User {
   articles      Article[]
   subscriptions Subscription[]
   readingLogs   ReadingLog[]
+  quizResponses QuizResponse[]
+  pollVotes     PollVote[]
   notes         String?
 }
 
