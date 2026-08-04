@@ -25,7 +25,7 @@ export default function ArticleCard({ article, compact = false }: { article: Car
               </span>
             )}
           </div>
-          <h3 className={`pr-[76px] font-semibold leading-snug text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-sm line-clamp-2' : 'text-lg line-clamp-2'}`}>
+          <h3 className={`pr-[76px] font-bold leading-snug text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-base line-clamp-2' : 'text-xl line-clamp-2'}`}>
             {article.title}
           </h3>
           {!compact && article.excerpt && (
