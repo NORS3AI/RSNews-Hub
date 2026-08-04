@@ -31,7 +31,8 @@
     clip: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>',
     download: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
     copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
-    trash2: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>'
+    trash2: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>',
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
   };
 
   /* ---------- theme ---------- */
@@ -164,6 +165,9 @@
   function downloadDataUrl(dataUrl, name) {
     var a = document.createElement('a'); a.href = dataUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   }
+  function clipShareText(o) {
+    return '“' + (o.quote || '') + '” — ' + (o.title || '') + '\n' + shareUrlFor(o.slug || '');
+  }
   function openClip(text, slug) {
     var a = bySlug[slug] || {}; text = (text || '').replace(/\s+/g, ' ').trim();
     if (text.length < 4) { toast('Select some text first'); return; }
@@ -173,12 +177,11 @@
       '<div class="dlg-head"><h3>News clipping</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
       '<div class="dlg-body"><img class="clip-preview" src="' + img + '" alt="Quote image">' +
       '<div class="dlg-actions">' +
-      '<button class="btn btn-primary btn-sm" data-clip-download="1">' + ICON.download + ' Download image</button>' +
+      '<button class="btn btn-primary btn-sm" data-clip-save="1">' + ICON.clip + ' Save clip</button>' +
+      '<button class="btn btn-outline btn-sm" data-clip-download="1">' + ICON.download + ' Download image</button>' +
       '<button class="btn btn-outline btn-sm" data-clip-copy="1">' + ICON.copy + ' Copy quote</button>' +
-      '</div><p class="dlg-note">Saved to your Clippings. Great for sharing on social.</p></div></div>';
-    openDialog(html, { img: img, o: o, text: text });
-    // auto-save
-    saveClipping({ id: 'c' + Date.now(), quote: text, title: o.title, author: o.author, slug: slug, ts: Date.now() });
+      '</div><p class="dlg-note">Not saved yet — tap <b>Save clip</b> to keep it in your Clippings.</p></div></div>';
+    openDialog(html, { img: img, o: o, text: text, slug: slug, saved: false });
   }
 
   /* ---------- generic dialog ---------- */
@@ -497,19 +500,36 @@
   }
 
   /* ---------- clippings view ---------- */
+  var clipView = 'cards';
+  function clipActions(c) {
+    return '<div class="clip-actions">' +
+      '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
+      (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open article</button>' : '') +
+      '<button class="btn btn-outline btn-sm" data-copy-clip="' + esc(c.id) + '">' + ICON.copy + ' Copy quote</button>' +
+      '<button class="btn btn-outline btn-sm" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
+  }
   function renderClippings() {
     var list = getClippings();
-    var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your clippings</h2></div>';
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your clippings</h2>';
+    if (list.length) {
+      h += '<div class="clip-view-toggle">' +
+        '<button class="' + (clipView === 'cards' ? 'active' : '') + '" data-clipview="cards">Cards</button>' +
+        '<button class="' + (clipView === 'images' ? 'active' : '') + '" data-clipview="images">Images</button></div>';
+    }
+    h += '</div>';
     if (!list.length) {
       h += '<p style="color:var(--muted);margin:0;font-size:16px">No clippings yet. Open an article, <b>highlight</b> a passage, then click <b>Clip</b> to turn it into a shareable quote image you can download.</p>';
+    } else if (clipView === 'images') {
+      h += '<div class="clip-img-grid">' + list.map(function (c) {
+        var img = makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
+        return '<div class="clip-img-card"><img src="' + img + '" alt="Quote image" loading="lazy">' + clipActions(c) + '</div>';
+      }).join('') + '</div>';
     } else {
       h += '<div class="clip-grid">' + list.map(function (c) {
         var q = c.quote.length > 200 ? c.quote.slice(0, 197) + '…' : c.quote;
         return '<div class="clip-card"><div class="clip-quote">&ldquo;' + esc(q) + '&rdquo;</div>' +
           '<div class="clip-meta">' + esc(c.title || '') + (c.author ? ' &middot; ' + esc(c.author) : '') + '</div>' +
-          '<div class="clip-actions"><button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
-          (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open</button>' : '') +
-          '<button class="btn btn-outline btn-sm" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div></div>';
+          clipActions(c) + '</div>';
       }).join('') + '</div>';
     }
     h += '</section></div>';
@@ -530,10 +550,22 @@
     var shareBtn = e.target.closest('[data-share]'); if (shareBtn) { e.preventDefault(); e.stopPropagation(); openShare(shareBtn.getAttribute('data-share')); return; }
     var copyLink = e.target.closest('[data-copy-link]'); if (copyLink) { e.preventDefault(); if (navigator.clipboard) navigator.clipboard.writeText(copyLink.getAttribute('data-copy-link')); toast('Link copied!'); return; }
     var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RSNews Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
+    var clipSave = e.target.closest('[data-clip-save]'); if (clipSave) { e.preventDefault();
+      if (dialogData && !dialogData.saved) {
+        saveClipping({ id: 'c' + Date.now(), quote: dialogData.text, title: dialogData.o.title, author: dialogData.o.author, slug: dialogData.slug, ts: Date.now() });
+        dialogData.saved = true;
+        clipSave.className = 'btn btn-outline btn-sm'; clipSave.disabled = true; clipSave.innerHTML = ICON.check + ' Saved';
+        var note = clipSave.closest('.dlg-body').querySelector('.dlg-note'); if (note) note.innerHTML = 'Saved to your Clippings. Great for sharing on social.';
+        toast('Saved to Clippings');
+      }
+      return; }
     if (e.target.closest('[data-clip-download]')) { e.preventDefault(); if (dialogData && dialogData.img) downloadDataUrl(dialogData.img, clipFileName(dialogData.o)); toast('Image downloaded'); return; }
-    if (e.target.closest('[data-clip-copy]')) { e.preventDefault(); if (dialogData && dialogData.text && navigator.clipboard) navigator.clipboard.writeText('“' + dialogData.text + '” — ' + (dialogData.o.title || '')); toast('Quote copied'); return; }
+    if (e.target.closest('[data-clip-copy]')) { e.preventDefault(); if (dialogData && navigator.clipboard) navigator.clipboard.writeText(clipShareText(dialogData.o)); toast('Quote copied'); return; }
     var dlClip = e.target.closest('[data-download-clip]'); if (dlClip) { e.preventDefault(); var dc = getClippings().filter(function (x) { return x.id === dlClip.getAttribute('data-download-clip'); })[0];
       if (dc) downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); toast('Image downloaded'); return; }
+    var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
+      if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
+    var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
