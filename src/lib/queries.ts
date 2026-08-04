@@ -12,9 +12,12 @@ export function toCard(a: any): ArticleCard {
   return { ...a, tags: (a.tags ?? []).map((t: any) => t.tag) };
 }
 
+// Shared visibility clause: PUBLISHED and not scheduled for the future.
+export const liveWhere = () => ({ status: 'PUBLISHED', publishedAt: { lte: new Date() } });
+
 export async function publishedArticles(where: any = {}, take = 24, skip = 0) {
   const rows = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', ...where },
+    where: { ...liveWhere(), ...where },
     orderBy: { publishedAt: 'desc' },
     select: listSelect, take, skip,
   });

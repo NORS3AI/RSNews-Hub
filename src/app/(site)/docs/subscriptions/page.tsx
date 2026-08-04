@@ -11,7 +11,7 @@ export default async function SubscriptionsPage() {
   const user = await getCurrentUser();
   const categories = await prisma.category.findMany({
     orderBy: { name: 'asc' },
-    include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } },
+    include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
   });
 
   const subs = user

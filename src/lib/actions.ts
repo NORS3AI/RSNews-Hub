@@ -44,6 +44,9 @@ export async function saveArticle(formData: FormData) {
   const pinned = formData.get('pinned') === 'on';
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
+  const publishedAtRaw = ((formData.get('publishedAt') as string) || '').trim();
+  const publishedAtInput = publishedAtRaw ? new Date(publishedAtRaw) : null;
+  const hasPubDate = !!publishedAtInput && !isNaN(publishedAtInput.getTime());
 
   if (!title || !content) throw new Error('Title and content are required');
   if (!CONTENT_STATUSES.includes(status as any)) throw new Error('Invalid status');
@@ -72,7 +75,8 @@ export async function saveArticle(formData: FormData) {
       data: {
         title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
         categoryId: categoryId || null,
-        publishedAt: nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt,
+        // Explicit date wins (backdate or schedule); otherwise keep existing or stamp now on publish.
+        publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt),
         tags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
       },
     });
@@ -82,7 +86,7 @@ export async function saveArticle(formData: FormData) {
       data: {
         title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
-        publishedAt: nowPublished ? new Date() : null,
+        publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? new Date() : null),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
     });

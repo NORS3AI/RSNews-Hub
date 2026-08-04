@@ -36,6 +36,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
   const article = await getArticle(params.slug);
   if (!article || (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED')) notFound();
+  // Scheduled (future-dated) articles are not yet public.
+  if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
 
   const user = await getCurrentUser();
 

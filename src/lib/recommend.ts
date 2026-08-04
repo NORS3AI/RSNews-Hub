@@ -46,7 +46,7 @@ export async function getRelatedArticles(articleId: string, limit = 4): Promise<
 
   const candidates = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED',
+      status: 'PUBLISHED', publishedAt: { lte: new Date() },
       id: { not: articleId },
       OR: [
         tagIds.length ? { tags: { some: { tagId: { in: tagIds } } } } : {},
@@ -73,7 +73,7 @@ export async function getRelatedArticles(articleId: string, limit = 4): Promise<
   if (picks.length < limit) {
     const have = new Set([articleId, ...picks.map((p) => p.id)]);
     const filler = await prisma.article.findMany({
-      where: { status: 'PUBLISHED', id: { notIn: [...have] } },
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, id: { notIn: [...have] } },
       orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
       select: cardSelect,
       take: limit - picks.length,
@@ -121,7 +121,7 @@ export async function getPersonalizedFeed(
 
   const candidates = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED',
+      status: 'PUBLISHED', publishedAt: { lte: new Date() },
       id: { notIn: [...readIds] },
       OR: [
         topTags.length ? { tags: { some: { tagId: { in: topTags } } } } : {},
@@ -152,7 +152,7 @@ export async function getPersonalizedFeed(
 
 export async function trendingArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
   const rows = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', id: excludeIds.length ? { notIn: excludeIds } : undefined },
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
     orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
     select: cardSelect,
     take: limit,
@@ -172,7 +172,7 @@ export async function smartSearch(query: string, limit = 20): Promise<ArticleCar
 
   const rows = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED',
+      status: 'PUBLISHED', publishedAt: { lte: new Date() },
       OR: terms.flatMap((t) => [
         { title: { contains: t } },
         { excerpt: { contains: t } },

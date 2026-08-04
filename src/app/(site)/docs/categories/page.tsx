@@ -8,7 +8,7 @@ export const metadata = { title: 'Categories' };
 export default async function CategoriesPage() {
   const categories = await prisma.category.findMany({
     orderBy: { name: 'asc' },
-    include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } },
+    include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
   });
   return (
     <div className="container-page py-8 sm:py-10">
