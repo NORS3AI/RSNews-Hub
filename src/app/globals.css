@@ -3,30 +3,41 @@
 @tailwind utilities;
 
 :root {
-  --bg: #ffffff;
-  --bg-soft: #f6f7f9;
-  --fg: #1a1f28;
-  --muted: #626b7a;
-  --border: #e7e9ee;
-  --card: #ffffff;
-  --header: #232a36;      /* dark ink header bar */
+  --bg: #ac8c62;          /* darker cardboard page */
+  --bg-soft: #b6976e;
+  --fg: #241d13;
+  --muted: #6f6553;
+  --border: #e6dcc9;
+  --card: #fdfaf4;        /* cream module surface */
+  --card-2: #f2ece0;
+  --header: #22262e;      /* dark ink header bar */
   --header-fg: #eef1f6;
+  --shadow-card: 0 1px 2px rgba(35,25,10,.14), 0 10px 22px rgba(30,20,8,.22);
+  --shadow-hover: 0 3px 8px rgba(35,25,10,.18), 0 20px 44px rgba(30,20,8,.32);
 }
 .dark {
-  --bg: #0f1319;
-  --bg-soft: #161b23;
-  --fg: #e7eaf0;
-  --muted: #9aa4b2;
-  --border: #262c37;
-  --card: #171c25;
-  --header: #141821;
+  --bg: #171310;
+  --bg-soft: #1c1712;
+  --fg: #ece5d8;
+  --muted: #a99f8d;
+  --border: #342c22;
+  --card: #201d25;
+  --card-2: #1a1720;
+  --header: #100e0c;
   --header-fg: #eef1f6;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.4), 0 12px 26px rgba(0,0,0,.5);
+  --shadow-hover: 0 3px 8px rgba(0,0,0,.45), 0 22px 48px rgba(0,0,0,.6);
 }
 
 html { -webkit-text-size-adjust: 100%; }
 body {
-  background: var(--bg-soft);
   color: var(--fg);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.06)),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.022) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.018) 0 1px, transparent 1px 7px);
+  background-attachment: fixed;
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
@@ -48,9 +59,13 @@ body {
   }
   .label { @apply mb-1.5 block text-sm font-medium text-[var(--fg)]; }
 
-  /* Modular cards — subtle drop shadow, restrained (not Pinterest). */
-  .card { @apply rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-card; }
-  .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover; }
+  /* Modular cards — cream surface with a dark drop shadow. */
+  .card { @apply rounded-xl border border-[var(--border)] bg-[var(--card)]; box-shadow: var(--shadow-card); }
+  .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5; }
+  .card-hover:hover { box-shadow: var(--shadow-hover); }
+  /* Large framed panel that can hold nested cards (module-in-module). */
+  .module { @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6; box-shadow: var(--shadow-card); }
+  .tile { @apply rounded-xl border border-[var(--border)] bg-[var(--card-2)]; box-shadow: var(--shadow-card); }
 
   .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
 

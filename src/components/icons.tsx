@@ -34,6 +34,8 @@ export const Ban = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" />
 export const Pause = (p: P) => (<svg {...base(p)}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>);
 export const Star = (p: P) => (<svg {...base(p)}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" /></svg>);
 export const StarFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor', stroke: 'currentColor' })}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" strokeWidth="1" strokeLinejoin="round" /></svg>);
+export const Book = (p: P) => (<svg {...base(p)}><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z" /><path d="M12 6.6V20" /></svg>);
+export const BookFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor' })}><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z" strokeWidth="1" /></svg>);
 export const ChevronRight = (p: P) => (<svg {...base(p)}><path d="m9 6 6 6-6 6" /></svg>);
 export const ChevronUp = (p: P) => (<svg {...base(p)}><path d="m6 15 6-6 6 6" /></svg>);
 export const ChevronDown = (p: P) => (<svg {...base(p)}><path d="m6 9 6 6 6-6" /></svg>);
