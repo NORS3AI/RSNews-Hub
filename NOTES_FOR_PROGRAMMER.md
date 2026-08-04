@@ -84,9 +84,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   once video ads exist.
 - 🔵🟠 **Audience segmentation** — break reports down by member vs vendor, store
   type, region, tenure — needs member/account data wired in.
-- 🟠 **Retention + rollups** — the v1 dashboard aggregates raw rows in memory over
-  a capped window. At scale, add nightly rollup tables + an event-retention
-  policy so reports stay fast.
+- ✅ **Retention + rollups** _(v0.35.0)_ — nightly job (`src/lib/analytics/rollup.ts`)
+  pre-aggregates each UTC day into an `AnalyticsDaily` row and prunes raw events
+  past `ANALYTICS_RETENTION_DAYS` (default 365; 0 = keep all). History survives
+  in the rollups. Powers a new **Trends** section on the dashboard (pageviews,
+  visitors/day, opens, ad CTR sparklines). Trigger: `POST /api/analytics/rollup`
+  (host cron with `CRON_SECRET`, or the admin **Rebuild rollups** button). Pure
+  aggregation is unit-tested. See DEPLOYMENT.md §3d.
+- 🔵🟠 **Audience segmentation** and 🔵 **video-ad quartiles** remain the open
+  phase-2 items (segmentation needs member/account attributes; quartiles need
+  video ads to exist first).
 
 ---
 
@@ -185,8 +192,9 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
-`QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, plus a `Setting` row for the
-homepage layout. See `prisma/schema.prisma`.
+`QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
+`AnalyticsDaily` (rollups), plus a `Setting` row for the homepage layout. See
+`prisma/schema.prisma`.
 
 ---
 

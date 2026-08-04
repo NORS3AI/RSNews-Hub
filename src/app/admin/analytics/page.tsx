@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { loadEvents, totalEventCount } from '@/lib/analytics/query';
-import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview } from '@/lib/analytics/metrics';
+import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, ctr } from '@/lib/analytics/metrics';
+import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
+import { rebuildAnalyticsRollups } from '@/lib/actions';
 import ReportTable from '@/components/admin/ReportTable';
+import Sparkline from '@/components/admin/Sparkline';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +30,20 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
   const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
 
-  const [{ events, capped }, total] = await Promise.all([loadEvents(days), totalEventCount()]);
+  const [{ events, capped }, total, series] = await Promise.all([loadEvents(days), totalEventCount(), loadDailySeries(new Date(), days)]);
   const ov = aggregateOverview(events);
+
+  // Trend series from the daily rollups (survives raw-event pruning).
+  const sum = (pick: (d: (typeof series)[number]) => number) => series.reduce((a, d) => a + pick(d), 0);
+  const trend = {
+    pageviews: series.map((d) => d.pageviews),
+    visitors: series.map((d) => d.visitors),
+    opens: series.map((d) => d.articleOpens),
+    ctr: series.map((d) => Math.round(ctr(d.adClicks, d.adViewable || d.adImpressions) * 1000) / 10),
+  };
+  const totals = { pageviews: sum((d) => d.pageviews), opens: sum((d) => d.articleOpens), clk: sum((d) => d.adClicks), view: sum((d) => d.adViewable), imp: sum((d) => d.adImpressions) };
+  const avgVisitors = series.length ? Math.round(sum((d) => d.visitors) / series.length) : 0;
+  const hasTrend = series.some((d) => d.events > 0);
   const ads = aggregateAds(events, adSplit);
   const eng = aggregateEngagement(events, artSplit);
   const reading = aggregateReading(events);
@@ -56,6 +71,31 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
         Every number reads in three layers: <strong className="text-[var(--fg)]">Exposure</strong> (was it actually seen — viewable, above-fold, dwell), <strong className="text-[var(--fg)]">Interaction</strong> (clicked / opened / saved), and <strong className="text-[var(--fg)]">Outcome</strong> (read, kept exploring). Use the <em>Compare by</em> buttons to split a table and see what really drove a result — a design, a placement, or just being higher on the page.
       </p>
+
+      {/* ---------- Trends (from daily rollups) ---------- */}
+      <section className="mb-8">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+          <SectionTitle>Trends — last {days} days</SectionTitle>
+          <form action={rebuildAnalyticsRollups}>
+            <button className="btn-outline btn-sm" title="Recompute the daily rollups from raw events now">Rebuild rollups</button>
+          </form>
+        </div>
+        {hasTrend ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Sparkline label="Pageviews" value={nf(totals.pageviews)} points={trend.pageviews} sub={`${nf(totals.pageviews)} in ${days}d`} />
+            <Sparkline label="Visitors / day" value={nf(avgVisitors)} points={trend.visitors} sub="avg per day" />
+            <Sparkline label="Article opens" value={nf(totals.opens)} points={trend.opens} sub={`${nf(totals.opens)} in ${days}d`} />
+            <Sparkline label="Ad CTR" value={pctStr(ctr(totals.clk, totals.view || totals.imp))} points={trend.ctr} sub="clicks ÷ viewable" />
+          </div>
+        ) : (
+          <div className="card p-5 text-sm text-[var(--muted)]">
+            No rollups yet for this window. Rollups are built nightly (or click <strong>Rebuild rollups</strong>). They power these trends and let old raw events be pruned without losing history.
+          </div>
+        )}
+        <p className="mt-1.5 text-xs text-[var(--muted)]">
+          Daily rollups preserve history so raw events can be pruned. Retention: {retentionDays() > 0 ? <><strong>{retentionDays()} days</strong> of raw events</> : <strong>pruning disabled</strong>}. Automate with a nightly <code>POST /api/analytics/rollup</code> (see DEPLOYMENT.md).
+        </p>
+      </section>
 
       {empty ? (
         <div className="card p-8 text-center">

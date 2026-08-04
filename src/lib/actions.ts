@@ -8,6 +8,7 @@ import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
 import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
+import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -434,6 +435,17 @@ export async function deleteUser(id: string) {
   if (actor.id === id) throw new Error('You cannot delete yourself.');
   await prisma.user.delete({ where: { id } });
   revalidatePath('/admin/users');
+}
+
+/* ------------------------- Analytics maintenance ------------------------- */
+
+// Manually rebuild the daily rollups (last 90 days) and apply the retention
+// prune — the same work the nightly cron does, on an admin button. Idempotent.
+export async function rebuildAnalyticsRollups() {
+  await ensureStaff();
+  await rollupDays(recentDayKeys(new Date(), 90));
+  await pruneOldEvents(new Date());
+  revalidatePath('/admin/analytics');
 }
 
 /* ---------------------------- Homepage layout ---------------------------- */
