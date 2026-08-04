@@ -130,6 +130,46 @@
     if (line) lines.push(line);
     return lines;
   }
+  // Elements never captured in a clip; block tags become their own line.
+  var CLIP_SKIP = '.had, .ad, [data-ad-brand], [data-ad], figure, figcaption, .clip-hint, button, script, style, aside';
+  var CLIP_BLOCK = { P:1,H1:1,H2:1,H3:1,H4:1,H5:1,H6:1,LI:1,BLOCKQUOTE:1,FIGCAPTION:1,DIV:1,SECTION:1,UL:1,OL:1,PRE:1,TABLE:1 };
+  function clipBlocksToText(root) {
+    var parts = [], buf = '';
+    function flush() { var t = buf.replace(/\s+/g, ' ').trim(); if (t) parts.push(t); buf = ''; }
+    function walk(node) {
+      if (node.nodeType === 3) { buf += node.nodeValue || ''; return; }
+      if (node.nodeType === 11) { node.childNodes.forEach(walk); return; } // DocumentFragment
+      if (node.nodeType !== 1) return;
+      if (node.tagName === 'BR') { buf += ' '; return; }
+      if (CLIP_BLOCK[node.tagName]) { flush(); node.childNodes.forEach(walk); flush(); }
+      else { node.childNodes.forEach(walk); }
+    }
+    walk(root); flush(); return parts.join('\n');
+  }
+  // Extract the selection as ad-free, block-separated text clamped to `container`.
+  function extractClipText(sel, container) {
+    var full = document.createRange(); full.selectNodeContents(container);
+    var parts = [];
+    for (var i = 0; i < sel.rangeCount; i++) {
+      var r = sel.getRangeAt(i).cloneRange();
+      if (r.compareBoundaryPoints(Range.START_TO_START, full) < 0) r.setStart(full.startContainer, full.startOffset);
+      if (r.compareBoundaryPoints(Range.END_TO_END, full) > 0) r.setEnd(full.endContainer, full.endOffset);
+      if (r.collapsed) continue;
+      var frag = r.cloneContents();
+      Array.prototype.forEach.call(frag.querySelectorAll(CLIP_SKIP), function (n) { n.remove(); });
+      var t = clipBlocksToText(frag); if (t) parts.push(t);
+    }
+    return parts.join('\n').replace(/\n{2,}/g, '\n').trim();
+  }
+  function clampBlocks(blocks, max) {
+    var out = [], used = 0;
+    for (var i = 0; i < blocks.length; i++) {
+      var b = blocks[i]; if (used >= max) break;
+      if (used + b.length <= max) { out.push(b); used += b.length; }
+      else { out.push(b.slice(0, max - used).replace(/\s+\S*$/, '').trim() + '…'); break; }
+    }
+    return out;
+  }
   function makeQuoteImage(o) {
     var W = 1080, H = 1080, pad = 96, canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H; var ctx = canvas.getContext('2d');
@@ -139,17 +179,20 @@
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(233,125,52,.92)'; ctx.font = '900 200px Georgia, serif';
     ctx.fillText('“', pad - 12, pad - 8);
-    var quote = (o.quote || '').replace(/\s+/g, ' ').trim();
-    if (quote.length > 340) quote = quote.slice(0, 337).replace(/\s+\S*$/, '') + '…';
-    var maxW = W - pad * 2, size = 62, lines = [], lineH = 0;
-    var quoteTop = pad + 210, quoteBottom = H - 330;
-    while (size >= 30) {
+    var blocks = clampBlocks((o.quote || '').split('\n').map(function (s) { return s.replace(/\s+/g, ' ').trim(); }).filter(Boolean), 340);
+    if (!blocks.length) blocks = [''];
+    var disp = blocks.map(function (b, i) { return (i === 0 ? '“' + b : b) + (i === blocks.length - 1 ? '”' : ''); });
+    var maxW = W - pad * 2, size = 62, wrapped = [], lineH = 0, blockGap = 0;
+    var quoteTop = pad + 210, avail = (H - 330) - quoteTop;
+    while (size >= 26) {
       ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
-      lines = wrapText(ctx, '“' + quote + '”', maxW); lineH = size * 1.32;
-      if (lines.length * lineH <= (quoteBottom - quoteTop)) break; size -= 3;
+      lineH = size * 1.3; blockGap = Math.round(size * 0.6);
+      wrapped = disp.map(function (b) { return wrapText(ctx, b, maxW); });
+      var total = wrapped.reduce(function (sum, ls, i) { return sum + ls.length * lineH + (i ? blockGap : 0); }, 0);
+      if (total <= avail) break; size -= 3;
     }
     ctx.fillStyle = '#f4f1ea'; ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
-    var y = quoteTop; lines.forEach(function (ln) { ctx.fillText(ln, pad, y); y += lineH; });
+    var y = quoteTop; wrapped.forEach(function (ls, i) { if (i) y += blockGap; ls.forEach(function (ln) { ctx.fillText(ln, pad, y); y += lineH; }); });
     var by = H - 300;
     ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
@@ -834,11 +877,15 @@
   /* ---------- text selection -> clip ---------- */
   function currentClipContext() {
     var sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
-    var text = sel.toString().replace(/\s+/g, ' ').trim(); if (text.length < 4) return null;
     var node = sel.anchorNode; node = node && node.nodeType === 3 ? node.parentNode : node;
-    var prose = node && node.closest ? node.closest('.reader .prose') : null;
     var reader = node && node.closest ? node.closest('.reader') : null;
-    if (!prose || !reader) return null;
+    if (!reader) { var f = sel.focusNode; f = f && f.nodeType === 3 ? f.parentNode : f; reader = f && f.closest ? f.closest('.reader') : null; }
+    if (!reader) return null;
+    var prose = reader.querySelector('.prose'); if (!prose) return null;
+    // Clamp to the article prose so title/byline/ads are never captured, and
+    // keep block breaks so a heading doesn't merge into the paragraph below.
+    var text = extractClipText(sel, prose);
+    if (text.replace(/\s+/g, '').length < 4) return null;
     return { text: text, slug: reader.getAttribute('data-article') || '', rect: sel.getRangeAt(0).getBoundingClientRect() };
   }
   function updateClipFab() {

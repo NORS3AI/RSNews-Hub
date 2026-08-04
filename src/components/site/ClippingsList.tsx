@@ -100,7 +100,7 @@ export default function ClippingsList() {
                 </div>
               ) : (
                 <>
-                  <blockquote className="text-[15px] font-semibold leading-snug">“{c.quote}”</blockquote>
+                  <blockquote className="whitespace-pre-line text-[15px] font-semibold leading-snug">“{c.quote}”</blockquote>
                   <div className="mt-2 text-xs text-[var(--muted)]">
                     <span className="font-bold text-[var(--fg)]">{c.title}</span>{c.author ? ` — ${c.author}` : ''}
                   </div>
