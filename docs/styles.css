@@ -332,6 +332,40 @@ img { max-width:100%; display:block; }
 .poll-arch .poll-res { margin-bottom:8px; }
 .poll-badge-live { background:#dcfce7; color:#15803d; }
 
+/* Poll + Pop Quiz stack together in the right-hand column */
+.ind-aside { display:flex; flex-direction:column; gap:22px; min-width:0; }
+
+/* Pop Quiz card + modal */
+.quiz-card { display:flex; flex-direction:column; }
+.quiz-head { display:flex; align-items:center; gap:9px; margin-bottom:6px; }
+.quiz-badge { background:var(--orange); color:#fff; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; padding:3px 9px; border-radius:7px; }
+.quiz-timer { margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:800; color:var(--orange); }
+.quiz-timer.is-closed { color:var(--muted); }
+.quiz-title { margin:0 0 3px; font-size:21px; font-weight:900; line-height:1.16; letter-spacing:-.02em; }
+.quiz-meta { margin:0 0 16px; font-size:13.5px; color:var(--muted); }
+.quiz-take { width:100%; justify-content:center; margin-top:auto; }
+.quiz-note { margin-top:auto; border:1px solid var(--border); border-radius:12px; padding:13px 16px; font-size:14px; font-weight:700; color:var(--muted); }
+.quiz-note-done { background:var(--card-top); }
+.quiz-note-h { display:flex; align-items:center; gap:7px; color:var(--orange); font-weight:800; }
+.quiz-note-h svg { width:15px; height:15px; }
+.quiz-note-sub { display:block; margin-top:4px; font-weight:600; color:var(--muted); }
+.quiz-modal { position:relative; z-index:1; width:100%; max-width:580px; max-height:88vh; overflow-y:auto; background:linear-gradient(180deg,var(--card-top),var(--card-bot)); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow-modal); padding:22px; }
+.quiz-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px; }
+.quiz-modal-title { margin:9px 0 3px; font-size:24px; font-weight:900; line-height:1.15; letter-spacing:-.02em; }
+.quiz-modal-timer { margin:0; display:flex; align-items:center; gap:5px; font-size:12.5px; font-weight:800; color:var(--orange); }
+.quiz-x { flex-shrink:0; width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:var(--tile-bot); border:0; color:var(--fg); cursor:pointer; }
+.quiz-x:hover { background:var(--border); }
+.quiz-body { display:flex; flex-direction:column; gap:20px; }
+.quiz-fs { border:0; margin:0; padding:0; }
+.quiz-legend { padding:0; margin:0 0 9px; font-size:16px; font-weight:900; line-height:1.3; }
+.quiz-fs .quiz-opts { display:flex; flex-direction:column; gap:9px; }
+.quiz-opt { display:flex; align-items:center; gap:11px; border:1px solid var(--border); background:var(--card-top); border-radius:12px; padding:11px 15px; font-size:15px; font-weight:700; cursor:pointer; transition:border-color .15s, background .15s; }
+.quiz-opt:hover { border-color:var(--orange); background:var(--tile-bot); }
+.quiz-opt input { width:17px; height:17px; accent-color:var(--orange); flex-shrink:0; }
+.quiz-err { margin:16px 0 0; font-size:13.5px; font-weight:700; color:#dc2626; }
+.quiz-submit { width:100%; justify-content:center; margin-top:20px; }
+.quiz-fine { margin:9px 0 0; text-align:center; font-size:12px; color:var(--muted); }
+
 /* Backroom Humor comics — slate card hugs the artwork */
 .comic-section { text-align:left; }
 .comic-h2 { color:var(--orange); }

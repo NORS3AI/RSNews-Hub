@@ -246,6 +246,84 @@ export async function deletePoll(id: string) {
   revalidatePath('/docs');
 }
 
+/* -------------------------------- Pop Quiz -------------------------------- */
+
+// Parse the admin textarea into questions. Blocks are separated by a blank
+// line; the first line of a block is the prompt, the rest are options. An
+// option prefixed with "*" is the correct answer (kept server-side only).
+function parseQuizBlocks(raw: string) {
+  return raw
+    .split(/\n\s*\n/)
+    .map((block) => block.split('\n').map((l) => l.trim()).filter(Boolean))
+    .filter((lines) => lines.length >= 3) // prompt + at least 2 options
+    .map((lines) => ({
+      prompt: lines[0],
+      options: lines.slice(1, 9).map((l) => ({
+        label: l.replace(/^\*\s*/, '').trim(),
+        correct: /^\*/.test(l),
+      })),
+    }));
+}
+
+export async function createQuiz(formData: FormData) {
+  await ensureStaff();
+  const title = ((formData.get('title') as string) || '').trim();
+  const body = ((formData.get('questions') as string) || '').trim();
+  const active = formData.get('active') != null;
+  const hoursRaw = ((formData.get('hours') as string) || '').trim();
+  const closesRaw = ((formData.get('closesAt') as string) || '').trim();
+  const questions = parseQuizBlocks(body);
+  if (!title || questions.length < 1) throw new Error('A title and at least one question (each with 2+ options) are required');
+
+  // Timer: an explicit close time wins; otherwise now + N hours (default 48).
+  let closesAt: Date;
+  const explicit = closesRaw ? new Date(closesRaw) : null;
+  if (explicit && !isNaN(explicit.getTime())) closesAt = explicit;
+  else {
+    const hours = hoursRaw ? Number(hoursRaw) : 48;
+    closesAt = new Date(Date.now() + (isFinite(hours) && hours > 0 ? hours : 48) * 3600_000);
+  }
+
+  if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
+  await prisma.quiz.create({
+    data: {
+      title, active, closesAt,
+      questions: {
+        create: questions.map((q, qi) => ({
+          prompt: q.prompt, order: qi,
+          options: { create: q.options.map((o, oi) => ({ label: o.label, correct: o.correct, order: oi })) },
+        })),
+      },
+    },
+  });
+  revalidatePath('/admin/quizzes');
+  revalidatePath('/docs');
+}
+
+export async function updateQuiz(formData: FormData) {
+  await ensureStaff();
+  const id = (formData.get('id') as string) || '';
+  const title = ((formData.get('title') as string) || '').trim();
+  const active = formData.get('active') != null;
+  const closesRaw = ((formData.get('closesAt') as string) || '').trim();
+  if (!title) throw new Error('Title is required');
+  const closes = closesRaw ? new Date(closesRaw) : null;
+  if (active) await prisma.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
+  await prisma.quiz.update({
+    where: { id },
+    data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) },
+  });
+  revalidatePath('/admin/quizzes');
+  revalidatePath('/docs');
+}
+
+export async function deleteQuiz(id: string) {
+  await ensureStaff();
+  await prisma.quiz.delete({ where: { id } });
+  revalidatePath('/admin/quizzes');
+  revalidatePath('/docs');
+}
+
 /* -------------------------------- Comics --------------------------------- */
 
 export async function saveComic(formData: FormData) {
