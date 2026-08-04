@@ -1,12 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Clock, Check, X } from '@/components/icons';
 
 export type QuizOption = { id: string; label: string };
 export type QuizQuestion = { id: string; prompt: string; options: QuizOption[] };
 export type QuizData = { id: string; title: string; closesAt: string | Date; questions: QuizQuestion[] };
-
-const KEY = (id: string) => `rsnews_quiz_${id}`;
 
 // "47h 12m" / "38m" style short countdown to the close time.
 function fmtLeft(ms: number) {
@@ -19,25 +18,24 @@ function fmtLeft(ms: number) {
 }
 
 /**
- * "Pop Quiz" — a small card with a 48-hour countdown. Tap to open the full
- * multiple-choice quiz in a modal; one submission per device. After the timer
- * ends the card shows Closed (and the server refuses late submissions); on the
- * next page load the card is gone entirely.
+ * "Pop Quiz" — a small card with a 48-hour countdown. Submitting requires a
+ * logged-in account and is limited to one submission per account (enforced
+ * server-side). Tap to open the full multiple-choice quiz in a modal. After
+ * the timer ends the card shows Closed; on the next load it is gone entirely.
  */
-export default function QuizCard({ quiz }: { quiz: QuizData }) {
+export default function QuizCard({ quiz, loggedIn, initialDone = false }: { quiz: QuizData; loggedIn: boolean; initialDone?: boolean }) {
   const closeMs = new Date(quiz.closesAt).getTime();
   const [now, setNow] = useState<number>(() => Date.now());
   const [open, setOpen] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(initialDone);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    try { if (localStorage.getItem(KEY(quiz.id))) setDone(true); } catch {}
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [quiz.id]);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -60,8 +58,11 @@ export default function QuizCard({ quiz }: { quiz: QuizData }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }),
       });
       if (res.ok) {
-        try { localStorage.setItem(KEY(quiz.id), '1'); } catch {}
-        setDone(true);
+        setDone(true); setOpen(false);
+      } else if (res.status === 409) {
+        setDone(true); setOpen(false);
+      } else if (res.status === 401) {
+        setErr('Please log in to submit.');
       } else {
         const d = await res.json().catch(() => ({}));
         setErr(d?.error === 'Quiz closed' ? 'This quiz just closed.' : 'Something went wrong — try again.');
@@ -90,11 +91,13 @@ export default function QuizCard({ quiz }: { quiz: QuizData }) {
         </div>
       ) : closed ? (
         <div className="mt-auto rounded-xl border border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--muted)]">This quiz has closed. Watch for the results article!</div>
-      ) : (
+      ) : loggedIn ? (
         <button onClick={() => setOpen(true)} className="btn-primary mt-auto w-full justify-center">Take the quiz</button>
+      ) : (
+        <Link href="/login" className="btn-primary mt-auto w-full justify-center">Log in to take the quiz</Link>
       )}
 
-      {open && !done && !closed && (
+      {open && loggedIn && !done && !closed && (
         <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto p-4 py-8 animate-fade-in" role="dialog" aria-modal="true" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm" />
           <div className="relative z-10 w-full max-w-xl rounded-2xl bg-[var(--card)] p-6 shadow-modal" onClick={(e) => e.stopPropagation()}>
@@ -132,7 +135,7 @@ export default function QuizCard({ quiz }: { quiz: QuizData }) {
             <button onClick={submit} disabled={busy} className="btn-primary mt-5 w-full justify-center disabled:opacity-70">
               {busy ? 'Submitting…' : 'Submit answers'}
             </button>
-            <p className="mt-2 text-center text-xs text-[var(--muted)]">One submission per device. Correct answers revealed later.</p>
+            <p className="mt-2 text-center text-xs text-[var(--muted)]">One submission per account. Correct answers revealed later.</p>
           </div>
         </div>
       )}

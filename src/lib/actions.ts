@@ -7,6 +7,7 @@ import { requireAdmin, hashPassword, getCurrentUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
 import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT } from './homepage';
+import { parseQuizBlocks, resolveClosesAt } from './quiz';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -248,23 +249,6 @@ export async function deletePoll(id: string) {
 
 /* -------------------------------- Pop Quiz -------------------------------- */
 
-// Parse the admin textarea into questions. Blocks are separated by a blank
-// line; the first line of a block is the prompt, the rest are options. An
-// option prefixed with "*" is the correct answer (kept server-side only).
-function parseQuizBlocks(raw: string) {
-  return raw
-    .split(/\n\s*\n/)
-    .map((block) => block.split('\n').map((l) => l.trim()).filter(Boolean))
-    .filter((lines) => lines.length >= 3) // prompt + at least 2 options
-    .map((lines) => ({
-      prompt: lines[0],
-      options: lines.slice(1, 9).map((l) => ({
-        label: l.replace(/^\*\s*/, '').trim(),
-        correct: /^\*/.test(l),
-      })),
-    }));
-}
-
 export async function createQuiz(formData: FormData) {
   await ensureStaff();
   const title = ((formData.get('title') as string) || '').trim();
@@ -276,13 +260,7 @@ export async function createQuiz(formData: FormData) {
   if (!title || questions.length < 1) throw new Error('A title and at least one question (each with 2+ options) are required');
 
   // Timer: an explicit close time wins; otherwise now + N hours (default 48).
-  let closesAt: Date;
-  const explicit = closesRaw ? new Date(closesRaw) : null;
-  if (explicit && !isNaN(explicit.getTime())) closesAt = explicit;
-  else {
-    const hours = hoursRaw ? Number(hoursRaw) : 48;
-    closesAt = new Date(Date.now() + (isFinite(hours) && hours > 0 ? hours : 48) * 3600_000);
-  }
+  const closesAt = resolveClosesAt({ explicit: closesRaw ? new Date(closesRaw) : null, hours: hoursRaw ? Number(hoursRaw) : null });
 
   if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
   await prisma.quiz.create({

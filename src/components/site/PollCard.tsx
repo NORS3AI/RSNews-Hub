@@ -1,40 +1,33 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Check } from '@/components/icons';
 
 export type PollOption = { id: string; label: string; votes: number };
 export type PollData = { id: string; question: string; closesAt?: string | Date | null; options: PollOption[] };
 
-const KEY = (id: string) => `rsnews_poll_${id}`;
-
 /**
- * Reader poll with live results. One tap to vote; the tallies animate in
- * immediately and the choice is remembered in localStorage. Closed polls show
+ * Reader poll with live results. Voting requires a logged-in account and is
+ * limited to one vote per account (enforced server-side). The tallies animate
+ * in immediately after voting; closed polls and already-voted polls show
  * results read-only. "View latest polls" links to the polls archive.
  */
-export default function PollCard({ poll }: { poll: PollData }) {
+export default function PollCard({ poll, loggedIn, votedOptionId = null }: { poll: PollData; loggedIn: boolean; votedOptionId?: string | null }) {
   const [opts, setOpts] = useState<PollOption[]>(poll.options);
-  const [choice, setChoice] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [choice, setChoice] = useState<string | null>(votedOptionId);
   const [busy, setBusy] = useState(false);
 
   const closed = !!poll.closesAt && new Date(poll.closesAt) < new Date();
   const total = opts.reduce((n, o) => n + o.votes, 0);
   const voted = choice !== null || closed;
-
-  useEffect(() => {
-    try { setChoice(localStorage.getItem(KEY(poll.id))); } catch {}
-    setReady(true);
-  }, [poll.id]);
+  const canVote = loggedIn && !voted;
 
   async function vote(optionId: string) {
-    if (voted || busy) return;
+    if (!canVote || busy) return;
     setBusy(true);
     // optimistic
     setOpts((prev) => prev.map((o) => (o.id === optionId ? { ...o, votes: o.votes + 1 } : o)));
     setChoice(optionId);
-    try { localStorage.setItem(KEY(poll.id), optionId); } catch {}
     try {
       const res = await fetch(`/api/polls/${poll.id}/vote`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ optionId }),
@@ -56,12 +49,13 @@ export default function PollCard({ poll }: { poll: PollData }) {
         {opts.map((o) => {
           const pct = total ? Math.round((o.votes / total) * 100) : 0;
           const mine = choice === o.id;
-          if (!ready || !voted) {
-            return (
-              <button key={o.id} onClick={() => vote(o.id)} disabled={busy || !ready}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-3 text-left font-bold transition hover:border-brand-400 hover:bg-[var(--bg-soft)] disabled:opacity-60">
-                {o.label}
-              </button>
+          if (!voted) {
+            // Logged in → vote. Logged out → the row routes to the login wall.
+            const cls = 'flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card-2)] px-4 py-3 text-left font-bold transition hover:border-brand-400 hover:bg-[var(--bg-soft)] disabled:opacity-60';
+            return loggedIn ? (
+              <button key={o.id} onClick={() => vote(o.id)} disabled={busy} className={cls}>{o.label}</button>
+            ) : (
+              <Link key={o.id} href="/login" className={cls}>{o.label}</Link>
             );
           }
           return (
@@ -77,7 +71,10 @@ export default function PollCard({ poll }: { poll: PollData }) {
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3 text-xs text-[var(--muted)]">
-        <span>{total.toLocaleString()} vote{total === 1 ? '' : 's'}{closed ? ' · closed' : voted ? ' · thanks for voting!' : ''}</span>
+        <span>
+          {total.toLocaleString()} vote{total === 1 ? '' : 's'}
+          {closed ? ' · closed' : voted ? ' · thanks for voting!' : !loggedIn ? ' · sign in to vote' : ''}
+        </span>
       </div>
 
       <Link href="/docs/archive/polls" className="btn-outline btn-sm mt-4 w-full justify-center">View latest polls</Link>
