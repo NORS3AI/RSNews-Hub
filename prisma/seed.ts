@@ -48,6 +48,7 @@ async function main() {
     { name: 'Company', color: '#8b5cf6', description: 'News from the team.' },
     { name: 'Guides', color: '#10b981', description: 'How-tos and documentation.' },
     { name: 'Industry', color: '#f59e0b', description: 'Trends and analysis.' },
+    { name: 'RS Council', color: '#b91c1c', description: 'Columns and perspectives from the RS Council.' },
   ];
   const categories: Record<string, string> = {};
   for (const c of categoryData) {
@@ -67,7 +68,7 @@ async function main() {
   }
 
   const articles = [
-    { title: 'Introducing RSNews Hub', category: 'Company', tags: ['announcement', 'release'], featured: true,
+    { title: 'Introducing RSNews Hub', category: 'Company', tags: ['announcement', 'release'], featured: true, coverImage: '/covers/cover-intro.jpg',
       content: `<p>Today we are thrilled to launch <strong>RSNews Hub</strong>, a modern home for our articles, guides and announcements.</p><p>The Hub brings together everything in one searchable, mobile-friendly place. You can browse by category, follow tags, subscribe to topics you care about, and get personalized recommendations based on what you read.</p><h2>What you can do</h2><ul><li>Read articles with a clean, distraction-free reader.</li><li>Discover related content automatically.</li><li>Subscribe to categories and never miss an update.</li></ul><p>We're just getting started. Welcome aboard.</p>` },
     { title: 'How Our Recommendation Engine Works', category: 'Engineering', tags: ['ai', 'performance', 'best-practices'],
       content: `<p>Great content is only useful if people can find it. Our recommendation engine scores every article against what you're reading using a blend of shared tags and category affinity.</p><h2>Content-based scoring</h2><p>When you finish an article, we look at its tags and category, then rank other published pieces by overlap. Shared tags are weighted heavily, with a bonus for same-category matches.</p><h2>Personalization</h2><p>Over time, your reading history builds an interest profile that powers your personalized feed on the home page.</p>` },
@@ -75,7 +76,7 @@ async function main() {
       content: `<p>Writing for the web is a craft. Here are the principles our editors follow.</p><h2>Lead with the point</h2><p>Put the most important information first. Readers skim.</p><h2>Use structure</h2><p>Headings, short paragraphs and lists make long pieces approachable on any device.</p><h2>Edit ruthlessly</h2><p>Every sentence should earn its place.</p>` },
     { title: 'Shipping Faster with Continuous Delivery', category: 'Engineering', tags: ['performance', 'best-practices', 'api'],
       content: `<p>We ship dozens of times a day. Here's the pipeline that makes it safe.</p><p>Automated tests, preview environments and progressive rollouts let us move quickly without breaking things. Every change is reviewed, tested and observable in production within minutes.</p>` },
-    { title: 'Security Best Practices for Modern Apps', category: 'Engineering', tags: ['security', 'best-practices'], featured: true,
+    { title: 'Security Best Practices for Modern Apps', category: 'Engineering', tags: ['security', 'best-practices'], featured: true, coverImage: '/covers/cover-security.jpg',
       content: `<p>Security is everyone's responsibility. This guide covers the essentials every team should have in place.</p><h2>Authentication</h2><p>Hash passwords, use secure sessions, and enforce least privilege.</p><h2>Data protection</h2><p>Encrypt in transit and at rest. Validate all input. Never trust the client.</p>` },
     { title: 'Our Product Roadmap for the Year', category: 'Product', tags: ['roadmap', 'announcement'],
       content: `<p>Here's a look at what we're building over the coming months, straight from the team.</p><p>We're focused on three themes: making the reading experience delightful, giving admins powerful tools, and opening up an API so you can build on top of the Hub.</p>` },
@@ -87,6 +88,13 @@ async function main() {
       content: `<p>Accessibility makes your content better for everyone. Semantic markup, sufficient contrast and keyboard navigation are the foundation.</p><p>We test with screen readers and honor reduced-motion preferences throughout the Hub.</p>` },
     { title: 'Performance Wins That Actually Matter', category: 'Engineering', tags: ['performance', 'tutorial'],
       content: `<p>Speed is a feature. We obsess over it. Here are the optimizations with the biggest real-world impact.</p><p>Server rendering, image optimization and smart caching keep pages fast even on slow connections.</p>` },
+    // RS Council columns — shown in full inside the column module.
+    { title: 'On Patience in the First Year', category: 'RS Council', tags: ['best-practices'],
+      content: `<p>Every new operator wants to change everything in month one. Resist. The counter has a rhythm, and the fastest way to lose your team is to break it before you understand it.</p><p>Watch first. Learn who your regulars are, which services carry the month, and where the quiet friction lives. The changes you make in year two, built on that knowledge, will stick. The ones you force in week two rarely do.</p><p>Patience is not passivity. It is the discipline of earning the right to lead.</p>` },
+    { title: 'Why We Still Believe in the Counter', category: 'RS Council', tags: ['best-practices'],
+      content: `<p>Plenty of people will tell you the retail counter is finished — that everything moves to a screen eventually. We disagree, and not out of nostalgia.</p><p>The counter is where trust is built one package at a time. A customer who hands you something fragile is handing you a small piece of their day. Software cannot hold that. People can.</p><p>Invest in the moment of handoff. It is the most defensible thing you own.</p>` },
+    { title: 'The Case for Saying No', category: 'RS Council', tags: ['best-practices'],
+      content: `<p>Growth tempts you to say yes to every service, every partner, every add-on. But a business is defined as much by what it declines as by what it offers.</p><p>Every yes is a claim on your counter space, your training time, and your attention. Say yes to the few things you can do better than anyone nearby, and say no — politely, firmly — to the rest.</p><p>Focus is not a limitation. It is a strategy.</p>` },
   ];
 
   let i = 0;
@@ -102,6 +110,7 @@ async function main() {
         slug,
         content: a.content,
         excerpt: a.content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180),
+        coverImage: (a as any).coverImage ?? null,
         status: 'PUBLISHED',
         featured: (a as any).featured ?? false,
         views: Math.floor(Math.random() * 500) + 20,

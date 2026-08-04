@@ -71,7 +71,8 @@ async function main() {
       slug: a.slug,
       excerpt: a.excerpt,
       content: a.content,
-      coverImage: a.coverImage,
+      // Relativize root-absolute cover paths for the Pages subpath (data/http URLs pass through).
+      coverImage: a.coverImage && a.coverImage.startsWith('/') ? a.coverImage.slice(1) : a.coverImage,
       featured: a.featured,
       views: a.views,
       readMinutes: a.readMinutes,

@@ -8,7 +8,7 @@
 > **Legend:** ✅ done · 🔵 Claude can do this in-repo · 🟠 needs a developer/infra ·
 > ❓ open question for the team
 >
-> _Last updated: 2026-08-04 (v0.26.0)_
+> _Last updated: 2026-08-04 (v0.27.0)_
 
 ---
 
@@ -62,6 +62,14 @@
   generate → type-check → test → build, on every PR and push to main. _(v0.26.0)_
 - ✅ **Smart in-article ads** — competitor ads are suppressed inside articles
   (`src/lib/ads.ts`), covered by tests.
+- ✅ **Configurable homepage modules** — every module type (feature showcase,
+  RS Council column, comics, poll, quiz, carousels, ads, etc.) is add/reorder/
+  lock/hide-able from **Admin → Homepage layout** (`src/lib/homepage.ts` catalog).
+  Configurable modules also expose an admin **source** picker (e.g. the feature
+  showcase can pull from Featured / Latest / Trending). _(v0.27.0)_
+- ⚠️ **Demo cover images** in `public/covers/` are generated placeholders
+  (Pillow). Real editorial covers are uploaded per-article in the article editor;
+  this ties into the "automate image optimization" item above.
 
 ---
 

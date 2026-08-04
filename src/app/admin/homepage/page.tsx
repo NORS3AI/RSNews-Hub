@@ -1,4 +1,4 @@
-import { getHomeLayout, MODULE_CATALOG } from '@/lib/homepage';
+import { getHomeLayout, moduleSource, MODULE_CATALOG } from '@/lib/homepage';
 import HomeLayoutEditor from '@/components/admin/HomeLayoutEditor';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,8 @@ export default async function AdminHomepage() {
     description: MODULE_CATALOG[m.id].description,
     enabled: m.enabled,
     locked: !!m.locked,
+    sources: MODULE_CATALOG[m.id].sources ?? null,
+    source: moduleSource(m) ?? null,
   }));
 
   return (
