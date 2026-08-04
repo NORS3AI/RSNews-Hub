@@ -1,9 +1,13 @@
 'use client';
 import { useEffect } from 'react';
+import { useSaved } from './site/StarProvider';
 
-// Fires once per mount to record a read + reading-progress bar at top.
-export default function ReadTracker({ articleId }: { articleId: string }) {
+// Records a read + drives the reading-progress bar, and adds the article to the
+// client-side history (so a directly-visited article page is findable too).
+export default function ReadTracker({ articleId, title, slug }: { articleId: string; title?: string; slug?: string }) {
+  const { recordHistory } = useSaved();
   useEffect(() => {
+    if (title && slug) recordHistory({ id: articleId, title, slug });
     const t = setTimeout(() => {
       fetch('/api/reading', {
         method: 'POST',
@@ -23,7 +27,7 @@ export default function ReadTracker({ articleId }: { articleId: string }) {
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
     return () => { clearTimeout(t); window.removeEventListener('scroll', onScroll); };
-  }, [articleId]);
+  }, [articleId, title, slug, recordHistory]);
 
   return (
     <div className="fixed left-0 top-0 z-50 h-0.5 w-full bg-transparent">

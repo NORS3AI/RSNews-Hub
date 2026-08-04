@@ -9,6 +9,8 @@
   ARTICLES.forEach(function (a) { bySlug[a.slug] = a; });
   var FAV_KEY = 'rsnews_favorites_v1';
   var READ_KEY = 'rsnews_toread_v1';
+  var HIST_KEY = 'rsnews_history_v1';
+  var HIST_MAX = 50;
   var THEME_KEY = 'rsnews_theme';
 
   /* ---------- helpers ---------- */
@@ -26,6 +28,7 @@
     bookSm: '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z"/></svg>',
     x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     clock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    clockLg: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" style="display:inline;vertical-align:-3px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     eye: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
     arrow: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
     spark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/></svg>',
@@ -63,6 +66,26 @@
   }
   function isFav(id) { return inList(FAV_KEY, id); }
   function isRead(id) { return inList(READ_KEY, id); }
+
+  /* ---------- history (last accessed) ---------- */
+  function getHistory() { return read(HIST_KEY); }
+  function recordHistory(a) {
+    if (!a) return;
+    var list = read(HIST_KEY).filter(function (s) { return s.id !== a.id; });
+    list.unshift({ id: a.id, title: a.title, slug: a.slug, ts: Date.now() });
+    if (list.length > HIST_MAX) list = list.slice(0, HIST_MAX);
+    write(HIST_KEY, list);
+  }
+  function clearHistory() { write(HIST_KEY, []); }
+  function timeAgo(ts) {
+    if (!ts) return '';
+    var s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
+    if (s < 60) return 'just now';
+    var m = Math.floor(s / 60); if (m < 60) return m + ' min ago';
+    var h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    var d = Math.floor(h / 24); if (d < 7) return d + (d === 1 ? ' day ago' : ' days ago');
+    try { return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch (e) { return ''; }
+  }
   function toggleFav(slug) { toggleList(FAV_KEY, slug); syncButtons(); }
   function toggleRead(slug) { toggleList(READ_KEY, slug); renderStrip(); syncButtons(); }
   function removeRead(id) { write(READ_KEY, read(READ_KEY).filter(function (s) { return s.id !== id; })); renderStrip(); syncButtons(); }
@@ -258,9 +281,32 @@
     el('main').innerHTML = html; syncButtons(); window.scrollTo(0, 0);
   }
 
+  /* ---------- history view ---------- */
+  function renderHistory() {
+    var list = getHistory();
+    var html = '<div class="container" style="padding:24px 0"><section class="module">' +
+      '<div class="module-head"><h2>' + ICON.clockLg + ' Your history</h2>' +
+      (list.length ? '<button class="btn btn-outline btn-sm" data-clearhistory="1">Clear history</button>' : '') + '</div>';
+    if (!list.length) {
+      html += '<p style="color:var(--muted);margin:0">No history yet. Open a few articles and they\'ll show up here — handy for finding one you clicked away from.</p>';
+    } else {
+      html += '<p style="color:var(--muted);margin:0 0 16px">The last ' + list.length + ' article' + (list.length === 1 ? '' : 's') + ' you opened, most recent first.</p><div>';
+      html += list.map(function (s) {
+        var a = bySlug[s.slug];
+        return '<div class="mini" data-open="' + esc(s.slug) + '" style="border-radius:12px">' +
+          '<span style="color:var(--muted);flex-shrink:0">' + ICON.clock + '</span>' +
+          '<span class="mt">' + esc(s.title) + (a && a.category ? ' <span style="color:' + a.category.color + ';font-weight:600;font-size:12px">· ' + esc(a.category.name) + '</span>' : '') + '</span>' +
+          '<span class="mv">' + esc(timeAgo(s.ts)) + '</span></div>';
+      }).join('') + '</div>';
+    }
+    html += '</section></div>';
+    el('main').innerHTML = html; window.scrollTo(0, 0);
+  }
+
   /* ---------- modal ---------- */
   function openModal(slug, push) {
     var a = bySlug[slug]; if (!a) return;
+    recordHistory(a);
     if (push !== false) { try { history.pushState({ m: slug }, '', '#' + slug); } catch (e) {} }
     document.body.classList.add('modal-open');
     var rel = related(a), nx = nextArticle(a);
@@ -302,8 +348,10 @@
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
     var themeBtn = e.target.closest('#theme-btn'); if (themeBtn) { toggleTheme(); return; }
-    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-home]');
+    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-home],[data-history],[data-clearhistory]');
     if (!t) return;
+    if (t.hasAttribute('data-history')) { e.preventDefault(); renderHistory(); window.scrollTo(0, 0); return; }
+    if (t.hasAttribute('data-clearhistory')) { e.preventDefault(); clearHistory(); renderHistory(); return; }
     if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); toggleFav(t.getAttribute('data-fav')); return; }
     if (t.hasAttribute('data-read')) { e.preventDefault(); e.stopPropagation(); toggleRead(t.getAttribute('data-read')); return; }
     if (t.hasAttribute('data-unread')) { e.preventDefault(); e.stopPropagation(); removeRead(t.getAttribute('data-unread')); return; }

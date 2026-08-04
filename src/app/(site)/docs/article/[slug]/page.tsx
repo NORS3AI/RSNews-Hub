@@ -51,7 +51,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
   return (
     <>
-      <ReadTracker articleId={article.id} />
+      <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />
       <div className="container-reader py-8 sm:py-12">
         <Link href="/docs" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
           <ArrowLeft width={16} height={16} /> All articles

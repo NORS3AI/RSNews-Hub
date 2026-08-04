@@ -3,13 +3,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import SearchBar from './SearchBar';
 import ThemeToggle from './ThemeToggle';
-import { Menu, X, Archive, Bell, Layers } from './icons';
+import { Menu, X, Archive, Bell, Layers, Clock } from './icons';
 import { SITE_NAME } from '@/lib/constants';
 
 type U = { id: string; name: string; email: string; role: string } | null;
 
 const nav = [
   { href: '/docs', label: 'Home' },
+  { href: '/docs/history', label: 'History', icon: Clock },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
   { href: '/docs/subscriptions', label: 'Subscriptions', icon: Bell },
