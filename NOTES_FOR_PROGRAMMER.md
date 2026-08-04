@@ -47,7 +47,32 @@
 | 10 | **Error tracking + logging** (e.g. Sentry). Production errors are currently invisible. | 🟠 dev provisions · 🔵 Claude wires it |
 | 11 | **SEO/ops basics** — sitemap, robots, metadata, domain/DNS/TLS, CDN/caching. | 🟠 dev |
 | 12 | **Content moderation** for any future user-generated input surfaces. | 🟠 dev |
-| 13 | **Analytics phase 2** — video-ad quartiles (needs video ads), audience segmentation by member/store-type (needs member data), and event **retention + rollups** so the dashboard doesn't aggregate raw rows in memory at scale (v1 caps the query window and says so in the UI). | 🔵 Claude can extend · 🟠 dev sizes the DB |
+| 13 | **Analytics phase 2+** — see the roadmap just below. | 🔵 Claude can extend · 🟠 dev sizes the DB |
+
+### Analytics roadmap (phase 2+)
+
+The v1 pipeline (§3) already captures the events; these are additions on top of it.
+
+- 🔵 **Exportable reports.** Any dashboard table → **CSV / spreadsheet** download,
+  friendly and sortable. Make each table **click-to-sort** by column, add a
+  simple report builder (pick date range + which cut, e.g. "ads by campaign,
+  last 30 days") and a one-click export. Nice-to-have: scheduled email exports.
+- 🔵🟠 **Advertiser-specific reports (their data only).** Per-vendor view of how
+  *their* ads performed — top creatives, impressions/viewable/CTR by placement,
+  best-performing slots, trend over time — scoped so a vendor sees **only their
+  own brand's data**. Two delivery options for the dev to choose:
+  (a) admin picks an advertiser and exports/sends them a report, or
+  (b) a real **advertiser login** with a filtered, read-only dashboard (needs an
+  advertiser↔brand mapping + access control). The data model already tags each
+  ad event with `campaignId`/`brand`, so the queries are straightforward; the
+  gating is the main work.
+- 🔵 **Video-ad quartiles** (25/50/75/100 %, muted/unmuted, autoplay vs click) —
+  once video ads exist.
+- 🔵🟠 **Audience segmentation** — break reports down by member vs vendor, store
+  type, region, tenure — needs member/account data wired in.
+- 🟠 **Retention + rollups** — the v1 dashboard aggregates raw rows in memory over
+  a capped window. At scale, add nightly rollup tables + an event-retention
+  policy so reports stay fast.
 
 ---
 
