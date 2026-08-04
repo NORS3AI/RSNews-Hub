@@ -29,8 +29,14 @@ async function main() {
     include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } },
   });
 
+  const industry = await prisma.industryLink.findMany({
+    where: { active: true },
+    orderBy: [{ order: 'asc' }, { postedAt: 'desc' }],
+  });
+
   const data = {
     generatedAt: new Date().toISOString(),
+    industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt })),
     articles: articles.map((a) => ({
       id: a.id,
       title: a.title,

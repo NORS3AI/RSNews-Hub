@@ -5,6 +5,7 @@
   var DATA = window.__DATA__ || { articles: [], categories: [] };
   var ARTICLES = DATA.articles || [];
   var CATEGORIES = DATA.categories || [];
+  var INDUSTRY = DATA.industry || [];
   var bySlug = {};
   ARTICLES.forEach(function (a) { bySlug[a.slug] = a; });
   var FAV_KEY = 'rsnews_favorites_v1', READ_KEY = 'rsnews_toread_v1', HIST_KEY = 'rsnews_history_v1';
@@ -248,6 +249,30 @@
   function ad(kind) { var m = { leaderboard: '728 × 90', rectangle: '300 × 250', inarticle: 'In-article' }[kind] || '';
     return '<div class="ad ad-' + kind + '"><div class="ad-inner"><span class="ad-label">Advertisement</span><span class="ad-size">' + m + '</span></div></div>'; }
 
+  /* ---------- Industry News (curated external links) ---------- */
+  var ICON_EXT = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
+  var ICON_PAPER = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a1 1 0 0 1 1 1v14a2 2 0 0 0 2 2H5a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1Z"/><path d="M18 8h2a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg>';
+  function linkSource(url, source) {
+    if (source && source.trim()) return source.trim();
+    try { return new URL(/^https?:\/\//i.test(url) ? url : 'https://' + url).hostname.replace(/^www\./, ''); }
+    catch (e) { return (url || '').replace(/^https?:\/\//i, '').replace(/^www\./, '').split('/')[0]; }
+  }
+  function shortSource(s) { return s.length > 22 ? s.slice(0, 21) + '…' : s; }
+  function postedLabel(d) { var dt = new Date(d); return dt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+  function industryModule() {
+    var rows = INDUSTRY.map(function (l) {
+      return '<a class="ind-row" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="ind-ico">' + ICON_EXT + '</span>' +
+        '<span class="ind-main"><span class="ind-title">' + esc(l.title) + '</span>' +
+        '<span class="ind-meta"><span class="ind-src">' + esc(shortSource(linkSource(l.url, l.source))) + '</span>' +
+        '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
+        '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
+    }).join('');
+    return '<section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_PAPER + ' Industry News</h2>' +
+      '<span class="link-orange" style="cursor:default">Curated links</span></div>' +
+      '<div class="ind-scroll">' + rows + '</div></section>';
+  }
+
   /* ---------- smart in-article ads ----------
      Inside an article we must never show a competitor's ad (an article about
      PostalMate must never carry a ShipRite ad). Each ad has a competitive
@@ -395,6 +420,9 @@
       '<section class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</section>' +
       '</div>';
     h += '</div>';
+
+    /* Industry News — curated external links, scrollable */
+    if (INDUSTRY.length) { h += industryModule(); }
 
     /* You might like — swipeable carousel */
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });

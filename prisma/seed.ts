@@ -149,6 +149,25 @@ async function main() {
     });
   }
 
+  // Curated Industry News links (idempotent by url).
+  const industry = [
+    { title: 'Small businesses lean on pack-and-ship services amid e-commerce boom', url: 'https://www.reuters.com/business/retail-consumer/', source: 'Reuters', views: 214, order: 0, days: 1 },
+    { title: 'USPS announces 2026 shipping rate changes for retailers', url: 'https://www.usps.com/business/', source: 'USPS', views: 158, order: 1, days: 2 },
+    { title: 'How independent shipping stores are competing with the big carriers', url: 'https://www.forbes.com/small-business/', source: 'Forbes', views: 96, order: 2, days: 3 },
+    { title: 'Print-on-demand market projected to double by 2030', url: 'https://www.bloomberg.com/', source: 'Bloomberg', views: 73, order: 3, days: 5 },
+    { title: 'Packaging supply costs ease as materials stabilize', url: 'https://www.wsj.com/business/', source: 'WSJ', views: 61, order: 4, days: 6 },
+    { title: 'Retail foot traffic rebounds for local service counters', url: 'https://apnews.com/hub/business', source: 'AP News', views: 44, order: 5, days: 8 },
+  ];
+  for (const l of industry) {
+    const existing = await prisma.industryLink.findFirst({ where: { url: l.url } });
+    if (!existing) {
+      await prisma.industryLink.create({
+        data: { title: l.title, url: l.url, source: l.source, views: l.views, order: l.order,
+          postedAt: new Date(Date.now() - l.days * 24 * 60 * 60 * 1000) },
+      });
+    }
+  }
+
   console.log('Seed complete. Admin login: admin@rsnews.local / admin123');
 }
 

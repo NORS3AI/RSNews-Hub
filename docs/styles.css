@@ -252,6 +252,24 @@ img { max-width:100%; display:block; }
 .ad-rectangle .ad-inner { min-height:250px; }
 .ad-inarticle .ad-inner { min-height:130px; }
 
+/* Industry News module — scrollable curated links */
+.ind-h2 { display:flex; align-items:center; gap:9px; }
+.ind-h2 svg { color:var(--orange); }
+.ind-scroll { max-height:340px; overflow-y:auto; padding-right:4px; }
+.ind-scroll::-webkit-scrollbar { width:10px; }
+.ind-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:8px; border:3px solid transparent; background-clip:content-box; }
+.ind-scroll::-webkit-scrollbar-thumb:hover { background:var(--muted); background-clip:content-box; }
+.ind-row { display:flex; align-items:flex-start; gap:12px; padding:13px 4px; border-top:1px solid var(--border); text-decoration:none; color:inherit; }
+.ind-row:first-child { border-top:0; }
+.ind-row:hover .ind-title { color:var(--orange); }
+.ind-ico { flex:0 0 auto; margin-top:2px; display:grid; place-items:center; width:36px; height:36px; border-radius:10px; background:var(--tile-bot); color:var(--orange); }
+.ind-main { min-width:0; flex:1; }
+.ind-title { display:block; font-size:16.5px; font-weight:800; line-height:1.3; letter-spacing:-.01em; }
+.ind-meta { margin-top:5px; display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font-size:12.5px; color:var(--muted); }
+.ind-src { font-weight:800; color:var(--fg); opacity:.7; }
+.ind-views { display:inline-flex; align-items:center; gap:4px; }
+.ind-views svg { width:13px; height:13px; }
+
 /* Smart in-article house ad */
 .had { margin:0 auto; width:100%; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--card-top); box-shadow:var(--shadow-card); }
 .had-rect { max-width:360px; }

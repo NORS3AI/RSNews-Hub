@@ -2,6 +2,7 @@ import { prisma } from './db';
 
 export type ModuleId =
   | 'recommended'
+  | 'industry'
   | 'categories'
   | 'trending'
   | 'latest'
@@ -12,6 +13,7 @@ export type HomeModule = { id: ModuleId; enabled: boolean; locked?: boolean };
 
 export const MODULE_CATALOG: Record<ModuleId, { label: string; description: string }> = {
   recommended: { label: 'Recommended for you', description: 'Personalized picks from reading history.' },
+  industry: { label: 'Industry News', description: 'Curated external links, hand-picked by staff.' },
   categories: { label: 'Category strip', description: 'Quick links to every category.' },
   trending: { label: 'Trending / Most read', description: 'The most-viewed published articles.' },
   latest: { label: 'Latest articles', description: 'The main chronological grid of stories.' },
@@ -23,6 +25,7 @@ export const MODULE_CATALOG: Record<ModuleId, { label: string; description: stri
 // pinned to the very top and cannot be reordered.
 export const DEFAULT_LAYOUT: HomeModule[] = [
   { id: 'recommended', enabled: true, locked: false },
+  { id: 'industry', enabled: true, locked: false },
   { id: 'ad-leaderboard', enabled: true, locked: false },
   { id: 'categories', enabled: true, locked: false },
   { id: 'latest', enabled: true, locked: false },
