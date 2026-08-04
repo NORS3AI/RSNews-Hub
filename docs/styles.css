@@ -332,10 +332,11 @@ img { max-width:100%; display:block; }
 .poll-arch .poll-res { margin-bottom:8px; }
 .poll-badge-live { background:#dcfce7; color:#15803d; }
 
-/* Backroom Humor comics */
-.comic-fig { margin:0 auto; max-width:560px; }
-.comic-fig img { width:100%; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow-card); display:block; }
-.comic-fig figcaption { margin-top:12px; text-align:center; font-size:14px; color:var(--muted); }
+/* Backroom Humor comics — the artwork itself is the card */
+.comic-section { text-align:left; }
+.comic-fig { margin:0; text-align:center; }
+.comic-fig img { display:inline-block; max-height:560px; width:auto; max-width:100%; border-radius:18px; border:1px solid var(--border); box-shadow:var(--shadow-modal); }
+.comic-fig figcaption { margin-top:12px; font-size:14px; color:var(--muted); }
 .comic-grid { display:grid; gap:20px; grid-template-columns:1fr; }
 @media (min-width:640px){ .comic-grid { grid-template-columns:1fr 1fr; } }
 @media (min-width:1000px){ .comic-grid { grid-template-columns:1fr 1fr 1fr; } }

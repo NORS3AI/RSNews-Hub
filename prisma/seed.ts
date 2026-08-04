@@ -203,9 +203,11 @@ async function main() {
 
   // Backroom Humor comics: one active (homepage) + two archived.
   if ((await prisma.comic.count()) === 0) {
+    // All active by default so the homepage module cycles through them; archive
+    // individual comics from the admin to drop them out of the rotation.
     const comics = [
-      { title: 'Stamps then vs now', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: false, days: 40 },
-      { title: 'Keeping the lobby clean', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: false, days: 20 },
+      { title: 'Stamps then vs now', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: true, days: 40 },
+      { title: 'Keeping the lobby clean', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: true, days: 20 },
       { title: 'Meanwhile, in Texas', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 2 },
     ];
     for (const c of comics) {
