@@ -168,6 +168,13 @@
   function downloadDataUrl(dataUrl, name) {
     var a = document.createElement('a'); a.href = dataUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   }
+  function downloadImage(src, name) {
+    if (src.indexOf('data:') === 0) { downloadDataUrl(src, name); return; }
+    fetch(src).then(function (r) { return r.blob(); }).then(function (b) {
+      var u = URL.createObjectURL(b); downloadDataUrl(u, name); setTimeout(function () { URL.revokeObjectURL(u); }, 5000);
+    }).catch(function () { downloadDataUrl(src, name); });
+  }
+  function comicFileName(title) { return 'backroom-humor-' + (title || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '.jpg'; }
   function clipShareText(o) {
     return '“' + (o.quote || '') + '” — ' + (o.title || '') + '\n' + shareUrlFor(o.slug || '');
   }
@@ -322,14 +329,20 @@
       '<a class="link-orange" href="#" data-comics-archive="1">View all comics</a></div>' +
       '<div class="comic-frame"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '"></div></section>';
   }
+  var lightboxComic = null;
   function openComicLightbox(src, alt) {
+    lightboxComic = { src: src, title: alt || '' };
     var host = el('dialog-host');
     host.innerHTML = '<div class="comic-lb"><div class="comic-lb-bg" data-lb-close="1"></div>' +
       '<button class="comic-lb-x" data-lb-close="1" aria-label="Close">' + ICON.x + '</button>' +
-      '<img src="' + esc(src) + '" alt="' + esc(alt || '') + '"></div>';
+      '<div class="comic-lb-inner"><img src="' + esc(src) + '" alt="' + esc(alt || '') + '">' +
+      '<div class="comic-lb-acts">' +
+      '<button class="comic-lb-btn" data-comic-dl="1">' + ICON.download + ' Download image</button>' +
+      '<button class="comic-lb-save" data-comic-save="1">' + ICON.clip + ' Save to clippings</button>' +
+      '</div></div></div>';
     document.body.classList.add('modal-open');
   }
-  function closeComicLightbox() { el('dialog-host').innerHTML = ''; document.body.classList.remove('modal-open'); }
+  function closeComicLightbox() { el('dialog-host').innerHTML = ''; document.body.classList.remove('modal-open'); lightboxComic = null; }
   function renderComicsArchive() {
     var h = '<div class="content"><section class="module"><div class="module-head"><h2>😄 Backroom Humor</h2><a class="link-orange" href="#" data-home="1">Home</a></div>';
     if (!COMICS.length) { h += '<p style="color:var(--muted);margin:0">No comics yet.</p>'; }
@@ -768,7 +781,13 @@
 
   /* ---------- clippings view ---------- */
   var clipView = 'cards';
+  function isComicClip(c) { return c.kind === 'comic' || !!c.image; }
   function clipActions(c) {
+    if (isComicClip(c)) {
+      return '<div class="clip-actions">' +
+        '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
+        '<button class="btn btn-outline btn-sm btn-del" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
+    }
     return '<div class="clip-actions">' +
       '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
       (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open article</button>' : '') +
@@ -788,11 +807,18 @@
       h += '<p style="color:var(--muted);margin:0;font-size:16px">No clippings yet. Open an article, <b>highlight</b> a passage, then click <b>Clip</b> to turn it into a shareable quote image you can download.</p>';
     } else if (clipView === 'images') {
       h += '<div class="clip-img-grid">' + list.map(function (c) {
-        var img = makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
-        return '<div class="clip-img-card"><img src="' + img + '" alt="Quote image" loading="lazy">' + clipActions(c) + '</div>';
+        var img = isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
+        return '<div class="clip-img-card"><img src="' + esc(img) + '" alt="' + esc(isComicClip(c) ? (c.title || 'Comic') : 'Quote image') + '" loading="lazy">' + clipActions(c) + '</div>';
       }).join('') + '</div>';
     } else {
       h += '<div class="clip-grid">' + list.map(function (c) {
+        if (isComicClip(c)) {
+          return '<div class="clip-card clip-card-comic"><div class="clip-comic-row">' +
+            '<img class="clip-comic-thumb" src="' + esc(c.image) + '" alt="' + esc(c.title || 'Comic') + '" loading="lazy">' +
+            '<div><span class="clip-comic-badge">Comic</span>' +
+            '<div class="clip-comic-title">' + esc(c.title || 'Backroom Humor') + '</div></div></div>' +
+            clipActions(c) + '</div>';
+        }
         var q = c.quote.length > 200 ? c.quote.slice(0, 197) + '…' : c.quote;
         return '<div class="clip-card"><div class="clip-quote">&ldquo;' + esc(q) + '&rdquo;</div>' +
           '<div class="clip-meta">' + esc(c.title || '') + (c.author ? ' &middot; ' + esc(c.author) : '') + '</div>' +
@@ -829,7 +855,9 @@
     if (e.target.closest('[data-clip-download]')) { e.preventDefault(); if (dialogData && dialogData.img) downloadDataUrl(dialogData.img, clipFileName(dialogData.o)); toast('Image downloaded'); return; }
     if (e.target.closest('[data-clip-copy]')) { e.preventDefault(); if (dialogData && navigator.clipboard) navigator.clipboard.writeText(clipShareText(dialogData.o)); toast('Quote copied'); return; }
     var dlClip = e.target.closest('[data-download-clip]'); if (dlClip) { e.preventDefault(); var dc = getClippings().filter(function (x) { return x.id === dlClip.getAttribute('data-download-clip'); })[0];
-      if (dc) downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); toast('Image downloaded'); return; }
+      if (dc && isComicClip(dc)) { downloadImage(dc.image, comicFileName(dc.title)); }
+      else if (dc) { downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); }
+      toast('Image downloaded'); return; }
     var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
@@ -838,7 +866,14 @@
     var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
     if (e.target.closest('[data-polls-archive]')) { e.preventDefault(); renderPollsArchive(); return; }
     if (e.target.closest('[data-comics-archive]')) { e.preventDefault(); renderComicsArchive(); return; }
-    if (e.target.closest('[data-lb-close], .comic-lb img')) { e.preventDefault(); closeComicLightbox(); return; }
+    if (e.target.closest('[data-lb-close]')) { e.preventDefault(); closeComicLightbox(); return; }
+    if (e.target.closest('[data-comic-dl]')) { e.preventDefault(); if (lightboxComic) downloadImage(lightboxComic.src, comicFileName(lightboxComic.title)); toast('Image downloaded'); return; }
+    var comicSave = e.target.closest('[data-comic-save]'); if (comicSave) { e.preventDefault();
+      if (lightboxComic && !comicSave.disabled) {
+        saveClipping({ id: 'c' + Date.now(), kind: 'comic', title: lightboxComic.title, image: lightboxComic.src, ts: Date.now() });
+        comicSave.disabled = true; comicSave.innerHTML = ICON.check + ' Saved to clippings'; toast('Saved to Clippings');
+      }
+      return; }
     var comicZoom = e.target.closest('.comic-frame img, .comic-card img'); if (comicZoom) { e.preventDefault(); openComicLightbox(comicZoom.getAttribute('src'), comicZoom.getAttribute('alt')); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
