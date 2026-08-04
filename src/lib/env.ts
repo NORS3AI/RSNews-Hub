@@ -42,5 +42,6 @@ export function envReport() {
     email: process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'log-only',
     errorTracking: process.env.SENTRY_DSN ? 'sentry' : 'logs-only',
     storage: process.env.STORAGE_DRIVER === 's3' || (process.env.STORAGE_DRIVER !== 'local' && process.env.S3_BUCKET) ? 's3' : 'local',
+    imageOptimize: process.env.IMAGE_OPTIMIZE === 'false' ? 'off' : `on (${(process.env.IMAGE_FORMAT || 'webp')}, max ${process.env.IMAGE_MAX_DIM || '2000'}px)`,
   };
 }
