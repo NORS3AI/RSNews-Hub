@@ -2,21 +2,27 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export type SavedItem = { id: string; title: string; slug: string };
+export type HistoryItem = SavedItem & { ts: number };
 
 type Ctx = {
   favorites: SavedItem[];
   toRead: SavedItem[];
+  history: HistoryItem[];
   isFavorite: (id: string) => boolean;
   isToRead: (id: string) => boolean;
   toggleFavorite: (s: SavedItem) => void;
   toggleToRead: (s: SavedItem) => void;
   removeToRead: (id: string) => void;
+  recordHistory: (s: SavedItem) => void;
+  clearHistory: () => void;
   ready: boolean;
 };
 
 const Ctx = createContext<Ctx | null>(null);
 const FAV_KEY = 'rsnews_favorites_v1';
 const READ_KEY = 'rsnews_toread_v1';
+const HIST_KEY = 'rsnews_history_v1';
+const HIST_MAX = 50;
 
 function load(key: string): SavedItem[] {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
@@ -25,15 +31,18 @@ function load(key: string): SavedItem[] {
 export function StarProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<SavedItem[]>([]);
   const [toRead, setToRead] = useState<SavedItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setFavorites(load(FAV_KEY));
     setToRead(load(READ_KEY));
+    setHistory(load(HIST_KEY) as HistoryItem[]);
     setReady(true);
     const onStorage = (e: StorageEvent) => {
       if (e.key === FAV_KEY) setFavorites(load(FAV_KEY));
       if (e.key === READ_KEY) setToRead(load(READ_KEY));
+      if (e.key === HIST_KEY) setHistory(load(HIST_KEY) as HistoryItem[]);
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -61,8 +70,24 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
     persist(READ_KEY, toRead.filter((x) => x.id !== id), setToRead);
   }, [toRead, persist]);
 
+  // History: most-recent first, de-duplicated, capped. Written via a functional
+  // update so repeated opens (article-hopping) don't fight stale closures.
+  const recordHistory = useCallback((s: SavedItem) => {
+    setHistory((prev) => {
+      const next = [{ id: s.id, title: s.title, slug: s.slug, ts: Date.now() },
+        ...prev.filter((x) => x.id !== s.id)].slice(0, HIST_MAX);
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    try { localStorage.setItem(HIST_KEY, JSON.stringify([])); } catch {}
+  }, []);
+
   return (
-    <Ctx.Provider value={{ favorites, toRead, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, ready }}>
+    <Ctx.Provider value={{ favorites, toRead, history, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, recordHistory, clearHistory, ready }}>
       {children}
     </Ctx.Provider>
   );

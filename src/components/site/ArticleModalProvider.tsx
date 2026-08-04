@@ -4,6 +4,7 @@ import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import AdSlot from '@/components/AdSlot';
 import StarButton from './StarButton';
+import { useSaved } from './StarProvider';
 
 type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null;
@@ -30,6 +31,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const { recordHistory } = useSaved();
 
   const load = useCallback(async (s: string) => {
     abortRef.current?.abort();
@@ -42,6 +44,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
       if (!res.ok) { window.location.href = `/docs/article/${s}`; return; }
       const json: Payload = await res.json();
       setData(json);
+      recordHistory({ id: json.article.id, title: json.article.title, slug: json.article.slug });
       // Record the read (bumps views + feeds recommendations) after a short dwell.
       setTimeout(() => {
         fetch('/api/reading', {
@@ -54,7 +57,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [recordHistory]);
 
   const openArticle = useCallback((s: string) => {
     const target = `/docs/article/${s}`;
