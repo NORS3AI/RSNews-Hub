@@ -68,7 +68,43 @@ Set these in your host's dashboard (or a `.env` for a VPS). See `.env.example`.
 | `AUTH_SECRET` | ✅ | Session-signing secret. Generate: `openssl rand -base64 48`. **The app refuses to issue logins in production if this is weak/unset.** |
 | `SEED_ADMIN_EMAIL` | ✅ (to seed) | Your real admin email. |
 | `SEED_ADMIN_PASSWORD` | ✅ (to seed) | A strong admin password. Seeding **fails in production** without these — so the demo login can never ship. |
-| `SITE_URL` | optional | Absolute URL for Open Graph/meta tags. |
+| `SITE_URL` | optional | Absolute URL used for Open Graph/meta tags, `robots.txt` and `sitemap.xml`. Set it in prod so links are absolute. |
+| `RESEND_API_KEY` | optional | Enables real email (see §3a). Unset → email is **logged, not sent**. |
+| `EMAIL_FROM` | optional | Verified sender, e.g. `RSNews Hub <no-reply@yoursite.com>`. Required alongside `RESEND_API_KEY`. |
+| `SENTRY_DSN` | optional | Turns on Sentry error forwarding (see §3b). Unset → errors go to structured logs only. |
+
+> Both email and error-tracking are **safe when unset** — the app degrades to
+> logging, never to a crash or an accidental send. `/api/health` reports the
+> active mode for each (`email: log-only|configured`, `errorTracking: logs-only|sentry`).
+
+### 3a. Enable email  **[1 step: provision + set 2 vars]**
+
+Email is wired turnkey via `src/lib/email.ts` (a welcome mail already sends on
+register). It uses [Resend](https://resend.com)'s REST API — no SDK:
+
+1. Create a Resend account, verify your sending domain, grab an API key.
+2. Set `RESEND_API_KEY` and `EMAIL_FROM`. That's it — messages now send.
+
+To use Postmark/SES instead, edit the single `deliver()` function in
+`src/lib/email.ts`; every call site stays the same.
+
+### 3b. Enable Sentry (error tracking)  **[1 line of code + 1 var]**
+
+Errors already funnel through `captureError()` (`src/lib/logger.ts`) and are
+written as structured JSON logs regardless. To also ship them to Sentry:
+
+1. `npm install @sentry/nextjs` and add `SENTRY_DSN` to your env.
+2. In your Sentry init (or any startup module), register the forwarder **once**:
+
+   ```ts
+   import * as Sentry from '@sentry/nextjs';
+   import { setErrorForwarder } from '@/lib/logger';
+   Sentry.init({ dsn: process.env.SENTRY_DSN });
+   setErrorForwarder((e, ctx) => Sentry.captureException(e, { extra: ctx }));
+   ```
+
+No call-site changes are needed — every existing `captureError` and error
+boundary begins reporting automatically.
 
 ---
 

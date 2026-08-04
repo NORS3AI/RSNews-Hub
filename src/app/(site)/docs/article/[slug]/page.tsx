@@ -28,9 +28,17 @@ async function getArticle(slug: string) {
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const a = await prisma.article.findUnique({ where: { slug: params.slug }, select: { title: true, excerpt: true } });
+  const a = await prisma.article.findUnique({ where: { slug: params.slug }, select: { title: true, excerpt: true, coverImage: true, publishedAt: true } });
   if (!a) return { title: 'Not found' };
-  return { title: a.title, description: a.excerpt ?? undefined, openGraph: { title: a.title, description: a.excerpt ?? undefined } };
+  const description = a.excerpt ?? undefined;
+  const images = a.coverImage ? [a.coverImage] : undefined;
+  return {
+    title: a.title,
+    description,
+    alternates: { canonical: `/docs/article/${params.slug}` },
+    openGraph: { title: a.title, description, type: 'article', images, publishedTime: a.publishedAt?.toISOString() },
+    twitter: { card: images ? 'summary_large_image' : 'summary', title: a.title, description, images },
+  };
 }
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {

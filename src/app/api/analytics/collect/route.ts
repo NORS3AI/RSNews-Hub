@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { recordEvents, deviceFromUA } from '@/lib/analytics/record';
+import { captureError } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,8 @@ export async function POST(req: Request) {
       device: deviceFromUA(req.headers.get('user-agent')),
     });
     return NextResponse.json({ ok: true, stored: n });
-  } catch {
+  } catch (e) {
+    captureError(e, { route: 'analytics/collect' });
     return NextResponse.json({ ok: false }, { status: 200 }); // never surface errors to the page
   }
 }

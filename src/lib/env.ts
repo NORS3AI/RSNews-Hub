@@ -39,5 +39,7 @@ export function envReport() {
     databaseKind: (process.env.DATABASE_URL || '').startsWith('postgres') ? 'postgres' : (process.env.DATABASE_URL || '').startsWith('file:') ? 'sqlite' : 'unknown',
     authSecret: secretIsWeak(process.env.AUTH_SECRET) ? (inProduction() ? 'WEAK (must fix)' : 'dev-default') : 'set',
     siteUrl: siteUrl || 'unset',
+    email: process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? 'configured' : 'log-only',
+    errorTracking: process.env.SENTRY_DSN ? 'sentry' : 'logs-only',
   };
 }

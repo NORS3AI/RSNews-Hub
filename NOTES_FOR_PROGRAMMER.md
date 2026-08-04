@@ -48,9 +48,9 @@
 |---|------|--------|-----|
 | 7 | **Real asset storage** for comic + ad images (S3 / R2 / Cloudinary). Currently stored as data URLs or files in `/public`; won't scale. | 🔵 Claude can wire an upload adapter · 🟠 dev provisions bucket |
 | 8 | **Automate image optimization** — comic/ad images are currently hand-optimized (Pillow) during authoring. | 🔵 Claude · 🟠 dev decides pipeline |
-| 9 | **Email delivery** for subscriptions (they exist as data; nothing sends yet). Needs a provider (Resend / Postmark / SES). | 🟠 dev provisions · 🔵 Claude wires it |
-| 10 | **Error tracking + logging** (e.g. Sentry). Production errors are currently invisible. | 🟠 dev provisions · 🔵 Claude wires it |
-| 11 | **SEO/ops basics** — sitemap, robots, metadata, domain/DNS/TLS, CDN/caching. | 🟠 dev |
+| 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
+| 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
+| 11 | ✅ **SEO basics** — `robots.ts`, `sitemap.ts` (dynamic, from published content), per-article canonical + Open Graph/Twitter metadata. Domain/DNS/TLS/CDN remain 🟠 dev. | ✅ done · 🟠 dev does DNS/TLS/CDN |
 | 12 | **Content moderation** for any future user-generated input surfaces. | 🟠 dev |
 | 13 | **Analytics phase 2+** — see the roadmap just below. | 🔵 Claude can extend · 🟠 dev sizes the DB |
 
@@ -97,6 +97,25 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   search. Admin dashboard at `/admin/analytics` frames Exposure→Interaction→
   Outcome with "compare by" splits. Separate campaign/creative/placement ids on
   ads. Pure aggregation is unit-tested. _(v0.28.0)_
+- ✅ **Error tracking + structured logging** — `src/lib/logger.ts` is the single
+  error chokepoint: `captureError(err, ctx)` always writes a structured JSON log
+  line (never secrets) **and** forwards to an optional sink. It's already wired
+  at the risky sites (API route catches, route + global React error boundaries in
+  `error.tsx` / `global-error.tsx`). **Sentry is a one-liner** — install
+  `@sentry/nextjs` and add `setErrorForwarder((e, ctx) => Sentry.captureException(e, { extra: ctx }))`
+  once at startup; no call-site changes. Health check reports the mode
+  (`logs-only` / `sentry`). Unit-tested. _(v0.31.0)_
+- ✅ **Transactional email** — `src/lib/email.ts`, provider-agnostic and
+  **safe-by-default**: with no provider it **logs** (redacted recipient) instead
+  of sending, so nothing goes out by accident. Set `RESEND_API_KEY` + `EMAIL_FROM`
+  to actually send (Resend REST API, no SDK; swap the one `deliver()` fn for
+  Postmark/SES). Validates recipients, never throws, returns a result. A welcome
+  email is already sent on register (best-effort). Unit-tested. _(v0.31.0)_
+- ✅ **SEO basics** — dynamic `robots.txt` (blocks `/admin`, `/api`, auth pages)
+  and `sitemap.xml` (`src/app/robots.ts` / `sitemap.ts`, built live from published
+  articles/categories/tags/pages). Per-article `generateMetadata` emits a
+  canonical URL + Open Graph (`type:article`, cover image, publish time) + Twitter
+  card. Set `SITE_URL` in prod so URLs are absolute. _(v0.31.0)_
 - ✅ **Configurable homepage modules** — every module type (feature showcase,
   RS Council column, comics, poll, quiz, carousels, ads, etc.) is add/reorder/
   lock/hide-able from **Admin → Homepage layout** (`src/lib/homepage.ts` catalog).
