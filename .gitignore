@@ -29,6 +29,9 @@ yarn-error.log*
 /prisma/dev.db
 /prisma/*.db
 
+# locally-stored uploaded assets (see src/lib/storage/local.ts)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

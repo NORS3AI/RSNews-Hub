@@ -106,6 +106,39 @@ written as structured JSON logs regardless. To also ship them to Sentry:
 No call-site changes are needed — every existing `captureError` and error
 boundary begins reporting automatically.
 
+### 3c. Asset storage (image uploads)  **[works with zero config]**
+
+Comic, ad and cover images upload through `POST /api/uploads` (admin-only,
+magic-byte validated, content-addressed) via `src/lib/storage/`. **Default: local
+disk** — files are written under `UPLOAD_DIR` (default `./uploads`) and served at
+`/uploads/...`. Nothing to configure to start.
+
+- **Single VPS / Docker:** keep local disk, but point `UPLOAD_DIR` at a
+  **persistent, writable volume** (uploads must survive redeploys; `output:
+  'standalone'` means writing into `public/` at runtime is not an option). E.g.
+  `-e UPLOAD_DIR=/data/uploads -v rsnews-uploads:/data/uploads`.
+- **Serverless / multi-instance (Vercel, Fly with >1 machine):** local disk is
+  ephemeral and not shared — use **S3 or Cloudflare R2** instead. Set:
+
+  | Var | Example |
+  |-----|---------|
+  | `STORAGE_DRIVER` | `s3` (or leave unset — a set `S3_BUCKET` auto-selects S3) |
+  | `S3_BUCKET` | `rsnews-assets` |
+  | `S3_REGION` | `us-east-1` (R2: `auto`) |
+  | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | your keys |
+  | `S3_ENDPOINT` | **R2 only:** `https://<accountid>.r2.cloudflarestorage.com` |
+  | `S3_PUBLIC_URL` | public/CDN base for returned links, e.g. `https://cdn.yoursite.com` |
+
+  The bucket must be **readable at the returned URL** — either a public bucket
+  policy or a CDN / R2 custom domain via `S3_PUBLIC_URL`. Uploads are signed with
+  SigV4 directly (no AWS SDK dependency). No code change to switch backends;
+  `/api/health` reports the active mode (`storage: local | s3`).
+
+Other knobs: `UPLOAD_MAX_MB` (default 8), `UPLOAD_ALLOW_SVG` (default off — SVG can
+carry script). To add a non-S3 backend (Cloudinary, GCS…), implement
+`StorageAdapter` in one new file under `src/lib/storage/` and add a case to
+`getAdapter()`.
+
 ---
 
 ## 4. Create the schema (migrations)  **[automated: scripts + init SQL]**

@@ -46,7 +46,7 @@
 
 | # | Item | Status | Who |
 |---|------|--------|-----|
-| 7 | **Real asset storage** for comic + ad images (S3 / R2 / Cloudinary). Currently stored as data URLs or files in `/public`; won't scale. | 🔵 Claude can wire an upload adapter · 🟠 dev provisions bucket |
+| 7 | ✅ **Real asset storage** — pluggable upload pipeline (`src/lib/storage/`). Images now upload to `/api/uploads` and are stored by URL, not inline base64. Local disk by default (zero config); S3/R2 via env, no code change. See §3. | ✅ done · 🟠 dev provisions bucket for cloud |
 | 8 | **Automate image optimization** — comic/ad images are currently hand-optimized (Pillow) during authoring. | 🔵 Claude · 🟠 dev decides pipeline |
 | 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
 | 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
@@ -97,6 +97,19 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   search. Admin dashboard at `/admin/analytics` frames Exposure→Interaction→
   Outcome with "compare by" splits. Separate campaign/creative/placement ids on
   ads. Pure aggregation is unit-tested. _(v0.28.0)_
+- ✅ **Real asset storage (image uploads)** — `src/lib/storage/` is a pluggable
+  upload pipeline. Admin image pickers now POST files to `POST /api/uploads`
+  (admin-only) and store the **returned URL**, not inline base64 — so rows stay
+  small and the 1MB server-action body limit is never hit. **Safe-by-default:**
+  local disk (`UPLOAD_DIR`, served at `/uploads/...`) works with zero config;
+  set the `S3_*` env vars to switch to AWS S3 / Cloudflare R2 with no code change
+  (SigV4 signed by hand — no AWS SDK, matching the email pattern). Keys are
+  **content-addressed** (sha256 → automatic dedup + immutable `cache-forever`).
+  Uploads are validated by **magic-byte sniffing** (never the client MIME; SVG
+  gated off), size-capped (`UPLOAD_MAX_MB`, default 8). Existing data-URLs and
+  pasted URLs keep working. Health check reports the mode. Adding Cloudinary/GCS
+  is one file implementing `StorageAdapter`. Unit-tested (sniff, keygen, SigV4 vs
+  an independent reference, local round-trip) + verified end-to-end. _(v0.32.0)_
 - ✅ **Error tracking + structured logging** — `src/lib/logger.ts` is the single
   error chokepoint: `captureError(err, ctx)` always writes a structured JSON log
   line (never secrets) **and** forwards to an optional sink. It's already wired
