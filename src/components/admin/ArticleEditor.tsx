@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
+import { uploadImage } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
 
 type Cat = { id: string; name: string };
@@ -10,8 +11,6 @@ type Article = {
   status: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
   publishedAt?: string | Date | null;
 };
-
-const MAX_IMG = 2 * 1024 * 1024; // 2MB — cover is stored inline
 
 function toLocalInput(d?: string | Date | null) {
   if (!d) return '';
@@ -26,17 +25,19 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
   const [preview, setPreview] = useState(false);
   const [cover, setCover] = useState(article?.coverImage ?? '');
   const [imgError, setImgError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImgError(null);
-    if (!file.type.startsWith('image/')) { setImgError('Please choose an image file.'); return; }
-    if (file.size > MAX_IMG) { setImgError('Image is larger than 2MB — please use a smaller file or a URL.'); return; }
-    const reader = new FileReader();
-    reader.onload = () => setCover(String(reader.result));
-    reader.readAsDataURL(file);
+    setUploading(true);
+    const res = await uploadImage(file);
+    setUploading(false);
+    if (res.ok) setCover(res.url);
+    else setImgError(res.error);
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   return (
@@ -131,7 +132,9 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
             )}
             <input type="hidden" name="coverImage" value={cover} />
             <div className="flex gap-2">
-              <button type="button" onClick={() => fileRef.current?.click()} className="btn-outline btn-sm flex-1">Upload image</button>
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-outline btn-sm flex-1">
+                {uploading ? 'Uploading…' : 'Upload image'}
+              </button>
             </div>
             <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
             <div>
@@ -140,7 +143,7 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
                 onChange={(e) => setCover(e.target.value)} className="input" placeholder="https://…" />
             </div>
             {imgError && <p className="text-xs text-red-600">{imgError}</p>}
-            <p className="text-xs text-[var(--muted)]">Uploads are stored inline (max 2MB). For many large images, host them and paste URLs.</p>
+            <p className="text-xs text-[var(--muted)]">Uploaded images are stored in your asset storage and referenced by URL (max 8MB). You can also paste an image URL.</p>
           </div>
 
           {/* Tags */}
