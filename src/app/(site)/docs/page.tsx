@@ -26,9 +26,9 @@ const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t
 
 export default async function DocsHome() {
   const [featuredRaw, latestRaw, categories, layout, industry, allAds] = await Promise.all([
-    prisma.article.findMany({ where: { status: 'PUBLISHED', featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
-    prisma.article.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
-    prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } } }),
+    prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
+    prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
+    prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } } }),
     getHomeLayout(),
     prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }], take: 50 }),
     loadAds(),

@@ -9,7 +9,7 @@ export const metadata = { title: 'Archive' };
 export default async function ArchivePage() {
   // Archive includes both PUBLISHED and explicitly ARCHIVED articles, chronologically.
   const articles = await prisma.article.findMany({
-    where: { status: { in: ['PUBLISHED', 'ARCHIVED'] } },
+    where: { OR: [{ status: 'ARCHIVED' }, { status: 'PUBLISHED', publishedAt: { lte: new Date() } }] },
     orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     select: { id: true, title: true, slug: true, publishedAt: true, createdAt: true, status: true, category: { select: { name: true, color: true } } },
   });

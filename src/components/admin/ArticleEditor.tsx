@@ -8,9 +8,18 @@ type Cat = { id: string; name: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
   status: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
+  publishedAt?: string | Date | null;
 };
 
 const MAX_IMG = 2 * 1024 * 1024; // 2MB — cover is stored inline
+
+function toLocalInput(d?: string | Date | null) {
+  if (!d) return '';
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(dt.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
+}
 
 export default function ArticleEditor({ article, categories }: { article?: Article; categories: Cat[] }) {
   const [content, setContent] = useState(article?.content ?? '');
@@ -85,6 +94,11 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
                 <option value="">Uncategorized</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="publishedAt">Publish date &amp; time</label>
+              <input id="publishedAt" name="publishedAt" type="datetime-local" defaultValue={toLocalInput(article?.publishedAt)} className="input" />
+              <p className="mt-1 text-xs text-[var(--muted)]">Leave blank to publish now. Set a <strong>past</strong> date to backdate (e.g. old magazine issues), or a <strong>future</strong> date to schedule — the story stays hidden until then. Requires status = Published.</p>
             </div>
           </div>
 

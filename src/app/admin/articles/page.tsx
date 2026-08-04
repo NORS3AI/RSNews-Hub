@@ -13,6 +13,9 @@ const statusColor: Record<string, string> = {
   ARCHIVED: 'bg-amber-100 text-amber-700', TRASHED: 'bg-red-100 text-red-700',
 };
 
+const isScheduled = (a: { status: string; publishedAt: Date | null }) =>
+  a.status === 'PUBLISHED' && !!a.publishedAt && new Date(a.publishedAt) > new Date();
+
 export default async function AdminArticles({ searchParams }: { searchParams: { status?: string } }) {
   const status = searchParams.status && CONTENT_STATUSES.includes(searchParams.status as any) ? searchParams.status : undefined;
 
@@ -71,7 +74,10 @@ export default async function AdminArticles({ searchParams }: { searchParams: { 
                     <div className="text-xs text-[var(--muted)]">by {a.author?.name ?? 'Unknown'}</div>
                   </td>
                   <td className="px-4 py-3">{a.category ? <span style={{ color: a.category.color }}>{a.category.name}</span> : <span className="text-[var(--muted)]">—</span>}</td>
-                  <td className="px-4 py-3"><span className={`badge ${statusColor[a.status]}`}>{a.status}</span></td>
+                  <td className="px-4 py-3">
+                    <span className={`badge ${statusColor[a.status]}`}>{a.status}</span>
+                    {isScheduled(a) && <span className="ml-1.5 badge bg-sky-100 text-sky-700" title={formatDate(a.publishedAt!)}>Scheduled</span>}
+                  </td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1 text-[var(--muted)]"><Eye width={13} height={13} />{a.views}</span></td>
                   <td className="px-4 py-3 text-[var(--muted)]">{formatDate(a.updatedAt)}</td>
                   <td className="px-4 py-3"><ArticleActions id={a.id} status={a.status} /></td>
@@ -87,7 +93,10 @@ export default async function AdminArticles({ searchParams }: { searchParams: { 
             <div key={a.id} className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <Link href={`/admin/articles/${a.id}`} className="font-medium hover:text-brand-600">{a.title}</Link>
-                <span className={`badge shrink-0 ${statusColor[a.status]}`}>{a.status}</span>
+                <span className="flex shrink-0 flex-col items-end gap-1">
+                  <span className={`badge ${statusColor[a.status]}`}>{a.status}</span>
+                  {isScheduled(a) && <span className="badge bg-sky-100 text-sky-700">Scheduled</span>}
+                </span>
               </div>
               <div className="mt-1 text-xs text-[var(--muted)]">
                 {a.category?.name ?? 'Uncategorized'} · {a.views} views · {formatDate(a.updatedAt)}

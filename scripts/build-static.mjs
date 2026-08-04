@@ -15,7 +15,7 @@ const OUT = join(__dirname, '..', 'docs', 'data.js');
 
 async function main() {
   const articles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED' },
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } },
     orderBy: { publishedAt: 'desc' },
     include: {
       category: { select: { name: true, slug: true, color: true } },

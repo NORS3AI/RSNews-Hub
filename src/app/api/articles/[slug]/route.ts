@@ -19,6 +19,10 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
   if (!article || (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED')) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  // Scheduled (future-dated) articles are not yet public.
+  if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;
   const [related, next, ads] = await Promise.all([
