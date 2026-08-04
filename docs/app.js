@@ -318,9 +318,9 @@
   function comicModule() {
     var c = currentComic();
     if (!c) return '';
-    return '<section class="comic-section"><div class="module-head"><h2>Backroom Humor</h2>' +
+    return '<section class="comic-section"><div class="module-head"><h2 class="comic-h2">Backroom Humor</h2>' +
       '<a class="link-orange" href="#" data-comics-archive="1">View all comics</a></div>' +
-      '<figure class="comic-fig"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '">' +
+      '<figure class="comic-fig"><span class="comic-frame"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '"></span>' +
       '<figcaption>' + esc(c.caption || c.title) + '</figcaption></figure></section>';
   }
   function renderComicsArchive() {

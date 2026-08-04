@@ -105,13 +105,16 @@ export default async function DocsHome() {
         return (
           <section key={id}>
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="module-title">Backroom Humor</h2>
+              <h2 className="module-title text-brand-600">Backroom Humor</h2>
               <Link href="/docs/archive/comics" className="text-sm font-semibold text-brand-600 hover:underline">View all comics</Link>
             </div>
-            <figure className="text-center">
-              {/* The artwork itself is the card. eslint-disable-next-line @next/next/no-img-element */}
-              <img src={currentComic.image} alt={currentComic.title} className="mx-auto block max-h-[560px] w-auto max-w-full rounded-2xl border border-[var(--border)] shadow-modal" />
-              <figcaption className="mt-3 text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
+            <figure className="mx-auto w-fit max-w-full">
+              {/* Slate card hugs the artwork so the comic covers most of it. */}
+              <span className="block rounded-2xl bg-[#2b333d] p-2 shadow-modal">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentComic.image} alt={currentComic.title} className="block max-h-[560px] w-auto max-w-full rounded-xl" />
+              </span>
+              <figcaption className="mt-3 text-center text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
             </figure>
           </section>
         );
