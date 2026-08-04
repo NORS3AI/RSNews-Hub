@@ -53,8 +53,8 @@ export default async function DocsHome() {
   const homeAd = (size: 'leaderboard' | 'rectangle', slot: string) => {
     if (!homeImageAds.length) return <AdSlot size={size} slot={slot} />;
     const ad = homeImageAds[homeAdCursor++ % homeImageAds.length];
-    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" />;
-    return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" /></div>;
+    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" />;
+    return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" /></div>;
   };
 
   const user = await getSessionUser();
@@ -171,13 +171,13 @@ export default async function DocsHome() {
           </section>
         );
       case 'ad-leaderboard':
-        return <div key={id} className="module flex justify-center">{homeAd('leaderboard', 'home-leaderboard')}</div>;
+        return <div key={id} className="flex justify-center">{homeAd('leaderboard', 'home-leaderboard')}</div>;
       case 'ad-rectangles':
         return (
           <div key={id} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="module flex justify-center">{homeAd('rectangle', 'home-rect-1')}</div>
-            <div className="module flex justify-center">{homeAd('rectangle', 'home-rect-2')}</div>
-            <div className="module hidden justify-center lg:flex">{homeAd('rectangle', 'home-rect-3')}</div>
+            <div className="flex justify-center">{homeAd('rectangle', 'home-rect-1')}</div>
+            <div className="flex justify-center">{homeAd('rectangle', 'home-rect-2')}</div>
+            <div className="hidden justify-center lg:flex">{homeAd('rectangle', 'home-rect-3')}</div>
           </div>
         );
       default:
@@ -233,7 +233,7 @@ export default async function DocsHome() {
       {layout.filter((m) => m.enabled).map((m) => renderModule(m.id))}
 
       {/* ===== More content + interspersed ads ===== */}
-      <div className="module flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>
+      <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>
 
       {spotlights.flatMap((s, i) => [
         <section key={s.cat.id} className="module">
@@ -245,7 +245,7 @@ export default async function DocsHome() {
           </div>
           <Carousel>{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
         </section>,
-        i === 0 ? <div key="spotlight-ad" className="module flex justify-center">{homeAd('leaderboard', 'home-spotlight')}</div> : null,
+        i === 0 ? <div key="spotlight-ad" className="flex justify-center">{homeAd('leaderboard', 'home-spotlight')}</div> : null,
       ]).filter(Boolean)}
 
       {topics.length > 0 && (
@@ -271,7 +271,7 @@ export default async function DocsHome() {
         </section>
       )}
 
-      <div className="module flex justify-center">{homeAd('leaderboard', 'home-quick')}</div>
+      <div className="flex justify-center">{homeAd('leaderboard', 'home-quick')}</div>
 
       <section className="module">
         <div className="mb-4 flex items-center justify-between">
@@ -290,9 +290,9 @@ export default async function DocsHome() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="module flex justify-center">{homeAd('rectangle', 'home-r1')}</div>
-        <div className="module flex justify-center">{homeAd('rectangle', 'home-r2')}</div>
-        <div className="module hidden justify-center lg:flex">{homeAd('rectangle', 'home-r3')}</div>
+        <div className="flex justify-center">{homeAd('rectangle', 'home-r1')}</div>
+        <div className="flex justify-center">{homeAd('rectangle', 'home-r2')}</div>
+        <div className="hidden justify-center lg:flex">{homeAd('rectangle', 'home-r3')}</div>
       </div>
 
       {/* Subscribe CTA */}
