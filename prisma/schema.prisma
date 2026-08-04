@@ -208,7 +208,45 @@ model User {
   readingLogs   ReadingLog[]
   quizResponses QuizResponse[]
   pollVotes     PollVote[]
+  savedItems    SavedItem[]
+  clippings     Clipping[]
   notes         String?
+}
+
+// Per-account saved articles: favorites (starred) + to-read (pinned). Stored
+// server-side so they follow a signed-in member across devices (anonymous
+// visitors keep a local-only copy in the browser). Title/slug are a denormalized
+// snapshot so the lists render without joining articles.
+model SavedItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   // 'favorite' | 'toread'
+  articleId String
+  title     String
+  slug      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, articleId])
+  @@index([userId, kind])
+}
+
+// Per-account news clippings (highlighted quotes + saved comic images).
+model Clipping {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String   // the browser-generated id, for reconciliation/merge
+  kind      String   // 'quote' | 'comic'
+  title     String
+  quote     String?
+  author    String?
+  slug      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, clientId])
+  @@index([userId])
 }
 
 model Category {
