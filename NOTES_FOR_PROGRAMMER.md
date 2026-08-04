@@ -124,6 +124,17 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ## 3. Already handled (so the dev doesn't redo it)
 
+- ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
+  API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
+  **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role
+  accounts); `PARENT_JWT_SECRET` strength **enforced in prod** (fail-closed) and
+  the parent JWT now **requires `exp`** + pins HS256; banned/suspended members
+  can't act on a stale token; `/api/health` config is **admin-only**;
+  `mergeLocal` bounded; **rate-limiting** on login/register (`src/lib/rateLimit.ts`);
+  constant-time cron-secret compare; **security headers + CSP** (`frame-ancestors`
+  runtime-configurable via `FRAME_ANCESTORS`; served uploads sandboxed). Verified
+  live. `npm audit` clean. See DEPLOYMENT.md §7a. Confirmed safe: authz scoping,
+  path-traversal defense, one-per-account constraints, no SSRF/SQL-injection.
 - ✅ **Abuse/rate limiting for polls & quizzes.** Submissions are login-gated and
   limited to **one per account**, enforced by DB unique constraints (`PollVote`,
   `QuizResponse (quizId,userId)`), not just client-side. Routes return

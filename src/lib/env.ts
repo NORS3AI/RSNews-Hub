@@ -6,9 +6,9 @@ const DEV_AUTH_SECRET = 'rsnews-hub-dev-secret-change-in-production-please-0000'
 const PLACEHOLDER_SECRETS = new Set([DEV_AUTH_SECRET, 'change-me-to-a-long-random-string', '']);
 
 export const isProd = process.env.NODE_ENV === 'production';
-const inProduction = () => process.env.NODE_ENV === 'production';
+export const inProduction = () => process.env.NODE_ENV === 'production';
 
-function secretIsWeak(v: string | undefined): boolean {
+export function secretIsWeak(v: string | undefined): boolean {
   return !v || PLACEHOLDER_SECRETS.has(v) || v.length < 24;
 }
 

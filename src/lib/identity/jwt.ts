@@ -14,11 +14,19 @@
 import { cookies, headers } from 'next/headers';
 import { jwtVerify } from 'jose';
 import { log } from '../logger';
+import { secretIsWeak, inProduction } from '../env';
 import type { IdentityProvider, Member } from './types';
 
 function secret(): Uint8Array | null {
   const s = process.env.PARENT_JWT_SECRET;
-  return s ? new TextEncoder().encode(s) : null;
+  if (!s) return null;
+  // The parent JWT is the entire production admin trust boundary — a weak/short
+  // shared secret is offline-brute-forceable, so refuse it loudly in production
+  // (fails closed: no member is authenticated until it's fixed).
+  if (secretIsWeak(s) && inProduction()) {
+    throw new Error('PARENT_JWT_SECRET must be a strong, unique value (24+ chars) in production. Generate one with:  openssl rand -base64 48');
+  }
+  return new TextEncoder().encode(s);
 }
 
 async function readToken(): Promise<string | null> {
@@ -57,6 +65,7 @@ export class JwtIdentityProvider implements IdentityProvider {
     try {
       const { payload } = await jwtVerify(token, key, {
         algorithms: ['HS256'],          // pin the alg — no alg-confusion / "none" downgrade
+        requiredClaims: ['exp'],        // reject tokens minted to never expire
         issuer: process.env.PARENT_JWT_ISSUER || undefined,
         audience: process.env.PARENT_JWT_AUDIENCE || undefined,
         clockTolerance: 5,              // small leeway for clock skew

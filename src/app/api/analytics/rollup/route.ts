@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
 import { requireAdmin } from '@/lib/auth';
 import { rollupDays, recentDayKeys, pruneOldEvents, retentionDays } from '@/lib/analytics/rollup';
 import { captureError, log } from '@/lib/logger';
@@ -15,12 +16,16 @@ export const runtime = 'nodejs';
 //
 // Re-rolls the last 3 days (not just yesterday) so late-arriving beacons are
 // captured. Idempotent — safe to run repeatedly.
+// Constant-time compare so the secret can't be recovered by timing the response.
+function secretMatches(header: string, secret: string): boolean {
+  const a = Buffer.from(header);
+  const b = Buffer.from(`Bearer ${secret}`);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get('authorization') || '';
-    if (auth === `Bearer ${secret}`) return true;
-  }
+  if (secret && secretMatches(req.headers.get('authorization') || '', secret)) return true;
   return !!(await requireAdmin());
 }
 

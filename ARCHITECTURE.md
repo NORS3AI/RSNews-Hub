@@ -77,6 +77,8 @@ Business logic lives here so routes/components stay thin. One line each:
 | `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. |
 | `logger.ts` | Structured logging + one `captureError` chokepoint with a pluggable forwarder (Sentry = one line). |
 | `moderation.ts` | Pure, reusable user-text moderation (`moderateText` → ok/flag/block). The gate for any user-generated text. |
+| `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
+| `rateLimit.ts` | In-memory fixed-window rate limiter (login/register brute-force + flood protection). |
 | `homepage.ts` | Homepage module catalog + admin-arranged layout (stored as JSON in `Setting`). |
 | `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance) / DB inventory loader. |
 | `recommend.ts` | Article recommendations + `smartSearch`. |
