@@ -275,11 +275,61 @@
       '<p class="ind-sub">Curated links — tap the title to expand</p>' +
       '<div class="ind-scroll">' + industryRows() + '</div></section>';
   }
+  function industryDialogRows() {
+    return INDUSTRY.slice(0, 50).map(function (l) {
+      return '<a class="ind-mrow ind-reveal" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="ind-mico">' + ICON_EXT + '</span>' +
+        '<span class="ind-mmain"><span class="ind-mtitle">' + esc(l.title) + '</span>' +
+        '<span class="ind-mmeta"><span class="ind-msrc">' + esc(linkSource(l.url, l.source)) + '</span>' +
+        '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
+        '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
+    }).join('');
+  }
   function openIndustryDialog() {
-    var html = '<div class="dlg-card ind-dlg" style="max-width:640px">' +
-      '<div class="dlg-head"><h3 class="ind-dlg-h3">' + ICON_PAPER + ' Industry News</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
-      '<div class="dlg-body ind-dlg-body">' + industryRows() + '</div></div>';
+    var count = Math.min(INDUSTRY.length, 50);
+    var html = '<div class="dlg-card ind-modal">' +
+      '<div class="ind-modal-head"><div><h3 class="ind-modal-title">' + ICON_PAPER + ' Industry News</h3>' +
+      '<p class="ind-modal-sub">Most recent ' + count + ' &middot; curated by our team</p></div>' +
+      '<div class="ind-modal-actions"><a class="btn btn-outline btn-sm" href="#" data-industry-archive="1">View archive</a>' +
+      '<button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div></div>' +
+      '<div class="ind-modal-body" id="ind-modal-body">' + industryDialogRows() +
+      '<div class="ind-modal-foot"><a href="#" data-industry-archive="1" class="link-orange">See the full Industry News archive &rarr;</a></div></div></div>';
     openDialog(html, null);
+    setupIndustryReveal();
+  }
+  function setupIndustryReveal() {
+    var body = document.getElementById('ind-modal-body');
+    if (!body) return;
+    var els = body.querySelectorAll('.ind-reveal');
+    if (!('IntersectionObserver' in window)) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { root: body, rootMargin: '0px 0px -8% 0px', threshold: 0.02 });
+    els.forEach(function (e) { io.observe(e); });
+  }
+  function renderIndustryArchive() {
+    closeDialog();
+    var byMonth = {};
+    INDUSTRY.forEach(function (l) {
+      var k = new Date(l.postedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      (byMonth[k] = byMonth[k] || []).push(l);
+    });
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_PAPER + ' Industry News archive</h2>' +
+      '<a class="link-orange" href="#" data-home="1">Home</a></div>';
+    if (!INDUSTRY.length) { h += '<p style="color:var(--muted);margin:0">No industry links yet.</p>'; }
+    Object.keys(byMonth).forEach(function (m) {
+      h += '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin:22px 0 10px">' + esc(m) + '</h3>' +
+        '<div class="ind-arch">' + byMonth[m].map(function (l) {
+          return '<a class="ind-row" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
+            '<span class="ind-ico">' + ICON_EXT + '</span>' +
+            '<span class="ind-main"><span class="ind-title">' + esc(l.title) + '</span>' +
+            '<span class="ind-meta"><span class="ind-src">' + esc(linkSource(l.url, l.source)) + '</span>' +
+            '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
+            '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
+        }).join('') + '</div>';
+    });
+    h += '</section></div>';
+    el('main').innerHTML = h; window.scrollTo(0, 0);
   }
 
   /* ---------- smart in-article ads ----------
@@ -695,6 +745,7 @@
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
     if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
+    if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
