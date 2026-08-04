@@ -171,6 +171,35 @@ export async function toggleAd(id: string, active: boolean) {
   revalidatePath('/docs');
 }
 
+/* ----------------------------- Industry News ----------------------------- */
+
+export async function saveIndustryLink(formData: FormData) {
+  await ensureStaff();
+  const id = (formData.get('id') as string) || '';
+  const title = ((formData.get('title') as string) || '').trim();
+  const url = ((formData.get('url') as string) || '').trim();
+  const source = ((formData.get('source') as string) || '').trim();
+  const order = parseInt((formData.get('order') as string) || '0', 10) || 0;
+  const active = formData.get('active') != null;
+  const postedRaw = ((formData.get('postedAt') as string) || '').trim();
+  if (!title || !url) throw new Error('Title and URL are required');
+  const data: { title: string; url: string; source: string | null; order: number; active: boolean; postedAt?: Date } =
+    { title, url, source: source || null, order, active };
+  const posted = postedRaw ? new Date(postedRaw) : null;
+  if (posted && !isNaN(posted.getTime())) data.postedAt = posted;
+  if (id) await prisma.industryLink.update({ where: { id }, data });
+  else await prisma.industryLink.create({ data });
+  revalidatePath('/admin/industry');
+  revalidatePath('/docs');
+}
+
+export async function deleteIndustryLink(id: string) {
+  await ensureStaff();
+  await prisma.industryLink.delete({ where: { id } });
+  revalidatePath('/admin/industry');
+  revalidatePath('/docs');
+}
+
 /* --------------------------------- Tags ---------------------------------- */
 
 export async function saveTag(formData: FormData) {

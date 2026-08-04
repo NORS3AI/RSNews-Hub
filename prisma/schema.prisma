@@ -15,6 +15,21 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Curated external "Industry News" links, hand-picked by staff. Shown in a
+// scrollable homepage module. `views` counts click-throughs; `postedAt` is
+// when we added it (not the source's publish date).
+model IndustryLink {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  source    String?  // optional display source; falls back to the URL's host
+  views     Int      @default(0)
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  postedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
 // House/advertiser creative for in-article ads. Each ad can declare the
 // competitors it must never appear alongside: if any of `competitors` (a
 // comma-separated list of brand keywords) is mentioned in an article, this ad
