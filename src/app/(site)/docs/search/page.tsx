@@ -8,7 +8,8 @@ import { Search } from '@/components/icons';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Search' };
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function SearchPage(props0: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props0.searchParams;
   const q = (searchParams.q ?? '').trim();
   const results = q ? await smartSearch(q, 30) : [];
 

@@ -16,7 +16,8 @@ const statusColor: Record<string, string> = {
 const isScheduled = (a: { status: string; publishedAt: Date | null }) =>
   a.status === 'PUBLISHED' && !!a.publishedAt && new Date(a.publishedAt) > new Date();
 
-export default async function AdminArticles({ searchParams }: { searchParams: { status?: string } }) {
+export default async function AdminArticles(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams;
   const status = searchParams.status && CONTENT_STATUSES.includes(searchParams.status as any) ? searchParams.status : undefined;
 
   const [articles, counts] = await Promise.all([

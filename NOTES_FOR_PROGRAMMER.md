@@ -39,15 +39,18 @@
 | 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Ready** — `db:migrate` / `db:migrate:deploy` scripts + init SQL; DEPLOYMENT.md Step 4. 🟠 dev runs `migrate dev --name init` against Postgres once. |
 | 6 | **Confirm `docs/` preview deploy** (Pages) & whether it stays public. | 🟠 dev — covered in DEPLOYMENT.md §9. |
 | 7 | **Health check** for the host. | ✅ **Done** — `GET /api/health` (DB up/down + config report). |
-| 8 | **Dependency security — Next.js major upgrade (14 → 15/16).** We're on the latest **14.2.35** patch, which clears the critical middleware auth-bypass and every fix backported to the 14.2 line. Remaining `npm audit` advisories are ones Next only patched in **15/16** (a breaking major: `cookies()`/`params`/`searchParams` become async, caching defaults change) — most are Pages-Router / i18n / custom-server specific and don't apply to this App-Router app. | 🟠 dev + 🔵 Claude — do as a focused, well-tested upgrade PR. |
+| 8 | ✅ **Dependency security — `npm audit` is clean (0 vulnerabilities).** Upgraded to **Next 15** + **React 19** (v0.34.0) and pinned Next's bundled `sharp`/`postcss` to patched versions via `overrides`. | ✅ done |
 
-> **Security posture (v0.33.1):** bumped **Next 14.2.15 → 14.2.35** (critical
-> middleware auth-bypass fixed), **disabled the unused Next image optimizer**
-> (`images.unoptimized` — the app uses plain `<img>`, so this removes the
-> optimizer-DoS surface and the wildcard remote-host allowlist), bumped
-> **postcss** to a patched 8.5.x, and moved **vitest 2 → 3.2.7** (clears the
-> dev-only esbuild advisory). `npm audit` is down to advisories that require the
-> Next major upgrade above; none are known to apply to this app's configuration.
+> **Security posture (v0.34.0):** `npm audit` reports **0 vulnerabilities**.
+> Path taken: **Next 14 → 15.5.22** + **React 18 → 19** (the async-request-API
+> migration — `cookies()`/`params`/`searchParams` are now awaited), the unused
+> **Next image optimizer disabled** (`images.unoptimized`; the app uses plain
+> `<img>`), **postcss** on patched 8.5.x, **vitest 3.2.7** (patched esbuild), and
+> npm **`overrides`** (`sharp`/`postcss` → `$`-refs) so Next's *internally
+> bundled* copies dedupe onto the patched versions too. Staying on the mature
+> **15.5.x** line rather than bleeding-edge 16 — the overrides make 16 unnecessary
+> for a clean audit. When you eventually move to 16, drop the overrides and
+> re-audit.
 
 ---
 
@@ -161,7 +164,7 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ## 4. Repo facts & gotchas the dev needs to know
 
-- **Stack:** Next.js 14 (App Router) · TypeScript · Prisma · Tailwind. DB is
+- **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma · Tailwind. DB is
   SQLite in dev (`prisma/schema.prisma`, `DATABASE_URL=file:./dev.db`).
 - **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required in
   prod (validated in `src/lib/env.ts` — a weak `AUTH_SECRET` is rejected at

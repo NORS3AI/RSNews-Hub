@@ -5,12 +5,14 @@ import ArticleCard from '@/components/ArticleCard';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const t = await prisma.tag.findUnique({ where: { slug: params.slug } });
   return { title: t ? `#${t.name}` : 'Tag' };
 }
 
-export default async function TagPage({ params }: { params: { slug: string } }) {
+export default async function TagPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const tag = await prisma.tag.findUnique({ where: { slug: params.slug } });
   if (!tag) notFound();
   const articles = await publishedArticles({ tags: { some: { tagId: tag.id } } });

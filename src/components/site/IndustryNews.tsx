@@ -27,7 +27,7 @@ function CardRow({ l }: { l: IndustryItem }) {
 }
 
 /** Big, theme-aware row for the modal — fades in as it scrolls into view. */
-function ModalRow({ l, root }: { l: IndustryItem; root: React.RefObject<HTMLElement> }) {
+function ModalRow({ l, root }: { l: IndustryItem; root: React.RefObject<HTMLElement | null> }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {

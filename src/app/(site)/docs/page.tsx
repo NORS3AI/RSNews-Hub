@@ -78,7 +78,7 @@ export default async function DocsHome() {
   };
 
   const user = await getSessionUser();
-  const sessionId = getReaderSessionId();
+  const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
     trendingArticles(5),

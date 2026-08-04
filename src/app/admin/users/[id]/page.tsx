@@ -8,7 +8,8 @@ import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EditUser({ params }: { params: { id: string } }) {
+export default async function EditUser(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const [user, me] = await Promise.all([
     prisma.user.findUnique({
       where: { id: params.id },

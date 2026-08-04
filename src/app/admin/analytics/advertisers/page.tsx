@@ -10,7 +10,8 @@ const nf = (n: number) => n.toLocaleString();
 const pctStr = (n: number) => `${Math.round(n * 100)}%`;
 const fmtMs = (ms: number) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; };
 
-export default async function AdvertiserReports({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+export default async function AdvertiserReports(props: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const searchParams = await props.searchParams;
   const days = DAYS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 30;
   const { events } = await loadEvents(days);
   const advertisers = advertiserList(events);

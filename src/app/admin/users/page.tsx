@@ -15,7 +15,8 @@ const roleColor: Record<string, string> = {
   ADMIN: 'bg-brand-100 text-brand-700', EDITOR: 'bg-purple-100 text-purple-700', USER: 'bg-gray-100 text-gray-600',
 };
 
-export default async function AdminUsers({ searchParams }: { searchParams: { q?: string; status?: string } }) {
+export default async function AdminUsers(props: { searchParams: Promise<{ q?: string; status?: string }> }) {
+  const searchParams = await props.searchParams;
   const me = await getCurrentUser();
   const q = (searchParams.q ?? '').trim();
   const status = searchParams.status;

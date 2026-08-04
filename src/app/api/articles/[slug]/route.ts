@@ -6,7 +6,8 @@ import { pickArticleAds } from '@/lib/adsServer';
 export const dynamic = 'force-dynamic';
 
 // Serves a single article as JSON for the reader modal (no full navigation).
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(_req: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const article = await prisma.article.findUnique({
     where: { slug: params.slug },
     include: {

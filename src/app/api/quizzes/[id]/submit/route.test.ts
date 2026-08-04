@@ -14,7 +14,7 @@ vi.mock('@/lib/db', () => ({ prisma }));
 
 import { POST } from './route';
 
-const params = { params: { id: 'quiz1' } };
+const params = { params: Promise.resolve({ id: 'quiz1' }) };
 const makeReq = (body: unknown) =>
   new Request('http://t/api/quizzes/quiz1/submit', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
 
