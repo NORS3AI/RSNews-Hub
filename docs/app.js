@@ -141,7 +141,7 @@
       if (node.nodeType === 11) { node.childNodes.forEach(walk); return; } // DocumentFragment
       if (node.nodeType !== 1) return;
       if (node.tagName === 'BR') { buf += ' '; return; }
-      if (CLIP_BLOCK[node.tagName]) { flush(); node.childNodes.forEach(walk); flush(); }
+      if (CLIP_BLOCK[node.tagName]) { flush(); if (node.tagName === 'LI') buf = '• '; node.childNodes.forEach(walk); flush(); }
       else { node.childNodes.forEach(walk); }
     }
     walk(root); flush(); return parts.join('\n');
@@ -223,8 +223,11 @@
     return '“' + (o.quote || '') + '” — ' + (o.title || '') + '\n' + shareUrlFor(o.slug || '');
   }
   function openClip(text, slug) {
-    var a = bySlug[slug] || {}; text = (text || '').replace(/\s+/g, ' ').trim();
-    if (text.length < 4) { toast('Select some text first'); return; }
+    // Collapse spaces/tabs but KEEP newlines so block breaks (headings, bullets)
+    // survive into the quote image.
+    var a = bySlug[slug] || {};
+    text = (text || '').split('\n').map(function (s) { return s.replace(/[ \t]+/g, ' ').trim(); }).filter(Boolean).join('\n');
+    if (text.replace(/\s/g, '').length < 4) { toast('Select some text first'); return; }
     var o = { quote: text, title: a.title || '', author: a.author || '', url: (location.host + location.pathname + '#' + (slug || '')), slug: slug };
     var img = makeQuoteImage(o);
     var html = '<div class="dlg-card" style="max-width:560px">' +
@@ -281,8 +284,10 @@
   function articleBlock(a, opts) {
     opts = opts || {};
     var accent = a.category ? a.category.color : 'var(--orange)';
+    // Uniform cover slot: image when present, else a branded placeholder — so a
+    // carousel never mixes image + no-image cards.
     var top = a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" loading="lazy" style="aspect-ratio:16/9;width:100%;object-fit:cover">'
-      : '<span class="accent" style="background:' + accent + '"></span>';
+      : '<div class="ablock-ph"><span class="accent" style="background:' + accent + '"></span>RS</div>';
     return '<article class="ablock' + (opts.sm ? ' sm' : '') + '"><div class="acts">' + acts(a.slug) + '</div>' + top +
       '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadge(a.category) + '</div>' +
       '<h3>' + esc(a.title) + '</h3>' +
@@ -687,6 +692,14 @@
           '<span class="council-more">Open full column &rarr;</span></a>';
       }).join('') + '</section>';
   }
+  // Council column + a stacked ad rail to fill the space beside the narrow column.
+  function councilRow() {
+    var col = councilModule(); if (!col) return '';
+    var aside = '<div class="council-aside">' +
+      '<div class="council-ad">' + homeAd('leaderboard') + '</div>' +
+      '<div class="council-ad">' + homeAd('rectangle') + '</div></div>';
+    return '<div class="council-row">' + col + aside + '</div>';
+  }
 
   /* ---------- Feature showcase (big split carousel) ---------- */
   var ARR_L = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
@@ -727,9 +740,6 @@
     var h = '<div class="content">';
     h += heroBlock(lead);
 
-    /* Big split feature showcase */
-    h += featureShowcase();
-
     /* Orange "this week" module */
     if (recent.length) {
       h += '<section class="module orange"><div class="module-head"><h2>Published this week</h2><span class="link-orange">' + recent.length + ' new</span></div>' +
@@ -755,11 +765,14 @@
     /* Industry News + monthly poll (2-col row) */
     h += industryPollRow();
 
+    /* Big split feature showcase — sits below Industry News */
+    h += featureShowcase();
+
     /* Backroom Humor comic */
     h += comicModule();
 
-    /* RS Council column */
-    h += councilModule();
+    /* RS Council column (+ ads filling the space beside it) */
+    h += councilRow();
 
     /* You might like — swipeable carousel */
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });

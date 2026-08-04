@@ -134,10 +134,20 @@ export default async function DocsHome() {
       }
       case 'council': {
         if (councilArticles.length === 0) return null;
-        return (
-          <CouncilColumn key={id} items={councilArticles.map((a) => ({
+        const councilEl = (
+          <CouncilColumn items={councilArticles.map((a) => ({
             slug: a.slug, title: a.title, content: a.content, author: a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
           }))} />
+        );
+        // The column is intentionally narrow; fill the space beside it with ads.
+        return (
+          <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,30rem)_1fr] lg:items-start">
+            {councilEl}
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-center">{homeAd('leaderboard', 'council-ad-1')}</div>
+              <div className="flex justify-center">{homeAd('rectangle', 'council-ad-2')}</div>
+            </div>
+          </div>
         );
       }
       case 'industry': {

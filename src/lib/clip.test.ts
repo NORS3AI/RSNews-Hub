@@ -31,6 +31,20 @@ describe('fragmentToClipText — block separation (bug: heading runs into paragr
     expect(fragmentToClipText(el)).toBe('Line one still one paragraph');
   });
 
+  it('keeps a heading, its bullet list, and the trailing paragraph on separate lines', () => {
+    const el = frag('<h2>What you can do</h2><ul><li>Read articles.</li><li>Discover related content.</li></ul><p>Welcome aboard.</p>');
+    expect(fragmentToClipText(el).split('\n')).toEqual([
+      'What you can do',
+      '• Read articles.',
+      '• Discover related content.',
+      'Welcome aboard.',
+    ]);
+  });
+
+  it('prefixes list items with a bullet', () => {
+    expect(fragmentToClipText(frag('<ol><li>First</li><li>Second</li></ol>'))).toBe('• First\n• Second');
+  });
+
   it('walks a DocumentFragment (what a cloned selection range actually is)', () => {
     // Regression: a fragment is nodeType 11 — the walker must descend into it,
     // not bail out (which produced empty clips in the browser).
