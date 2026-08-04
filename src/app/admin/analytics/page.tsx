@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { loadEvents, totalEventCount } from '@/lib/analytics/query';
 import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview } from '@/lib/analytics/metrics';
+import ReportTable from '@/components/admin/ReportTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Re
   const days = DAYS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 30;
   const adSplit = AD_SPLITS.some((s) => s[0] === searchParams.adSplit) ? searchParams.adSplit! : 'placement';
   const artSplit = ART_SPLITS.some((s) => s[0] === searchParams.artSplit) ? searchParams.artSplit! : 'module';
+
+  const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
+  const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
 
   const [{ events, capped }, total] = await Promise.all([loadEvents(days), totalEventCount()]);
   const ov = aggregateOverview(events);
@@ -80,24 +84,27 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Re
 
           {/* ---------- Ads ---------- */}
           <section>
-            <SectionTitle>Ads — exposure → interaction</SectionTitle>
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <SectionTitle>Ads — exposure → interaction</SectionTitle>
+              <Link href={`/admin/analytics/advertisers?days=${days}`} className="text-xs font-bold text-brand-600 hover:underline">Per-advertiser reports →</Link>
+            </div>
             <Compare current={adSplit} options={AD_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ adSplit: v })} />
-            <Table
-              cols={['', 'Impr.', 'Viewable', 'Above fold', 'Avg dwell', 'Clicks', 'CTR']}
-              rows={ads.slice(0, 20).map((r) => [r.key, nf(r.impressions), nf(r.viewable), pctStr(r.aboveFoldPct), fmtMs(r.avgDwellMs), nf(r.clicks), pctStr(r.ctr)])}
-              empty="No ad events yet."
+            <ReportTable
+              columns={[{ key: 'key', label: adLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'viewable', label: 'Viewable', type: 'int' }, { key: 'aboveFoldPct', label: 'Above fold', type: 'pct01' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              rows={ads.slice(0, 50)}
+              filename={`ads-by-${adSplit}-${days}d`}
             />
-            <p className="mt-1.5 text-xs text-[var(--muted)]">CTR is clicks ÷ <em>viewable</em> impressions, so a low-placed ad isn&apos;t unfairly compared with a top one.</p>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">Click a column to sort; <strong>Export CSV</strong> for a spreadsheet. CTR is clicks ÷ <em>viewable</em> impressions, so a low-placed ad isn&apos;t unfairly compared with a top one.</p>
           </section>
 
           {/* ---------- Articles / modules ---------- */}
           <section>
             <SectionTitle>Articles &amp; modules — what presentation wins</SectionTitle>
             <Compare current={artSplit} options={ART_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ artSplit: v })} />
-            <Table
-              cols={['', 'Impr.', 'Clicks', 'CTR']}
-              rows={eng.slice(0, 20).map((r) => [r.key, nf(r.impressions), nf(r.clicks), pctStr(r.ctr)])}
-              empty="No article-card events yet."
+            <ReportTable
+              columns={[{ key: 'key', label: artLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              rows={eng.slice(0, 50)}
+              filename={`articles-by-${artSplit}-${days}d`}
             />
             <p className="mt-1.5 text-xs text-[var(--muted)]">Split by <strong>Image vs none</strong> or <strong>Position</strong> to compare like-for-like within the same surface.</p>
           </section>
@@ -162,28 +169,6 @@ function Compare({ current, options, makeHref }: { current: string; options: [st
       {options.map(([v, label]) => (
         <Link key={v} href={makeHref(v)} className={`rounded-full px-3 py-1 text-xs font-bold ${current === v ? 'bg-brand-600 text-white' : 'border border-[var(--border)] bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
       ))}
-    </div>
-  );
-}
-
-function Table({ cols, rows, empty }: { cols: string[]; rows: (string | number)[][]; empty: string }) {
-  if (!rows.length) return <p className="card p-4 text-sm text-[var(--muted)]">{empty}</p>;
-  return (
-    <div className="card overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-            {cols.map((c, i) => <th key={i} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`}>{c}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="border-b border-[var(--border)] last:border-0">
-              {r.map((cell, j) => <td key={j} className={`px-3 py-2.5 ${j === 0 ? 'font-semibold' : 'text-right tabular-nums text-[var(--muted)]'}`}>{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

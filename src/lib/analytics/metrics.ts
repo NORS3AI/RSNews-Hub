@@ -139,6 +139,37 @@ export function aggregateOverview(evs: Ev[]) {
   };
 }
 
+// ---- Advertiser-scoped reporting (a vendor sees only their own brand) ----
+
+const brandOf = (e: Ev): string => String(e.props.campaignId ?? e.props.brand ?? '');
+
+// Distinct advertiser/brand names present in the ad events.
+export function advertiserList(evs: Ev[]): string[] {
+  const s = new Set<string>();
+  for (const e of evs) if (e.subjectType === 'ad') { const b = brandOf(e); if (b) s.add(b); }
+  return [...s].sort((a, b) => a.localeCompare(b));
+}
+
+// Impressions/clicks per day for the given (already brand-filtered) ad events.
+export function adTrend(evs: Ev[]): { key: string; impressions: number; clicks: number; ctr: number }[] {
+  const g = new Map<string, { imp: number; clk: number }>();
+  for (const e of evs) {
+    if (e.subjectType !== 'ad') continue;
+    const key = new Date(e.createdAt).toISOString().slice(0, 10);
+    let r = g.get(key); if (!r) { r = { imp: 0, clk: 0 }; g.set(key, r); }
+    if (e.type === 'impression') r.imp++; else if (e.type === 'click') r.clk++;
+  }
+  return [...g.entries()].map(([key, r]) => ({ key, impressions: r.imp, clicks: r.clk, ctr: ctr(r.clk, r.imp) })).sort((a, b) => (a.key < b.key ? -1 : 1));
+}
+
+// Full report for one advertiser — totals + per-creative + per-placement +
+// daily trend, scoped strictly to that brand's events.
+export function advertiserReport(evs: Ev[], brand: string) {
+  const ads = evs.filter((e) => e.subjectType === 'ad' && brandOf(e) === brand);
+  const totals = aggregateAds(ads, 'campaign')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
+  return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
+}
+
 export function tally<T>(items: T[], keyFn: (t: T) => string): { key: string; count: number }[] {
   const m = new Map<string, number>();
   for (const it of items) { const k = keyFn(it); m.set(k, (m.get(k) ?? 0) + 1); }
