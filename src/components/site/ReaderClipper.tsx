@@ -2,10 +2,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
 import { makeQuoteImage, downloadDataUrl } from '@/lib/quoteImage';
-import { Scissors, Download, Copy, X } from '@/components/icons';
+import { Scissors, Download, Copy, Check, X } from '@/components/icons';
 
 type Ctx = { text: string; slug: string; title: string; author: string | null };
 type Clip = Ctx & { img: string; url: string };
+
+export function clipShareText(quote: string, title: string, slug: string) {
+  const link = typeof window !== 'undefined' ? `${window.location.origin}/docs/article/${slug}` : `/docs/article/${slug}`;
+  return `“${quote}” — ${title}\n${link}`;
+}
 
 /**
  * Site-wide "news clipping" tool: highlight text inside any article reader
@@ -16,6 +21,7 @@ export default function ReaderClipper() {
   const { addClipping } = useSaved();
   const [fab, setFab] = useState<{ x: number; y: number; ctx: Ctx } | null>(null);
   const [clip, setClip] = useState<Clip | null>(null);
+  const [saved, setSaved] = useState(false);
 
   const readContext = useCallback((): { rect: DOMRect; ctx: Ctx } | null => {
     const sel = window.getSelection();
@@ -55,10 +61,16 @@ export default function ReaderClipper() {
   function doClip(ctx: Ctx) {
     const url = `${location.host}/docs/article/${ctx.slug}`;
     const img = makeQuoteImage({ quote: ctx.text, title: ctx.title, author: ctx.author, url, slug: ctx.slug });
+    setSaved(false);
     setClip({ ...ctx, img, url });
-    addClipping({ quote: ctx.text, title: ctx.title, author: ctx.author, slug: ctx.slug });
     setFab(null);
     try { window.getSelection()?.removeAllRanges(); } catch {}
+  }
+
+  function saveClip() {
+    if (!clip || saved) return;
+    addClipping({ quote: clip.text, title: clip.title, author: clip.author, slug: clip.slug });
+    setSaved(true);
   }
 
   return (
@@ -86,14 +98,19 @@ export default function ReaderClipper() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={clip.img} alt="Quote image" className="mb-4 w-full rounded-xl border border-[var(--border)]" />
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => downloadDataUrl(clip.img, `rsnews-clip-${clip.slug || 'quote'}.png`)} className="btn-primary btn-sm">
+                <button onClick={saveClip} disabled={saved} className={saved ? 'btn-outline btn-sm' : 'btn-primary btn-sm'}>
+                  {saved ? <><Check width={15} height={15} /> Saved</> : <><Scissors width={15} height={15} /> Save clip</>}
+                </button>
+                <button onClick={() => downloadDataUrl(clip.img, `rsnews-clip-${clip.slug || 'quote'}.png`)} className="btn-outline btn-sm">
                   <Download width={15} height={15} /> Download image
                 </button>
-                <button onClick={() => navigator.clipboard?.writeText(`“${clip.text}” — ${clip.title}`)} className="btn-outline btn-sm">
+                <button onClick={() => navigator.clipboard?.writeText(clipShareText(clip.text, clip.title, clip.slug))} className="btn-outline btn-sm">
                   <Copy width={15} height={15} /> Copy quote
                 </button>
               </div>
-              <p className="mt-3 text-xs text-[var(--muted)]">Saved to your Clippings. Great for sharing on social.</p>
+              <p className="mt-3 text-xs text-[var(--muted)]">
+                {saved ? 'Saved to your Clippings. Great for sharing on social.' : 'Not saved yet — tap Save clip to keep it in your Clippings.'}
+              </p>
             </div>
           </div>
         </div>
