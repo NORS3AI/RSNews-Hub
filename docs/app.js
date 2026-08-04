@@ -133,6 +133,15 @@
   function ad(kind) { var m = { leaderboard: '728 × 90', rectangle: '300 × 250', inarticle: 'In-article' }[kind] || '';
     return '<div class="ad ad-' + kind + '"><div class="ad-inner"><span class="ad-label">Advertisement</span><span class="ad-size">' + m + '</span></div></div>'; }
 
+  var CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>';
+  var CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+  function carousel(items, build) {
+    return '<div class="carousel">' +
+      '<button class="car-btn car-prev" data-scroll="-1" aria-label="Previous">' + CHEV_L + '</button>' +
+      '<div class="car-track">' + items.map(function (a) { return '<div class="car-item">' + build(a) + '</div>'; }).join('') + '</div>' +
+      '<button class="car-btn car-next" data-scroll="1" aria-label="Next">' + CHEV_R + '</button></div>';
+  }
+
   function related(a) {
     var tg = {}; (a.tags || []).forEach(function (t) { tg[t.slug] = 1; });
     return ARTICLES.filter(function (x) { return x.id !== a.id; }).map(function (x) { var s = 0;
@@ -179,10 +188,12 @@
       '</div>';
     h += '</div>';
 
-    /* Recommended — feature blocks */
-    if (recommend.length) {
-      h += '<section class="module"><div class="module-head"><h2>You might like</h2></div><div class="grid g3">' +
-        recommend.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
+    /* You might like — swipeable carousel */
+    var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
+    if (youMightLike.length) {
+      h += '<section class="module"><div class="module-head"><h2>You might like</h2>' +
+        '<span class="link-orange" style="cursor:default">Swipe to see more &rarr;</span></div>' +
+        carousel(youMightLike, function (a) { return articleBlock(a); }) + '</section>';
     }
 
     /* Full-width leaderboard ad */
@@ -337,6 +348,9 @@
     if (e.target.closest('#hamburger')) { el('shell').classList.add('mobileopen'); return; }
     if (e.target.closest('#sidebar-backdrop')) { closeDrawer(); return; }
     if (e.target.closest('#theme-btn')) { toggleTheme(); return; }
+    var sc = e.target.closest('[data-scroll]');
+    if (sc) { e.preventDefault(); var track = sc.parentNode.querySelector('.car-track');
+      if (track) track.scrollBy({ left: parseInt(sc.getAttribute('data-scroll'), 10) * track.clientWidth * 0.85, behavior: 'smooth' }); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clearhistory]');
     if (!t) return;
     if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); toggleFav(t.getAttribute('data-fav')); return; }
