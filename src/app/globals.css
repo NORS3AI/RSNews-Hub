@@ -90,6 +90,12 @@ body::before {
   .prose-article img { @apply my-6 rounded-lg; }
   .prose-article code { @apply rounded bg-[var(--bg-soft)] px-1.5 py-0.5 text-sm; }
   .prose-article pre { @apply my-4 overflow-x-auto rounded-lg bg-[var(--bg-soft)] p-4 text-sm; }
+  /* Compact column typography for the RS Council module (full text, small). */
+  .council-body { @apply text-[13.5px] leading-[1.62]; color: color-mix(in srgb, var(--fg) 88%, transparent); }
+  .council-body p { @apply mb-2.5; }
+  .council-body p:last-child { @apply mb-0; }
+  .council-body h2, .council-body h3 { @apply mb-1 mt-3 text-[15px] font-bold text-[var(--fg)]; }
+  .council-col { max-width: 30rem; }
 }
 
 .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }

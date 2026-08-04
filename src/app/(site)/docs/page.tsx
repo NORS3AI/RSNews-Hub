@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
-import { getHomeLayout, type ModuleId } from '@/lib/homepage';
+import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
+import FeatureCarousel from '@/components/site/FeatureCarousel';
+import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
 import AdSlot from '@/components/AdSlot';
 import InArticleAd from '@/components/InArticleAd';
@@ -51,6 +53,14 @@ export default async function DocsHome() {
     include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } },
   });
 
+  // RS Council columns — shown in full inside the tall column module.
+  const councilArticles = await prisma.article.findMany({
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council' } },
+    orderBy: { publishedAt: 'desc' },
+    take: 12,
+    select: { id: true, title: true, slug: true, content: true, publishedAt: true, author: { select: { name: true } } },
+  });
+
   // All homepage-eligible comics; one is picked at random per request so the
   // module cycles through them on refresh.
   const activeComics = await prisma.comic.findMany({ where: { active: true }, orderBy: { postedAt: 'desc' } });
@@ -89,7 +99,15 @@ export default async function DocsHome() {
   const recent = all.filter((a) => a.publishedAt && new Date(a.publishedAt).getTime() >= weekAgo).slice(0, 8);
   const latest = all.filter((a) => a.id !== lead?.id);
 
-  const renderModule = (id: ModuleId) => {
+  // Article pools for configurable modules (e.g. the feature showcase).
+  const featurePool = (source?: string): Card[] => {
+    if (source === 'latest') return latest;
+    if (source === 'trending') return trending as unknown as Card[];
+    return featured.length ? featured : all.slice(0, 5); // 'featured'
+  };
+
+  const renderModule = (m: HomeModule) => {
+    const id = m.id;
     switch (id) {
       case 'recommended':
         if (feed.length === 0) return null;
@@ -104,6 +122,24 @@ export default async function DocsHome() {
             </Carousel>
           </section>
         );
+      case 'feature-carousel': {
+        const items = featurePool(moduleSource(m));
+        if (!items.length) return null;
+        return (
+          <FeatureCarousel key={id} items={items.slice(0, 8).map((a) => ({
+            slug: a.slug, title: a.title, excerpt: a.excerpt ?? null, coverImage: a.coverImage ?? null,
+            category: a.category ? { name: a.category.name, color: a.category.color } : null,
+          }))} />
+        );
+      }
+      case 'council': {
+        if (councilArticles.length === 0) return null;
+        return (
+          <CouncilColumn key={id} items={councilArticles.map((a) => ({
+            slug: a.slug, title: a.title, content: a.content, author: a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
+          }))} />
+        );
+      }
       case 'industry': {
         const hasIndustry = industry.length > 0;
         if (!hasIndustry && !activePoll && !activeQuiz) return null;
@@ -252,7 +288,7 @@ export default async function DocsHome() {
       )}
 
       {/* ===== Admin-arranged modules ===== */}
-      {layout.filter((m) => m.enabled).map((m) => renderModule(m.id))}
+      {layout.filter((m) => m.enabled).map((m) => renderModule(m))}
 
       {/* ===== More content + interspersed ads ===== */}
       <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>

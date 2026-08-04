@@ -1,17 +1,38 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
 import { clipShareText } from './ReaderClipper';
 import { makeQuoteImage, downloadDataUrl, downloadImage } from '@/lib/quoteImage';
-import { Scissors, Download, Copy, Trash, ArrowRight } from '@/components/icons';
+import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
 
 const isComic = (c: Clipping) => c.kind === 'comic' || !!c.image;
+
+// Icon-only action button whose label slides out on hover (keeps rows compact
+// in the narrow 3-column layout instead of wrapping to a new line).
+function IconAction({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} title={label} aria-label={label}
+      className={`group/act inline-flex items-center rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-2 py-1.5 transition hover:border-brand-400 hover:bg-[var(--bg-soft)] ${danger ? 'text-red-500 hover:border-red-300' : ''}`}>
+      {children}
+      <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-bold opacity-0 transition-all duration-200 group-hover/act:ml-1.5 group-hover/act:max-w-[130px] group-hover/act:opacity-100">{label}</span>
+    </button>
+  );
+}
 
 export default function ClippingsList() {
   const { clippings, removeClipping, ready } = useSaved();
   const { openArticle } = useArticleModal();
   const [view, setView] = useState<'cards' | 'images'>('cards');
+  const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
+
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(null); };
+    document.body.classList.add('modal-open');
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+  }, [zoom]);
 
   function urlFor(slug?: string) {
     return typeof window !== 'undefined' ? `${window.location.host}/docs/article/${slug ?? ''}` : `/docs/article/${slug ?? ''}`;
@@ -22,33 +43,20 @@ export default function ClippingsList() {
   }
 
   function Actions({ c }: { c: Clipping }) {
-    const act = 'btn-sm !gap-1 !px-2.5 whitespace-nowrap';
     if (isComic(c)) {
       return (
         <div className="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
-          <button onClick={() => downloadImage(c.image as string, `backroom-humor-${(c.title || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jpg`)} className={`btn-primary ${act}`}>
-            <Download width={14} height={14} /> Image
-          </button>
-          <button onClick={() => removeClipping(c.id)} className="btn-ghost btn-sm !px-2 text-red-500" aria-label="Delete clipping">
-            <Trash width={14} height={14} />
-          </button>
+          <IconAction label="Download image" onClick={() => downloadImage(c.image as string, `backroom-humor-${(c.title || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jpg`)}><Download width={15} height={15} /></IconAction>
+          <IconAction label="Delete" danger onClick={() => removeClipping(c.id)}><Trash width={15} height={15} /></IconAction>
         </div>
       );
     }
     return (
       <div className="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
-        <button onClick={() => downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`)} className={`btn-primary ${act}`}>
-          <Download width={14} height={14} /> Image
-        </button>
-        <button onClick={() => c.slug && openArticle(c.slug)} className={`btn-outline ${act}`}>
-          <ArrowRight width={14} height={14} /> Open article
-        </button>
-        <button onClick={() => navigator.clipboard?.writeText(clipShareText(c.quote ?? '', c.title, c.slug ?? ''))} className={`btn-outline ${act}`}>
-          <Copy width={14} height={14} /> Copy quote
-        </button>
-        <button onClick={() => removeClipping(c.id)} className="btn-ghost btn-sm !px-2 text-red-500" aria-label="Delete clipping">
-          <Trash width={14} height={14} />
-        </button>
+        <IconAction label="Download image" onClick={() => downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`)}><Download width={15} height={15} /></IconAction>
+        <IconAction label="Open article" onClick={() => c.slug && openArticle(c.slug)}><ArrowRight width={15} height={15} /></IconAction>
+        <IconAction label="Copy quote" onClick={() => navigator.clipboard?.writeText(clipShareText(c.quote ?? '', c.title, c.slug ?? ''))}><Copy width={15} height={15} /></IconAction>
+        <IconAction label="Delete" danger onClick={() => removeClipping(c.id)}><Trash width={15} height={15} /></IconAction>
       </div>
     );
   }
@@ -76,23 +84,26 @@ export default function ClippingsList() {
           No clippings yet. Highlight a passage in an article to save it as a quote image, or open a comic and tap <strong>Save to clippings</strong>.
         </p>
       ) : view === 'images' ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        // Masonry (Pinterest-style): items keep their natural height and tile.
+        <div className="columns-2 gap-4 sm:columns-3">
           {clippings.map((c) => (
-            <div key={c.id} className="card flex flex-col p-3">
+            <div key={c.id} className="card mb-4 flex break-inside-avoid flex-col p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy" className="w-full rounded-lg" />
+              <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy"
+                onClick={() => setZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' })}
+                className="w-full cursor-zoom-in rounded-lg" />
               <Actions c={c} />
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {clippings.map((c) => (
             <div key={c.id} className="card flex flex-col p-4">
               {isComic(c) ? (
                 <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.image as string} alt={c.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                  <img src={c.image as string} alt={c.title} onClick={() => setZoom({ src: c.image as string, alt: c.title })} className="h-16 w-16 shrink-0 cursor-zoom-in rounded-lg object-cover" />
                   <div>
                     <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Comic</span>
                     <div className="mt-1 font-bold leading-snug">{c.title}</div>
@@ -109,6 +120,16 @@ export default function ClippingsList() {
               <Actions c={c} />
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Click-to-zoom lightbox — same feel as tapping a comic on the homepage. */}
+      {zoom && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 sm:p-8 animate-fade-in" role="dialog" aria-modal="true" onClick={() => setZoom(null)}>
+          <div className="absolute inset-0 bg-ink-950/85 backdrop-blur-sm" />
+          <button onClick={() => setZoom(null)} className="absolute right-4 top-4 z-20 grid h-10 w-10 place-items-center rounded-lg bg-white/15 text-white hover:bg-white/25" aria-label="Close"><X /></button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={zoom.src} alt={zoom.alt} onClick={(e) => e.stopPropagation()} className="relative z-10 max-h-[88dvh] w-auto max-w-full rounded-xl shadow-modal" />
         </div>
       )}
     </div>

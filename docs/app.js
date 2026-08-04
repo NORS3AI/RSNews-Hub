@@ -672,6 +672,47 @@
     var a = pool[homeAdIdx++ % pool.length];
     return '<div class="had-home' + (wantRect ? ' had-home-rect' : ' had-home-lead') + '">' + houseAdRender(a, wantRect ? 'rectangle' : 'inarticle') + '</div>';
   }
+  /* ---------- RS Council column ---------- */
+  function councilModule() {
+    var cols = ARTICLES.filter(function (a) { return a.category && a.category.slug === 'rs-council'; })
+      .sort(function (p, q) { return new Date(q.publishedAt) - new Date(p.publishedAt); }).slice(0, 12);
+    if (!cols.length) return '';
+    return '<section class="module council-col">' +
+      '<div class="council-head"><h2>RS Council</h2><span class="council-sub">The column</span></div>' +
+      cols.map(function (a) {
+        return '<a class="council-entry" data-open="' + esc(a.slug) + '" href="#' + esc(a.slug) + '">' +
+          '<h3 class="council-title">' + esc(a.title) + '</h3>' +
+          '<div class="council-meta">' + esc(a.author || 'RS Council') + (a.publishedAt ? ' &middot; ' + fmtDate(a.publishedAt) : '') + '</div>' +
+          '<div class="council-body">' + (a.content || '') + '</div>' +
+          '<span class="council-more">Open full column &rarr;</span></a>';
+      }).join('') + '</section>';
+  }
+
+  /* ---------- Feature showcase (big split carousel) ---------- */
+  var ARR_L = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+  var ARR_R = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  var featureItems = [], featureIdx = 0;
+  function featureShowcaseInner() {
+    var a = featureItems[featureIdx]; if (!a) return '';
+    var accent = a.category ? a.category.color : 'var(--orange)';
+    var n = featureItems.length;
+    return '<div class="fs-text"><div class="fs-inner">' +
+      (a.category ? '<div class="fs-cat" style="color:' + accent + '">' + esc(a.category.name) + '<span class="fs-cat-bar" style="background:' + accent + '"></span></div>' : '') +
+      '<h2 class="fs-title" data-open="' + esc(a.slug) + '">' + esc(a.title) + '</h2>' +
+      '<a class="fs-read" data-open="' + esc(a.slug) + '" href="#' + esc(a.slug) + '">Read the full story</a>' +
+      (n > 1 ? '<div class="fs-nav"><button class="fs-arrow" data-feature="-1" aria-label="Previous">' + ARR_L + '</button><button class="fs-arrow" data-feature="1" aria-label="Next">' + ARR_R + '</button><span class="fs-count">' + (featureIdx + 1) + ' / ' + n + '</span></div>' : '') +
+      '</div></div>' +
+      '<div class="fs-img" data-open="' + esc(a.slug) + '">' + (a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="' + esc(a.title) + '">' : '<span class="fs-ph">RS</span>') + '</div>';
+  }
+  function featureShowcase() {
+    var sorted = ARTICLES.slice().sort(function (p, q) { return new Date(q.publishedAt) - new Date(p.publishedAt); });
+    featureItems = sorted.filter(function (a) { return a.featured; }).slice(0, 8);
+    if (!featureItems.length) featureItems = sorted.slice(0, 5);
+    featureIdx = 0;
+    if (!featureItems.length) return '';
+    return '<section class="feature-showcase" id="feature-showcase">' + featureShowcaseInner() + '</section>';
+  }
+
   function renderHome() {
     homeAdIdx = 0;
     var sorted = ARTICLES.slice().sort(function (p, q) { return new Date(q.publishedAt) - new Date(p.publishedAt); });
@@ -685,6 +726,9 @@
     /* Hero — full width beside the sidebar */
     var h = '<div class="content">';
     h += heroBlock(lead);
+
+    /* Big split feature showcase */
+    h += featureShowcase();
 
     /* Orange "this week" module */
     if (recent.length) {
@@ -713,6 +757,9 @@
 
     /* Backroom Humor comic */
     h += comicModule();
+
+    /* RS Council column */
+    h += councilModule();
 
     /* You might like — swipeable carousel */
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
@@ -903,17 +950,32 @@
   /* ---------- clippings view ---------- */
   var clipView = 'cards';
   function isComicClip(c) { return c.kind === 'comic' || !!c.image; }
+  function clipImageFor(c) {
+    return isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
+  }
+  // Icon-only action whose label slides out on hover (keeps the 3-col cards tidy).
+  function clipIcon(attr, val, icon, label, danger) {
+    return '<button class="clip-ico' + (danger ? ' clip-ico-del' : '') + '" ' + attr + '="' + esc(val) + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+      icon + '<span class="clip-ico-lbl">' + esc(label) + '</span></button>';
+  }
   function clipActions(c) {
     if (isComicClip(c)) {
       return '<div class="clip-actions">' +
-        '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
-        '<button class="btn btn-outline btn-sm btn-del" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
+        clipIcon('data-download-clip', c.id, ICON.download, 'Download image') +
+        clipIcon('data-del-clip', c.id, ICON.trash2, 'Delete', true) + '</div>';
     }
     return '<div class="clip-actions">' +
-      '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
-      (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open article</button>' : '') +
-      '<button class="btn btn-outline btn-sm" data-copy-clip="' + esc(c.id) + '">' + ICON.copy + ' Copy quote</button>' +
-      '<button class="btn btn-outline btn-sm btn-del" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
+      clipIcon('data-download-clip', c.id, ICON.download, 'Download image') +
+      (c.slug && bySlug[c.slug] ? clipIcon('data-open', c.slug, ICON.arrow, 'Open article') : '') +
+      clipIcon('data-copy-clip', c.id, ICON.copy, 'Copy quote') +
+      clipIcon('data-del-clip', c.id, ICON.trash2, 'Delete', true) + '</div>';
+  }
+  // Simple enlarge-on-click lightbox for clip images (reuses the comic overlay styles).
+  function openZoomLightbox(src, alt) {
+    el('dialog-host').innerHTML = '<div class="comic-lb"><div class="comic-lb-bg" data-lb-close="1"></div>' +
+      '<button class="comic-lb-x" data-lb-close="1" aria-label="Close">' + ICON.x + '</button>' +
+      '<div class="comic-lb-inner"><img src="' + esc(src) + '" alt="' + esc(alt || '') + '"></div></div>';
+    document.body.classList.add('modal-open');
   }
   function renderClippings() {
     var list = getClippings();
@@ -927,12 +989,13 @@
     if (!list.length) {
       h += '<p style="color:var(--muted);margin:0;font-size:16px">No clippings yet. Open an article, <b>highlight</b> a passage, then click <b>Clip</b> to turn it into a shareable quote image you can download.</p>';
     } else if (clipView === 'images') {
-      h += '<div class="clip-img-grid">' + list.map(function (c) {
-        var img = isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
-        return '<div class="clip-img-card"><img src="' + esc(img) + '" alt="' + esc(isComicClip(c) ? (c.title || 'Comic') : 'Quote image') + '" loading="lazy">' + clipActions(c) + '</div>';
+      // Masonry (Pinterest-style): images keep their natural height and tile.
+      h += '<div class="clip-img-masonry">' + list.map(function (c) {
+        var img = clipImageFor(c);
+        return '<div class="clip-img-card"><img class="clip-zoomable" data-clip-zoom="' + esc(c.id) + '" src="' + esc(img) + '" alt="' + esc(isComicClip(c) ? (c.title || 'Comic') : 'Quote image') + '" loading="lazy">' + clipActions(c) + '</div>';
       }).join('') + '</div>';
     } else {
-      h += '<div class="clip-grid">' + list.map(function (c) {
+      h += '<div class="clip-grid clip-grid-3">' + list.map(function (c) {
         if (isComicClip(c)) {
           return '<div class="clip-card clip-card-comic"><div class="clip-comic-row">' +
             '<img class="clip-comic-thumb" src="' + esc(c.image) + '" alt="' + esc(c.title || 'Comic') + '" loading="lazy">' +
@@ -982,6 +1045,7 @@
     var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
+    var clipZoom = e.target.closest('[data-clip-zoom]'); if (clipZoom) { e.preventDefault(); var zc = getClippings().filter(function (x) { return x.id === clipZoom.getAttribute('data-clip-zoom'); })[0]; if (zc) openZoomLightbox(clipImageFor(zc), zc.title || 'Clip'); return; }
     if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
     var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
@@ -989,6 +1053,9 @@
     if (e.target.closest('[data-quiz-open]')) { e.preventDefault(); openQuizModal(); return; }
     if (e.target.closest('[data-quiz-submit]')) { e.preventDefault(); submitQuiz(); return; }
     if (e.target.closest('[data-comics-archive]')) { e.preventDefault(); renderComicsArchive(); return; }
+    var fbtn = e.target.closest('[data-feature]'); if (fbtn) { e.preventDefault(); e.stopPropagation();
+      if (featureItems.length) { featureIdx = (featureIdx + parseInt(fbtn.getAttribute('data-feature'), 10) + featureItems.length) % featureItems.length;
+        var fhost = el('feature-showcase'); if (fhost) fhost.innerHTML = featureShowcaseInner(); } return; }
     if (e.target.closest('[data-lb-close]')) { e.preventDefault(); closeComicLightbox(); return; }
     if (e.target.closest('[data-comic-dl]')) { e.preventDefault(); if (lightboxComic) downloadImage(lightboxComic.src, comicFileName(lightboxComic.title)); toast('Image downloaded'); return; }
     var comicSave = e.target.closest('[data-comic-save]'); if (comicSave) { e.preventDefault();

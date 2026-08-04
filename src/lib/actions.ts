@@ -6,7 +6,7 @@ import { prisma } from './db';
 import { requireAdmin, hashPassword, getCurrentUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
-import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT } from './homepage';
+import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 
 async function ensureStaff() {
@@ -477,6 +477,19 @@ export async function toggleHomeLock(id: string) {
   const m = layout.find((x) => x.id === id);
   if (!m) return;
   m.locked = !m.locked;
+  await saveHomeLayout(layout);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+export async function setHomeModuleSource(id: string, source: string) {
+  await ensureStaff();
+  const layout = await getHomeLayout();
+  const m = layout.find((x) => x.id === id);
+  const def = MODULE_CATALOG[id as ModuleId];
+  if (!m || !def?.sources) return;
+  if (!def.sources.some((s) => s.value === source)) return; // reject unknown source
+  m.source = source;
   await saveHomeLayout(layout);
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');

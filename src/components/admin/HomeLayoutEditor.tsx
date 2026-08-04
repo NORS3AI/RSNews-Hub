@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout } from '@/lib/actions';
+import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource } from '@/lib/actions';
 import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip } from '@/components/icons';
 
-type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean };
+type Source = { value: string; label: string };
+type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sources: Source[] | null; source: string | null };
 
 export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
   const [rows, setRows] = useState<Row[]>(modules);
@@ -71,6 +72,19 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 font-medium">{m.label}{m.locked && <Lock width={13} height={13} className="text-brand-600" />}</div>
               <div className="truncate text-sm text-[var(--muted)]">{m.description}</div>
+              {m.sources && (
+                <label className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted)]">
+                  Source:
+                  <select
+                    disabled={pending}
+                    value={m.source ?? m.sources[0].value}
+                    onChange={(e) => run(() => setHomeModuleSource(m.id, e.target.value))}
+                    className="rounded-md border border-[var(--border)] bg-[var(--card-2)] px-2 py-1 text-xs font-semibold text-[var(--fg)]"
+                  >
+                    {m.sources.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
 
             <button disabled={pending} onClick={() => run(() => toggleHomeLock(m.id))}
