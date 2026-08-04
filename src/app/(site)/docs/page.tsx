@@ -14,6 +14,7 @@ import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import PollCard from '@/components/site/PollCard';
+import ComicImage from '@/components/site/ComicImage';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,8 +112,7 @@ export default async function DocsHome() {
             <figure className="mx-auto w-fit max-w-full">
               {/* Slate card hugs the artwork so the comic covers most of it. */}
               <span className="block rounded-2xl bg-[#2b333d] p-2 shadow-modal">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={currentComic.image} alt={currentComic.title} className="block max-h-[560px] w-auto max-w-full rounded-xl" />
+                <ComicImage src={currentComic.image} alt={currentComic.title} className="block max-h-[560px] w-auto max-w-full rounded-xl" />
               </span>
               <figcaption className="mt-3 text-center text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
             </figure>

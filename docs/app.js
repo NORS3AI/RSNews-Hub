@@ -323,6 +323,14 @@
       '<figure class="comic-fig"><span class="comic-frame"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '"></span>' +
       '<figcaption>' + esc(c.caption || c.title) + '</figcaption></figure></section>';
   }
+  function openComicLightbox(src, alt) {
+    var host = el('dialog-host');
+    host.innerHTML = '<div class="comic-lb"><div class="comic-lb-bg" data-lb-close="1"></div>' +
+      '<button class="comic-lb-x" data-lb-close="1" aria-label="Close">' + ICON.x + '</button>' +
+      '<img src="' + esc(src) + '" alt="' + esc(alt || '') + '"></div>';
+    document.body.classList.add('modal-open');
+  }
+  function closeComicLightbox() { el('dialog-host').innerHTML = ''; document.body.classList.remove('modal-open'); }
   function renderComicsArchive() {
     var h = '<div class="content"><section class="module"><div class="module-head"><h2>😄 Backroom Humor</h2><a class="link-orange" href="#" data-home="1">Home</a></div>';
     if (!COMICS.length) { h += '<p style="color:var(--muted);margin:0">No comics yet.</p>'; }
@@ -831,6 +839,8 @@
     var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
     if (e.target.closest('[data-polls-archive]')) { e.preventDefault(); renderPollsArchive(); return; }
     if (e.target.closest('[data-comics-archive]')) { e.preventDefault(); renderComicsArchive(); return; }
+    if (e.target.closest('[data-lb-close], .comic-lb img')) { e.preventDefault(); closeComicLightbox(); return; }
+    var comicZoom = e.target.closest('.comic-frame img, .comic-card img'); if (comicZoom) { e.preventDefault(); openComicLightbox(comicZoom.getAttribute('src'), comicZoom.getAttribute('alt')); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
@@ -846,7 +856,7 @@
     if (t.hasAttribute('data-clearhistory')) { e.preventDefault(); clearHistory(); renderHistory(); return; }
     if (t.hasAttribute('data-home')) { e.preventDefault(); if (t.classList.contains('side-item')) setActive(t); renderHome(); closeDrawer(); window.scrollTo(0, 0); return; }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeModal(); closeDrawer(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeComicLightbox(); closeModal(); closeDrawer(); } });
   window.addEventListener('popstate', function () { var hs = (location.hash || '').replace('#', ''); if (hs && bySlug[hs]) openModal(hs, false); else closeModal(false); });
   document.addEventListener('input', function (e) { if (!e.target.matches('[data-search]')) return; var i = e.target, q = i.value;
     if (q.trim().length < 2) { var b = i.parentNode.querySelector('.suggest'); if (b) b.remove(); return; } renderSuggest(i, searchArticles(q)); });

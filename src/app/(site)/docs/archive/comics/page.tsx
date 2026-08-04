@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { ArrowLeft } from '@/components/icons';
 import { postedLabel } from '@/lib/industry';
+import ComicImage from '@/components/site/ComicImage';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Backroom Humor — comics' };
@@ -19,8 +20,7 @@ export default async function ComicsArchive() {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {comics.map((c) => (
           <figure key={c.id} className="card overflow-hidden p-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={c.image} alt={c.title} className="w-full rounded-lg" />
+            <ComicImage src={c.image} alt={c.title} className="w-full rounded-lg" />
             <figcaption className="px-1 pb-1 pt-3">
               <span className="block font-extrabold leading-snug">{c.title}</span>
               <span className="mt-1 block text-xs text-[var(--muted)]">{postedLabel(c.postedAt)}</span>
