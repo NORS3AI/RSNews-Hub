@@ -43,9 +43,9 @@ export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
 // The hero/headline block is intentionally NOT in this list — it is always
 // pinned to the very top and cannot be reordered.
 export const DEFAULT_LAYOUT: HomeModule[] = [
-  { id: 'feature-carousel', enabled: true, locked: false, source: 'featured' },
   { id: 'recommended', enabled: true, locked: false },
   { id: 'industry', enabled: true, locked: false },
+  { id: 'feature-carousel', enabled: true, locked: false, source: 'featured' },
   { id: 'comic', enabled: true, locked: false },
   { id: 'council', enabled: true, locked: false },
   { id: 'ad-leaderboard', enabled: true, locked: false },

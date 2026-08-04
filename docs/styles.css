@@ -166,6 +166,12 @@ img { max-width:100%; display:block; }
   transition:transform .18s, box-shadow .18s; display:flex; flex-direction:column; }
 .ablock:hover { transform:translateY(-2px); box-shadow:var(--shadow-hover); }
 .ablock .accent { height:5px; }
+.ablock > img { aspect-ratio:16/9; width:100%; object-fit:cover; display:block; }
+/* Uniform placeholder cover for cards without an image (keeps carousels consistent). */
+.ablock-ph { position:relative; display:flex; align-items:center; justify-content:center; aspect-ratio:16/9; width:100%;
+  background:linear-gradient(135deg,#ece7dc,#d3ccbd); color:rgba(0,0,0,.10); font-weight:900; font-size:34px; letter-spacing:.02em; }
+.ablock-ph .accent { position:absolute; top:0; left:0; right:0; height:5px; }
+:root.dark .ablock-ph { background:linear-gradient(135deg,#33303a,#201d28); color:rgba(255,255,255,.10); }
 .ablock .body { padding:18px; display:flex; flex-direction:column; flex:1; }
 /* Titles are never truncated — the card grows to fit the full title. */
 .ablock h3 { margin:9px 0 0; font-size:23px; font-weight:800; line-height:1.22; letter-spacing:-.015em; padding-right:72px; }
@@ -527,7 +533,11 @@ img { max-width:100%; display:block; }
 .clip-zoomable { cursor:zoom-in; }
 
 /* ===== RS Council column ===== */
-.council-col { max-width:34rem; }
+.council-row { display:grid; gap:22px; }
+@media (min-width:1000px){ .council-row { grid-template-columns:minmax(0,480px) 1fr; align-items:start; } }
+.council-aside { display:flex; flex-direction:column; gap:20px; min-width:0; }
+.council-aside .council-ad { display:flex; justify-content:center; }
+.council-col { max-width:none; }
 .council-head { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:2px solid #b91c1c; padding-bottom:8px; margin-bottom:6px; }
 .council-head h2 { margin:0; font-size:14px; font-weight:900; text-transform:uppercase; letter-spacing:.18em; color:#b91c1c; }
 .council-head h2::before { display:none; }

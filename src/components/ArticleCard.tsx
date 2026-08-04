@@ -13,9 +13,15 @@ export default function ArticleCard({ article, compact = false }: { article: Car
       </div>
 
       <ArticleLink slug={article.slug} className="flex h-full flex-col">
-        {article.coverImage && !compact && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={article.coverImage} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" />
+        {/* Uniform cover slot: every non-compact card shows an image (or a
+            branded placeholder), so a carousel never mixes image + no-image cards. */}
+        {!compact && (
+          article.coverImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={article.coverImage} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" />
+          ) : (
+            <div className="flex aspect-[16/9] w-full items-center justify-center bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] text-3xl font-black text-black/10 dark:from-[#33303a] dark:to-[#201d28] dark:text-white/10">RS</div>
+          )
         )}
         <div className="flex flex-1 flex-col p-4 sm:p-5">
           <div className="mb-2 flex flex-wrap items-center gap-2">

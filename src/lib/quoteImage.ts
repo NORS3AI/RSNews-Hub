@@ -122,8 +122,12 @@ function blocksToText(root: Node): string {
     if (node.nodeType !== 1) return;
     const el = node as Element;
     if (el.tagName === 'BR') { buf += ' '; return; }
-    if (CLIP_BLOCK_TAGS.has(el.tagName)) { flush(); el.childNodes.forEach(walk); flush(); }
-    else { el.childNodes.forEach(walk); }
+    if (CLIP_BLOCK_TAGS.has(el.tagName)) {
+      flush();
+      if (el.tagName === 'LI') buf = '• '; // preserve bullets in the clip
+      el.childNodes.forEach(walk);
+      flush();
+    } else { el.childNodes.forEach(walk); }
   };
   walk(root);
   flush();
