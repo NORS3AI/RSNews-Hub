@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
 import { CONTENT_STATUSES } from '@/lib/constants';
@@ -7,12 +7,28 @@ import { CONTENT_STATUSES } from '@/lib/constants';
 type Cat = { id: string; name: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
-  status: string; featured: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
+  status: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
 };
+
+const MAX_IMG = 2 * 1024 * 1024; // 2MB — cover is stored inline
 
 export default function ArticleEditor({ article, categories }: { article?: Article; categories: Cat[] }) {
   const [content, setContent] = useState(article?.content ?? '');
   const [preview, setPreview] = useState(false);
+  const [cover, setCover] = useState(article?.coverImage ?? '');
+  const [imgError, setImgError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImgError(null);
+    if (!file.type.startsWith('image/')) { setImgError('Please choose an image file.'); return; }
+    if (file.size > MAX_IMG) { setImgError('Image is larger than 2MB — please use a smaller file or a URL.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => setCover(String(reader.result));
+    reader.readAsDataURL(file);
+  }
 
   return (
     <form action={saveArticle}>
@@ -46,12 +62,12 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
                 className="input min-h-[340px] font-mono text-sm" placeholder="<p>Write your article here. HTML is supported.</p>" />
             )}
             {preview && <textarea name="content" value={content} readOnly hidden />}
-            <p className="mt-1 text-xs text-[var(--muted)]">Supports HTML: &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;, &lt;blockquote&gt;, &lt;img&gt;, &lt;code&gt;…</p>
+            <p className="mt-1 text-xs text-[var(--muted)]">Supports HTML incl. inline images: &lt;img src=&quot;https://…&quot;&gt;. Also &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;, &lt;blockquote&gt;, &lt;code&gt;…</p>
           </div>
 
           <div>
             <label className="label" htmlFor="excerpt">Excerpt <span className="font-normal text-[var(--muted)]">(optional — auto-generated if blank)</span></label>
-            <textarea id="excerpt" name="excerpt" defaultValue={article?.excerpt ?? ''} className="input min-h-[70px]" placeholder="Short summary shown in cards and previews." />
+            <textarea id="excerpt" name="excerpt" defaultValue={article?.excerpt ?? ''} className="input min-h-[70px]" placeholder="Short summary used for previews & search." />
           </div>
         </div>
 
@@ -70,22 +86,54 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="featured" defaultChecked={article?.featured} className="h-4 w-4 rounded border-[var(--border)]" />
-              Feature on homepage
-            </label>
           </div>
 
-          <div className="card space-y-4 p-4">
-            <div>
-              <label className="label" htmlFor="tags">Tags</label>
-              <input id="tags" name="tags" defaultValue={article?.tags.map((t) => t.tag.name).join(', ')} className="input" placeholder="ai, tutorial, release" />
-              <p className="mt-1 text-xs text-[var(--muted)]">Comma-separated. New tags are created automatically.</p>
+          {/* Homepage placement */}
+          <div className="card space-y-3 p-4">
+            <div className="text-sm font-semibold">Homepage placement</div>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="featured" defaultChecked={article?.featured} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
+              <span><span className="font-medium">Featured headline</span><br /><span className="text-xs text-[var(--muted)]">Can appear as the big hero at the top.</span></span>
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" name="pinned" defaultChecked={article?.pinned} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
+              <span><span className="font-medium">Pin to top</span><br /><span className="text-xs text-[var(--muted)]">Force above newer stories in the Latest list.</span></span>
+            </label>
+            <p className="text-xs text-[var(--muted)]">Which modules a story appears in (Trending, Recommended, category spotlights…) is driven automatically by views, tags and readers. Reorder the modules themselves under <Link href="/admin/homepage" className="text-brand-600 hover:underline">Homepage layout</Link>.</p>
+          </div>
+
+          {/* Cover image */}
+          <div className="card space-y-3 p-4">
+            <div className="text-sm font-semibold">Cover image</div>
+            {cover ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={cover} alt="" className="aspect-[16/9] w-full rounded-lg border border-[var(--border)] object-cover" />
+                <button type="button" onClick={() => { setCover(''); if (fileRef.current) fileRef.current.value = ''; }}
+                  className="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80">Remove</button>
+              </div>
+            ) : (
+              <div className="grid aspect-[16/9] w-full place-items-center rounded-lg border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">No cover</div>
+            )}
+            <input type="hidden" name="coverImage" value={cover} />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => fileRef.current?.click()} className="btn-outline btn-sm flex-1">Upload image</button>
             </div>
+            <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
             <div>
-              <label className="label" htmlFor="coverImage">Cover image URL</label>
-              <input id="coverImage" name="coverImage" type="url" defaultValue={article?.coverImage ?? ''} className="input" placeholder="https://…" />
+              <label className="label text-xs" htmlFor="coverUrl">…or paste an image URL</label>
+              <input id="coverUrl" type="url" value={cover.startsWith('data:') ? '' : cover}
+                onChange={(e) => setCover(e.target.value)} className="input" placeholder="https://…" />
             </div>
+            {imgError && <p className="text-xs text-red-600">{imgError}</p>}
+            <p className="text-xs text-[var(--muted)]">Uploads are stored inline (max 2MB). For many large images, host them and paste URLs.</p>
+          </div>
+
+          {/* Tags */}
+          <div className="card space-y-2 p-4">
+            <label className="label" htmlFor="tags">Tags</label>
+            <input id="tags" name="tags" defaultValue={article?.tags.map((t) => t.tag.name).join(', ')} className="input" placeholder="ai, tutorial, release" />
+            <p className="text-xs text-[var(--muted)]">Comma-separated. New tags are created automatically.</p>
           </div>
         </aside>
       </div>
