@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { hashPassword, createSession } from '@/lib/auth';
 import { sendEmail, renderEmail, escapeHtml } from '@/lib/email';
 import { captureError } from '@/lib/logger';
+import { isDelegatedAuth } from '@/lib/identity';
 
 const schema = z.object({
   name: z.string().min(2).max(60),
@@ -12,6 +13,8 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Production: accounts are created on the parent RS News site, not the hub.
+  if (isDelegatedAuth()) return NextResponse.json({ error: 'Accounts are managed on the main RS News site.' }, { status: 403 });
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input', issues: parsed.error.flatten() }, { status: 400 });

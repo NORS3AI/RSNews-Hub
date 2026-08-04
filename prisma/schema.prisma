@@ -183,9 +183,14 @@ model Ad {
 
 model User {
   id           String        @id @default(cuid())
+  // Link to the account in the PARENT site (RS News). In production the hub does
+  // not own logins — the website authenticates members and hands us a verified
+  // identity; this is the stable id we key all hub state (votes, clips, favorites)
+  // to. Null for locally-created accounts in the standalone/dev "local" AUTH_MODE.
+  externalId   String?       @unique
   email        String        @unique
   name         String
-  passwordHash String
+  passwordHash String        @default("")
   role         String        @default("USER")
   status       String        @default("ACTIVE")
   bio          String?
