@@ -84,3 +84,17 @@ export function downloadDataUrl(dataUrl: string, filename: string) {
   a.href = dataUrl; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
 }
+
+// Download any image (data URL or same-origin path) as a file.
+export async function downloadImage(src: string, filename: string) {
+  if (src.startsWith('data:')) { downloadDataUrl(src, filename); return; }
+  try {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    downloadDataUrl(url, filename);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch {
+    downloadDataUrl(src, filename);
+  }
+}

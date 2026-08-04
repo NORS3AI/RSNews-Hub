@@ -3,7 +3,13 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 
 export type SavedItem = { id: string; title: string; slug: string };
 export type HistoryItem = SavedItem & { ts: number };
-export type Clipping = { id: string; quote: string; title: string; author: string | null; slug: string; ts: number };
+// A clipping is either a highlighted quote (turned into a quote image) or a
+// saved comic image. `kind` distinguishes them; quote fields are empty for comics.
+export type Clipping = {
+  id: string; ts: number; title: string;
+  kind?: 'quote' | 'comic';
+  quote?: string; author?: string | null; slug?: string; image?: string | null;
+};
 
 type Ctx = {
   favorites: SavedItem[];
