@@ -21,6 +21,8 @@ export type AdRow = {
   competitors: string;   // comma-separated rival terms — hide this ad if any appear in the article
   imageWide?: string | null; // wide banner creative (~3:1) for the in-article slot
   imageRect?: string | null; // rectangle creative (~1.2:1) for the bottom slot
+  video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
+  videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
 };
 

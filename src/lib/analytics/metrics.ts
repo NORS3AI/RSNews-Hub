@@ -81,6 +81,30 @@ export function aggregateEngagement(evs: Ev[], splitBy: string): EngRow[] {
     .sort((a, b) => b.impressions - a.impressions);
 }
 
+type VideoRow = { key: string; views: number; q25: number; q50: number; q75: number; q100: number; completionRate: number };
+
+// Video ads: a playback funnel. Quartiles fire once per impression, so `views`
+// = starts (quartile 0) and completionRate = finishes ÷ starts. Split by
+// creative or campaign to compare which video holds attention longest.
+export function aggregateVideo(evs: Ev[], splitBy: string): VideoRow[] {
+  const g = new Map<string, { v: number; q25: number; q50: number; q75: number; q100: number }>();
+  const ensure = (k: string) => { let r = g.get(k); if (!r) { r = { v: 0, q25: 0, q50: 0, q75: 0, q100: 0 }; g.set(k, r); } return r; };
+  for (const e of evs) {
+    if (e.type !== 'video' || e.subjectType !== 'ad') continue;
+    const row = ensure(splitDim(e, splitBy));
+    switch (num(e.props.quartile)) {
+      case 0: row.v++; break;
+      case 25: row.q25++; break;
+      case 50: row.q50++; break;
+      case 75: row.q75++; break;
+      case 100: row.q100++; break;
+    }
+  }
+  return [...g.entries()].map(([key, r]) => ({
+    key, views: r.v, q25: r.q25, q50: r.q50, q75: r.q75, q100: r.q100, completionRate: pct(r.q100, r.v),
+  })).sort((a, b) => b.views - a.views);
+}
+
 // Reading outcomes per article: opens, unique readers, avg active time, and how
 // far people scrolled.
 export function aggregateReading(evs: Ev[]) {

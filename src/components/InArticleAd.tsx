@@ -1,5 +1,6 @@
 import type { AdRow } from '@/lib/ads';
 import AdSlot from '@/components/AdSlot';
+import VideoAd from '@/components/site/VideoAd';
 
 /**
  * Presentational house ad shown inside an article. The `ad` is already chosen
@@ -15,6 +16,10 @@ export default function InArticleAd({
   if (!ad) return <AdSlot size={size} slot={slot} />;
 
   const rect = size === 'rectangle';
+  // A video creative is silent/looping and only fits the rectangle slot.
+  if (rect && ad.video) {
+    return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} />;
+  }
   const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
   const orange = tone === 'orange';
 

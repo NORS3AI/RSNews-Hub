@@ -95,10 +95,6 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   is delivery option (a): the admin views/exports and hands it over. Still 🟠
   open if wanted: option (b), a real **advertiser login** with a filtered
   read-only dashboard (needs an advertiser↔brand mapping + access control).
-- 🔵 **Video-ad quartiles** (25/50/75/100 %, muted/unmuted, autoplay vs click) —
-  once video ads exist.
-- 🔵🟠 **Audience segmentation** — break reports down by member vs vendor, store
-  type, region, tenure — needs member/account data wired in.
 - ✅ **Retention + rollups** _(v0.35.0)_ — nightly job (`src/lib/analytics/rollup.ts`)
   pre-aggregates each UTC day into an `AnalyticsDaily` row and prunes raw events
   past `ANALYTICS_RETENTION_DAYS` (default 365; 0 = keep all). History survives
@@ -114,10 +110,15 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   editable per user in admin; anonymous traffic segments as "Guest". Pure engine
   unit-tested. _(As real members sign up and get tagged, the member/region/store
   splits populate; device/tenure/auth work immediately.)_
-- 🔵 **Video-ad quartiles** — the last open phase-2 item. Not externally blocked:
-  it needs a **video ad format** built first (video creative on `Ad` + a player
-  that fires 25/50/75/100 % + mute/autoplay events), then the quartile report.
-  Buildable in-repo whenever the video-ad format is wanted.
+- ✅ **Video ads + quartiles** _(v0.40.0)_ — silent, muted, in-view autoplay
+  looping video creatives (mp4/webm) in the rectangle slot (`Ad.video` +
+  `videoPoster`; `VideoAd` component). Respects reduced-motion, pauses off-screen,
+  click → advertiser. Reports playback quartiles (start/25/50/75/100, once per
+  view) → a **watch-through funnel** on the dashboard (`aggregateVideo`, compare
+  by creative/campaign/placement). Uploads accept mp4/webm via
+  `/api/uploads?kind=video` (magic-byte validated, `UPLOAD_VIDEO_MAX_MB` cap).
+  GIFs still work as image creatives (no quartiles). Funnel math + video-sniff
+  unit-tested; upload/serve/render/ingest verified end-to-end.
 
 ---
 

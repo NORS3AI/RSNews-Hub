@@ -1,8 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { ctr, pct, splitDim, aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, advertiserList, advertiserReport, adTrend, type Ev } from './metrics';
+import { ctr, pct, splitDim, aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, advertiserList, advertiserReport, adTrend, type Ev } from './metrics';
 import { toCsv } from './csv';
 
 const ev = (p: Partial<Ev>): Ev => ({ type: 'impression', props: {}, createdAt: new Date('2026-01-01'), ...p });
+
+describe('aggregateVideo', () => {
+  const vid = (creativeId: string, quartile: number) =>
+    ev({ type: 'video', subjectType: 'ad', props: { quartile, creativeId } });
+
+  it('builds a per-creative quartile funnel with completion rate', () => {
+    const rows = aggregateVideo([
+      // creative A: 4 views, 3 reach 25/50, 2 reach 75, 1 completes
+      vid('A', 0), vid('A', 0), vid('A', 0), vid('A', 0),
+      vid('A', 25), vid('A', 25), vid('A', 25),
+      vid('A', 50), vid('A', 50), vid('A', 50),
+      vid('A', 75), vid('A', 75),
+      vid('A', 100),
+      // creative B: 1 view, completes
+      vid('B', 0), vid('B', 25), vid('B', 50), vid('B', 75), vid('B', 100),
+    ], 'creative');
+    const a = rows.find((r) => r.key === 'A')!;
+    expect(a).toMatchObject({ views: 4, q25: 3, q50: 3, q75: 2, q100: 1 });
+    expect(a.completionRate).toBe(0.25); // 1 / 4
+    expect(rows.find((r) => r.key === 'B')!.completionRate).toBe(1);
+  });
+
+  it('ignores non-video and non-ad events, sorts by views', () => {
+    const rows = aggregateVideo([
+      vid('A', 0), vid('A', 0), vid('B', 0),
+      ev({ type: 'impression', subjectType: 'ad', props: { creativeId: 'A' } }), // not a video event
+      ev({ type: 'video', subjectType: 'article', props: { quartile: 0, creativeId: 'X' } }), // not an ad
+    ], 'creative');
+    expect(rows.map((r) => r.key)).toEqual(['A', 'B']); // A (2 views) before B (1)
+    expect(rows.every((r) => r.key !== 'X')).toBe(true);
+  });
+});
 
 describe('ratio helpers', () => {
   it('ctr guards divide-by-zero', () => {

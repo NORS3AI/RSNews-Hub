@@ -10,6 +10,7 @@ export type EventType =
   | 'clip'         // clippings actions (save/download/delete/expand/view)
   | 'save'         // favorite / read-later / pin
   | 'search'
+  | 'video'        // video-ad playback progress (props.quartile: 0|25|50|75|100)
   | 'nav';         // carousel arrows, module nav, etc.
 
 export type SubjectType = 'ad' | 'article' | 'module' | 'clip' | 'search' | 'hub';
@@ -27,4 +28,4 @@ export type ClientEvent = {
   props?: Record<string, unknown>;
 };
 
-export const EVENT_TYPES: EventType[] = ['pageview', 'impression', 'click', 'article_open', 'read', 'clip', 'save', 'search', 'nav'];
+export const EVENT_TYPES: EventType[] = ['pageview', 'impression', 'click', 'article_open', 'read', 'clip', 'save', 'search', 'video', 'nav'];
