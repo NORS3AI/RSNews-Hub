@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
-import AdSlot from '@/components/AdSlot';
+import InArticleAd from '@/components/InArticleAd';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
 import { useSaved } from './StarProvider';
@@ -142,8 +142,8 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       <img src={a.coverImage} alt="" className="mt-6 aspect-[16/9] w-full rounded-xl object-cover" />
                     )}
 
-                    {/* In-article ad #1 */}
-                    <div className="my-6"><AdSlot size="in-article" slot="modal-top" /></div>
+                    {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
+                    <div className="my-6"><InArticleAd context={`${a.title} ${a.content} ${a.tags.map((t) => t.name).join(' ')}`} slot="modal-top" size="in-article" /></div>
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''} dangerouslySetInnerHTML={{ __html: a.content }} />
 
@@ -156,8 +156,8 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       </div>
                     )}
 
-                    {/* In-article ad #2 */}
-                    <div className="my-8 flex justify-center"><AdSlot size="rectangle" slot="modal-bottom" /></div>
+                    {/* In-article ad #2 — contextually safe */}
+                    <div className="my-8 flex justify-center"><InArticleAd context={`${a.title} ${a.content} ${a.tags.map((t) => t.name).join(' ')}`} slot="modal-bottom" size="rectangle" /></div>
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
