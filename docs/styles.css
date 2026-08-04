@@ -2,7 +2,7 @@
    flat orange (#E97D34), left collapsible sidebar, bigger type. */
 :root {
   --orange:#E97D34; --orange-press:#d76f28; --orange-soft:rgba(233,125,52,.14);
-  --bg:#ac8c62; --bg-2:#a1814f;
+  --bg:#2b333c; --bg-2:#20262d;
   --fg:#241d13; --muted:#6f6553; --border:#e6dcc9;
   --card-top:#fefcf8; --card-bot:#f2ece0;
   --tile-top:#faf6ee; --tile-bot:#efe7d9;
@@ -28,11 +28,16 @@
 html { -webkit-text-size-adjust:100%; }
 body {
   margin:0; color:var(--fg); font-size:16px; line-height:1.55;
-  background:var(--bg) url("assets/bg-cardboard.jpg") center center / cover no-repeat fixed;
+  background-color:var(--bg);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing:antialiased;
 }
-:root.dark body { background-image:none; }
+/* Viewport-locked background: stays put on scroll, never stretches with page
+   height (fixes iOS ignoring background-attachment:fixed on tall pages). */
+body::before {
+  content:""; position:fixed; inset:0; z-index:-1;
+  background:var(--bg) url("assets/bg-dark.jpg") center center / cover no-repeat;
+}
 body.modal-open { overflow:hidden; }
 a { color:inherit; text-decoration:none; }
 img { max-width:100%; display:block; }

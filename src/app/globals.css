@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --bg: #ac8c62;          /* darker cardboard page */
-  --bg-soft: #b6976e;
+  --bg: #2b333c;          /* dark textured page surround */
+  --bg-soft: #333d47;
   --fg: #241d13;
   --muted: #6f6553;
   --border: #e6dcc9;
@@ -34,16 +34,23 @@ body {
   color: var(--fg);
   font-size: 16px;
   line-height: 1.55;
-  background: var(--bg) url('/bg-cardboard.jpg') center center / cover no-repeat fixed;
+  background-color: var(--bg);
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
+}
+/* Viewport-locked background: stays put on scroll, never stretches with page
+   height (fixes iOS ignoring background-attachment:fixed on tall pages). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg) url('/bg-dark.jpg') center center / cover no-repeat;
 }
 /* Module header with an orange accent tick, matching the preview. */
 .module-title { @apply flex items-center gap-2.5 text-2xl font-black tracking-tight; }
 .module-title::before { content: ''; @apply inline-block h-[22px] w-[5px] rounded-full bg-brand-600; }
 .module-orange .module-title::before { @apply bg-white/85; }
-/* Dark mode: drop the light cardboard photo, use the deep base color. */
-.dark body { background-image: none; background-color: var(--bg); }
 
 @layer components {
   .container-page { @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8; }
