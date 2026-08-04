@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { updateUser } from '@/lib/actions';
-import { ROLES, USER_STATUSES } from '@/lib/constants';
+import { ROLES, USER_STATUSES, ACCOUNT_TYPES } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -53,6 +53,22 @@ export default async function EditUser(props: { params: Promise<{ id: string }> 
             <select id="status" name="status" defaultValue={user.status} disabled={isSelf} className="input disabled:opacity-60">
               {USER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="accountType">Account type <span className="font-normal text-[var(--muted)]">(for analytics)</span></label>
+            <select id="accountType" name="accountType" defaultValue={(user as any).accountType ?? 'MEMBER'} className="input">
+              {ACCOUNT_TYPES.map((t) => <option key={t} value={t}>{t[0] + t.slice(1).toLowerCase()}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="storeType">Store type <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+            <input id="storeType" name="storeType" defaultValue={(user as any).storeType ?? ''} className="input" placeholder="e.g. franchise" />
+          </div>
+          <div>
+            <label className="label" htmlFor="region">Region <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+            <input id="region" name="region" defaultValue={(user as any).region ?? ''} className="input" placeholder="e.g. Northeast" />
           </div>
         </div>
         <div>

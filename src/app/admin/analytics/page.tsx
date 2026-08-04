@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { loadEvents, totalEventCount } from '@/lib/analytics/query';
+import { loadEvents, totalEventCount, loadUserInfo } from '@/lib/analytics/query';
 import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, ctr } from '@/lib/analytics/metrics';
+import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
 import { rebuildAnalyticsRollups } from '@/lib/actions';
 import ReportTable from '@/components/admin/ReportTable';
@@ -26,6 +27,8 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const days = DAYS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 30;
   const adSplit = AD_SPLITS.some((s) => s[0] === searchParams.adSplit) ? searchParams.adSplit! : 'placement';
   const artSplit = ART_SPLITS.some((s) => s[0] === searchParams.artSplit) ? searchParams.artSplit! : 'module';
+  const audSplit = (AUDIENCE_DIMS.some((s) => s[0] === searchParams.audSplit) ? searchParams.audSplit! : 'accountType') as AudienceDim;
+  const audLabel = (AUDIENCE_DIMS.find((s) => s[0] === audSplit) ?? (['', 'Account type'] as const))[1];
 
   const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
   const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
@@ -48,9 +51,11 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const eng = aggregateEngagement(events, artSplit);
   const reading = aggregateReading(events);
   const clips = aggregateClips(events);
+  const userInfo = await loadUserInfo(events, new Date());
+  const audience = aggregateAudience(events, audSplit, userInfo);
 
   const url = (p: Record<string, string | number>) => {
-    const q = new URLSearchParams({ days: String(days), adSplit, artSplit, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) });
+    const q = new URLSearchParams({ days: String(days), adSplit, artSplit, audSplit, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) });
     return `/admin/analytics?${q.toString()}`;
   };
 
@@ -121,6 +126,18 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
               <BarList title="By device" rows={ov.byDevice} />
               <BarList title="By page" rows={ov.byPage} />
             </div>
+          </section>
+
+          {/* ---------- Audience segmentation ---------- */}
+          <section>
+            <SectionTitle>Audience — who is engaging</SectionTitle>
+            <Compare current={audSplit} options={AUDIENCE_DIMS as unknown as [string, string][]} makeHref={(v) => url({ audSplit: v })} />
+            <ReportTable
+              columns={[{ key: 'key', label: audLabel }, { key: 'visitors', label: 'Visitors', type: 'int' }, { key: 'sessions', label: 'Sessions', type: 'int' }, { key: 'pageviews', label: 'Pageviews', type: 'int' }, { key: 'articleOpens', label: 'Opens', type: 'int' }, { key: 'opensPerSession', label: 'Opens/session', type: 'num' }]}
+              rows={audience.slice(0, 50)}
+              filename={`audience-by-${audSplit}-${days}d`}
+            />
+            <p className="mt-1.5 text-xs text-[var(--muted)]">Anonymous visitors show as <strong>Guest</strong>. <strong>Account type</strong> (member/vendor/staff), <strong>region</strong> and <strong>store type</strong> come from each account; set them on <Link href="/admin/users" className="text-brand-600 hover:underline">Users</Link>. <strong>Tenure</strong> is measured from signup.</p>
           </section>
 
           {/* ---------- Ads ---------- */}
