@@ -75,7 +75,7 @@ export default async function DocsHome() {
               {trending.map((a, i) => (
                 <ArticleLink key={a.id} slug={a.slug} className="flex items-center gap-3.5 py-3 hover:opacity-90">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-sm font-extrabold text-white">{i + 1}</span>
-                  <span className="line-clamp-2 flex-1 font-bold leading-tight">{a.title}</span>
+                  <span className="flex-1 text-lg font-extrabold leading-tight tracking-tight">{a.title}</span>
                   <span className="flex shrink-0 items-center gap-1.5 text-sm text-[var(--muted)]"><Eye width={14} height={14} />{a.views}</span>
                 </ArticleLink>
               ))}
@@ -95,8 +95,7 @@ export default async function DocsHome() {
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
                   <ArticleLink slug={a.slug} className="block py-4">
                     {a.category && <span className="text-xs font-bold" style={{ color: a.category.color }}>{a.category.name}</span>}
-                    <h3 className="mt-1 line-clamp-2 pr-[76px] text-xl font-extrabold leading-snug tracking-tight group-hover:text-brand-600">{a.title}</h3>
-                    {a.excerpt && <p className="mt-1.5 line-clamp-1 text-[15px] text-[var(--muted)]">{a.excerpt}</p>}
+                    <h3 className="mt-1 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight group-hover:text-brand-600">{a.title}</h3>
                     <div className="mt-2 flex items-center gap-3.5 text-xs text-[var(--muted)]">
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={13} height={13} />{a.readMinutes} min</span>
@@ -155,7 +154,7 @@ export default async function DocsHome() {
                 </div>
                 <ArticleLink slug={a.slug} className="flex flex-1 flex-col">
                   <span className="text-xs font-extrabold uppercase tracking-wide text-white/85">{a.category?.name ?? 'News'}</span>
-                  <h3 className="mt-1.5 line-clamp-3 pr-[76px] text-xl font-extrabold leading-tight tracking-tight">{a.title}</h3>
+                  <h3 className="mt-1.5 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight">{a.title}</h3>
                   <div className="mt-auto flex items-center gap-3 pt-3 text-[13px] text-white/85">
                     <span>{formatDate(a.publishedAt)}</span>
                     <span>{a.readMinutes} min read</span>

@@ -35,7 +35,7 @@ export default async function ArchivePage() {
                 <li key={a.id}>
                   <Link href={`/docs/article/${a.slug}`} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-[var(--bg-soft)]">
                     <span className="min-w-0 flex-1">
-                      <span className="line-clamp-1 font-medium">{a.title}</span>
+                      <span className="font-medium">{a.title}</span>
                       {a.status === 'ARCHIVED' && <span className="ml-2 text-xs text-amber-600">archived</span>}
                     </span>
                     {a.category && <span className="hidden shrink-0 text-xs sm:inline" style={{ color: a.category.color }}>{a.category.name}</span>}
