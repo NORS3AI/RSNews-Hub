@@ -255,6 +255,8 @@
      represented by a rival brand. Neutral house ads (group:null) are safe. */
   var AD_BRANDS = [
     { name: 'PackageHub', group: 'shipping-software', aliases: ['packagehub', 'package hub', 'pack and ship', 'pack & ship', 'pack-and-ship'] },
+    { name: 'PackWise', group: 'packing-supplies', aliases: ['packwise', 'pack wise', 'packing supplies', 'bubble wrap'] },
+    { name: 'PrintPilot', group: 'printing', aliases: ['printpilot', 'print pilot', 'business cards', 'flyers'] },
     { name: 'PostalMate', group: 'shipping-software', aliases: ['postalmate', 'postal mate'] },
     { name: 'ShipRite', group: 'shipping-software', aliases: ['shiprite', 'ship-rite', 'ship rite'] },
     { name: 'Stamps.com', group: 'shipping-software', aliases: ['stamps.com', 'stamps .com'] },
@@ -268,6 +270,8 @@
   ];
   var HOUSE_ADS = [
     { id: 'packagehub', brand: 'PackageHub', group: 'shipping-software', label: 'Pack & ship network', headline: 'PackageHub Business Centers — solutions for independent pack & ship stores.', cta: 'Learn more', href: '#', accent: '#1f3a5f', imageWide: 'ads/packagehub-banner.png', imageRect: 'ads/packagehub-rect.png' },
+    { id: 'packwise', brand: 'PackWise', group: 'packing-supplies', label: 'Packing supplies', headline: 'PackWise — bubble wrap, tape, labels and everything to pack, ship and deliver with confidence.', cta: 'Shop now', href: '#', accent: '#4e8a2e', imageWide: 'ads/packwise-banner.png', imageRect: 'ads/packwise-rect.png' },
+    { id: 'printpilot', brand: 'PrintPilot', group: 'printing', label: 'Printing', headline: 'PrintPilot Solutions — business cards, flyers, labels, signs & more.', cta: 'Get started', href: '#', accent: '#6b2fb3', imageWide: 'ads/printpilot-banner.png', imageRect: 'ads/printpilot-rect.png' },
     { id: 'postalmate', brand: 'PostalMate', group: 'shipping-software', label: 'Shipping & POS software', headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.', cta: 'Start free trial', href: '#', accent: '#2f6f4f' },
     { id: 'shiprite', brand: 'ShipRite', group: 'shipping-software', label: 'Shipping software', headline: 'ShipRite — multi-carrier shipping and store management, built for pack-and-ship stores.', cta: 'Book a demo', href: '#', accent: '#2b5a86' },
     { id: 'stripe', brand: 'Stripe', group: 'payments', label: 'Payments', headline: 'Stripe — accept payments and grow revenue with a few lines of code.', cta: 'Get started', href: '#', accent: '#5a54d6' },
