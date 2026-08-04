@@ -56,8 +56,10 @@ export class JwtIdentityProvider implements IdentityProvider {
     if (!token) return null;
     try {
       const { payload } = await jwtVerify(token, key, {
+        algorithms: ['HS256'],          // pin the alg — no alg-confusion / "none" downgrade
         issuer: process.env.PARENT_JWT_ISSUER || undefined,
         audience: process.env.PARENT_JWT_AUDIENCE || undefined,
+        clockTolerance: 5,              // small leeway for clock skew
       });
       return memberFromClaims(payload as Record<string, unknown>);
     } catch (e) {

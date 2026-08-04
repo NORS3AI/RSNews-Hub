@@ -15,5 +15,22 @@ const nextConfig = {
       { source: '/main', destination: '/docs', permanent: false },
     ];
   },
+  // Baseline security headers on every response. The hub is meant to be embedded
+  // in the parent RS News site, so we DON'T blanket-deny framing — instead we
+  // scope who may frame us via CSP `frame-ancestors` (set FRAME_ANCESTORS to the
+  // parent origin(s), space-separated; defaults to same-origin only).
+  async headers() {
+    const frameAncestors = process.env.FRAME_ANCESTORS?.trim() || "'self'";
+    return [{
+      source: '/:path*',
+      headers: [
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'X-DNS-Prefetch-Control', value: 'off' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+        { key: 'Content-Security-Policy', value: `frame-ancestors ${frameAncestors};` },
+      ],
+    }];
+  },
 };
 export default nextConfig;
