@@ -18,6 +18,15 @@ export default function InArticleAd({
   const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
   const orange = tone === 'orange';
 
+  // Analytics: separate placement (slot) / creative (ad id) / campaign (brand)
+  // identifiers + format + shape, so the same ad can be compared across slots.
+  const trk = {
+    'data-trk-type': 'ad',
+    'data-trk-id': ad.id,
+    'data-trk-place': slot,
+    'data-trk-props': JSON.stringify({ brand: ad.brand, campaignId: ad.brand, creativeId: ad.id, format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner' }),
+  } as const;
+
   // Image creative — render the artwork with a small "Ad" chip. On the homepage
   // the card is orange and pads the art into a frame; in-article stays neutral.
   if (image) {
@@ -26,6 +35,7 @@ export default function InArticleAd({
         href={ad.href}
         data-ad-slot={slot}
         data-ad-brand={ad.brand}
+        {...trk}
         aria-label={`Advertisement: ${ad.brand}`}
         className={`relative mx-auto block w-full overflow-hidden ${orange ? 'rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
@@ -41,6 +51,7 @@ export default function InArticleAd({
     <div
       data-ad-slot={slot}
       data-ad-brand={ad.brand}
+      {...trk}
       aria-label="Advertisement"
       className={`mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect ? 'max-w-[340px]' : ''}`}
       style={{ boxShadow: 'var(--shadow-card)' }}

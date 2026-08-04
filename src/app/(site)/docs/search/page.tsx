@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { smartSearch } from '@/lib/recommend';
 import ArticleCard from '@/components/ArticleCard';
 import SearchBar from '@/components/SearchBar';
+import SearchTracker from '@/components/site/SearchTracker';
 import { Search } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
@@ -29,9 +30,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         </div>
       )}
 
+      {q && <SearchTracker q={q} count={results.length} />}
+
       {results.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((a) => <ArticleCard key={a.id} article={a} />)}
+          {results.map((a, i) => <ArticleCard key={a.id} article={a} trk={{ place: 'search', props: { module: 'search', moduleType: 'grid', pos: i } }} />)}
         </div>
       )}
 

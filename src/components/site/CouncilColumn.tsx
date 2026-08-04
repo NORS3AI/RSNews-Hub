@@ -16,8 +16,9 @@ export default function CouncilColumn({ items }: { items: CouncilItem[] }) {
       </div>
 
       <div className="divide-y divide-[var(--border)]">
-        {items.map((a) => (
-          <ArticleLink key={a.slug} slug={a.slug} className="council-entry group block cursor-pointer py-5 first:pt-0">
+        {items.map((a, i) => (
+          <ArticleLink key={a.slug} slug={a.slug} className="council-entry group block cursor-pointer py-5 first:pt-0"
+            data-trk-type="article" data-trk-id={a.slug} data-trk-place="council" data-trk-props={JSON.stringify({ module: 'council', moduleType: 'column', pos: i, hasImage: false, label: 'council' })}>
             <h3 className="font-serif text-[19px] font-bold leading-snug tracking-tight group-hover:text-[#b91c1c]">{a.title}</h3>
             <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
               {a.author ?? 'RS Council'}{a.publishedAt ? ` · ${a.publishedAt}` : ''}

@@ -1,0 +1,146 @@
+// Pure aggregation over parsed analytics events. No DB / server imports, so the
+// whole reporting engine is unit-testable. query.ts fetches rows and hands
+// plain objects here; the admin dashboard renders the results.
+
+export type Ev = {
+  type: string;
+  subjectType?: string | null;
+  subjectId?: string | null;
+  placement?: string | null;
+  pageType?: string | null;
+  device?: string | null;
+  visitorId?: string | null;
+  userId?: string | null;
+  sessionId?: string | null;
+  value?: number | null;
+  props: Record<string, unknown>;
+  createdAt: Date | string;
+};
+
+const num = (v: unknown): number => (typeof v === 'number' && isFinite(v) ? v : 0);
+export const ctr = (clicks: number, exposures: number): number => (exposures > 0 ? clicks / exposures : 0);
+export const pct = (part: number, whole: number): number => (whole > 0 ? part / whole : 0);
+export const uniq = (xs: (string | null | undefined)[]): number => new Set(xs.filter(Boolean)).size;
+
+// Resolve the value of a split dimension for one event.
+export function splitDim(e: Ev, dim: string): string {
+  switch (dim) {
+    case 'placement': return e.placement || '—';
+    case 'pageType': return e.pageType || '—';
+    case 'device': return e.device || '—';
+    case 'module': return String(e.props.module ?? e.placement ?? '—');
+    case 'moduleType': return String(e.props.moduleType ?? '—');
+    case 'hasImage': return e.props.hasImage ? 'with image' : 'no image';
+    case 'position': return `slot ${num(e.props.pos)}`;
+    case 'creative': return String(e.props.creativeId ?? e.subjectId ?? '—');
+    case 'campaign': return String(e.props.campaignId ?? e.props.brand ?? '—');
+    case 'format': return String(e.props.format ?? '—');
+    case 'shape': return String(e.props.shape ?? '—');
+    case 'category': return String(e.props.category ?? '—');
+    default: return String((e.props as Record<string, unknown>)[dim] ?? '—');
+  }
+}
+
+type AdRow = { key: string; impressions: number; viewable: number; clicks: number; ctr: number; avgDwellMs: number; aboveFoldPct: number };
+
+// Ads: exposure (impression/viewable/above-fold/dwell) + interaction (clicks).
+export function aggregateAds(evs: Ev[], splitBy: string): AdRow[] {
+  const g = new Map<string, { imp: number; view: number; clk: number; dwell: number; dwellN: number; af: number }>();
+  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, view: 0, clk: 0, dwell: 0, dwellN: 0, af: 0 }; g.set(k, v); } return v; };
+  for (const e of evs) {
+    if (e.subjectType !== 'ad') continue;
+    const row = ensure(splitDim(e, splitBy));
+    if (e.type === 'impression') {
+      row.imp++;
+      if (e.props.viewable) row.view++;
+      if (e.props.aboveFold) row.af++;
+      const d = num(e.props.dwellMs ?? e.value);
+      if (d > 0) { row.dwell += d; row.dwellN++; }
+    } else if (e.type === 'click') row.clk++;
+  }
+  return [...g.entries()].map(([key, r]) => ({
+    key, impressions: r.imp, viewable: r.view, clicks: r.clk,
+    ctr: ctr(r.clk, r.view || r.imp), avgDwellMs: r.dwellN ? Math.round(r.dwell / r.dwellN) : 0, aboveFoldPct: pct(r.af, r.imp),
+  })).sort((a, b) => b.impressions - a.impressions);
+}
+
+type EngRow = { key: string; impressions: number; clicks: number; ctr: number };
+
+// Articles/modules: exposure + interaction grouped by a presentation dimension
+// (module, image vs none, position, …) — the "smart compare".
+export function aggregateEngagement(evs: Ev[], splitBy: string): EngRow[] {
+  const g = new Map<string, { imp: number; clk: number }>();
+  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, clk: 0 }; g.set(k, v); } return v; };
+  for (const e of evs) {
+    if (e.subjectType !== 'article') continue;
+    const row = ensure(splitDim(e, splitBy));
+    if (e.type === 'impression') row.imp++;
+    else if (e.type === 'click') row.clk++;
+  }
+  return [...g.entries()].map(([key, r]) => ({ key, impressions: r.imp, clicks: r.clk, ctr: ctr(r.clk, r.imp) }))
+    .sort((a, b) => b.impressions - a.impressions);
+}
+
+// Reading outcomes per article: opens, unique readers, avg active time, and how
+// far people scrolled.
+export function aggregateReading(evs: Ev[]) {
+  const opens = evs.filter((e) => e.type === 'article_open');
+  // Finalized reads carry activeMs + the max scrollPct reached (one per read).
+  const reads = evs.filter((e) => e.type === 'read' && e.props.milestone == null);
+  const activeMs = reads.map((e) => num(e.props.activeMs ?? e.value)).filter((n) => n > 0);
+  const scrolls = reads.map((e) => num(e.props.scrollPct)).filter((n) => n > 0);
+  // Reach = share of reads whose *max* scroll depth crossed each mark (so one
+  // read counts at most once per bucket — never >100%).
+  const denom = reads.length || 1;
+  const reached = (m: number) => reads.filter((e) => num(e.props.scrollPct) >= m).length;
+  return {
+    opens: opens.length,
+    uniqueReaders: uniq(opens.map((e) => e.visitorId)),
+    avgActiveMs: activeMs.length ? Math.round(activeMs.reduce((a, b) => a + b, 0) / activeMs.length) : 0,
+    avgScrollPct: scrolls.length ? Math.round(scrolls.reduce((a, b) => a + b, 0) / scrolls.length) : 0,
+    reach: { 25: pct(reached(25), denom), 50: pct(reached(50), denom), 75: pct(reached(75), denom), 100: pct(reached(100), denom) },
+    bounces: reads.filter((e) => num(e.props.activeMs ?? e.value) < 5000).length,
+  };
+}
+
+// Clippings funnel + action mix.
+export function aggregateClips(evs: Ev[]) {
+  const clips = evs.filter((e) => e.type === 'clip');
+  const by = (a: string) => clips.filter((e) => e.props.action === a);
+  const saves = by('save');
+  return {
+    saves: saves.length,
+    savers: uniq(saves.map((e) => e.visitorId)),
+    byKind: { comic: saves.filter((e) => e.props.kind === 'comic').length, quote: saves.filter((e) => e.props.kind === 'quote').length },
+    downloads: by('download').length,
+    deletes: by('delete').length,
+    expands: by('expand').length,
+    copies: by('copy').length,
+    opens: by('open').length,
+  };
+}
+
+// Top-level hub engagement.
+export function aggregateOverview(evs: Ev[]) {
+  const pv = evs.filter((e) => e.type === 'pageview');
+  const sessions = uniq(evs.map((e) => e.sessionId));
+  const opens = evs.filter((e) => e.type === 'article_open');
+  const visitors = uniq(evs.map((e) => e.visitorId));
+  const byDevice = tally(evs.filter((e) => e.type === 'pageview'), (e) => e.device || 'unknown');
+  const byPage = tally(pv, (e) => e.pageType || 'other');
+  return {
+    pageviews: pv.length,
+    visitors,
+    loggedInVisitors: uniq(evs.filter((e) => e.userId).map((e) => e.visitorId)),
+    sessions,
+    articleOpens: opens.length,
+    opensPerSession: sessions ? +(opens.length / sessions).toFixed(2) : 0,
+    byDevice, byPage,
+  };
+}
+
+export function tally<T>(items: T[], keyFn: (t: T) => string): { key: string; count: number }[] {
+  const m = new Map<string, number>();
+  for (const it of items) { const k = keyFn(it); m.set(k, (m.get(k) ?? 0) + 1); }
+  return [...m.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+}

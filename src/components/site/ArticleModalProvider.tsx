@@ -7,6 +7,7 @@ import type { AdRow } from '@/lib/ads';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
 import { useSaved } from './StarProvider';
+import { track } from '@/lib/analytics/track';
 
 type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null;
@@ -102,6 +103,41 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
   }, [slug, close]);
 
   const a = data?.article;
+
+  // Reading analytics: open event, active reading time (visible only), and
+  // scroll-depth milestones (25/50/75/100). Finalized as a `read` event when the
+  // article changes or the reader closes.
+  const readRef = useRef<{ id: string; openedAt: number; activeMs: number; lastTick: number; maxPct: number; milestones: Set<number> } | null>(null);
+  useEffect(() => {
+    const art = data?.article;
+    const finalize = () => {
+      const r = readRef.current;
+      if (!r) return;
+      if (document.visibilityState === 'visible') r.activeMs += Date.now() - r.lastTick;
+      track({ type: 'read', subjectType: 'article', subjectId: r.id, pageType: 'article', placement: 'reader',
+        value: Math.round(r.activeMs), props: { activeMs: Math.round(r.activeMs), totalMs: Date.now() - r.openedAt, scrollPct: r.maxPct } });
+      readRef.current = null;
+    };
+    if (!art) { finalize(); return; }
+    if (readRef.current?.id === art.id) return;
+    finalize();
+    readRef.current = { id: art.id, openedAt: Date.now(), activeMs: 0, lastTick: Date.now(), maxPct: 0, milestones: new Set() };
+    track({ type: 'article_open', subjectType: 'article', subjectId: art.id, pageType: 'article', placement: 'reader',
+      props: { category: art.category?.slug, title: art.title } });
+
+    const el = scrollRef.current;
+    const onScroll = () => {
+      const r = readRef.current; if (!r || !el) return;
+      const pct = Math.min(100, Math.round(((el.scrollTop + el.clientHeight) / Math.max(1, el.scrollHeight)) * 100));
+      if (pct > r.maxPct) r.maxPct = pct;
+      for (const m of [25, 50, 75, 100]) {
+        if (pct >= m && !r.milestones.has(m)) { r.milestones.add(m); track({ type: 'read', subjectType: 'article', subjectId: r.id, pageType: 'article', placement: 'reader', value: m, props: { milestone: m } }); }
+      }
+    };
+    const tick = setInterval(() => { const r = readRef.current; if (!r) return; if (document.visibilityState === 'visible') r.activeMs += Date.now() - r.lastTick; r.lastTick = Date.now(); }, 1000);
+    el?.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el?.removeEventListener('scroll', onScroll); clearInterval(tick); };
+  }, [data?.article]);
 
   return (
     <ModalCtx.Provider value={{ openArticle, close }}>

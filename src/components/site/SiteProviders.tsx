@@ -2,6 +2,7 @@
 import { StarProvider } from './StarProvider';
 import { ArticleModalProvider } from './ArticleModalProvider';
 import ReaderClipper from './ReaderClipper';
+import AnalyticsProvider from './AnalyticsProvider';
 
 /**
  * Wraps the public site with the star store + article-modal store. The modal
@@ -13,6 +14,7 @@ export default function SiteProviders({ children }: { children: React.ReactNode 
     <StarProvider>
       <ArticleModalProvider>{children}</ArticleModalProvider>
       <ReaderClipper />
+      <AnalyticsProvider />
     </StarProvider>
   );
 }

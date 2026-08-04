@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
 import { downloadImage } from '@/lib/quoteImage';
+import { track } from '@/lib/analytics/track';
 import { X, Download, Scissors, Check } from '@/components/icons';
 
 /**
@@ -27,6 +28,7 @@ export default function ComicImage({ src, alt, className }: { src: string; alt: 
   function save() {
     if (saved) return;
     addClipping({ kind: 'comic', title: alt, image: src });
+    track({ type: 'clip', subjectType: 'clip', pageType: 'home', props: { action: 'save', kind: 'comic', source: 'comic' } });
     setSaved(true);
   }
 

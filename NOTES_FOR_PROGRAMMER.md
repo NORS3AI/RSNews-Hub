@@ -47,6 +47,7 @@
 | 10 | **Error tracking + logging** (e.g. Sentry). Production errors are currently invisible. | 🟠 dev provisions · 🔵 Claude wires it |
 | 11 | **SEO/ops basics** — sitemap, robots, metadata, domain/DNS/TLS, CDN/caching. | 🟠 dev |
 | 12 | **Content moderation** for any future user-generated input surfaces. | 🟠 dev |
+| 13 | **Analytics phase 2** — video-ad quartiles (needs video ads), audience segmentation by member/store-type (needs member data), and event **retention + rollups** so the dashboard doesn't aggregate raw rows in memory at scale (v1 caps the query window and says so in the UI). | 🔵 Claude can extend · 🟠 dev sizes the DB |
 
 ---
 
@@ -62,6 +63,13 @@
   generate → type-check → test → build, on every PR and push to main. _(v0.26.0)_
 - ✅ **Smart in-article ads** — competitor ads are suppressed inside articles
   (`src/lib/ads.ts`), covered by tests.
+- ✅ **Analytics pipeline v1** — a generic `AnalyticsEvent` table + ingestion API
+  (`/api/analytics/collect`, sendBeacon) + client tracker (`src/lib/analytics/*`,
+  `AnalyticsProvider`) capturing viewable impressions (dwell + above-fold),
+  clicks, article reads (active time + scroll depth), clippings funnel, and
+  search. Admin dashboard at `/admin/analytics` frames Exposure→Interaction→
+  Outcome with "compare by" splits. Separate campaign/creative/placement ids on
+  ads. Pure aggregation is unit-tested. _(v0.28.0)_
 - ✅ **Configurable homepage modules** — every module type (feature showcase,
   RS Council column, comics, poll, quiz, carousels, ads, etc.) is add/reorder/
   lock/hide-able from **Admin → Homepage layout** (`src/lib/homepage.ts` catalog).

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
 import { makeQuoteImage, downloadDataUrl, extractClipText } from '@/lib/quoteImage';
+import { track as trackEv } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Check, X } from '@/components/icons';
 
 type Ctx = { text: string; slug: string; title: string; author: string | null };
@@ -78,6 +79,7 @@ export default function ReaderClipper() {
   function saveClip() {
     if (!clip || saved) return;
     addClipping({ quote: clip.text, title: clip.title, author: clip.author, slug: clip.slug });
+    trackEv({ type: 'clip', subjectType: 'clip', pageType: 'article', props: { action: 'save', kind: 'quote', slug: clip.slug, source: 'reader' } });
     setSaved(true);
   }
 
