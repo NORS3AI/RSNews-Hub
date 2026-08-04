@@ -60,11 +60,11 @@ export default function ClippingsList() {
           No clippings yet. While reading any article, highlight a passage and tap <strong>Clip</strong> — it becomes a branded quote image you can save, download, and share.
         </p>
       ) : view === 'images' ? (
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {clippings.map((c) => (
-            <div key={c.id} className="flex flex-col">
+            <div key={c.id} className="card flex flex-col p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageFor(c)} alt="Quote image" loading="lazy" className="w-full rounded-xl border border-[var(--border)] shadow-[var(--shadow-card)]" />
+              <img src={imageFor(c)} alt="Quote image" loading="lazy" className="w-full rounded-lg" />
               <Actions c={c} />
             </div>
           ))}
