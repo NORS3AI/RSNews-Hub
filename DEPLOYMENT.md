@@ -139,6 +139,31 @@ carry script). To add a non-S3 backend (Cloudinary, GCS…), implement
 `StorageAdapter` in one new file under `src/lib/storage/` and add a case to
 `getAdapter()`.
 
+### 3d. Analytics rollups + retention  **[optional cron]**
+
+Analytics works with no setup, but at scale you want two things: fast trend
+charts and a bounded raw-events table. Both come from the **daily rollup** job
+(`src/lib/analytics/rollup.ts`):
+
+- It pre-aggregates each UTC day into an `AnalyticsDaily` row (powers the
+  **Trends** section of `/admin/analytics`).
+- It then prunes raw `AnalyticsEvent` rows older than `ANALYTICS_RETENTION_DAYS`
+  (default **365**; set `0` to never prune). History survives in the rollups.
+
+Trigger it nightly by having your host's scheduler POST the endpoint with the
+shared secret:
+
+```bash
+curl -X POST https://YOURSITE/api/analytics/rollup \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+Set `CRON_SECRET` in your env. On Vercel add a `vercel.json` cron; on
+Railway/Render use a scheduled job; or use any external cron. Admins can also
+click **Rebuild rollups** on the analytics page at any time (no secret needed —
+it uses the admin session). The job is idempotent and re-rolls the last few days
+to catch late-arriving events.
+
 **Image optimization** is automatic (via `sharp`, a dependency). On upload,
 images are auto-oriented, **stripped of metadata (including GPS)**, downscaled to
 `IMAGE_MAX_DIM` (default 2000px longest edge) and re-encoded to `IMAGE_FORMAT`

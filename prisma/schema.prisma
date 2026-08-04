@@ -296,3 +296,24 @@ model ReadingLog {
   @@index([userId])
   @@index([sessionId])
 }
+
+// Pre-aggregated daily analytics (one row per UTC day). Powers the trends view
+// and, crucially, preserves history so raw AnalyticsEvent rows can be pruned by
+// the retention policy without losing the long-term picture. Counts are summable
+// across days; uniques (visitors/sessions) are per-day distinct — correct as a
+// daily line, not as a range total (the same person across two days is two
+// day-uniques). Rebuilt idempotently by the rollup job.
+model AnalyticsDaily {
+  date          String   @id           // 'YYYY-MM-DD' (UTC)
+  events        Int      @default(0)   // total events that day
+  pageviews     Int      @default(0)
+  visitors      Int      @default(0)   // distinct visitorId that day
+  sessions      Int      @default(0)   // distinct sessionId that day
+  articleOpens  Int      @default(0)
+  reads         Int      @default(0)   // finalized reads (milestone == null)
+  adImpressions Int      @default(0)
+  adViewable    Int      @default(0)
+  adClicks      Int      @default(0)
+  clipSaves     Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
