@@ -8,6 +8,7 @@
   var INDUSTRY = DATA.industry || [];
   var POLLS = DATA.polls || [];
   var COMICS = DATA.comics || [];
+  var QUIZ = DATA.quiz || null;
   var bySlug = {};
   ARTICLES.forEach(function (a) { bySlug[a.slug] = a; });
   var FAV_KEY = 'rsnews_favorites_v1', READ_KEY = 'rsnews_toread_v1', HIST_KEY = 'rsnews_history_v1';
@@ -384,12 +385,85 @@
     var card = document.querySelector('.poll-card');
     if (card) { var tmp = document.createElement('div'); tmp.innerHTML = pollModule(poll); card.replaceWith(tmp.firstChild); }
   }
+  /* ---------- Pop Quiz ---------- */
+  var ICON_CLOCK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  function quizDone(id) { try { return !!localStorage.getItem('rsnews_quiz_' + id); } catch (e) { return false; } }
+  function quizLeftMs() { return QUIZ ? new Date(QUIZ.closesAt).getTime() - Date.now() : 0; }
+  function fmtQuizLeft(ms) {
+    if (ms <= 0) return 'Closed';
+    var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+    if (h >= 1) return h + 'h ' + m + 'm left';
+    var s = Math.floor((ms % 60000) / 1000);
+    return m >= 1 ? m + 'm ' + s + 's left' : s + 's left';
+  }
+  function quizCard() {
+    if (!QUIZ) return '';
+    var left = quizLeftMs(), closed = left <= 0, done = quizDone(QUIZ.id);
+    var timer = '<span class="quiz-timer' + (closed ? ' is-closed' : '') + '" data-quiz-timer="1">' + ICON_CLOCK + ' ' + fmtQuizLeft(left) + '</span>';
+    var body;
+    if (done) {
+      body = '<div class="quiz-note quiz-note-done"><span class="quiz-note-h">' + ICON.check + ' Answer submitted</span>' +
+        '<span class="quiz-note-sub">We&rsquo;ll share the results and answers in an article soon.</span></div>';
+    } else if (closed) {
+      body = '<div class="quiz-note">This quiz has closed. Watch for the results article!</div>';
+    } else {
+      body = '<button class="btn btn-primary quiz-take" data-quiz-open="1">Take the quiz</button>';
+    }
+    return '<section class="module quiz-card">' +
+      '<div class="quiz-head"><span class="quiz-badge">Pop Quiz</span>' + timer + '</div>' +
+      '<h2 class="quiz-title">' + esc(QUIZ.title) + '</h2>' +
+      '<p class="quiz-meta">' + QUIZ.questions.length + ' question' + (QUIZ.questions.length === 1 ? '' : 's') + ' &middot; multiple choice</p>' +
+      body + '</section>';
+  }
+  function openQuizModal() {
+    if (!QUIZ || quizDone(QUIZ.id) || quizLeftMs() <= 0) return;
+    var qs = QUIZ.questions.map(function (q, qi) {
+      var opts = q.options.map(function (o) {
+        return '<label class="quiz-opt"><input type="radio" name="' + esc(q.id) + '" value="' + esc(o.id) + '" data-quiz-radio="1">' + esc(o.label) + '</label>';
+      }).join('');
+      return '<fieldset class="quiz-fs"><legend class="quiz-legend">' + (qi + 1) + '. ' + esc(q.prompt) + '</legend><div class="quiz-opts">' + opts + '</div></fieldset>';
+    }).join('');
+    var html = '<div class="quiz-modal">' +
+      '<div class="quiz-modal-head"><div><span class="quiz-badge">Pop Quiz</span>' +
+      '<h3 class="quiz-modal-title">' + esc(QUIZ.title) + '</h3>' +
+      '<p class="quiz-modal-timer">' + ICON_CLOCK + ' ' + fmtQuizLeft(quizLeftMs()) + '</p></div>' +
+      '<button class="quiz-x" data-dlg-close="1" aria-label="Close">' + ICON.x + '</button></div>' +
+      '<div class="quiz-body">' + qs + '</div>' +
+      '<p class="quiz-err" data-quiz-err="1" style="display:none"></p>' +
+      '<button class="btn btn-primary quiz-submit" data-quiz-submit="1">Submit answers</button>' +
+      '<p class="quiz-fine">One submission per device. Correct answers revealed later.</p></div>';
+    openDialog(html, null);
+  }
+  function submitQuiz() {
+    if (!QUIZ) return;
+    var answered = QUIZ.questions.every(function (q) { return document.querySelector('input[name="' + q.id + '"]:checked'); });
+    var errEl = document.querySelector('[data-quiz-err]');
+    if (!answered) { if (errEl) { errEl.textContent = 'Please answer every question.'; errEl.style.display = 'block'; } return; }
+    // Static preview has no backend — record locally so the card flips to "submitted".
+    try { localStorage.setItem('rsnews_quiz_' + QUIZ.id, '1'); } catch (e) {}
+    closeDialog();
+    var card = document.querySelector('.quiz-card');
+    if (card) { var tmp = document.createElement('div'); tmp.innerHTML = quizCard(); card.replaceWith(tmp.firstChild); }
+    toast('Answer submitted');
+  }
+  // Keep the little countdown ticking on the homepage card.
+  setInterval(function () {
+    if (!QUIZ) return;
+    document.querySelectorAll('[data-quiz-timer]').forEach(function (elm) {
+      var left = quizLeftMs();
+      elm.innerHTML = ICON_CLOCK + ' ' + fmtQuizLeft(left);
+      if (left <= 0) elm.classList.add('is-closed');
+    });
+  }, 1000);
+
   function industryPollRow() {
     var poll = activePoll();
     var ind = INDUSTRY.length ? industryModule() : '';
     var pol = poll ? pollModule(poll) : '';
-    if (ind && pol) return '<div class="ind-poll-row">' + ind + pol + '</div>';
-    return ind || pol;
+    var quiz = quizCard();
+    var aside = (pol || quiz) ? '<div class="ind-aside">' + pol + quiz + '</div>' : '';
+    if (ind && aside) return '<div class="ind-poll-row">' + ind + aside + '</div>';
+    return ind || aside;
   }
   function renderPollsArchive() {
     var h = '<div class="content"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_CHART + ' Polls</h2><a class="link-orange" href="#" data-home="1">Home</a></div>';
@@ -865,6 +939,8 @@
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
     var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
     if (e.target.closest('[data-polls-archive]')) { e.preventDefault(); renderPollsArchive(); return; }
+    if (e.target.closest('[data-quiz-open]')) { e.preventDefault(); openQuizModal(); return; }
+    if (e.target.closest('[data-quiz-submit]')) { e.preventDefault(); submitQuiz(); return; }
     if (e.target.closest('[data-comics-archive]')) { e.preventDefault(); renderComicsArchive(); return; }
     if (e.target.closest('[data-lb-close]')) { e.preventDefault(); closeComicLightbox(); return; }
     if (e.target.closest('[data-comic-dl]')) { e.preventDefault(); if (lightboxComic) downloadImage(lightboxComic.src, comicFileName(lightboxComic.title)); toast('Image downloaded'); return; }

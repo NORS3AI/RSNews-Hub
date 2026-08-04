@@ -41,6 +41,21 @@ async function main() {
 
   const comics = await prisma.comic.findMany({ orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] });
 
+  // Active Pop Quiz for the preview. Correct flags are intentionally omitted so
+  // the answers never reach the client. The static demo can't collect real
+  // responses, so we refresh closesAt to build-time + 44h each build to keep the
+  // countdown live in the snapshot.
+  const activeQuiz = await prisma.quiz.findFirst({
+    where: { active: true },
+    orderBy: { createdAt: 'desc' },
+    include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } },
+  });
+  const quiz = activeQuiz ? {
+    id: activeQuiz.id, title: activeQuiz.title,
+    closesAt: new Date(Date.now() + 44 * 3600_000).toISOString(),
+    questions: activeQuiz.questions,
+  } : null;
+
   const data = {
     generatedAt: new Date().toISOString(),
     industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt })),
@@ -49,6 +64,7 @@ async function main() {
     comics: comics.map((c) => ({ id: c.id, title: c.title, image: c.image.startsWith('/') ? c.image.slice(1) : c.image, caption: c.caption, active: c.active, postedAt: c.postedAt })),
     polls: polls.map((p) => ({ id: p.id, question: p.question, active: p.active, closesAt: p.closesAt, createdAt: p.createdAt,
       options: p.options.map((o) => ({ id: o.id, label: o.label, votes: o.votes })) })),
+    quiz,
     articles: articles.map((a) => ({
       id: a.id,
       title: a.title,

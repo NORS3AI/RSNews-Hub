@@ -201,6 +201,46 @@ async function main() {
     });
   }
 
+  // Sample Pop Quiz: one live (closes in 44h) + one archived/closed.
+  if ((await prisma.quiz.count()) === 0) {
+    await prisma.quiz.create({
+      data: {
+        title: 'Shipping & counter trivia', active: true,
+        closesAt: new Date(Date.now() + 44 * 3600_000), submissions: 37,
+        questions: { create: [
+          { prompt: 'What does a package’s "dimensional weight" measure?', order: 0, options: { create: [
+            { label: 'Its size relative to its weight', correct: true, order: 0, count: 21 },
+            { label: 'How much it weighs on a scale', order: 1, count: 9 },
+            { label: 'The thickness of the box wall', order: 2, count: 7 },
+          ] } },
+          { prompt: 'Which class of mail is NOT tracked by default?', order: 1, options: { create: [
+            { label: 'Priority Mail', order: 0, count: 5 },
+            { label: 'First-Class Letter', correct: true, order: 1, count: 26 },
+            { label: 'Ground Advantage', order: 2, count: 6 },
+          ] } },
+          { prompt: 'Best way to cushion a fragile item?', order: 2, options: { create: [
+            { label: 'Two inches of padding on all sides', correct: true, order: 0, count: 24 },
+            { label: 'Fill only the bottom of the box', order: 1, count: 4 },
+            { label: 'Tape the item to the box wall', order: 2, count: 9 },
+          ] } },
+        ] },
+      },
+    });
+    await prisma.quiz.create({
+      data: {
+        title: 'Last week: mailbox know-how', active: false,
+        createdAt: new Date(Date.now() - 9 * 864e5), closesAt: new Date(Date.now() - 7 * 864e5), submissions: 62,
+        questions: { create: [
+          { prompt: 'How long must a business hold a customer’s mail by default?', order: 0, options: { create: [
+            { label: '30 days', order: 0, count: 18 },
+            { label: 'Per the mailbox agreement', correct: true, order: 1, count: 33 },
+            { label: 'Indefinitely', order: 2, count: 11 },
+          ] } },
+        ] },
+      },
+    });
+  }
+
   // Backroom Humor comics: one active (homepage) + two archived.
   if ((await prisma.comic.count()) === 0) {
     // All active by default so the homepage module cycles through them; archive

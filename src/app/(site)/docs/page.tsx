@@ -14,6 +14,7 @@ import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import PollCard from '@/components/site/PollCard';
+import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,14 @@ export default async function DocsHome() {
     where: { active: true },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
+  });
+
+  // Active Pop Quiz within its 48-hour window. Correct flags are NOT selected —
+  // the client must never see the answers.
+  const activeQuiz = await prisma.quiz.findFirst({
+    where: { active: true, closesAt: { gt: new Date() } },
+    orderBy: { createdAt: 'desc' },
+    include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } },
   });
 
   // All homepage-eligible comics; one is picked at random per request so the
@@ -89,17 +98,22 @@ export default async function DocsHome() {
         );
       case 'industry': {
         const hasIndustry = industry.length > 0;
-        if (!hasIndustry && !activePoll) return null;
+        if (!hasIndustry && !activePoll && !activeQuiz) return null;
         const indEl = hasIndustry
           ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
           : null;
         const pollEl = activePoll
           ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} />
           : null;
-        if (indEl && pollEl) {
-          return <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">{indEl}{pollEl}</div>;
+        const quizEl = activeQuiz
+          ? <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} />
+          : null;
+        // Poll + Pop Quiz stack together in the narrower right-hand column.
+        const asideEl = (pollEl || quizEl) ? <div className="flex flex-col gap-6">{pollEl}{quizEl}</div> : null;
+        if (indEl && asideEl) {
+          return <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">{indEl}{asideEl}</div>;
         }
-        return <div key={id}>{indEl ?? pollEl}</div>;
+        return <div key={id}>{indEl ?? asideEl}</div>;
       }
       case 'comic':
         if (!currentComic) return null;

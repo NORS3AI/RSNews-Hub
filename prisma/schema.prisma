@@ -48,6 +48,50 @@ model PollOption {
   order  Int    @default(0)
 }
 
+// "Pop Quiz" — a short multiple-choice quiz with a 48-hour window. One quiz is
+// active at a time; it shows as a small card on the homepage and vanishes (and
+// stops accepting submissions) once `closesAt` passes. Correct answers are kept
+// server-side only (never sent to the client) so staff can reveal them later in
+// a reflection article. Raw submissions are logged in QuizResponse.
+model Quiz {
+  id          String         @id @default(cuid())
+  title       String
+  active      Boolean        @default(true)
+  closesAt    DateTime       // typically createdAt + 48h
+  submissions Int            @default(0)
+  createdAt   DateTime       @default(now())
+  questions   QuizQuestion[]
+  responses   QuizResponse[]
+}
+
+model QuizQuestion {
+  id      String       @id @default(cuid())
+  quizId  String
+  quiz    Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  prompt  String
+  order   Int          @default(0)
+  options QuizOption[]
+}
+
+model QuizOption {
+  id         String       @id @default(cuid())
+  questionId String
+  question   QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String
+  correct    Boolean      @default(false) // admin-only; never exposed publicly
+  count      Int          @default(0)      // times chosen
+  order      Int          @default(0)
+}
+
+// One row per reader submission; `answers` is a JSON map of questionId->optionId.
+model QuizResponse {
+  id        String   @id @default(cuid())
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers   String
+  createdAt DateTime @default(now())
+}
+
 // Curated external "Industry News" links, hand-picked by staff. Shown in a
 // scrollable homepage module. `views` counts click-throughs; `postedAt` is
 // when we added it (not the source's publish date).
