@@ -8,7 +8,7 @@
 > **Legend:** ✅ done · 🔵 Claude can do this in-repo · 🟠 needs a developer/infra ·
 > ❓ open question for the team
 >
-> _Last updated: 2026-08-04 (v0.27.0)_
+> _Last updated: 2026-08-04 (v0.30.0)_
 
 ---
 
@@ -26,14 +26,19 @@
 
 ## 1. Must-do before going live (blockers)
 
+> 📘 **Full walkthrough: [`DEPLOYMENT.md`](./DEPLOYMENT.md)** — copy-paste steps for
+> Railway / Vercel+Neon / Docker. Most of the code work below is now **done**;
+> the dev mainly provides credentials and clicks deploy.
+
 | # | Item | Status | Who |
 |---|------|--------|-----|
-| 1 | **Host the app on a Node server** (Vercel / Railway / Render / Fly). GitHub Pages only serves the static `docs/` preview — it can't run the admin, accounts, APIs, or poll/quiz submissions. | 🟠 | dev/infra |
-| 2 | **Move off SQLite to a hosted database** (Postgres). `dev.db` is a local file and won't persist real data in production. | 🟠 | dev/infra provisions; 🔵 Claude can switch the Prisma datasource + regenerate |
-| 3 | **Set real environment secrets** — `DATABASE_URL` and `AUTH_SECRET`. ⚠️ `AUTH_SECRET` currently falls back to a hard-coded dev value in `src/lib/auth.ts`; **must** be set to a strong secret in prod or sessions are forgeable. | 🟠 | dev/infra |
-| 4 | **Change the seeded admin login** `admin@rsnews.local` / `admin123` (see `prisma/seed.ts`). | 🟠 | dev |
-| 5 | **Adopt Prisma migrations** — the project currently uses `prisma db push` (no migration history). Switch to `prisma migrate` so schema changes apply safely to live data. | 🔵 Claude can generate the initial migration · 🟠 dev runs it against prod |
-| 6 | **Confirm how the `docs/` preview is deployed** (Pages from branch `/docs`?) and whether it should stay public. | 🟠 | dev |
+| 1 | **Host the app on a Node server** (Railway / Vercel / Render / Fly). GitHub Pages only serves the static `docs/` preview. | 🟠 dev picks a host — steps in DEPLOYMENT.md (+ `Dockerfile`, standalone output ready). |
+| 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Turnkey** — schema is Postgres-ready, init SQL generated (`deploy/init.postgres.sql`), 1-line provider switch documented. 🟠 dev provisions the DB. |
+| 3 | **Set real environment secrets** — `DATABASE_URL`, `AUTH_SECRET`. | ✅ **Enforced in code** — `src/lib/env.ts` refuses weak/placeholder `AUTH_SECRET` in prod (login 500s, `/api/health` flags it). 🟠 dev sets the values. |
+| 4 | **No default admin login in prod.** | ✅ **Done** — seed reads `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` and **refuses to run in production** without them. 🟠 dev sets them. |
+| 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Ready** — `db:migrate` / `db:migrate:deploy` scripts + init SQL; DEPLOYMENT.md Step 4. 🟠 dev runs `migrate dev --name init` against Postgres once. |
+| 6 | **Confirm `docs/` preview deploy** (Pages) & whether it stays public. | 🟠 dev — covered in DEPLOYMENT.md §9. |
+| 7 | **Health check** for the host. | ✅ **Done** — `GET /api/health` (DB up/down + config report). |
 
 ---
 
@@ -107,8 +112,10 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 - **Stack:** Next.js 14 (App Router) · TypeScript · Prisma · Tailwind. DB is
   SQLite in dev (`prisma/schema.prisma`, `DATABASE_URL=file:./dev.db`).
-- **Env vars:** `DATABASE_URL` (required), `AUTH_SECRET` (required in prod — has
-  an insecure dev fallback).
+- **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required in
+  prod (validated in `src/lib/env.ts` — a weak `AUTH_SECRET` is rejected at
+  runtime, not silently accepted). Admin seed needs `SEED_ADMIN_EMAIL` /
+  `SEED_ADMIN_PASSWORD` in prod. Full deploy: `DEPLOYMENT.md`.
 - **Two front-ends in one repo:**
   - `src/` — the real Next.js app (dynamic, DB-backed).
   - `docs/` — a **static** snapshot for the GitHub Pages preview (`app.js`,
