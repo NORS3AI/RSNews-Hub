@@ -7,6 +7,7 @@
   var CATEGORIES = DATA.categories || [];
   var INDUSTRY = DATA.industry || [];
   var POLLS = DATA.polls || [];
+  var COMICS = DATA.comics || [];
   var bySlug = {};
   ARTICLES.forEach(function (a) { bySlug[a.slug] = a; });
   var FAV_KEY = 'rsnews_favorites_v1', READ_KEY = 'rsnews_toread_v1', HIST_KEY = 'rsnews_history_v1';
@@ -308,6 +309,25 @@
     }, { root: body, rootMargin: '0px 0px -8% 0px', threshold: 0.02 });
     els.forEach(function (e) { io.observe(e); });
   }
+  /* ---------- Backroom Humor comics ---------- */
+  function currentComic() { return COMICS.filter(function (c) { return c.active; })[0] || null; }
+  function comicModule() {
+    var c = currentComic();
+    if (!c) return '';
+    return '<section class="module"><div class="module-head"><h2>Backroom Humor</h2>' +
+      '<a class="link-orange" href="#" data-comics-archive="1">View all comics</a></div>' +
+      '<figure class="comic-fig"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '">' +
+      '<figcaption>' + esc(c.caption || c.title) + '</figcaption></figure></section>';
+  }
+  function renderComicsArchive() {
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2>😄 Backroom Humor</h2><a class="link-orange" href="#" data-home="1">Home</a></div>';
+    if (!COMICS.length) { h += '<p style="color:var(--muted);margin:0">No comics yet.</p>'; }
+    h += '<div class="comic-grid">' + COMICS.map(function (c) {
+      return '<figure class="comic-card"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '"><figcaption><span class="comic-title">' + esc(c.title) + '</span><span class="comic-date">' + esc(postedLabel(c.postedAt)) + '</span></figcaption></figure>';
+    }).join('') + '</div></section></div>';
+    el('main').innerHTML = h; window.scrollTo(0, 0);
+  }
+
   /* ---------- Reader poll ---------- */
   var ICON_CHART = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="0.5"/><rect x="12" y="7" width="3" height="10" rx="0.5"/><rect x="17" y="13" width="3" height="4" rx="0.5"/></svg>';
   function activePoll() { return POLLS.filter(function (p) { return p.active; })[0] || null; }
@@ -549,6 +569,9 @@
 
     /* Industry News + monthly poll (2-col row) */
     h += industryPollRow();
+
+    /* Backroom Humor comic */
+    h += comicModule();
 
     /* You might like — swipeable carousel */
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
@@ -803,6 +826,7 @@
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
     var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
     if (e.target.closest('[data-polls-archive]')) { e.preventDefault(); renderPollsArchive(); return; }
+    if (e.target.closest('[data-comics-archive]')) { e.preventDefault(); renderComicsArchive(); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;

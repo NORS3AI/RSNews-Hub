@@ -15,6 +15,19 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// "Backroom Humor" comics. The most recent active comic appears on the
+// homepage; the rest live in the comics archive. active=false = archived.
+model Comic {
+  id        String   @id @default(cuid())
+  title     String
+  image     String   // url/path or data URL
+  caption   String?
+  active    Boolean  @default(true)
+  order     Int      @default(0)
+  postedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
 // Monthly reader poll with live results. One poll is typically active at a
 // time; past polls live in the polls archive.
 model Poll {
