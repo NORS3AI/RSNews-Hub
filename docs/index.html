@@ -26,6 +26,7 @@
       <nav class="side-nav">
         <a href="#" data-home="1" class="side-item is-active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg><span class="side-label">Home</span></a>
         <a href="#" data-history="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="side-label">History</span></a>
+        <a href="#" data-clippings="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg><span class="side-label">Clippings</span></a>
         <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5"/></svg><span class="side-label">Categories</span></a>
         <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M10 13h4"/></svg><span class="side-label">Archive</span></a>
         <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="side-label">Subscriptions</span></a>
@@ -70,7 +71,7 @@
           </div>
           <div class="foot-copy" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
             <span>© <span id="yr"></span> RSNews Hub · Static preview</span>
-            <span class="version-badge">v0.16.1</span>
+            <span class="version-badge">v0.17.0</span>
           </div>
         </div>
       </footer>
@@ -78,6 +79,8 @@
   </div>
 
   <div id="modal-host"></div>
+  <div id="dialog-host"></div>
+  <button id="clip-fab" aria-label="Clip selection" hidden></button>
 
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
   <script src="data.js"></script>

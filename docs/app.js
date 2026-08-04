@@ -26,7 +26,12 @@
     eye: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
     arrow: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>',
-    moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>'
+    moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+    share: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>',
+    clip: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>',
+    download: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
+    copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    trash2: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>'
   };
 
   /* ---------- theme ---------- */
@@ -77,6 +82,113 @@
     var h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
     var d = Math.floor(h / 24); if (d < 7) return d + (d === 1 ? ' day ago' : ' days ago');
     try { return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } catch (e) { return ''; } }
+
+  /* ---------- share ---------- */
+  function shareUrlFor(slug) { return location.origin + location.pathname + '#' + slug; }
+  function toast(msg) {
+    var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t); requestAnimationFrame(function () { t.classList.add('show'); });
+    setTimeout(function () { t.classList.remove('show'); setTimeout(function () { t.remove(); }, 250); }, 1800);
+  }
+  function openShare(slug) {
+    var a = bySlug[slug]; if (!a) return;
+    var url = shareUrlFor(slug), text = a.title;
+    var enc = encodeURIComponent;
+    var links = [
+      { label: 'X', href: 'https://twitter.com/intent/tweet?url=' + enc(url) + '&text=' + enc(text) },
+      { label: 'Facebook', href: 'https://www.facebook.com/sharer/sharer.php?u=' + enc(url) },
+      { label: 'LinkedIn', href: 'https://www.linkedin.com/sharing/share-offsite/?url=' + enc(url) },
+      { label: 'Email', href: 'mailto:?subject=' + enc(text) + '&body=' + enc(url) }
+    ];
+    var html = '<div class="dlg-card" style="max-width:440px">' +
+      '<div class="dlg-head"><h3>Share this article</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
+      '<div class="dlg-body"><div class="share-url"><input readonly value="' + esc(url) + '" id="share-url-input"><button class="btn btn-primary btn-sm" data-copy-link="' + esc(url) + '">' + ICON.copy + ' Copy</button></div>' +
+      '<div class="share-grid">' + links.map(function (l) { return '<a class="share-opt" href="' + l.href + '" target="_blank" rel="noopener">' + esc(l.label) + '</a>'; }).join('') +
+      (navigator.share ? '<button class="share-opt" data-native-share="' + esc(slug) + '">More…</button>' : '') + '</div></div></div>';
+    openDialog(html);
+  }
+
+  /* ---------- clippings + quote image ---------- */
+  var CLIP_KEY = 'rsnews_clippings_v1';
+  function getClippings() { return read(CLIP_KEY); }
+  function saveClipping(c) { var l = read(CLIP_KEY); l.unshift(c); if (l.length > 100) l = l.slice(0, 100); write(CLIP_KEY, l); }
+  function removeClipping(id) { write(CLIP_KEY, read(CLIP_KEY).filter(function (c) { return c.id !== id; })); }
+
+  function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function wrapText(ctx, text, maxW) {
+    var words = text.split(/\s+/), lines = [], line = '';
+    for (var i = 0; i < words.length; i++) {
+      var test = line ? line + ' ' + words[i] : words[i];
+      if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = words[i]; } else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function makeQuoteImage(o) {
+    var W = 1080, H = 1080, pad = 96, canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H; var ctx = canvas.getContext('2d');
+    var g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#2b333d'); g.addColorStop(1, '#141a21');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#E97D34'; ctx.fillRect(pad, pad, 96, 12);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(233,125,52,.92)'; ctx.font = '900 200px Georgia, serif';
+    ctx.fillText('“', pad - 12, pad - 8);
+    var quote = (o.quote || '').replace(/\s+/g, ' ').trim();
+    if (quote.length > 340) quote = quote.slice(0, 337).replace(/\s+\S*$/, '') + '…';
+    var maxW = W - pad * 2, size = 62, lines = [], lineH = 0;
+    var quoteTop = pad + 210, quoteBottom = H - 330;
+    while (size >= 30) {
+      ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
+      lines = wrapText(ctx, '“' + quote + '”', maxW); lineH = size * 1.32;
+      if (lines.length * lineH <= (quoteBottom - quoteTop)) break; size -= 3;
+    }
+    ctx.fillStyle = '#f4f1ea'; ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
+    var y = quoteTop; lines.forEach(function (ln) { ctx.fillText(ln, pad, y); y += lineH; });
+    var by = H - 300;
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
+    ctx.fillStyle = '#E97D34'; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('RS', pad + 34, by + 34 + 36); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#fff'; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78);
+    var ty = by + 130; ctx.fillStyle = '#f4f1ea'; ctx.font = '800 34px ui-sans-serif, Arial';
+    var titleLines = wrapText(ctx, o.title || '', maxW).slice(0, 2);
+    titleLines.forEach(function (l, i) { ctx.fillText(l, pad, ty + i * 42); });
+    if (o.author) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 27px ui-sans-serif, Arial';
+      ctx.fillText('— ' + o.author, pad, ty + titleLines.length * 42 + 8); }
+    return canvas.toDataURL('image/png');
+  }
+  function clipFileName(o) { return 'rsnews-clip-' + (o.slug || 'quote') + '.png'; }
+  function downloadDataUrl(dataUrl, name) {
+    var a = document.createElement('a'); a.href = dataUrl; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function openClip(text, slug) {
+    var a = bySlug[slug] || {}; text = (text || '').replace(/\s+/g, ' ').trim();
+    if (text.length < 4) { toast('Select some text first'); return; }
+    var o = { quote: text, title: a.title || '', author: a.author || '', url: (location.host + location.pathname + '#' + (slug || '')), slug: slug };
+    var img = makeQuoteImage(o);
+    var html = '<div class="dlg-card" style="max-width:560px">' +
+      '<div class="dlg-head"><h3>News clipping</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
+      '<div class="dlg-body"><img class="clip-preview" src="' + img + '" alt="Quote image">' +
+      '<div class="dlg-actions">' +
+      '<button class="btn btn-primary btn-sm" data-clip-download="1">' + ICON.download + ' Download image</button>' +
+      '<button class="btn btn-outline btn-sm" data-clip-copy="1">' + ICON.copy + ' Copy quote</button>' +
+      '</div><p class="dlg-note">Saved to your Clippings. Great for sharing on social.</p></div></div>';
+    openDialog(html, { img: img, o: o, text: text });
+    // auto-save
+    saveClipping({ id: 'c' + Date.now(), quote: text, title: o.title, author: o.author, slug: slug, ts: Date.now() });
+  }
+
+  /* ---------- generic dialog ---------- */
+  var dialogData = null;
+  function openDialog(html, data) {
+    dialogData = data || null;
+    var host = el('dialog-host');
+    host.innerHTML = '<div class="dlg"><div class="dlg-backdrop" data-dlg-close="1"></div>' + html + '</div>';
+  }
+  function closeDialog() { el('dialog-host').innerHTML = ''; dialogData = null; }
 
   function renderStrip() {
     var wrap = el('strip'); if (!wrap) return;
@@ -340,8 +452,10 @@
       '<div style="display:flex;gap:8px;align-items:center">' +
       '<button class="btn btn-sm ' + (isFav(a.id) ? 'btn-primary' : 'btn-outline') + '" data-fav="' + esc(a.slug) + '" data-variant="pill">' + (isFav(a.id) ? ICON.starFill + ' Favorited' : ICON.star + ' Favorite') + '</button>' +
       '<button class="btn btn-sm ' + (isRead(a.id) ? 'btn-primary' : 'btn-outline') + '" data-read="' + esc(a.slug) + '" data-variant="pill">' + (isRead(a.id) ? ICON.bookFill + ' To read' : ICON.book + ' Read later') + '</button>' +
+      '<button class="icon-btn" data-share="' + esc(a.slug) + '" title="Share" aria-label="Share">' + ICON.share + '</button>' +
       '<button class="icon-btn" data-close="1" aria-label="Close">' + ICON.x + '</button></div></div>' +
-      '<div class="modal-body"><div class="reader">' +
+      '<div class="modal-body"><div class="reader" data-article="' + esc(a.slug) + '">' +
+      '<div class="clip-hint">' + ICON.clip + ' Tip: highlight any text to turn it into a shareable quote image.</div>' +
       '<h1>' + esc(a.title) + '</h1><div class="rmeta">' + (a.author ? '<span>By ' + esc(a.author) + '</span>' : '') +
       '<span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min read</span><span>' + ICON.eye + (a.views || 0) + ' views</span></div>' +
       (a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" style="margin-top:24px;border-radius:14px;aspect-ratio:16/9;width:100%;object-fit:cover">' : '') +
@@ -356,7 +470,50 @@
   }
   function closeModal(pop) {
     el('modal-host').innerHTML = ''; document.body.classList.remove('modal-open');
+    var f = el('clip-fab'); if (f) f.hidden = true;
     if (pop !== false && (location.hash || (history.state && history.state.m))) { try { history.pushState('', '', location.pathname + location.search); } catch (e) {} }
+  }
+
+  /* ---------- text selection -> clip ---------- */
+  function currentClipContext() {
+    var sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    var text = sel.toString().replace(/\s+/g, ' ').trim(); if (text.length < 4) return null;
+    var node = sel.anchorNode; node = node && node.nodeType === 3 ? node.parentNode : node;
+    var prose = node && node.closest ? node.closest('.reader .prose') : null;
+    var reader = node && node.closest ? node.closest('.reader') : null;
+    if (!prose || !reader) return null;
+    return { text: text, slug: reader.getAttribute('data-article') || '', rect: sel.getRangeAt(0).getBoundingClientRect() };
+  }
+  function updateClipFab() {
+    var fab = el('clip-fab'); if (!fab) return;
+    var ctx = currentClipContext();
+    if (!ctx) { fab.hidden = true; return; }
+    fab.innerHTML = ICON.clip + '<span>Clip</span>'; fab.hidden = false;
+    var top = ctx.rect.top - 46; if (top < 60) top = ctx.rect.bottom + 10;
+    var left = ctx.rect.left + ctx.rect.width / 2 - 44;
+    left = Math.max(8, Math.min(left, window.innerWidth - 100));
+    fab.style.top = top + 'px'; fab.style.left = left + 'px';
+    fab.setAttribute('data-slug', ctx.slug); fab.setAttribute('data-text', ctx.text);
+  }
+
+  /* ---------- clippings view ---------- */
+  function renderClippings() {
+    var list = getClippings();
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your clippings</h2></div>';
+    if (!list.length) {
+      h += '<p style="color:var(--muted);margin:0;font-size:16px">No clippings yet. Open an article, <b>highlight</b> a passage, then click <b>Clip</b> to turn it into a shareable quote image you can download.</p>';
+    } else {
+      h += '<div class="clip-grid">' + list.map(function (c) {
+        var q = c.quote.length > 200 ? c.quote.slice(0, 197) + '…' : c.quote;
+        return '<div class="clip-card"><div class="clip-quote">&ldquo;' + esc(q) + '&rdquo;</div>' +
+          '<div class="clip-meta">' + esc(c.title || '') + (c.author ? ' &middot; ' + esc(c.author) : '') + '</div>' +
+          '<div class="clip-actions"><button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
+          (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open</button>' : '') +
+          '<button class="btn btn-outline btn-sm" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div></div>';
+      }).join('') + '</div>';
+    }
+    h += '</section></div>';
+    el('main').innerHTML = h; window.scrollTo(0, 0);
   }
 
   /* ---------- events ---------- */
@@ -368,8 +525,19 @@
     var sc = e.target.closest('[data-scroll]');
     if (sc) { e.preventDefault(); var track = sc.parentNode.querySelector('.car-track');
       if (track) track.scrollBy({ left: parseInt(sc.getAttribute('data-scroll'), 10) * track.clientWidth * 0.85, behavior: 'smooth' }); return; }
-    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clearhistory]');
+    // Share + clippings + dialog controls
+    if (e.target.closest('[data-dlg-close]')) { e.preventDefault(); closeDialog(); return; }
+    var shareBtn = e.target.closest('[data-share]'); if (shareBtn) { e.preventDefault(); e.stopPropagation(); openShare(shareBtn.getAttribute('data-share')); return; }
+    var copyLink = e.target.closest('[data-copy-link]'); if (copyLink) { e.preventDefault(); if (navigator.clipboard) navigator.clipboard.writeText(copyLink.getAttribute('data-copy-link')); toast('Link copied!'); return; }
+    var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RSNews Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
+    if (e.target.closest('[data-clip-download]')) { e.preventDefault(); if (dialogData && dialogData.img) downloadDataUrl(dialogData.img, clipFileName(dialogData.o)); toast('Image downloaded'); return; }
+    if (e.target.closest('[data-clip-copy]')) { e.preventDefault(); if (dialogData && dialogData.text && navigator.clipboard) navigator.clipboard.writeText('“' + dialogData.text + '” — ' + (dialogData.o.title || '')); toast('Quote copied'); return; }
+    var dlClip = e.target.closest('[data-download-clip]'); if (dlClip) { e.preventDefault(); var dc = getClippings().filter(function (x) { return x.id === dlClip.getAttribute('data-download-clip'); })[0];
+      if (dc) downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); toast('Image downloaded'); return; }
+    var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
+    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
+    if (t.hasAttribute('data-clippings')) { e.preventDefault(); setActive(t); renderClippings(); closeDrawer(); window.scrollTo(0, 0); return; }
     if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); toggleFav(t.getAttribute('data-fav')); return; }
     if (t.hasAttribute('data-read')) { e.preventDefault(); e.stopPropagation(); toggleRead(t.getAttribute('data-read')); return; }
     if (t.hasAttribute('data-unread')) { e.preventDefault(); e.stopPropagation(); removeRead(t.getAttribute('data-unread')); return; }
@@ -392,6 +560,16 @@
   initTheme();
   initSidebar();
   window.addEventListener('resize', refreshCarousels, { passive: true });
+  document.addEventListener('selectionchange', updateClipFab);
+  document.addEventListener('scroll', function () { var f = el('clip-fab'); if (f) f.hidden = true; }, true);
+  (function () {
+    var fab = el('clip-fab'); if (!fab) return;
+    fab.addEventListener('mousedown', function (e) { e.preventDefault(); }); // keep the selection alive
+    fab.addEventListener('click', function () {
+      openClip(this.getAttribute('data-text'), this.getAttribute('data-slug'));
+      this.hidden = true; try { window.getSelection().removeAllRanges(); } catch (e) {}
+    });
+  })();
   renderStrip();
   renderHome();
   var hs = (location.hash || '').replace('#', '');

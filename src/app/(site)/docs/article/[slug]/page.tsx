@@ -8,6 +8,7 @@ import ArticleCard from '@/components/ArticleCard';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
+import ShareButton from '@/components/site/ShareButton';
 import AdSlot from '@/components/AdSlot';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
@@ -78,6 +79,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} variant="inline" />
+          <ShareButton slug={article.slug} title={article.title} />
           {article.category && (
             <SubscribeButton categoryId={article.categoryId} initialSubscribed={subscribed} isAuthed={!!user}
               label={`Follow ${article.category.name}`} />
@@ -91,7 +93,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
         <div className="my-6"><AdSlot size="in-article" slot="article-top" /></div>
 
-        <article className="prose-article mt-8" dangerouslySetInnerHTML={{ __html: article.content }} />
+        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''} dangerouslySetInnerHTML={{ __html: article.content }} />
 
         <div className="my-8 flex justify-center"><AdSlot size="rectangle" slot="article-bottom" /></div>
 

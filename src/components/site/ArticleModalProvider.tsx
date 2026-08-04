@@ -4,6 +4,7 @@ import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import AdSlot from '@/components/AdSlot';
 import StarButton from './StarButton';
+import ShareButton from './ShareButton';
 import { useSaved } from './StarProvider';
 
 type ModalArticle = {
@@ -116,6 +117,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                   <span className="truncate text-sm font-medium text-[var(--muted)]">{a?.title ?? 'Loading…'}</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
+                  {a && <ShareButton slug={a.slug} title={a.title} />}
                   {a && <StarButton item={{ id: a.id, title: a.title, slug: a.slug }} variant="inline" />}
                   <button onClick={close} className="btn-ghost h-9 w-9 !px-0" aria-label="Close"><X /></button>
                 </div>
@@ -143,7 +145,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {/* In-article ad #1 */}
                     <div className="my-6"><AdSlot size="in-article" slot="modal-top" /></div>
 
-                    <article className="prose-article" dangerouslySetInnerHTML={{ __html: a.content }} />
+                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''} dangerouslySetInnerHTML={{ __html: a.content }} />
 
                     {a.tags.length > 0 && (
                       <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">

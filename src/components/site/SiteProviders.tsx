@@ -1,6 +1,7 @@
 'use client';
 import { StarProvider } from './StarProvider';
 import { ArticleModalProvider } from './ArticleModalProvider';
+import ReaderClipper from './ReaderClipper';
 
 /**
  * Wraps the public site with the star store + article-modal store. The modal
@@ -11,6 +12,7 @@ export default function SiteProviders({ children }: { children: React.ReactNode 
   return (
     <StarProvider>
       <ArticleModalProvider>{children}</ArticleModalProvider>
+      <ReaderClipper />
     </StarProvider>
   );
 }
