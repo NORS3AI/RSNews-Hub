@@ -506,7 +506,7 @@
       '<button class="btn btn-primary btn-sm" data-download-clip="' + esc(c.id) + '">' + ICON.download + ' Image</button>' +
       (c.slug && bySlug[c.slug] ? '<button class="btn btn-outline btn-sm" data-open="' + esc(c.slug) + '">Open article</button>' : '') +
       '<button class="btn btn-outline btn-sm" data-copy-clip="' + esc(c.id) + '">' + ICON.copy + ' Copy quote</button>' +
-      '<button class="btn btn-outline btn-sm" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
+      '<button class="btn btn-outline btn-sm btn-del" data-del-clip="' + esc(c.id) + '" title="Delete">' + ICON.trash2 + '</button></div>';
   }
   function renderClippings() {
     var list = getClippings();
