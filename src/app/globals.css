@@ -39,8 +39,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 /* Module header with an orange accent tick, matching the preview. */
-.module-title { @apply flex items-center gap-2.5 text-xl font-extrabold tracking-tight; }
-.module-title::before { content: ''; @apply inline-block h-5 w-[5px] rounded-full bg-brand-600; }
+.module-title { @apply flex items-center gap-2.5 text-2xl font-black tracking-tight; }
+.module-title::before { content: ''; @apply inline-block h-[22px] w-[5px] rounded-full bg-brand-600; }
 .module-orange .module-title::before { @apply bg-white/85; }
 /* Dark mode: drop the light cardboard photo, use the deep base color. */
 .dark body { background-image: none; background-color: var(--bg); }
@@ -72,10 +72,10 @@ body {
 
   .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
 
-  .prose-article { @apply text-[15px] leading-7 sm:text-base sm:leading-8; }
-  .prose-article h2 { @apply mt-8 mb-3 text-xl font-bold sm:text-2xl; }
-  .prose-article h3 { @apply mt-6 mb-2 text-lg font-semibold; }
-  .prose-article p { @apply my-4; }
+  .prose-article { @apply text-[17px] leading-8 sm:text-[19px] sm:leading-[1.85]; }
+  .prose-article h2 { @apply mt-9 mb-3 text-2xl font-bold sm:text-[28px]; }
+  .prose-article h3 { @apply mt-6 mb-2 text-xl font-semibold; }
+  .prose-article p { @apply my-5; }
   .prose-article ul { @apply my-4 list-disc space-y-1.5 pl-6; }
   .prose-article ol { @apply my-4 list-decimal space-y-1.5 pl-6; }
   .prose-article a { @apply text-brand-600 underline underline-offset-2 hover:text-brand-700; }

@@ -95,8 +95,8 @@ export default async function DocsHome() {
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
                   <ArticleLink slug={a.slug} className="block py-4">
                     {a.category && <span className="text-xs font-bold" style={{ color: a.category.color }}>{a.category.name}</span>}
-                    <h3 className="mt-1 line-clamp-2 pr-[76px] text-lg font-bold leading-snug group-hover:text-brand-600">{a.title}</h3>
-                    {a.excerpt && <p className="mt-1.5 line-clamp-1 text-sm text-[var(--muted)]">{a.excerpt}</p>}
+                    <h3 className="mt-1 line-clamp-2 pr-[76px] text-xl font-extrabold leading-snug tracking-tight group-hover:text-brand-600">{a.title}</h3>
+                    {a.excerpt && <p className="mt-1.5 line-clamp-1 text-[15px] text-[var(--muted)]">{a.excerpt}</p>}
                     <div className="mt-2 flex items-center gap-3.5 text-xs text-[var(--muted)]">
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={13} height={13} />{a.readMinutes} min</span>
@@ -123,11 +123,17 @@ export default async function DocsHome() {
     }
   };
 
-  // Category spotlights + a dense "more to explore" pool for extra scroll.
-  const topCats = [...categories].sort((a, b) => b._count.articles - a._count.articles).slice(0, 2);
+  // Category spotlights + more pools for extra scroll.
+  const topCats = [...categories].sort((a, b) => b._count.articles - a._count.articles).slice(0, 3);
   const spotlights = topCats
     .map((c) => ({ cat: c, items: all.filter((a) => a.category?.slug === c.slug).slice(0, 3) }))
     .filter((s) => s.items.length > 0);
+
+  const tagCounts = new Map<string, number>();
+  for (const a of all) for (const t of a.tags) tagCounts.set(t.name, (tagCounts.get(t.name) ?? 0) + 1);
+  const topics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  const picks = trending.slice(1, 4);
+  const quick = [...all].sort((a, b) => a.readMinutes - b.readMinutes).slice(0, 8);
 
   return (
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
@@ -149,7 +155,7 @@ export default async function DocsHome() {
                 </div>
                 <ArticleLink slug={a.slug} className="flex flex-1 flex-col">
                   <span className="text-xs font-extrabold uppercase tracking-wide text-white/85">{a.category?.name ?? 'News'}</span>
-                  <h3 className="mt-1.5 line-clamp-3 pr-[76px] text-[17px] font-extrabold leading-snug">{a.title}</h3>
+                  <h3 className="mt-1.5 line-clamp-3 pr-[76px] text-xl font-extrabold leading-tight tracking-tight">{a.title}</h3>
                   <div className="mt-auto flex items-center gap-3 pt-3 text-[13px] text-white/85">
                     <span>{formatDate(a.publishedAt)}</span>
                     <span>{a.readMinutes} min read</span>
@@ -179,6 +185,36 @@ export default async function DocsHome() {
         </section>,
         i === 0 ? <div key="spotlight-ad" className="module flex justify-center"><AdSlot size="leaderboard" slot="home-spotlight" /></div> : null,
       ]).filter(Boolean)}
+
+      {topics.length > 0 && (
+        <section className="module">
+          <div className="mb-4"><h2 className="module-title">Popular topics</h2></div>
+          <div className="flex flex-wrap gap-2.5">
+            {topics.map(([name, count]) => (
+              <Link key={name} href={`/docs/search?q=${encodeURIComponent(name)}`} className="tile rounded-full px-4 py-2 text-sm font-bold hover:shadow-[var(--shadow-hover)]">
+                #{name} <span className="ml-1.5 text-[var(--muted)]">{count}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {picks.length > 0 && (
+        <section className="module">
+          <div className="mb-4"><h2 className="module-title">Editor&rsquo;s picks</h2></div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{picks.map((a) => <ArticleCard key={a.id} article={a} />)}</div>
+        </section>
+      )}
+
+      <div className="module flex justify-center"><AdSlot size="leaderboard" slot="home-quick" /></div>
+
+      <section className="module">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="module-title">Quick reads</h2>
+          <span className="text-sm font-semibold text-[var(--muted)]">5 min or less</span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{quick.map((a) => <ArticleCard key={a.id} article={a} compact />)}</div>
+      </section>
 
       <section className="module">
         <div className="mb-4"><h2 className="module-title">More to explore</h2></div>
@@ -227,8 +263,8 @@ function Hero({ lead }: { lead: Card }) {
             <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-200">Headline</span>
             {lead.category && <span className="text-[13px] font-bold" style={{ color: lead.category.color }}>{lead.category.name}</span>}
           </div>
-          <h1 className="mt-3.5 text-3xl font-black leading-[1.12] tracking-tight group-hover:text-brand-600 sm:text-[40px]">{lead.title}</h1>
-          {lead.excerpt && <p className="mt-4 max-w-[52ch] text-base text-[var(--muted)]">{lead.excerpt}</p>}
+          <h1 className="mt-4 text-4xl font-black leading-[1.06] tracking-[-0.03em] group-hover:text-brand-600 sm:text-[52px] xl:text-[58px]">{lead.title}</h1>
+          {lead.excerpt && <p className="mt-[18px] max-w-[54ch] text-[17px] text-[var(--muted)]">{lead.excerpt}</p>}
           <div className="mt-[18px] flex items-center gap-2 text-[15px] font-extrabold text-brand-600">Read article <ArrowRight width={18} height={18} /></div>
         </div>
       </ArticleLink>

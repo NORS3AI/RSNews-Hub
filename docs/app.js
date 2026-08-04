@@ -190,7 +190,7 @@
     h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
 
     /* Category spotlights — a module per popular category */
-    var topCats = CATEGORIES.slice().sort(function (p, q) { return (q.count || 0) - (p.count || 0); }).slice(0, 2);
+    var topCats = CATEGORIES.slice().sort(function (p, q) { return (q.count || 0) - (p.count || 0); }).slice(0, 3);
     topCats.forEach(function (c, idx) {
       var items = ARTICLES.filter(function (a) { return a.category && a.category.slug === c.slug; }).slice(0, 3);
       if (!items.length) return;
@@ -200,6 +200,31 @@
       // Sprinkle an ad between the two spotlights
       if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
     });
+
+    /* Popular topics (tag cloud) */
+    var tagCount = {};
+    ARTICLES.forEach(function (a) { (a.tags || []).forEach(function (t) { tagCount[t.name] = (tagCount[t.name] || 0) + 1; }); });
+    var topTags = Object.keys(tagCount).sort(function (x, y) { return tagCount[y] - tagCount[x]; });
+    if (topTags.length) {
+      h += '<section class="module"><div class="module-head"><h2>Popular topics</h2></div><div class="cats">' +
+        topTags.map(function (t) { return '<span class="cat-chip" data-topic="' + esc(t) + '">#' + esc(t) + '<span class="count">' + tagCount[t] + '</span></span>'; }).join('') +
+        '</div></section>';
+    }
+
+    /* Editor's picks — feature blocks */
+    var picks = trending.slice(1, 4);
+    if (picks.length) {
+      h += '<section class="module"><div class="module-head"><h2>Editor&rsquo;s picks</h2></div><div class="grid g3">' +
+        picks.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
+    }
+
+    /* Leaderboard ad */
+    h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+
+    /* Quick reads — short articles */
+    var quick = sorted.slice().sort(function (p, q) { return (p.readMinutes || 1) - (q.readMinutes || 1); }).slice(0, 8);
+    h += '<section class="module"><div class="module-head"><h2>Quick reads</h2><span class="link-orange">5 min or less</span></div>' +
+      '<div class="grid g4">' + quick.map(function (a) { return articleBlock(a, { sm: true }); }).join('') + '</div></section>';
 
     /* More to explore — dense grid */
     h += '<section class="module"><div class="module-head"><h2>More to explore</h2><a class="link-orange" href="#" data-home="1">Refresh</a></div>' +
@@ -313,7 +338,7 @@
     if (e.target.closest('#hamburger')) { el('shell').classList.add('mobileopen'); return; }
     if (e.target.closest('#sidebar-backdrop')) { closeDrawer(); return; }
     if (e.target.closest('#theme-btn')) { toggleTheme(); return; }
-    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-home],[data-history],[data-clearhistory]');
+    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clearhistory]');
     if (!t) return;
     if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); toggleFav(t.getAttribute('data-fav')); return; }
     if (t.hasAttribute('data-read')) { e.preventDefault(); e.stopPropagation(); toggleRead(t.getAttribute('data-read')); return; }
@@ -321,6 +346,7 @@
     if (t.hasAttribute('data-open')) { e.preventDefault(); openModal(t.getAttribute('data-open')); return; }
     if (t.hasAttribute('data-close')) { e.preventDefault(); closeModal(); return; }
     if (t.hasAttribute('data-cat')) { e.preventDefault(); var c = CATEGORIES.filter(function (x) { return x.slug === t.getAttribute('data-cat'); })[0]; runSearch(c ? c.name : t.getAttribute('data-cat')); return; }
+    if (t.hasAttribute('data-topic')) { e.preventDefault(); runSearch(t.getAttribute('data-topic')); return; }
     if (t.hasAttribute('data-history')) { e.preventDefault(); setActive(t); renderHistory(); closeDrawer(); window.scrollTo(0, 0); return; }
     if (t.hasAttribute('data-clearhistory')) { e.preventDefault(); clearHistory(); renderHistory(); return; }
     if (t.hasAttribute('data-home')) { e.preventDefault(); if (t.classList.contains('side-item')) setActive(t); renderHome(); closeDrawer(); window.scrollTo(0, 0); return; }
