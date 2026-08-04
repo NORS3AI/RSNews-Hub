@@ -13,6 +13,7 @@ import Carousel from '@/components/site/Carousel';
 import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
+import PollCard from '@/components/site/PollCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,12 @@ export default async function DocsHome() {
     prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }], take: 50 }),
     loadAds(),
   ]);
+
+  const activePoll = await prisma.poll.findFirst({
+    where: { active: true },
+    orderBy: { createdAt: 'desc' },
+    include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
+  });
 
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
@@ -74,9 +81,20 @@ export default async function DocsHome() {
             </Carousel>
           </section>
         );
-      case 'industry':
-        if (industry.length === 0) return null;
-        return <IndustryNews key={id} links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />;
+      case 'industry': {
+        const hasIndustry = industry.length > 0;
+        if (!hasIndustry && !activePoll) return null;
+        const indEl = hasIndustry
+          ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
+          : null;
+        const pollEl = activePoll
+          ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} />
+          : null;
+        if (indEl && pollEl) {
+          return <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">{indEl}{pollEl}</div>;
+        }
+        return <div key={id}>{indEl ?? pollEl}</div>;
+      }
       case 'categories':
         if (categories.length === 0) return null;
         return (

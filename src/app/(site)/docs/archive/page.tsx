@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { Archive, Newspaper, ArrowRight } from '@/components/icons';
+import { Archive, Newspaper, ArrowRight, BarChart } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -26,16 +26,28 @@ export default async function ArchivePage() {
     <div className="container-page py-8 sm:py-10">
       <div className="mb-8 flex items-center gap-2"><Archive className="text-brand-600" /><h1 className="text-2xl font-bold">Archive</h1></div>
 
-      <Link href="/docs/archive/industry" className="mb-8 flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
-        <span className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Newspaper width={22} height={22} /></span>
-          <span>
-            <span className="block font-extrabold">Industry News archive</span>
-            <span className="block text-sm text-[var(--muted)]">Every curated external link we&apos;ve posted.</span>
+      <div className="mb-8 grid gap-4 sm:grid-cols-2">
+        <Link href="/docs/archive/industry" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+          <span className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Newspaper width={22} height={22} /></span>
+            <span>
+              <span className="block font-extrabold">Industry News archive</span>
+              <span className="block text-sm text-[var(--muted)]">Every curated external link we&apos;ve posted.</span>
+            </span>
           </span>
-        </span>
-        <ArrowRight className="shrink-0 text-brand-600" />
-      </Link>
+          <ArrowRight className="shrink-0 text-brand-600" />
+        </Link>
+        <Link href="/docs/archive/polls" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+          <span className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><BarChart width={22} height={22} /></span>
+            <span>
+              <span className="block font-extrabold">Polls archive</span>
+              <span className="block text-sm text-[var(--muted)]">Past reader polls and their results.</span>
+            </span>
+          </span>
+          <ArrowRight className="shrink-0 text-brand-600" />
+        </Link>
+      </div>
 
       {groups.size === 0 && <p className="text-[var(--muted)]">Nothing archived yet.</p>}
       <div className="space-y-10">

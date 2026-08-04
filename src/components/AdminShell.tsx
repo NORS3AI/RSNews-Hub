@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart } from './icons';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
   { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
+  { href: '/admin/polls', label: 'Polls', icon: BarChart },
   { href: '/admin/pages', label: 'Pages', icon: Archive },
   { href: '/admin/categories', label: 'Categories', icon: Layers },
   { href: '/admin/tags', label: 'Tags', icon: Tag },

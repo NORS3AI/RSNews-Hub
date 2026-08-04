@@ -168,6 +168,24 @@ async function main() {
     }
   }
 
+  // Sample monthly poll (only if none exist yet).
+  if ((await prisma.poll.count()) === 0) {
+    await prisma.poll.create({
+      data: {
+        question: 'What should we cover more this month?',
+        active: true,
+        options: {
+          create: [
+            { label: 'Shipping & carrier tips', order: 0, votes: 128 },
+            { label: 'Running the storefront', order: 1, votes: 94 },
+            { label: 'Marketing & local growth', order: 2, votes: 76 },
+            { label: 'Industry news & trends', order: 3, votes: 51 },
+          ],
+        },
+      },
+    });
+  }
+
   console.log('Seed complete. Admin login: admin@rsnews.local / admin123');
 }
 

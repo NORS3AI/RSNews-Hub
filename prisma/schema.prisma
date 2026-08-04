@@ -15,6 +15,26 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Monthly reader poll with live results. One poll is typically active at a
+// time; past polls live in the polls archive.
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  closesAt  DateTime?
+  options   PollOption[]
+}
+
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label  String
+  votes  Int    @default(0)
+  order  Int    @default(0)
+}
+
 // Curated external "Industry News" links, hand-picked by staff. Shown in a
 // scrollable homepage module. `views` counts click-throughs; `postedAt` is
 // when we added it (not the source's publish date).

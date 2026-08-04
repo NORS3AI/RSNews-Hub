@@ -6,6 +6,7 @@
   var ARTICLES = DATA.articles || [];
   var CATEGORIES = DATA.categories || [];
   var INDUSTRY = DATA.industry || [];
+  var POLLS = DATA.polls || [];
   var bySlug = {};
   ARTICLES.forEach(function (a) { bySlug[a.slug] = a; });
   var FAV_KEY = 'rsnews_favorites_v1', READ_KEY = 'rsnews_toread_v1', HIST_KEY = 'rsnews_history_v1';
@@ -307,6 +308,60 @@
     }, { root: body, rootMargin: '0px 0px -8% 0px', threshold: 0.02 });
     els.forEach(function (e) { io.observe(e); });
   }
+  /* ---------- Reader poll ---------- */
+  var ICON_CHART = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="0.5"/><rect x="12" y="7" width="3" height="10" rx="0.5"/><rect x="17" y="13" width="3" height="4" rx="0.5"/></svg>';
+  function activePoll() { return POLLS.filter(function (p) { return p.active; })[0] || null; }
+  function pollVoted(id) { try { return localStorage.getItem('rsnews_poll_' + id); } catch (e) { return null; } }
+  function pollModule(poll) {
+    var voted = pollVoted(poll.id);
+    var total = poll.options.reduce(function (n, o) { return n + o.votes; }, 0);
+    var isClosed = poll.closesAt && new Date(poll.closesAt) < new Date();
+    var showRes = !!voted || isClosed;
+    var opts = poll.options.map(function (o) {
+      if (!showRes) { return '<button class="poll-opt" data-poll-vote="' + esc(poll.id) + ':' + esc(o.id) + '">' + esc(o.label) + '</button>'; }
+      var pct = total ? Math.round(o.votes / total * 100) : 0;
+      var mine = voted === o.id;
+      return '<div class="poll-res"><span class="poll-bar" style="width:' + pct + '%"></span>' +
+        '<span class="poll-res-in"><span class="poll-lbl">' + (mine ? ICON.check : '') + esc(o.label) + '</span><span class="poll-pct">' + pct + '%</span></span></div>';
+    }).join('');
+    return '<section class="module poll-card">' +
+      '<div class="poll-head"><span class="poll-badge">Poll</span><span class="poll-sub">Reader poll of the month</span></div>' +
+      '<h2 class="poll-q">' + esc(poll.question) + '</h2>' +
+      '<div class="poll-opts">' + opts + '</div>' +
+      '<div class="poll-foot">' + total + ' vote' + (total === 1 ? '' : 's') + (isClosed ? ' &middot; closed' : (voted ? ' &middot; thanks for voting!' : '')) + '</div>' +
+      '<a class="btn btn-outline btn-sm poll-view" href="#" data-polls-archive="1">View latest polls</a></section>';
+  }
+  function castPollVote(pollId, optionId) {
+    if (pollVoted(pollId)) return;
+    var poll = POLLS.filter(function (p) { return p.id === pollId; })[0]; if (!poll) return;
+    var opt = poll.options.filter(function (o) { return o.id === optionId; })[0]; if (!opt) return;
+    opt.votes += 1;
+    try { localStorage.setItem('rsnews_poll_' + pollId, optionId); } catch (e) {}
+    var card = document.querySelector('.poll-card');
+    if (card) { var tmp = document.createElement('div'); tmp.innerHTML = pollModule(poll); card.replaceWith(tmp.firstChild); }
+  }
+  function industryPollRow() {
+    var poll = activePoll();
+    var ind = INDUSTRY.length ? industryModule() : '';
+    var pol = poll ? pollModule(poll) : '';
+    if (ind && pol) return '<div class="ind-poll-row">' + ind + pol + '</div>';
+    return ind || pol;
+  }
+  function renderPollsArchive() {
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_CHART + ' Polls</h2><a class="link-orange" href="#" data-home="1">Home</a></div>';
+    if (!POLLS.length) { h += '<p style="color:var(--muted);margin:0">No polls yet.</p>'; }
+    POLLS.forEach(function (poll) {
+      var total = poll.options.reduce(function (n, o) { return n + o.votes; }, 0);
+      var isClosed = poll.closesAt && new Date(poll.closesAt) < new Date();
+      h += '<div class="poll-arch"><div class="poll-arch-head"><h3>' + esc(poll.question) + '</h3>' +
+        (poll.active ? '<span class="badge poll-badge-live">Live</span>' : (isClosed ? '<span class="badge">Closed</span>' : '<span class="badge">Past</span>')) + '</div>' +
+        poll.options.map(function (o) { var pct = total ? Math.round(o.votes / total * 100) : 0;
+          return '<div class="poll-res"><span class="poll-bar" style="width:' + pct + '%"></span><span class="poll-res-in"><span class="poll-lbl">' + esc(o.label) + '</span><span class="poll-pct">' + pct + '%</span></span></div>'; }).join('') +
+        '<div class="poll-foot">' + total + ' total votes</div></div>';
+    });
+    h += '</section></div>';
+    el('main').innerHTML = h; window.scrollTo(0, 0);
+  }
   function renderIndustryArchive() {
     closeDialog();
     var byMonth = {};
@@ -492,8 +547,8 @@
       '</div>';
     h += '</div>';
 
-    /* Industry News — curated external links, scrollable */
-    if (INDUSTRY.length) { h += industryModule(); }
+    /* Industry News + monthly poll (2-col row) */
+    h += industryPollRow();
 
     /* You might like — swipeable carousel */
     var youMightLike = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
@@ -746,6 +801,8 @@
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
     if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
+    var pollVote = e.target.closest('[data-poll-vote]'); if (pollVote) { e.preventDefault(); var pp = pollVote.getAttribute('data-poll-vote').split(':'); castPollVote(pp[0], pp[1]); return; }
+    if (e.target.closest('[data-polls-archive]')) { e.preventDefault(); renderPollsArchive(); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
