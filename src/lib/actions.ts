@@ -9,6 +9,7 @@ import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constan
 import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
+import { sanitizeArticleHtml } from './sanitize';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -38,7 +39,9 @@ export async function saveArticle(formData: FormData) {
   const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
   const title = ((formData.get('title') as string) || '').trim();
-  const content = ((formData.get('content') as string) || '').trim();
+  // Sanitize editor HTML on write — strips scripts/handlers/inline styles so a
+  // lower-trust EDITOR can't plant stored XSS. See lib/sanitize.ts.
+  const content = sanitizeArticleHtml(((formData.get('content') as string) || '').trim());
   const status = (formData.get('status') as string) || 'DRAFT';
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
@@ -365,7 +368,7 @@ export async function savePage(formData: FormData) {
   await ensureStaff();
   const id = (formData.get('id') as string) || '';
   const title = ((formData.get('title') as string) || '').trim();
-  const content = ((formData.get('content') as string) || '').trim();
+  const content = sanitizeArticleHtml(((formData.get('content') as string) || '').trim());
   const status = (formData.get('status') as string) || 'DRAFT';
   if (!title || !content) throw new Error('Title and content required');
   const slug = await uniqueSlug(title, 'page', id || undefined);

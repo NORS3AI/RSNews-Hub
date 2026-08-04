@@ -54,7 +54,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       where: { externalId: member.externalId },
       select: { id: true, email: true, name: true, role: true, status: true },
     });
-    return u ? { id: u.id, email: u.email, name: u.name, role: u.role, status: u.status } : null;
+    // Banned/suspended members must not act even with a still-valid parent token.
+    if (!u || u.status === 'BANNED' || u.status === 'SUSPENDED') return null;
+    return { id: u.id, email: u.email, name: u.name, role: u.role, status: u.status };
   }
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;

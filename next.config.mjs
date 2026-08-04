@@ -15,5 +15,20 @@ const nextConfig = {
       { source: '/main', destination: '/docs', permanent: false },
     ];
   },
+  // Static baseline security headers on every response. The Content-Security-
+  // Policy (which is runtime-configurable via FRAME_ANCESTORS and path-dependent)
+  // is set in middleware.ts instead — `next.config` headers are baked at build
+  // time, so they can't read deploy-time env.
+  async headers() {
+    return [{
+      source: '/:path*',
+      headers: [
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'X-DNS-Prefetch-Control', value: 'off' },
+        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+      ],
+    }];
+  },
 };
 export default nextConfig;

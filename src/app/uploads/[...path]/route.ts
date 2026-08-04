@@ -21,6 +21,9 @@ export async function GET(_req: Request, props: { params: Promise<{ path: string
       status: 200,
       headers: {
         'Content-Type': contentTypeForKey(key),
+        'X-Content-Type-Options': 'nosniff',
+        // A strict sandbox CSP for served assets (neuters any opt-in SVG) is set
+        // centrally in middleware.ts for the /uploads path.
         // Immutable: the key is a hash of the content, so it can never change.
         'Cache-Control': 'public, max-age=31536000, immutable',
       },

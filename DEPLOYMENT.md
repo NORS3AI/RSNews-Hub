@@ -243,16 +243,45 @@ The image runs `prisma migrate deploy` then starts the server. Seed once (Step 5
 ## 7. Domain, TLS, health
 
 - Point your domain at the host; all three options provide **automatic HTTPS**.
-- **Health check:** `GET /api/health` returns `200` + a config report when the DB
-  is reachable, `503` when it isn't. Point your host's health check at it.
+- **Health check:** `GET /api/health` returns `200` when the DB is reachable,
+  `503` when it isn't. The detailed `config` block is only returned to a
+  logged-in **admin** (so an anonymous caller can't read your posture) — point
+  your host's health check at the plain `status`/`db` fields.
+
+---
+
+## 7a. Security notes  **[hardening is built-in; a few operator knobs]**
+
+The app ships hardened by default; a pre-launch audit's findings are all fixed.
+What you should know as the operator:
+
+- **Secrets must be strong.** Both `AUTH_SECRET` and (when `AUTH_MODE=jwt`)
+  `PARENT_JWT_SECRET` are **rejected in production if weak/short** (< 24 chars) —
+  the app fails **closed** (no one is authenticated) rather than trusting a
+  brute-forceable secret. Generate with `openssl rand -base64 48`.
+- **Parent tokens must expire.** The hub requires an `exp` claim and pins the
+  JWT algorithm to HS256. Keep tokens short-lived (≤ 15 min); see `INTEGRATION.md`.
+- **Embedding.** The hub sends a `frame-ancestors` CSP. To let the RS News site
+  iframe it, set `FRAME_ANCESTORS="'self' https://www.rsnews.com"`; otherwise
+  only same-origin framing is allowed (blocks clickjacking).
+- **Editor content is sanitized** on save (no stored XSS), uploads are
+  magic-byte-validated and served sandboxed, admin/cron endpoints are
+  authenticated, and login/register are rate-limited. Prefer `AUTH_MODE=jwt`
+  over `header` (header trust is only safe behind a proxy that strips inbound
+  `x-member-*`).
+- Baseline headers (`nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP) are
+  set on every response. `npm audit` is clean.
 
 ---
 
 ## 8. Post-deploy checklist
 
-- [ ] `GET /api/health` returns `{"status":"ok","db":"up"}` and `config.authSecret` is `set`.
-- [ ] Log in at `/login` with your seeded admin — then **change the password** in the admin.
+- [ ] `GET /api/health` returns `{"status":"ok","db":"up"}` (and, when you hit it
+      as a logged-in admin, `config.authSecret` is `set`).
+- [ ] Log in with your seeded admin — then **change the password** in the admin
+      (local auth), or confirm SSO from the RS News site (`AUTH_MODE=jwt`).
 - [ ] Open the homepage, an article, and `/admin/analytics`; confirm no errors.
+- [ ] Set `FRAME_ANCESTORS` if the hub is embedded in the parent site.
 - [ ] Set up **automated Postgres backups** (every managed host has a toggle).
 - [ ] (Optional) wire error tracking (Sentry) and email (Resend/Postmark) — see `NOTES_FOR_PROGRAMMER.md §2`.
 

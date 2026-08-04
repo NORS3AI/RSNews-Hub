@@ -98,9 +98,11 @@ export async function removeClipping(userId: string, clientId: string) {
 
 /** One-time merge of a signed-in member's pre-login local items into their account. */
 export async function mergeLocal(userId: string, local: Partial<SavedBundle>) {
-  const favs = (local.favorites ?? []).map(normalizeSavedItem).filter(Boolean) as SavedItem[];
-  const reads = (local.toRead ?? []).map(normalizeSavedItem).filter(Boolean) as SavedItem[];
-  const clips = (local.clippings ?? []).map(normalizeClipping).filter(Boolean) as Clipping[];
+  // Cap each array so a crafted request can't build an unbounded transaction.
+  const cap = <T>(a: T[] | undefined) => (Array.isArray(a) ? a.slice(0, CLIP_MAX) : []);
+  const favs = cap(local.favorites).map(normalizeSavedItem).filter(Boolean) as SavedItem[];
+  const reads = cap(local.toRead).map(normalizeSavedItem).filter(Boolean) as SavedItem[];
+  const clips = cap(local.clippings).map(normalizeClipping).filter(Boolean) as Clipping[];
 
   await prisma.$transaction([
     ...favs.map((i) => prisma.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'favorite', articleId: i.id } }, update: {}, create: { userId, kind: 'favorite', articleId: i.id, title: i.title, slug: i.slug } })),

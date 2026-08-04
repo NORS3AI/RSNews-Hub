@@ -3,12 +3,16 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { verifyPassword, createSession } from '@/lib/auth';
 import { isDelegatedAuth } from '@/lib/identity';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
 
 export async function POST(req: Request) {
   // In production the parent site handles login; the hub's own login is disabled.
   if (isDelegatedAuth()) return NextResponse.json({ error: 'Sign in on the main RS News site; the hub opens automatically for members.' }, { status: 403 });
+  // Throttle brute-force: 10 attempts per IP per minute.
+  const rl = rateLimit(`login:${clientIp(req)}`, 10, 60_000);
+  if (!rl.ok) return NextResponse.json({ error: 'Too many attempts. Please wait a moment.' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
