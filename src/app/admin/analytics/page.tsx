@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { loadEvents, totalEventCount, loadUserInfo } from '@/lib/analytics/query';
-import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, ctr } from '@/lib/analytics/metrics';
+import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, ctr } from '@/lib/analytics/metrics';
 import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
 import { rebuildAnalyticsRollups } from '@/lib/actions';
@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 
 const DAYS = [7, 30, 90];
 const AD_SPLITS = [['placement', 'Placement'], ['format', 'Format'], ['shape', 'Shape'], ['campaign', 'Campaign'], ['creative', 'Creative'], ['pageType', 'Page type']] as const;
+const VID_SPLITS = [['creative', 'Creative'], ['campaign', 'Campaign'], ['placement', 'Placement']] as const;
 const ART_SPLITS = [['module', 'Module'], ['hasImage', 'Image vs none'], ['moduleType', 'Module type'], ['position', 'Position'], ['pageType', 'Page type']] as const;
 
 function fmtMs(ms: number) {
@@ -29,6 +30,8 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const artSplit = ART_SPLITS.some((s) => s[0] === searchParams.artSplit) ? searchParams.artSplit! : 'module';
   const audSplit = (AUDIENCE_DIMS.some((s) => s[0] === searchParams.audSplit) ? searchParams.audSplit! : 'accountType') as AudienceDim;
   const audLabel = (AUDIENCE_DIMS.find((s) => s[0] === audSplit) ?? (['', 'Account type'] as const))[1];
+  const vidSplit = VID_SPLITS.some((s) => s[0] === searchParams.vidSplit) ? searchParams.vidSplit! : 'creative';
+  const vidLabel = (VID_SPLITS.find((s) => s[0] === vidSplit) ?? (['', 'Creative'] as const))[1];
 
   const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
   const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
@@ -53,9 +56,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const clips = aggregateClips(events);
   const userInfo = await loadUserInfo(events, new Date());
   const audience = aggregateAudience(events, audSplit, userInfo);
+  const video = aggregateVideo(events, vidSplit);
 
   const url = (p: Record<string, string | number>) => {
-    const q = new URLSearchParams({ days: String(days), adSplit, artSplit, audSplit, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) });
+    const q = new URLSearchParams({ days: String(days), adSplit, artSplit, audSplit, vidSplit, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) });
     return `/admin/analytics?${q.toString()}`;
   };
 
@@ -154,6 +158,20 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             />
             <p className="mt-1.5 text-xs text-[var(--muted)]">Click a column to sort; <strong>Export CSV</strong> for a spreadsheet. CTR is clicks ÷ <em>viewable</em> impressions, so a low-placed ad isn&apos;t unfairly compared with a top one.</p>
           </section>
+
+          {/* ---------- Video ads (quartile funnel) ---------- */}
+          {video.length > 0 && (
+            <section>
+              <SectionTitle>Video ads — watch-through funnel</SectionTitle>
+              <Compare current={vidSplit} options={VID_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ vidSplit: v })} />
+              <ReportTable
+                columns={[{ key: 'key', label: vidLabel }, { key: 'views', label: 'Views', type: 'int' }, { key: 'q25', label: '25%', type: 'int' }, { key: 'q50', label: '50%', type: 'int' }, { key: 'q75', label: '75%', type: 'int' }, { key: 'q100', label: '100%', type: 'int' }, { key: 'completionRate', label: 'Completion', type: 'pct01' }]}
+                rows={video.slice(0, 50)}
+                filename={`video-by-${vidSplit}-${days}d`}
+              />
+              <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Views</strong> = playbacks started; each quartile is counted once per view, so <strong>Completion</strong> is finishes ÷ views. Video creatives autoplay muted &amp; in-view only.</p>
+            </section>
+          )}
 
           {/* ---------- Articles / modules ---------- */}
           <section>

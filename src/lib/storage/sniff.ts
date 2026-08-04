@@ -75,6 +75,44 @@ export function contentTypeForKey(key: string): string {
     case 'gif': return 'image/gif';
     case 'webp': return 'image/webp';
     case 'svg': return 'image/svg+xml';
+    case 'mp4': return 'video/mp4';
+    case 'webm': return 'video/webm';
     default: return 'application/octet-stream';
   }
+}
+
+// Silent video-ad creatives. Detected by magic bytes like images — MP4 by its
+// 'ftyp' box, WebM by the EBML header — never by the client-declared type.
+export function sniffVideo(bytes: Buffer): ImageType | null {
+  if (bytes.length > 12 && bytes.toString('ascii', 4, 8) === 'ftyp') return { ext: 'mp4', mime: 'video/mp4' };
+  if (bytes.length > 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return { ext: 'webm', mime: 'video/webm' };
+  return null;
+}
+
+export type MediaKind = 'image' | 'video';
+export type MediaType = ImageType & { kind: MediaKind };
+export type MediaValidation = { ok: true; type: MediaType } | { ok: false; error: string };
+
+/**
+ * Validate an upload as an image or (when allowed) a silent video, with a
+ * per-kind size cap. Type is always sniffed from content.
+ */
+export function validateMedia(
+  bytes: Buffer,
+  opts: { imageMax: number; videoMax: number; allowSvg?: boolean; allowVideo?: boolean },
+): MediaValidation {
+  if (!bytes || bytes.length === 0) return { ok: false, error: 'empty file' };
+  const img = sniffImage(bytes, opts.allowSvg);
+  if (img) {
+    if (bytes.length > opts.imageMax) return { ok: false, error: `image too large (max ${(opts.imageMax / 1048576).toFixed(0)}MB)` };
+    return { ok: true, type: { ...img, kind: 'image' } };
+  }
+  if (opts.allowVideo) {
+    const vid = sniffVideo(bytes);
+    if (vid) {
+      if (bytes.length > opts.videoMax) return { ok: false, error: `video too large (max ${(opts.videoMax / 1048576).toFixed(0)}MB)` };
+      return { ok: true, type: { ...vid, kind: 'video' } };
+    }
+  }
+  return { ok: false, error: opts.allowVideo ? 'unsupported file (allowed: png, jpg, gif, webp, mp4, webm)' : 'unsupported image type (allowed: png, jpg, gif, webp)' };
 }

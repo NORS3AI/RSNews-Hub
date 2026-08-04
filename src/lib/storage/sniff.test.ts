@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sniffImage, validateImage, assetKey, KEY_RE, contentTypeForKey, looksLikeSvg } from './sniff';
+import { sniffImage, validateImage, assetKey, KEY_RE, contentTypeForKey, looksLikeSvg, sniffVideo, validateMedia } from './sniff';
 
 // Minimal valid magic-byte headers for each type.
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
@@ -75,10 +75,43 @@ describe('assetKey / KEY_RE', () => {
 });
 
 describe('contentTypeForKey', () => {
-  it('maps extension → mime', () => {
+  it('maps extension → mime (incl. video)', () => {
     expect(contentTypeForKey('images/ab/x.png')).toBe('image/png');
     expect(contentTypeForKey('images/ab/x.jpg')).toBe('image/jpeg');
     expect(contentTypeForKey('images/ab/x.webp')).toBe('image/webp');
+    expect(contentTypeForKey('images/ab/x.mp4')).toBe('video/mp4');
+    expect(contentTypeForKey('images/ab/x.webm')).toBe('video/webm');
     expect(contentTypeForKey('images/ab/x.bin')).toBe('application/octet-stream');
+  });
+});
+
+// Minimal magic-byte headers for video containers.
+const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0]), Buffer.from('ftypisom'), Buffer.alloc(4)]);
+const WEBM = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(8)]);
+
+describe('sniffVideo', () => {
+  it('detects mp4 (ftyp) and webm (EBML)', () => {
+    expect(sniffVideo(MP4)).toEqual({ ext: 'mp4', mime: 'video/mp4' });
+    expect(sniffVideo(WEBM)).toEqual({ ext: 'webm', mime: 'video/webm' });
+    expect(sniffVideo(PNG)).toBeNull();
+    expect(sniffVideo(TXT)).toBeNull();
+  });
+});
+
+describe('validateMedia', () => {
+  const MAX = { imageMax: 8 * 1024 * 1024, videoMax: 20 * 1024 * 1024 };
+  it('accepts images always', () => {
+    expect(validateMedia(PNG, MAX)).toEqual({ ok: true, type: { ext: 'png', mime: 'image/png', kind: 'image' } });
+  });
+  it('accepts video only when allowVideo is set', () => {
+    expect(validateMedia(MP4, MAX)).toMatchObject({ ok: false });
+    expect(validateMedia(MP4, { ...MAX, allowVideo: true })).toEqual({ ok: true, type: { ext: 'mp4', mime: 'video/mp4', kind: 'video' } });
+  });
+  it('enforces per-kind size caps', () => {
+    expect(validateMedia(Buffer.concat([PNG, Buffer.alloc(MAX.imageMax)]), MAX)).toMatchObject({ ok: false });
+    expect(validateMedia(Buffer.concat([MP4, Buffer.alloc(MAX.videoMax)]), { ...MAX, allowVideo: true })).toMatchObject({ ok: false });
+  });
+  it('rejects unknown types', () => {
+    expect(validateMedia(TXT, { ...MAX, allowVideo: true })).toMatchObject({ ok: false });
   });
 });

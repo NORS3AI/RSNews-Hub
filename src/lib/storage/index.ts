@@ -11,12 +11,12 @@
 
 import { log } from '../logger';
 import type { StorageAdapter, PutResult } from './types';
-import { validateImage, assetKey } from './sniff';
+import { validateMedia, assetKey } from './sniff';
 import { optimizeImage, optimizeConfig } from './optimize';
 import { LocalAdapter } from './local';
 import { S3Adapter } from './s3';
 
-export { validateImage, assetKey, sniffImage, KEY_RE, contentTypeForKey } from './sniff';
+export { validateImage, validateMedia, assetKey, sniffImage, sniffVideo, KEY_RE, contentTypeForKey } from './sniff';
 export { optimizeImage, optimizeConfig, keepOptimized, shouldOptimize } from './optimize';
 export type { StorageAdapter, PutResult } from './types';
 export { uploadDir } from './local';
@@ -30,10 +30,16 @@ export function storageMode(): 'local' | 's3' {
   return process.env.S3_BUCKET ? 's3' : 'local';
 }
 
-/** Max upload size in bytes (env UPLOAD_MAX_MB, default 8MB). */
+/** Max image upload size in bytes (env UPLOAD_MAX_MB, default 8MB). */
 export function maxUploadBytes(): number {
   const mb = Number(process.env.UPLOAD_MAX_MB);
   return (Number.isFinite(mb) && mb > 0 ? mb : 8) * 1024 * 1024;
+}
+
+/** Max video upload size in bytes (env UPLOAD_VIDEO_MAX_MB, default 20MB). */
+export function maxVideoBytes(): number {
+  const mb = Number(process.env.UPLOAD_VIDEO_MAX_MB);
+  return (Number.isFinite(mb) && mb > 0 ? mb : 20) * 1024 * 1024;
 }
 
 /** SVG uploads are off unless explicitly allowed (they can carry script). */
@@ -60,21 +66,36 @@ export function _resetAdapter(): void { cached = null; cachedMode = null; }
  * Validate + store image bytes. Returns the public URL to persist. Never throws;
  * on any failure returns `{ ok:false, error }` so callers can respond cleanly.
  */
-export async function putImage(bytes: Buffer): Promise<PutResult> {
-  const v = validateImage(bytes, maxUploadBytes(), svgAllowed());
+/**
+ * Validate + store an uploaded asset — an image always, and a silent video when
+ * `allowVideo` is set (for ad creatives). Images are optimized before hashing;
+ * videos are stored as-is (no server-side transcode). Never throws.
+ */
+export async function putAsset(bytes: Buffer, opts: { allowVideo?: boolean } = {}): Promise<PutResult> {
+  const v = validateMedia(bytes, { imageMax: maxUploadBytes(), videoMax: maxVideoBytes(), allowSvg: svgAllowed(), allowVideo: opts.allowVideo });
   if (!v.ok) return { ok: false, error: v.error };
 
-  // Optimize before hashing so the stored object IS the optimized one. Falls
-  // back to the original bytes/type if sharp is unavailable or a decode fails.
-  const opt = await optimizeImage(bytes, v.type, optimizeConfig());
+  let outBytes = bytes;
+  let ext = v.type.ext;
+  let mime = v.type.mime;
+  if (v.type.kind === 'image') {
+    // Optimize before hashing so the stored object IS the optimized one.
+    const opt = await optimizeImage(bytes, { ext: v.type.ext, mime: v.type.mime }, optimizeConfig());
+    outBytes = opt.bytes; ext = opt.type.ext; mime = opt.type.mime;
+  }
 
-  const key = assetKey(opt.bytes, opt.type.ext);
+  const key = assetKey(outBytes, ext);
   const adapter = getAdapter();
   try {
-    await adapter.put(key, opt.bytes, opt.type.mime);
+    await adapter.put(key, outBytes, mime);
   } catch (e) {
     log.error('asset store failed', { backend: adapter.kind, err: (e as Error).message });
     return { ok: false, error: 'storage backend error' };
   }
   return { ok: true, url: adapter.publicUrl(key), key, dedup: false };
+}
+
+/** Image-only convenience wrapper (the common case). */
+export function putImage(bytes: Buffer): Promise<PutResult> {
+  return putAsset(bytes, { allowVideo: false });
 }

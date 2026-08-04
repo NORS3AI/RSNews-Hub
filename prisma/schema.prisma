@@ -171,6 +171,8 @@ model Ad {
   competitors String   @default("") // comma-separated: hide this ad if any appears in the article
   imageWide   String?  // wide banner creative (~3:1) for the in-article slot; url or data URL
   imageRect   String?  // rectangle creative (~1.2:1) for the bottom slot; url or data URL
+  video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
+  videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 }

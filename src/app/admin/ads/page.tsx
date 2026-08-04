@@ -29,6 +29,8 @@ const FieldSet = ({ ad }: { ad?: any }) => (
     </div>
     <AdImageInput name="imageWide" label="Banner image (wide ~3:1)" defaultValue={ad?.imageWide ?? ''} hint="Shown in the in-article slot. Leave blank to use the text card." />
     <AdImageInput name="imageRect" label="Rectangle image (~1.2:1)" defaultValue={ad?.imageRect ?? ''} hint="Shown in the bottom slot (300×250-ish)." />
+    <AdImageInput name="video" kind="video" label="Rectangle video (silent, ~1:1)" defaultValue={ad?.video ?? ''} hint="Optional mp4/webm — plays muted &amp; looping in the rectangle slot (overrides the rectangle image). Tracks 25/50/75/100% completion." />
+    <AdImageInput name="videoPoster" label="Video poster (optional)" defaultValue={ad?.videoPoster ?? ''} hint="Still image shown before play and for reduced-motion viewers." />
     <div className="flex items-center gap-4">
       <div><label className="label">Accent</label><input name="accent" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
       <label className="mt-5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={ad ? ad.active : true} className="h-4 w-4" /> Active</label>
