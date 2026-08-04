@@ -310,11 +310,15 @@
     els.forEach(function (e) { io.observe(e); });
   }
   /* ---------- Backroom Humor comics ---------- */
-  function currentComic() { return COMICS.filter(function (c) { return c.active; })[0] || null; }
+  function currentComic() {
+    var actives = COMICS.filter(function (c) { return c.active; });
+    if (!actives.length) return null;
+    return actives[Math.floor(Math.random() * actives.length)];
+  }
   function comicModule() {
     var c = currentComic();
     if (!c) return '';
-    return '<section class="module"><div class="module-head"><h2>Backroom Humor</h2>' +
+    return '<section class="comic-section"><div class="module-head"><h2>Backroom Humor</h2>' +
       '<a class="link-orange" href="#" data-comics-archive="1">View all comics</a></div>' +
       '<figure class="comic-fig"><img src="' + esc(c.image) + '" alt="' + esc(c.title) + '">' +
       '<figcaption>' + esc(c.caption || c.title) + '</figcaption></figure></section>';

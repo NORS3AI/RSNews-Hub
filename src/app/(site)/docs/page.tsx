@@ -41,7 +41,10 @@ export default async function DocsHome() {
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
 
-  const currentComic = await prisma.comic.findFirst({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] });
+  // All homepage-eligible comics; one is picked at random per request so the
+  // module cycles through them on refresh.
+  const activeComics = await prisma.comic.findMany({ where: { active: true }, orderBy: { postedAt: 'desc' } });
+  const currentComic = activeComics.length ? activeComics[Math.floor(Math.random() * activeComics.length)] : null;
 
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
@@ -100,15 +103,15 @@ export default async function DocsHome() {
       case 'comic':
         if (!currentComic) return null;
         return (
-          <section key={id} className="module">
+          <section key={id}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="module-title">Backroom Humor</h2>
               <Link href="/docs/archive/comics" className="text-sm font-semibold text-brand-600 hover:underline">View all comics</Link>
             </div>
-            <figure className="mx-auto max-w-[560px]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={currentComic.image} alt={currentComic.title} className="w-full rounded-xl border border-[var(--border)] shadow-[var(--shadow-card)]" />
-              <figcaption className="mt-3 text-center text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
+            <figure className="text-center">
+              {/* The artwork itself is the card. eslint-disable-next-line @next/next/no-img-element */}
+              <img src={currentComic.image} alt={currentComic.title} className="mx-auto block max-h-[560px] w-auto max-w-full rounded-2xl border border-[var(--border)] shadow-modal" />
+              <figcaption className="mt-3 text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
             </figure>
           </section>
         );
