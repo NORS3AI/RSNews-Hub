@@ -10,15 +10,16 @@ import AdSlot from '@/components/AdSlot';
  * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
-  ad, slot, size = 'in-article',
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle' }) {
+  ad, slot, size = 'in-article', tone = 'card',
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange' }) {
   if (!ad) return <AdSlot size={size} slot={slot} />;
 
   const rect = size === 'rectangle';
   const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
+  const orange = tone === 'orange';
 
-  // Image creative — render the artwork with a small "Ad" chip; the card
-  // background keeps transparent PNG edges tidy.
+  // Image creative — render the artwork with a small "Ad" chip. On the homepage
+  // the card is orange and pads the art into a frame; in-article stays neutral.
   if (image) {
     return (
       <a
@@ -26,12 +27,12 @@ export default function InArticleAd({
         data-ad-slot={slot}
         data-ad-brand={ad.brand}
         aria-label={`Advertisement: ${ad.brand}`}
-        className={`relative mx-auto block w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect ? 'max-w-[360px]' : ''}`}
+        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
-        <span className="absolute left-2 top-2 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
+        <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={ad.brand} className="block w-full" />
+        <img src={image} alt={ad.brand} className={`block w-full ${orange ? 'rounded-lg' : ''}`} />
       </a>
     );
   }
