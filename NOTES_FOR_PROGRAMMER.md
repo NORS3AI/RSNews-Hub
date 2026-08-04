@@ -53,19 +53,16 @@
 
 The v1 pipeline (§3) already captures the events; these are additions on top of it.
 
-- 🔵 **Exportable reports.** Any dashboard table → **CSV / spreadsheet** download,
-  friendly and sortable. Make each table **click-to-sort** by column, add a
-  simple report builder (pick date range + which cut, e.g. "ads by campaign,
-  last 30 days") and a one-click export. Nice-to-have: scheduled email exports.
-- 🔵🟠 **Advertiser-specific reports (their data only).** Per-vendor view of how
-  *their* ads performed — top creatives, impressions/viewable/CTR by placement,
-  best-performing slots, trend over time — scoped so a vendor sees **only their
-  own brand's data**. Two delivery options for the dev to choose:
-  (a) admin picks an advertiser and exports/sends them a report, or
-  (b) a real **advertiser login** with a filtered, read-only dashboard (needs an
-  advertiser↔brand mapping + access control). The data model already tags each
-  ad event with `campaignId`/`brand`, so the queries are straightforward; the
-  gating is the main work.
+- ✅ **Exportable + sortable reports** _(v0.29.0)_ — every dashboard table has
+  **click-to-sort** headers and a one-click **Export CSV** (`ReportTable` +
+  `src/lib/analytics/csv.ts`). Still 🔵 open: a saved report-builder and
+  scheduled email exports.
+- ✅ **Advertiser-specific reports** _(v0.29.0)_ — `/admin/analytics/advertisers`:
+  pick a vendor → totals + top creatives + by-placement + daily trend, each
+  exportable, **scoped to that brand only** (verified no cross-brand leak). This
+  is delivery option (a): the admin views/exports and hands it over. Still 🟠
+  open if wanted: option (b), a real **advertiser login** with a filtered
+  read-only dashboard (needs an advertiser↔brand mapping + access control).
 - 🔵 **Video-ad quartiles** (25/50/75/100 %, muted/unmuted, autoplay vs click) —
   once video ads exist.
 - 🔵🟠 **Audience segmentation** — break reports down by member vs vendor, store

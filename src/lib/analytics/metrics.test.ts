@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { ctr, pct, splitDim, aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, type Ev } from './metrics';
+import { ctr, pct, splitDim, aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, advertiserList, advertiserReport, adTrend, type Ev } from './metrics';
+import { toCsv } from './csv';
 
 const ev = (p: Partial<Ev>): Ev => ({ type: 'impression', props: {}, createdAt: new Date('2026-01-01'), ...p });
 
@@ -107,5 +108,38 @@ describe('aggregateClips + overview', () => {
     expect(o.sessions).toBe(1);
     expect(o.articleOpens).toBe(1);
     expect(o.opensPerSession).toBe(1);
+  });
+});
+
+describe('advertiser reporting (scoped to one brand)', () => {
+  const evs: Ev[] = [
+    ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', viewable: true } }),
+    ev({ type: 'click', subjectType: 'ad', placement: 'home-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1' } }),
+    ev({ type: 'impression', subjectType: 'ad', placement: 'article-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-2', viewable: true } }),
+    ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { brand: 'PostalMate', campaignId: 'PostalMate', creativeId: 'pm-1', viewable: true } }),
+  ];
+  it('lists distinct advertisers', () => {
+    expect(advertiserList(evs)).toEqual(['PackWise', 'PostalMate']);
+  });
+  it('reports only the selected brand’s data', () => {
+    const r = advertiserReport(evs, 'PackWise');
+    expect(r.totals.impressions).toBe(2); // excludes PostalMate
+    expect(r.totals.clicks).toBe(1);
+    expect(r.byCreative.map((c) => c.key).sort()).toEqual(['pw-1', 'pw-2']);
+    expect(r.byPlacement.some((p) => p.key === 'home-top')).toBe(true);
+    // no PostalMate leakage anywhere
+    expect(JSON.stringify(r)).not.toMatch(/PostalMate|pm-1/);
+  });
+  it('builds a daily trend', () => {
+    const t = adTrend(evs.filter((e) => (e.props as { brand?: string }).brand === 'PackWise'));
+    expect(t[0].impressions).toBe(2);
+    expect(t[0].clicks).toBe(1);
+  });
+});
+
+describe('toCsv', () => {
+  it('joins rows and escapes commas, quotes and newlines', () => {
+    const csv = toCsv(['name', 'note'], [['home-top', 'a,b'], ['x', 'has "quote"'], ['y', 'two\nlines']]);
+    expect(csv).toBe('name,note\r\nhome-top,"a,b"\r\nx,"has ""quote"""\r\ny,"two\nlines"');
   });
 });
