@@ -12,4 +12,4 @@ export const SITE_DESCRIPTION = 'News, articles and documentation — read, disc
 
 // Bump on every pushed update. Shown in the footer; keep in sync with the
 // static preview footer in docs/index.html.
-export const APP_VERSION = 'v0.20.0';
+export const APP_VERSION = 'v0.20.1';
