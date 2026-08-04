@@ -395,7 +395,19 @@
   function isRecent(a) { return a.publishedAt && (Date.now() - new Date(a.publishedAt).getTime()) <= 7 * 864e5; }
 
   /* ---------- home ---------- */
+  // Homepage ad slots have no article context, so any advertiser is safe here.
+  // Rotate through the image creatives so the real ads are visible on the home
+  // page (not just inside articles). Falls back to the placeholder box.
+  var homeAdIdx = 0;
+  function homeAd(size) {
+    var wantRect = size === 'rectangle';
+    var pool = HOUSE_ADS.filter(function (a) { return wantRect ? (a.imageRect || a.imageWide) : (a.imageWide || a.imageRect); });
+    if (!pool.length) return ad(size);
+    var a = pool[homeAdIdx++ % pool.length];
+    return '<div class="had-home' + (wantRect ? ' had-home-rect' : ' had-home-lead') + '">' + houseAdRender(a, wantRect ? 'rectangle' : 'inarticle') + '</div>';
+  }
   function renderHome() {
+    homeAdIdx = 0;
     var sorted = ARTICLES.slice().sort(function (p, q) { return new Date(q.publishedAt) - new Date(p.publishedAt); });
     var lead = sorted.filter(function (a) { return a.featured; })[0] || sorted[0];
     if (!lead) { el('main').innerHTML = '<div class="content"><p>No articles yet.</p></div>'; return; }
@@ -418,7 +430,7 @@
     h += '<div class="row two">';
     h += '<section class="module"><div class="module-head"><h2>Latest articles</h2><a class="link-orange" href="#" data-home="1">View all</a></div>' +
       latest.slice(0, 6).map(latestRow).join('') +
-      '<div style="margin-top:16px;display:flex;justify-content:center">' + ad('leaderboard') + '</div></section>';
+      '<div style="margin-top:16px;display:flex;justify-content:center">' + homeAd('leaderboard') + '</div></section>';
     h += '<div class="rail" style="display:flex;flex-direction:column;gap:20px">' +
       '<section class="module"><div class="module-head"><h2>Trending</h2></div>' +
       trending.map(function (a, i) { return '<div class="mini" data-open="' + esc(a.slug) + '"><span class="n">' + (i + 1) + '</span><span class="mt">' + esc(a.title) + '</span><span class="mv">' + ICON.eye + (a.views || 0) + '</span></div>'; }).join('') +
@@ -426,7 +438,7 @@
       '<section class="module"><div class="module-head"><h2>Categories</h2></div><div class="cats">' +
       CATEGORIES.map(function (c) { return '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">' + esc(c.name) + '<span class="count">' + (c.count || 0) + '</span></span>'; }).join('') +
       '</div></section>' +
-      '<section class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</section>' +
+      '<section class="module" style="display:flex;justify-content:center">' + homeAd('rectangle') + '</section>' +
       '</div>';
     h += '</div>';
 
@@ -442,7 +454,7 @@
     }
 
     /* Full-width leaderboard ad */
-    h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+    h += '<div class="module" style="display:flex;justify-content:center">' + homeAd('leaderboard') + '</div>';
 
     /* Category spotlights — a module per popular category */
     var topCats = CATEGORIES.slice().sort(function (p, q) { return (q.count || 0) - (p.count || 0); }).slice(0, 3);
@@ -453,7 +465,7 @@
         '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">See all ' + (c.count || 0) + '</span></div>' +
         carousel(items, function (a) { return articleBlock(a); }) + '</section>';
       // Sprinkle an ad between the two spotlights
-      if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+      if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + homeAd('leaderboard') + '</div>';
     });
 
     /* Popular topics (tag cloud) */
@@ -474,7 +486,7 @@
     }
 
     /* Leaderboard ad */
-    h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+    h += '<div class="module" style="display:flex;justify-content:center">' + homeAd('leaderboard') + '</div>';
 
     /* Quick reads — short articles */
     var quick = sorted.slice().sort(function (p, q) { return (p.readMinutes || 1) - (q.readMinutes || 1); });
@@ -487,9 +499,9 @@
 
     /* Ad rectangles row */
     h += '<div class="row" style="grid-template-columns:1fr"><div class="grid g3">' +
-      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
-      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
-      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
+      '<div class="module" style="display:flex;justify-content:center">' + homeAd('rectangle') + '</div>' +
+      '<div class="module" style="display:flex;justify-content:center">' + homeAd('rectangle') + '</div>' +
+      '<div class="module" style="display:flex;justify-content:center">' + homeAd('rectangle') + '</div>' +
       '</div></div>';
 
     /* Subscribe CTA (orange) */
