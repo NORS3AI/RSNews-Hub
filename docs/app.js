@@ -186,6 +186,40 @@
         recommend.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
     }
 
+    /* Full-width leaderboard ad */
+    h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+
+    /* Category spotlights — a module per popular category */
+    var topCats = CATEGORIES.slice().sort(function (p, q) { return (q.count || 0) - (p.count || 0); }).slice(0, 2);
+    topCats.forEach(function (c, idx) {
+      var items = ARTICLES.filter(function (a) { return a.category && a.category.slug === c.slug; }).slice(0, 3);
+      if (!items.length) return;
+      h += '<section class="module"><div class="module-head"><h2 style="color:' + c.color + '">In ' + esc(c.name) + '</h2>' +
+        '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">See all ' + (c.count || 0) + '</span></div>' +
+        '<div class="grid g3">' + items.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
+      // Sprinkle an ad between the two spotlights
+      if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
+    });
+
+    /* More to explore — dense grid */
+    h += '<section class="module"><div class="module-head"><h2>More to explore</h2><a class="link-orange" href="#" data-home="1">Refresh</a></div>' +
+      '<div class="grid g4">' + sorted.slice(0, 8).map(function (a) { return articleBlock(a, { sm: true }); }).join('') + '</div></section>';
+
+    /* Ad rectangles row */
+    h += '<div class="row" style="grid-template-columns:1fr"><div class="grid g3">' +
+      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
+      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
+      '<div class="module" style="display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
+      '</div></div>';
+
+    /* Subscribe CTA (orange) */
+    h += '<section class="module orange"><div style="max-width:560px">' +
+      '<h2 style="font-size:24px;font-weight:900;margin:0">Never miss a story</h2>' +
+      '<p style="margin:8px 0 16px;color:rgba(255,255,255,.9);font-size:16px">Get the week\'s best articles delivered to your inbox. No spam, unsubscribe anytime.</p>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+      '<input type="email" placeholder="you@example.com" style="flex:1;min-width:220px;height:46px;border-radius:11px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.14);color:#fff;padding:0 14px;font-size:15px;outline:none">' +
+      '<button class="btn" style="background:#fff;color:var(--orange)">Subscribe</button></div></div></section>';
+
     h += '</div>';
     el('main').innerHTML = h;
     syncButtons();

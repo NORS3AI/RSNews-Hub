@@ -123,8 +123,14 @@ export default async function DocsHome() {
     }
   };
 
+  // Category spotlights + a dense "more to explore" pool for extra scroll.
+  const topCats = [...categories].sort((a, b) => b._count.articles - a._count.articles).slice(0, 2);
+  const spotlights = topCats
+    .map((c) => ({ cat: c, items: all.filter((a) => a.category?.slug === c.slug).slice(0, 3) }))
+    .filter((s) => s.items.length > 0);
+
   return (
-    <div className="space-y-5 px-4 py-6 lg:px-7 lg:py-7">
+    <div className="space-y-8 px-4 py-6 lg:space-y-10 lg:px-7 lg:py-8">
       {/* ===== Full-width headline ===== */}
       {lead && <Hero lead={lead} />}
 
@@ -157,6 +163,48 @@ export default async function DocsHome() {
 
       {/* ===== Admin-arranged modules ===== */}
       {layout.filter((m) => m.enabled).map((m) => renderModule(m.id))}
+
+      {/* ===== More content + interspersed ads ===== */}
+      <div className="module flex justify-center"><AdSlot size="leaderboard" slot="home-mid" /></div>
+
+      {spotlights.flatMap((s, i) => [
+        <section key={s.cat.id} className="module">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="module-title" style={{ color: s.cat.color }}>In {s.cat.name}</h2>
+            <Link href={`/docs/category/${s.cat.slug}`} className="text-sm font-semibold hover:underline" style={{ color: s.cat.color }}>
+              See all {s.cat._count.articles}
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</div>
+        </section>,
+        i === 0 ? <div key="spotlight-ad" className="module flex justify-center"><AdSlot size="leaderboard" slot="home-spotlight" /></div> : null,
+      ]).filter(Boolean)}
+
+      <section className="module">
+        <div className="mb-4"><h2 className="module-title">More to explore</h2></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {all.slice(0, 8).map((a) => <ArticleCard key={a.id} article={a} compact />)}
+        </div>
+      </section>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-r1" /></div>
+        <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-r2" /></div>
+        <div className="module hidden justify-center lg:flex"><AdSlot size="rectangle" slot="home-r3" /></div>
+      </div>
+
+      {/* Subscribe CTA */}
+      <section className="module module-orange bg-brand-600 text-white">
+        <div className="max-w-xl">
+          <h2 className="text-2xl font-black">Never miss a story</h2>
+          <p className="mt-2 text-white/90">Get the week&apos;s best articles delivered to your inbox. No spam, unsubscribe anytime.</p>
+          <form action="/docs/subscriptions" className="mt-4 flex flex-wrap gap-2.5">
+            <input type="email" placeholder="you@example.com" aria-label="Email"
+              className="h-[46px] min-w-[220px] flex-1 rounded-xl border border-white/40 bg-white/15 px-3.5 text-white placeholder:text-white/60 outline-none" />
+            <button className="btn bg-white text-brand-700 hover:bg-white/90">Subscribe</button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
