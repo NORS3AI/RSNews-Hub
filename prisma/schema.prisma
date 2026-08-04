@@ -189,6 +189,12 @@ model User {
   role         String        @default("USER")
   status       String        @default("ACTIVE")
   bio          String?
+  // Audience-segmentation attributes (for analytics "segment by"). accountType
+  // is the audience axis (distinct from `role`, which is permissions); storeType
+  // and region are optional member profile facets. Tenure is derived from createdAt.
+  accountType  String        @default("MEMBER") // MEMBER | VENDOR | STAFF
+  storeType    String?       // e.g. franchise | independent | chain (member facet)
+  region       String?       // e.g. Northeast | Midwest | South | West
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

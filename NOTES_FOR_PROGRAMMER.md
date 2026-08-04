@@ -91,9 +91,18 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   visitors/day, opens, ad CTR sparklines). Trigger: `POST /api/analytics/rollup`
   (host cron with `CRON_SECRET`, or the admin **Rebuild rollups** button). Pure
   aggregation is unit-tested. See DEPLOYMENT.md §3d.
-- 🔵🟠 **Audience segmentation** and 🔵 **video-ad quartiles** remain the open
-  phase-2 items (segmentation needs member/account attributes; quartiles need
-  video ads to exist first).
+- ✅ **Audience segmentation** _(v0.36.0)_ — `src/lib/analytics/audience.ts`: the
+  dashboard has an **Audience** section that segments engagement (visitors,
+  sessions, pageviews, opens, opens/session) by **account type** (member/vendor/
+  staff), **tenure** (from signup date), **signed-in vs guest**, **device**,
+  **region**, or **store type**. Account facets live on the `User` model and are
+  editable per user in admin; anonymous traffic segments as "Guest". Pure engine
+  unit-tested. _(As real members sign up and get tagged, the member/region/store
+  splits populate; device/tenure/auth work immediately.)_
+- 🔵 **Video-ad quartiles** — the last open phase-2 item. Not externally blocked:
+  it needs a **video ad format** built first (video creative on `Ad` + a player
+  that fires 25/50/75/100 % + mute/autoplay events), then the quartile report.
+  Buildable in-repo whenever the video-ad format is wanted.
 
 ---
 

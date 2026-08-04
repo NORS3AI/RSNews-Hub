@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import type { Ev } from './metrics';
+import { tenureBucket, type UserInfoMap } from './audience';
 
 export function rangeDays(days: number) {
   const until = new Date();
@@ -28,4 +29,20 @@ export async function loadEvents(days: number, cap = 60000): Promise<{ events: E
 
 export async function totalEventCount(): Promise<number> {
   return prisma.analyticsEvent.count();
+}
+
+// Resolve audience attributes for the userIds present in a set of events, with
+// tenure pre-bucketed against `now`, so the pure segmentation engine stays DB-free.
+export async function loadUserInfo(events: Ev[], now: Date): Promise<UserInfoMap> {
+  const ids = [...new Set(events.map((e) => e.userId).filter((v): v is string => !!v))];
+  if (ids.length === 0) return {};
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, accountType: true, region: true, storeType: true, createdAt: true },
+  });
+  const map: UserInfoMap = {};
+  for (const u of users) {
+    map[u.id] = { accountType: u.accountType, region: u.region, storeType: u.storeType, tenure: tenureBucket(u.createdAt, now) };
+  }
+  return map;
 }

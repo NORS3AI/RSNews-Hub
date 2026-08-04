@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { toCsv } from '@/lib/analytics/csv';
 import { Download, ChevronUp, ChevronDown } from '@/components/icons';
 
-export type ColType = 'text' | 'int' | 'pct01' | 'ms';
+export type ColType = 'text' | 'int' | 'num' | 'pct01' | 'ms';
 export type Col = { key: string; label: string; type?: ColType };
 type Row = Record<string, string | number>;
 
@@ -11,6 +11,7 @@ const nf = (n: number) => Number(n).toLocaleString();
 function fmt(v: string | number, type?: ColType): string {
   if (v == null) return '';
   if (type === 'int') return nf(Number(v));
+  if (type === 'num') return Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (type === 'pct01') return `${Math.round(Number(v) * 100)}%`;
   if (type === 'ms') { const s = Math.round(Number(v) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; }
   return String(v);

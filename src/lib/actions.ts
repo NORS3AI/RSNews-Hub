@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from './db';
 import { requireAdmin, hashPassword, getCurrentUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
-import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
+import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
@@ -408,14 +408,18 @@ export async function updateUser(formData: FormData) {
   const name = ((formData.get('name') as string) || '').trim();
   const role = (formData.get('role') as string) || 'USER';
   const status = (formData.get('status') as string) || 'ACTIVE';
+  const accountType = (formData.get('accountType') as string) || 'MEMBER';
+  const storeType = ((formData.get('storeType') as string) || '').trim();
+  const region = ((formData.get('region') as string) || '').trim();
   const notes = ((formData.get('notes') as string) || '').trim();
   const newPassword = (formData.get('password') as string) || '';
   if (!id) throw new Error('Missing user');
   if (!ROLES.includes(role as any) || !USER_STATUSES.includes(status as any)) throw new Error('Invalid role/status');
+  if (!ACCOUNT_TYPES.includes(accountType as any)) throw new Error('Invalid account type');
   if (actor.id === id && (role !== 'ADMIN' || status !== 'ACTIVE')) {
     throw new Error('You cannot remove your own admin access or deactivate yourself.');
   }
-  const data: any = { name, role, status, notes: notes || null };
+  const data: any = { name, role, status, accountType, storeType: storeType || null, region: region || null, notes: notes || null };
   if (newPassword) { if (newPassword.length < 6) throw new Error('Password too short'); data.passwordHash = await hashPassword(newPassword); }
   await prisma.user.update({ where: { id }, data });
   revalidatePath('/admin/users');
