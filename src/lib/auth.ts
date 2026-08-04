@@ -2,11 +2,9 @@ import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
+import { getAuthSecret } from './env';
 
 const COOKIE_NAME = 'rsnews_session';
-const secretKey = new TextEncoder().encode(
-  process.env.AUTH_SECRET || 'rsnews-hub-dev-secret-change-in-production-please-0000'
-);
 
 export type SessionUser = {
   id: string;
@@ -29,7 +27,7 @@ export async function createSession(user: SessionUser): Promise<void> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(secretKey);
+    .sign(getAuthSecret());
 
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true,
@@ -48,7 +46,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const token = cookies().get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, secretKey);
+    const { payload } = await jwtVerify(token, getAuthSecret());
     return {
       id: payload.id as string,
       email: payload.email as string,

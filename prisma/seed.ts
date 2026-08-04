@@ -14,14 +14,23 @@ function readMinutes(c: string) {
 async function main() {
   console.log('Seeding RSNews Hub…');
 
-  const adminPass = await bcrypt.hash('admin123', 10);
+  // Admin credentials come from the environment. Demo defaults are used only
+  // outside production; in production they are REQUIRED so no site ever ships
+  // with the public admin/admin123 login.
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@rsnews.local';
+  const adminPasswordPlain = process.env.SEED_ADMIN_PASSWORD || 'admin123';
+  if (process.env.NODE_ENV === 'production' && (!process.env.SEED_ADMIN_EMAIL || !process.env.SEED_ADMIN_PASSWORD)) {
+    throw new Error('Refusing to seed with default admin credentials in production. Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD.');
+  }
+
+  const adminPass = await bcrypt.hash(adminPasswordPlain, 10);
   const userPass = await bcrypt.hash('reader123', 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@rsnews.local' },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: 'admin@rsnews.local',
+      email: adminEmail,
       name: 'Site Admin',
       passwordHash: adminPass,
       role: 'ADMIN',
@@ -264,7 +273,7 @@ async function main() {
     }
   }
 
-  console.log('Seed complete. Admin login: admin@rsnews.local / admin123');
+  console.log(`Seed complete. Admin login: ${adminEmail} / ${process.env.SEED_ADMIN_PASSWORD ? '(from SEED_ADMIN_PASSWORD)' : 'admin123'}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
