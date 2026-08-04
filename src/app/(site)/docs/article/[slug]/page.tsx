@@ -10,6 +10,7 @@ import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
 import InArticleAd from '@/components/InArticleAd';
+import { pickArticleAds } from '@/lib/adsServer';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -51,6 +52,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   ]);
 
   const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
+  const ads = await pickArticleAds(adContext, 'article');
 
   return (
     <>
@@ -93,11 +95,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
         )}
 
-        <div className="my-6"><InArticleAd context={adContext} slot="article-top" size="in-article" /></div>
+        <div className="my-6"><InArticleAd ad={ads.top} slot="article-top" size="in-article" /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''} dangerouslySetInnerHTML={{ __html: article.content }} />
 
-        <div className="my-8 flex justify-center"><InArticleAd context={adContext} slot="article-bottom" size="rectangle" /></div>
+        <div className="my-8 flex justify-center"><InArticleAd ad={ads.bottom} slot="article-bottom" size="rectangle" /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">

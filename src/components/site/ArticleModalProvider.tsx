@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import InArticleAd from '@/components/InArticleAd';
+import type { AdRow } from '@/lib/ads';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
 import { useSaved } from './StarProvider';
@@ -15,7 +16,7 @@ type ModalArticle = {
   tags: { name: string; slug: string }[];
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null } };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -143,7 +144,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     )}
 
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
-                    <div className="my-6"><InArticleAd context={`${a.title} ${a.content} ${a.tags.map((t) => t.name).join(' ')}`} slot="modal-top" size="in-article" /></div>
+                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" /></div>
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''} dangerouslySetInnerHTML={{ __html: a.content }} />
 
@@ -157,7 +158,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     )}
 
                     {/* In-article ad #2 — contextually safe */}
-                    <div className="my-8 flex justify-center"><InArticleAd context={`${a.title} ${a.content} ${a.tags.map((t) => t.name).join(' ')}`} slot="modal-bottom" size="rectangle" /></div>
+                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" /></div>
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}

@@ -46,3 +46,4 @@ export const Share = (p: P) => (<svg {...base(p)}><circle cx="18" cy="5" r="3" /
 export const Scissors = (p: P) => (<svg {...base(p)}><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12" /></svg>);
 export const Download = (p: P) => (<svg {...base(p)}><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>);
 export const Copy = (p: P) => (<svg {...base(p)}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>);
+export const Megaphone = (p: P) => (<svg {...base(p)}><path d="m3 11 15-6v14l-15-6v-2Z" /><path d="M18 8a3 3 0 0 1 0 6" /><path d="M7 13v4a2 2 0 0 0 2 2h1" /></svg>);

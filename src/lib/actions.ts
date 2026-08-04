@@ -133,6 +133,42 @@ export async function deleteCategory(id: string) {
   revalidatePath('/admin/categories');
 }
 
+/* ----------------------------- Ad management ----------------------------- */
+
+export async function saveAd(formData: FormData) {
+  await ensureStaff();
+  const id = (formData.get('id') as string) || '';
+  const brand = ((formData.get('brand') as string) || '').trim();
+  const headline = ((formData.get('headline') as string) || '').trim();
+  const label = ((formData.get('label') as string) || '').trim();
+  const cta = ((formData.get('cta') as string) || '').trim() || 'Learn more';
+  const href = ((formData.get('href') as string) || '').trim() || '#';
+  const accent = ((formData.get('accent') as string) || '').trim() || '#E97D34';
+  const keywords = ((formData.get('keywords') as string) || '').trim();
+  const competitors = ((formData.get('competitors') as string) || '').trim();
+  const active = formData.get('active') != null;
+  if (!brand || !headline) throw new Error('Brand and headline are required');
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, active };
+  if (id) await prisma.ad.update({ where: { id }, data });
+  else await prisma.ad.create({ data });
+  revalidatePath('/admin/ads');
+  revalidatePath('/docs');
+}
+
+export async function deleteAd(id: string) {
+  await ensureStaff();
+  await prisma.ad.delete({ where: { id } });
+  revalidatePath('/admin/ads');
+  revalidatePath('/docs');
+}
+
+export async function toggleAd(id: string, active: boolean) {
+  await ensureStaff();
+  await prisma.ad.update({ where: { id }, data: { active } });
+  revalidatePath('/admin/ads');
+  revalidatePath('/docs');
+}
+
 /* --------------------------------- Tags ---------------------------------- */
 
 export async function saveTag(formData: FormData) {
