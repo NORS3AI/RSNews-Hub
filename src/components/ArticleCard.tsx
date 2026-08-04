@@ -4,9 +4,15 @@ import type { ArticleCard as Card } from '@/lib/recommend';
 import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
 
-export default function ArticleCard({ article, compact = false }: { article: Card; compact?: boolean }) {
+export default function ArticleCard({ article, compact = false, trk }: { article: Card; compact?: boolean; trk?: { place?: string; props?: Record<string, unknown> } }) {
+  const trkAttrs = trk ? {
+    'data-trk-type': 'article',
+    'data-trk-id': article.id,
+    'data-trk-place': trk.place,
+    'data-trk-props': JSON.stringify({ ...(trk.props || {}), hasImage: !!article.coverImage, category: article.category?.slug, compact }),
+  } : {};
   return (
-    <article className="card card-hover group relative flex flex-col overflow-hidden">
+    <article className="card card-hover group relative flex flex-col overflow-hidden" {...trkAttrs}>
       {/* Floating star — sits above the link, doesn't trigger navigation. */}
       <div className="absolute right-2.5 top-2.5 z-10">
         <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} />

@@ -4,7 +4,10 @@ import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
 import { clipShareText } from './ReaderClipper';
 import { makeQuoteImage, downloadDataUrl, downloadImage } from '@/lib/quoteImage';
+import { track } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
+
+const clipEv = (action: string, c: Clipping) => track({ type: 'clip', subjectType: 'clip', subjectId: c.id, pageType: 'clippings', props: { action, kind: c.kind ?? (c.image ? 'comic' : 'quote'), slug: c.slug } });
 
 const isComic = (c: Clipping) => c.kind === 'comic' || !!c.image;
 
@@ -25,6 +28,8 @@ export default function ClippingsList() {
   const { openArticle } = useArticleModal();
   const [view, setView] = useState<'cards' | 'images'>('cards');
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
+  const openZoom = (z: { src: string; alt: string }, c: Clipping) => { clipEv('expand', c); setZoom(z); };
+  const setViewTracked = (v: 'cards' | 'images') => { track({ type: 'clip', subjectType: 'clip', pageType: 'clippings', props: { action: 'view', view: v } }); setView(v); };
 
   useEffect(() => {
     if (!zoom) return;
@@ -46,17 +51,17 @@ export default function ClippingsList() {
     if (isComic(c)) {
       return (
         <div className="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
-          <IconAction label="Download image" onClick={() => downloadImage(c.image as string, `backroom-humor-${(c.title || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jpg`)}><Download width={15} height={15} /></IconAction>
-          <IconAction label="Delete" danger onClick={() => removeClipping(c.id)}><Trash width={15} height={15} /></IconAction>
+          <IconAction label="Download image" onClick={() => { clipEv('download', c); downloadImage(c.image as string, `backroom-humor-${(c.title || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jpg`); }}><Download width={15} height={15} /></IconAction>
+          <IconAction label="Delete" danger onClick={() => { clipEv('delete', c); removeClipping(c.id); }}><Trash width={15} height={15} /></IconAction>
         </div>
       );
     }
     return (
       <div className="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
-        <IconAction label="Download image" onClick={() => downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`)}><Download width={15} height={15} /></IconAction>
-        <IconAction label="Open article" onClick={() => c.slug && openArticle(c.slug)}><ArrowRight width={15} height={15} /></IconAction>
-        <IconAction label="Copy quote" onClick={() => navigator.clipboard?.writeText(clipShareText(c.quote ?? '', c.title, c.slug ?? ''))}><Copy width={15} height={15} /></IconAction>
-        <IconAction label="Delete" danger onClick={() => removeClipping(c.id)}><Trash width={15} height={15} /></IconAction>
+        <IconAction label="Download image" onClick={() => { clipEv('download', c); downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`); }}><Download width={15} height={15} /></IconAction>
+        <IconAction label="Open article" onClick={() => { clipEv('open', c); c.slug && openArticle(c.slug); }}><ArrowRight width={15} height={15} /></IconAction>
+        <IconAction label="Copy quote" onClick={() => { clipEv('copy', c); navigator.clipboard?.writeText(clipShareText(c.quote ?? '', c.title, c.slug ?? '')); }}><Copy width={15} height={15} /></IconAction>
+        <IconAction label="Delete" danger onClick={() => { clipEv('delete', c); removeClipping(c.id); }}><Trash width={15} height={15} /></IconAction>
       </div>
     );
   }
@@ -68,7 +73,7 @@ export default function ClippingsList() {
         {ready && clippings.length > 0 && (
           <div className="inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
             {(['cards', 'images'] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)}
+              <button key={v} onClick={() => setViewTracked(v)}
                 className={`rounded-lg px-3.5 py-1.5 text-sm font-bold capitalize ${view === v ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
                 {v}
               </button>
@@ -90,7 +95,7 @@ export default function ClippingsList() {
             <div key={c.id} className="card mb-4 flex break-inside-avoid flex-col p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy"
-                onClick={() => setZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' })}
+                onClick={() => openZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' }, c)}
                 className="w-full cursor-zoom-in rounded-lg" />
               <Actions c={c} />
             </div>
@@ -103,7 +108,7 @@ export default function ClippingsList() {
               {isComic(c) ? (
                 <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.image as string} alt={c.title} onClick={() => setZoom({ src: c.image as string, alt: c.title })} className="h-16 w-16 shrink-0 cursor-zoom-in rounded-lg object-cover" />
+                  <img src={c.image as string} alt={c.title} onClick={() => openZoom({ src: c.image as string, alt: c.title }, c)} className="h-16 w-16 shrink-0 cursor-zoom-in rounded-lg object-cover" />
                   <div>
                     <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Comic</span>
                     <div className="mt-1 font-bold leading-snug">{c.title}</div>

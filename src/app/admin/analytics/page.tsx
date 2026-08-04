@@ -1,0 +1,210 @@
+import Link from 'next/link';
+import { loadEvents, totalEventCount } from '@/lib/analytics/query';
+import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview } from '@/lib/analytics/metrics';
+
+export const dynamic = 'force-dynamic';
+
+const DAYS = [7, 30, 90];
+const AD_SPLITS = [['placement', 'Placement'], ['format', 'Format'], ['shape', 'Shape'], ['campaign', 'Campaign'], ['creative', 'Creative'], ['pageType', 'Page type']] as const;
+const ART_SPLITS = [['module', 'Module'], ['hasImage', 'Image vs none'], ['moduleType', 'Module type'], ['position', 'Position'], ['pageType', 'Page type']] as const;
+
+function fmtMs(ms: number) {
+  if (ms <= 0) return '0s';
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+const pctStr = (n: number) => `${Math.round(n * 100)}%`;
+const nf = (n: number) => n.toLocaleString();
+
+export default async function AnalyticsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+  const days = DAYS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 30;
+  const adSplit = AD_SPLITS.some((s) => s[0] === searchParams.adSplit) ? searchParams.adSplit! : 'placement';
+  const artSplit = ART_SPLITS.some((s) => s[0] === searchParams.artSplit) ? searchParams.artSplit! : 'module';
+
+  const [{ events, capped }, total] = await Promise.all([loadEvents(days), totalEventCount()]);
+  const ov = aggregateOverview(events);
+  const ads = aggregateAds(events, adSplit);
+  const eng = aggregateEngagement(events, artSplit);
+  const reading = aggregateReading(events);
+  const clips = aggregateClips(events);
+
+  const url = (p: Record<string, string | number>) => {
+    const q = new URLSearchParams({ days: String(days), adSplit, artSplit, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) });
+    return `/admin/analytics?${q.toString()}`;
+  };
+
+  const empty = events.length === 0;
+
+  return (
+    <div className="max-w-5xl">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Analytics</h1>
+        <div className="inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
+          {DAYS.map((d) => (
+            <Link key={d} href={url({ days: d })} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${days === d ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+              {d}d
+            </Link>
+          ))}
+        </div>
+      </div>
+      <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
+        Every number reads in three layers: <strong className="text-[var(--fg)]">Exposure</strong> (was it actually seen — viewable, above-fold, dwell), <strong className="text-[var(--fg)]">Interaction</strong> (clicked / opened / saved), and <strong className="text-[var(--fg)]">Outcome</strong> (read, kept exploring). Use the <em>Compare by</em> buttons to split a table and see what really drove a result — a design, a placement, or just being higher on the page.
+      </p>
+
+      {empty ? (
+        <div className="card p-8 text-center">
+          <p className="font-semibold">No analytics yet for this window.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
+            Events are collected on the live site as people browse. Visit the public pages (home, an article, clippings) to generate some, or widen the date range. {total > 0 ? `There are ${nf(total)} total events on record.` : ''}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* ---------- Overview ---------- */}
+          <section>
+            <SectionTitle>Hub overview</SectionTitle>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile label="Visitors" value={nf(ov.visitors)} />
+              <Tile label="Sessions" value={nf(ov.sessions)} />
+              <Tile label="Pageviews" value={nf(ov.pageviews)} />
+              <Tile label="Article opens" value={nf(ov.articleOpens)} />
+              <Tile label="Opens / session" value={String(ov.opensPerSession)} />
+              <Tile label="Signed-in" value={nf(ov.loggedInVisitors)} />
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <BarList title="By device" rows={ov.byDevice} />
+              <BarList title="By page" rows={ov.byPage} />
+            </div>
+          </section>
+
+          {/* ---------- Ads ---------- */}
+          <section>
+            <SectionTitle>Ads — exposure → interaction</SectionTitle>
+            <Compare current={adSplit} options={AD_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ adSplit: v })} />
+            <Table
+              cols={['', 'Impr.', 'Viewable', 'Above fold', 'Avg dwell', 'Clicks', 'CTR']}
+              rows={ads.slice(0, 20).map((r) => [r.key, nf(r.impressions), nf(r.viewable), pctStr(r.aboveFoldPct), fmtMs(r.avgDwellMs), nf(r.clicks), pctStr(r.ctr)])}
+              empty="No ad events yet."
+            />
+            <p className="mt-1.5 text-xs text-[var(--muted)]">CTR is clicks ÷ <em>viewable</em> impressions, so a low-placed ad isn&apos;t unfairly compared with a top one.</p>
+          </section>
+
+          {/* ---------- Articles / modules ---------- */}
+          <section>
+            <SectionTitle>Articles &amp; modules — what presentation wins</SectionTitle>
+            <Compare current={artSplit} options={ART_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ artSplit: v })} />
+            <Table
+              cols={['', 'Impr.', 'Clicks', 'CTR']}
+              rows={eng.slice(0, 20).map((r) => [r.key, nf(r.impressions), nf(r.clicks), pctStr(r.ctr)])}
+              empty="No article-card events yet."
+            />
+            <p className="mt-1.5 text-xs text-[var(--muted)]">Split by <strong>Image vs none</strong> or <strong>Position</strong> to compare like-for-like within the same surface.</p>
+          </section>
+
+          {/* ---------- Reading outcomes ---------- */}
+          <section>
+            <SectionTitle>Reading — outcome</SectionTitle>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Tile label="Avg active read" value={fmtMs(reading.avgActiveMs)} />
+              <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} />
+              <Tile label="Unique readers" value={nf(reading.uniqueReaders)} />
+              <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" />
+            </div>
+            <div className="mt-3">
+              <BarList title="Scroll reach" rows={[
+                { key: 'Reached 25%', count: Math.round(reading.reach[25] * 100) },
+                { key: 'Reached 50%', count: Math.round(reading.reach[50] * 100) },
+                { key: 'Reached 75%', count: Math.round(reading.reach[75] * 100) },
+                { key: 'Reached 100%', count: Math.round(reading.reach[100] * 100) },
+              ]} suffix="%" max={100} />
+            </div>
+          </section>
+
+          {/* ---------- Clippings funnel ---------- */}
+          <section>
+            <SectionTitle>Clippings</SectionTitle>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+              <Tile label="Saves" value={nf(clips.saves)} />
+              <Tile label="Savers" value={nf(clips.savers)} />
+              <Tile label="Comics" value={nf(clips.byKind.comic)} />
+              <Tile label="Quotes" value={nf(clips.byKind.quote)} />
+              <Tile label="Downloads" value={nf(clips.downloads)} />
+              <Tile label="Expands" value={nf(clips.expands)} />
+              <Tile label="Deletes" value={nf(clips.deletes)} />
+            </div>
+          </section>
+
+          {capped && <p className="text-xs text-amber-600">Showing a capped sample of events for this window — totals may understate a very high-traffic period.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-2.5 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{children}</h2>;
+}
+
+function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="card p-3.5">
+      <div className="text-2xl font-black leading-none tracking-tight">{value}</div>
+      <div className="mt-1 text-xs font-semibold text-[var(--muted)]">{label}{hint ? <span className="ml-1 font-normal opacity-70">· {hint}</span> : ''}</div>
+    </div>
+  );
+}
+
+function Compare({ current, options, makeHref }: { current: string; options: [string, string][]; makeHref: (v: string) => string }) {
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+      <span className="text-xs font-bold text-[var(--muted)]">Compare by:</span>
+      {options.map(([v, label]) => (
+        <Link key={v} href={makeHref(v)} className={`rounded-full px-3 py-1 text-xs font-bold ${current === v ? 'bg-brand-600 text-white' : 'border border-[var(--border)] bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
+      ))}
+    </div>
+  );
+}
+
+function Table({ cols, rows, empty }: { cols: string[]; rows: (string | number)[][]; empty: string }) {
+  if (!rows.length) return <p className="card p-4 text-sm text-[var(--muted)]">{empty}</p>;
+  return (
+    <div className="card overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+            {cols.map((c, i) => <th key={i} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`}>{c}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-b border-[var(--border)] last:border-0">
+              {r.map((cell, j) => <td key={j} className={`px-3 py-2.5 ${j === 0 ? 'font-semibold' : 'text-right tabular-nums text-[var(--muted)]'}`}>{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BarList({ title, rows, suffix = '', max }: { title: string; rows: { key: string; count: number }[]; suffix?: string; max?: number }) {
+  const top = max ?? Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="card p-4">
+      <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)]">{title}</div>
+      <div className="space-y-1.5">
+        {rows.length === 0 && <div className="text-sm text-[var(--muted)]">No data.</div>}
+        {rows.map((r) => (
+          <div key={r.key} className="flex items-center gap-2">
+            <span className="w-28 shrink-0 truncate text-xs font-semibold capitalize">{r.key}</span>
+            <span className="relative h-3 flex-1 overflow-hidden rounded bg-[var(--bg-soft)]">
+              <span className="absolute inset-y-0 left-0 rounded bg-brand-600" style={{ width: `${(r.count / top) * 100}%` }} />
+            </span>
+            <span className="w-12 shrink-0 text-right text-xs font-bold tabular-nums">{nf(r.count)}{suffix}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

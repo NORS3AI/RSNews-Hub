@@ -111,6 +111,34 @@ model QuizResponse {
   @@unique([quizId, userId])
 }
 
+// Generic analytics event. One flexible table captures the whole pipeline —
+// exposure (impressions), interaction (clicks/opens/saves), and outcome
+// (reads/journeys) — with a few indexed columns for the common cuts and a JSON
+// `props` blob for the long tail (campaign/creative/format/shape/aboveFold/…).
+// See src/lib/analytics/*. Viewability + dwell are captured on impressions so a
+// raw click count is never read in isolation.
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  type        String   // impression | click | article_open | read | clip | search | pageview | session | ad_click …
+  subjectType String?  // ad | article | module | clip | search | hub
+  subjectId   String?  // adId / articleId / moduleId / clipId / query
+  visitorId   String?  // stable anonymous id (rsnews_reader cookie)
+  userId      String?  // set when logged in
+  sessionId   String?  // per-browsing-session id (client sessionStorage)
+  pageType    String?  // home | article | clippings | search | category | admin …
+  placement   String?  // module id / ad slot
+  path        String?
+  device      String?  // desktop | mobile | tablet
+  value       Float?   // dwellMs / scrollPct / activeMs / durationMs (per event)
+  props       String?  // JSON: campaignId, creativeId, format, shape, aboveFold, position, category, imageType, viewable, …
+
+  @@index([type, createdAt])
+  @@index([subjectType, subjectId])
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
 // Curated external "Industry News" links, hand-picked by staff. Shown in a
 // scrollable homepage module. `views` counts click-throughs; `postedAt` is
 // when we added it (not the source's publish date).

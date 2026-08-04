@@ -118,7 +118,7 @@ export default async function DocsHome() {
               
             </div>
             <Carousel>
-              {feed.map((a) => <ArticleCard key={a.id} article={a} />)}
+              {feed.map((a, i) => <ArticleCard key={a.id} article={a} trk={{ place: 'recommended', props: { module: 'recommended', moduleType: 'carousel', pos: i } }} />)}
             </Carousel>
           </section>
         );
@@ -204,7 +204,8 @@ export default async function DocsHome() {
             <div className="mb-4"><h2 className="module-title">Trending</h2></div>
             <div className="divide-y divide-[var(--border)]">
               {trending.map((a, i) => (
-                <ArticleLink key={a.id} slug={a.slug} className="flex items-center gap-3.5 py-3 hover:opacity-90">
+                <ArticleLink key={a.id} slug={a.slug} className="flex items-center gap-3.5 py-3 hover:opacity-90"
+                  data-trk-type="article" data-trk-id={a.id} data-trk-place="trending" data-trk-props={JSON.stringify({ module: 'trending', moduleType: 'list', pos: i, hasImage: false })}>
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-sm font-extrabold text-white">{i + 1}</span>
                   <span className="flex-1 text-lg font-extrabold leading-tight tracking-tight">{a.title}</span>
                   <span className="flex shrink-0 items-center gap-1.5 text-sm text-[var(--muted)]"><Eye width={14} height={14} />{a.views}</span>
@@ -221,10 +222,11 @@ export default async function DocsHome() {
               <Link href="/docs/archive" className="text-sm font-semibold text-brand-600 hover:underline">View archive</Link>
             </div>
             <div className="divide-y divide-[var(--border)]">
-              {latest.slice(0, 7).map((a) => (
+              {latest.slice(0, 7).map((a, i) => (
                 <div key={a.id} className="group relative">
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
-                  <ArticleLink slug={a.slug} className="block py-4">
+                  <ArticleLink slug={a.slug} className="block py-4"
+                    data-trk-type="article" data-trk-id={a.id} data-trk-place="latest" data-trk-props={JSON.stringify({ module: 'latest', moduleType: 'list', pos: i, hasImage: false })}>
                     {a.category && <span className="text-xs font-bold" style={{ color: a.category.color }}>{a.category.name}</span>}
                     <h3 className="mt-1 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight group-hover:text-brand-600">{a.title}</h3>
                     <div className="mt-2 flex items-center gap-3.5 text-xs text-[var(--muted)]">
@@ -311,7 +313,7 @@ export default async function DocsHome() {
               See all {s.cat._count.articles}
             </Link>
           </div>
-          <Carousel>{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
+          <Carousel>{s.items.map((a, j) => <ArticleCard key={a.id} article={a} trk={{ place: `spotlight:${s.cat.slug}`, props: { module: 'spotlight', moduleType: 'carousel', category: s.cat.slug, pos: j } }} />)}</Carousel>
         </section>,
         i === 0 ? <div key="spotlight-ad" className="flex justify-center">{homeAd('leaderboard', 'home-spotlight')}</div> : null,
       ]).filter(Boolean)}
@@ -335,7 +337,7 @@ export default async function DocsHome() {
             <h2 className="module-title">Editor&rsquo;s picks</h2>
             
           </div>
-          <Carousel>{picks.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
+          <Carousel>{picks.map((a, i) => <ArticleCard key={a.id} article={a} trk={{ place: 'picks', props: { module: 'picks', moduleType: 'carousel', pos: i } }} />)}</Carousel>
         </section>
       )}
 
@@ -346,7 +348,7 @@ export default async function DocsHome() {
           <h2 className="module-title">Quick reads</h2>
           <span className="text-sm font-semibold text-[var(--muted)]">5 min or less</span>
         </div>
-        <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a, i) => <ArticleCard key={a.id} article={a} compact trk={{ place: 'quick', props: { module: 'quick', moduleType: 'carousel', pos: i } }} />)}</Carousel>
       </section>
 
       <section className="module">
@@ -354,7 +356,7 @@ export default async function DocsHome() {
           <h2 className="module-title">More to explore</h2>
           
         </div>
-        <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a, i) => <ArticleCard key={a.id} article={a} compact trk={{ place: 'more', props: { module: 'more', moduleType: 'carousel', pos: i } }} />)}</Carousel>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
