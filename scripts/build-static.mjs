@@ -34,9 +34,16 @@ async function main() {
     orderBy: [{ order: 'asc' }, { postedAt: 'desc' }],
   });
 
+  const polls = await prisma.poll.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
+  });
+
   const data = {
     generatedAt: new Date().toISOString(),
     industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt })),
+    polls: polls.map((p) => ({ id: p.id, question: p.question, active: p.active, closesAt: p.closesAt, createdAt: p.createdAt,
+      options: p.options.map((o) => ({ id: o.id, label: o.label, votes: o.votes })) })),
     articles: articles.map((a) => ({
       id: a.id,
       title: a.title,

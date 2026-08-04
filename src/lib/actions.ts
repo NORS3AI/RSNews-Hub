@@ -204,6 +204,48 @@ export async function deleteIndustryLink(id: string) {
   revalidatePath('/docs');
 }
 
+/* -------------------------------- Polls ---------------------------------- */
+
+export async function createPoll(formData: FormData) {
+  await ensureStaff();
+  const question = ((formData.get('question') as string) || '').trim();
+  const optionsRaw = ((formData.get('options') as string) || '').trim();
+  const active = formData.get('active') != null;
+  const closesRaw = ((formData.get('closesAt') as string) || '').trim();
+  const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8);
+  if (!question || options.length < 2) throw new Error('A question and at least 2 options are required');
+  const closes = closesRaw ? new Date(closesRaw) : null;
+  // Only one poll active at a time — deactivate the others when publishing a new one.
+  if (active) await prisma.poll.updateMany({ where: { active: true }, data: { active: false } });
+  await prisma.poll.create({
+    data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
+      options: { create: options.map((label, i) => ({ label, order: i })) } },
+  });
+  revalidatePath('/admin/polls');
+  revalidatePath('/docs');
+}
+
+export async function updatePoll(formData: FormData) {
+  await ensureStaff();
+  const id = (formData.get('id') as string) || '';
+  const question = ((formData.get('question') as string) || '').trim();
+  const active = formData.get('active') != null;
+  const closesRaw = ((formData.get('closesAt') as string) || '').trim();
+  const closes = closesRaw ? new Date(closesRaw) : null;
+  if (!question) throw new Error('Question is required');
+  if (active) await prisma.poll.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
+  await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
+  revalidatePath('/admin/polls');
+  revalidatePath('/docs');
+}
+
+export async function deletePoll(id: string) {
+  await ensureStaff();
+  await prisma.poll.delete({ where: { id } });
+  revalidatePath('/admin/polls');
+  revalidatePath('/docs');
+}
+
 /* --------------------------------- Tags ---------------------------------- */
 
 export async function saveTag(formData: FormData) {
