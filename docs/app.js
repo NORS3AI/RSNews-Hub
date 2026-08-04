@@ -259,8 +259,8 @@
   }
   function shortSource(s) { return s.length > 22 ? s.slice(0, 21) + '…' : s; }
   function postedLabel(d) { var dt = new Date(d); return dt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
-  function industryModule() {
-    var rows = INDUSTRY.map(function (l) {
+  function industryRows() {
+    return INDUSTRY.map(function (l) {
       return '<a class="ind-row" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span class="ind-ico">' + ICON_EXT + '</span>' +
         '<span class="ind-main"><span class="ind-title">' + esc(l.title) + '</span>' +
@@ -268,9 +268,18 @@
         '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
         '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
     }).join('');
-    return '<section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_PAPER + ' Industry News</h2>' +
-      '<span class="link-orange" style="cursor:default">Curated links</span></div>' +
-      '<div class="ind-scroll">' + rows + '</div></section>';
+  }
+  function industryModule() {
+    return '<section class="module orange ind-orange">' +
+      '<button class="ind-head" data-industry-open="1" title="Expand Industry News">' + ICON_PAPER + '<span class="ind-bigtitle">Industry News</span></button>' +
+      '<p class="ind-sub">Curated links — tap the title to expand</p>' +
+      '<div class="ind-scroll">' + industryRows() + '</div></section>';
+  }
+  function openIndustryDialog() {
+    var html = '<div class="dlg-card ind-dlg" style="max-width:640px">' +
+      '<div class="dlg-head"><h3 class="ind-dlg-h3">' + ICON_PAPER + ' Industry News</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
+      '<div class="dlg-body ind-dlg-body">' + industryRows() + '</div></div>';
+    openDialog(html, null);
   }
 
   /* ---------- smart in-article ads ----------
@@ -673,6 +682,7 @@
     var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
+    if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;

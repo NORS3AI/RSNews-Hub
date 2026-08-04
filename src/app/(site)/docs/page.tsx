@@ -8,9 +8,9 @@ import AdSlot from '@/components/AdSlot';
 import ArticleLink from '@/components/site/ArticleLink';
 import SaveButtons from '@/components/site/StarButton';
 import Carousel from '@/components/site/Carousel';
-import { ArrowRight, Eye, Clock, ExternalLink, Newspaper } from '@/components/icons';
+import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
-import { linkSource, shortSource, postedLabel } from '@/lib/industry';
+import IndustryNews from '@/components/site/IndustryNews';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,30 +62,7 @@ export default async function DocsHome() {
         );
       case 'industry':
         if (industry.length === 0) return null;
-        return (
-          <section key={id} className="module">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="module-title flex items-center gap-2"><Newspaper width={22} height={22} className="text-brand-600" /> Industry News</h2>
-              <span className="text-sm font-semibold text-[var(--muted)]">Curated links</span>
-            </div>
-            <div className="industry-scroll max-h-[340px] divide-y divide-[var(--border)] overflow-y-auto pr-1">
-              {industry.map((l) => (
-                <a key={l.id} href={`/api/industry/${l.id}/go`} target="_blank" rel="noopener noreferrer"
-                  className="group flex items-start gap-3 py-3">
-                  <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--bg-soft)] text-brand-600"><ExternalLink width={17} height={17} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[17px] font-extrabold leading-snug tracking-tight group-hover:text-brand-600">{l.title}</span>
-                    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted)]">
-                      <span className="font-bold text-[var(--fg)]/70">{shortSource(linkSource(l.url, l.source))}</span>
-                      <span>{postedLabel(l.postedAt)}</span>
-                      <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>
-                    </span>
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        );
+        return <IndustryNews key={id} links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />;
       case 'categories':
         if (categories.length === 0) return null;
         return (
