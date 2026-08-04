@@ -32,10 +32,16 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   color: var(--fg);
+  font-size: 16px;
+  line-height: 1.55;
   background: var(--bg) url('/bg-cardboard.jpg') center center / cover no-repeat fixed;
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
+/* Module header with an orange accent tick, matching the preview. */
+.module-title { @apply flex items-center gap-2.5 text-xl font-extrabold tracking-tight; }
+.module-title::before { content: ''; @apply inline-block h-5 w-[5px] rounded-full bg-brand-600; }
+.module-orange .module-title::before { @apply bg-white/85; }
 /* Dark mode: drop the light cardboard photo, use the deep base color. */
 .dark body { background-image: none; background-color: var(--bg); }
 

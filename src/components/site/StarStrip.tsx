@@ -14,10 +14,10 @@ export default function StarStrip() {
   if (!ready || toRead.length === 0) return null;
 
   return (
-    <div className="border-b border-black/10 bg-[var(--bg)]/85 backdrop-blur">
-      <div className="container-page">
-        <div className="flex items-center gap-2 py-2">
-          <span className="flex shrink-0 items-center gap-1 pr-1 text-xs font-semibold text-brand-600">
+    <div className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
+      <div>
+        <div className="flex items-center gap-2 px-3 py-2">
+          <span className="flex shrink-0 items-center gap-1.5 pr-1 text-xs font-bold text-brand-600">
             <BookFilled width={14} height={14} /> <span className="hidden sm:inline">To read</span>
           </span>
           <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-none">
