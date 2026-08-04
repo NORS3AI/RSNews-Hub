@@ -175,8 +175,8 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                           {data.related.map((r) => (
                             <button key={r.id} onClick={() => openArticle(r.slug)}
                               className="card card-hover p-4 text-left">
-                              {r.category && <span className="text-xs font-medium" style={{ color: r.category.color }}>{r.category.name}</span>}
-                              <span className="mt-1 block line-clamp-3 text-sm font-semibold">{r.title}</span>
+                              {r.category && <span className="text-xs font-bold" style={{ color: r.category.color }}>{r.category.name}</span>}
+                              <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
                             </button>
                           ))}
                         </div>

@@ -116,14 +116,13 @@
       : '<span class="accent" style="background:' + accent + '"></span>';
     return '<article class="ablock' + (opts.sm ? ' sm' : '') + '"><div class="acts">' + acts(a.slug) + '</div>' + top +
       '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadge(a.category) + '</div>' +
-      '<h3>' + esc(a.title) + '</h3>' + (!opts.sm && a.excerpt ? '<p class="excerpt">' + esc(a.excerpt) + '</p>' : '') +
+      '<h3>' + esc(a.title) + '</h3>' +
       '<div class="meta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span><span>' + ICON.eye + (a.views || 0) + '</span></div>' +
       '</a></article>';
   }
   function latestRow(a) {
     return '<div class="lrow" data-open="' + esc(a.slug) + '"><div class="acts">' + acts(a.slug) + '</div>' +
       '<div class="lbody"><div>' + catBadge(a.category) + '</div><h3>' + esc(a.title) + '</h3>' +
-      (a.excerpt ? '<p class="lex">' + esc(a.excerpt) + '</p>' : '') +
       '<div class="lmeta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span><span>' + ICON.eye + (a.views || 0) + '</span></div></div></div>';
   }
   function orangeItem(a) {
