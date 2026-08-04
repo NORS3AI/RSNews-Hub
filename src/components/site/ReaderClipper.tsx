@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
-import { makeQuoteImage, downloadDataUrl } from '@/lib/quoteImage';
+import { makeQuoteImage, downloadDataUrl, extractClipText } from '@/lib/quoteImage';
 import { Scissors, Download, Copy, Check, X } from '@/components/icons';
 
 type Ctx = { text: string; slug: string; title: string; author: string | null };
@@ -26,12 +26,20 @@ export default function ReaderClipper() {
   const readContext = useCallback((): { rect: DOMRect; ctx: Ctx } | null => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
-    const text = sel.toString().replace(/\s+/g, ' ').trim();
-    if (text.length < 4) return null;
     let node: Node | null = sel.anchorNode;
     if (node && node.nodeType === 3) node = node.parentNode;
-    const reader = node && (node as Element).closest ? (node as Element).closest('[data-reader]') : null;
+    let reader = node && (node as Element).closest ? (node as Element).closest('[data-reader]') : null;
+    // The anchor can sit outside the reader if the drag ended there; fall back
+    // to the focus node so an article-body selection is still recognized.
+    if (!reader) {
+      let f: Node | null = sel.focusNode;
+      if (f && f.nodeType === 3) f = f.parentNode;
+      reader = f && (f as Element).closest ? (f as Element).closest('[data-reader]') : null;
+    }
     if (!reader) return null;
+    // Structure-aware, ad-free text clamped to the article body.
+    const text = extractClipText(reader);
+    if (text.replace(/\s+/g, '').length < 4) return null;
     return {
       rect: sel.getRangeAt(0).getBoundingClientRect(),
       ctx: {

@@ -40,22 +40,26 @@ export function makeQuoteImage(o: QuoteOpts): string {
   ctx.fillStyle = 'rgba(233,125,52,.92)'; ctx.font = '900 200px Georgia, serif';
   ctx.fillText('“', pad - 12, pad - 8);
 
-  let quote = (o.quote || '').replace(/\s+/g, ' ').trim();
-  if (quote.length > 340) quote = quote.slice(0, 337).replace(/\s+\S*$/, '') + '…';
+  // Preserve block breaks (a heading vs the paragraph below it) captured in the
+  // clip so the quote reads as intended instead of running blocks together.
+  let blocks = clampBlocks((o.quote || '').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean), 340);
+  if (!blocks.length) blocks = [''];
+  const disp = blocks.map((b, i) => (i === 0 ? '“' + b : b) + (i === blocks.length - 1 ? '”' : ''));
 
   const maxW = W - pad * 2;
-  const quoteTop = pad + 210, quoteBottom = H - 330;
-  let size = 62, lines: string[] = [], lineH = 0;
-  while (size >= 30) {
+  const quoteTop = pad + 210, avail = (H - 330) - quoteTop;
+  let size = 62, wrapped: string[][] = [], lineH = 0, blockGap = 0;
+  while (size >= 26) {
     ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
-    lines = wrap(ctx, '“' + quote + '”', maxW);
-    lineH = size * 1.32;
-    if (lines.length * lineH <= quoteBottom - quoteTop) break;
+    lineH = size * 1.3; blockGap = Math.round(size * 0.6);
+    wrapped = disp.map((b) => wrap(ctx, b, maxW));
+    const total = wrapped.reduce((sum, ls, i) => sum + ls.length * lineH + (i ? blockGap : 0), 0);
+    if (total <= avail) break;
     size -= 3;
   }
   ctx.fillStyle = '#f4f1ea'; ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
   let y = quoteTop;
-  for (const ln of lines) { ctx.fillText(ln, pad, y); y += lineH; }
+  wrapped.forEach((ls, i) => { if (i) y += blockGap; for (const ln of ls) { ctx.fillText(ln, pad, y); y += lineH; } });
 
   const by = H - 300;
   ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2;
@@ -77,6 +81,76 @@ export function makeQuoteImage(o: QuoteOpts): string {
     ctx.fillText('— ' + o.author, pad, ty + titleLines.length * 42 + 8);
   }
   return canvas.toDataURL('image/png');
+}
+
+// Trim a block list to a total character budget, keeping block boundaries and
+// adding an ellipsis where it cuts off.
+export function clampBlocks(blocks: string[], max: number): string[] {
+  const out: string[] = [];
+  let used = 0;
+  for (const b of blocks) {
+    if (used >= max) break;
+    if (used + b.length <= max) { out.push(b); used += b.length; }
+    else { out.push(b.slice(0, max - used).replace(/\s+\S*$/, '').trim() + '…'); break; }
+  }
+  return out;
+}
+
+// Elements that must never end up in a clip (ads and non-prose chrome).
+const CLIP_SKIP_SEL = '.had, .ad, [data-ad-brand], [data-ad], figure, figcaption, .clip-hint, button, script, style, aside';
+const CLIP_BLOCK_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'FIGCAPTION', 'DIV', 'SECTION', 'UL', 'OL', 'PRE', 'TABLE']);
+
+/**
+ * Strip ads/chrome from a cloned fragment (or element) and turn it into clip
+ * text — one line per block, so a heading never merges into the paragraph below
+ * and ad copy never lands in the middle of the quote.
+ */
+export function fragmentToClipText(root: DocumentFragment | Element): string {
+  root.querySelectorAll(CLIP_SKIP_SEL).forEach((n) => n.remove());
+  return blocksToText(root);
+}
+
+// Turn a DOM fragment into text, one line per block element, so a heading does
+// not run into the paragraph beneath it.
+function blocksToText(root: Node): string {
+  const parts: string[] = [];
+  let buf = '';
+  const flush = () => { const t = buf.replace(/\s+/g, ' ').trim(); if (t) parts.push(t); buf = ''; };
+  const walk = (node: Node) => {
+    if (node.nodeType === 3) { buf += node.nodeValue || ''; return; }
+    if (node.nodeType === 11) { node.childNodes.forEach(walk); return; } // DocumentFragment
+    if (node.nodeType !== 1) return;
+    const el = node as Element;
+    if (el.tagName === 'BR') { buf += ' '; return; }
+    if (CLIP_BLOCK_TAGS.has(el.tagName)) { flush(); el.childNodes.forEach(walk); flush(); }
+    else { el.childNodes.forEach(walk); }
+  };
+  walk(root);
+  flush();
+  return parts.join('\n');
+}
+
+/**
+ * Extract clip text from the current selection, clamped to `container` (the
+ * article body) so title/byline/ads outside it are never captured, and split
+ * into blocks so headings don't merge into the paragraph below.
+ */
+export function extractClipText(container: Element): string {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return '';
+  const full = document.createRange();
+  full.selectNodeContents(container);
+  const parts: string[] = [];
+  for (let i = 0; i < sel.rangeCount; i++) {
+    const r = sel.getRangeAt(i).cloneRange();
+    // Clamp the range to the article body.
+    if (r.compareBoundaryPoints(Range.START_TO_START, full) < 0) r.setStart(full.startContainer, full.startOffset);
+    if (r.compareBoundaryPoints(Range.END_TO_END, full) > 0) r.setEnd(full.endContainer, full.endOffset);
+    if (r.collapsed) continue;
+    const t = fragmentToClipText(r.cloneContents());
+    if (t) parts.push(t);
+  }
+  return parts.join('\n').replace(/\n{2,}/g, '\n').trim();
 }
 
 export function downloadDataUrl(dataUrl: string, filename: string) {
