@@ -7,6 +7,10 @@ subscribe to topics — all fully responsive across mobile, tablet and desktop.
 The public hub lives under **`/docs`** (with `/` and `/main` redirecting there),
 so it can sit alongside a main website today and be embedded later.
 
+> **New here?** Start with [`ARCHITECTURE.md`](./ARCHITECTURE.md) for a map of the
+> codebase, then [`DEPLOYMENT.md`](./DEPLOYMENT.md) to ship and
+> [`INTEGRATION.md`](./INTEGRATION.md) to connect it to the RS News site.
+
 ## 🔗 Live site
 
 **https://nors3ai.github.io/RSNews-Hub/**

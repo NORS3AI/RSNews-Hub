@@ -78,7 +78,7 @@ reading, analytics) to that account id.
 | 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
 | 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
 | 11 | ✅ **SEO basics** — `robots.ts`, `sitemap.ts` (dynamic, from published content), per-article canonical + Open Graph/Twitter metadata. Domain/DNS/TLS/CDN remain 🟠 dev. | ✅ done · 🟠 dev does DNS/TLS/CDN |
-| 12 | **Content moderation** for any future user-generated input surfaces. | 🟠 dev |
+| 12 | ✅ **Content moderation** — reusable `moderateText` (`src/lib/moderation.ts`, pure + tested): ok/flag/block with cleaned text + reasons, env-tunable blocklist. Applied to the one persisted user-authored field today (registration name). **Note:** the hub has **no public UGC** yet (no comments/reviews); this is defense-in-depth + the ready gate for when member-authored public content is added — drop `moderateText()` in front of it. | ✅ done |
 | 13 | **Analytics phase 2+** — see the roadmap just below. | 🔵 Claude can extend · 🟠 dev sizes the DB |
 
 ### Analytics roadmap (phase 2+)
