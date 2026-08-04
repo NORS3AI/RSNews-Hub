@@ -12,10 +12,12 @@
 import { log } from '../logger';
 import type { StorageAdapter, PutResult } from './types';
 import { validateImage, assetKey } from './sniff';
+import { optimizeImage, optimizeConfig } from './optimize';
 import { LocalAdapter } from './local';
 import { S3Adapter } from './s3';
 
 export { validateImage, assetKey, sniffImage, KEY_RE, contentTypeForKey } from './sniff';
+export { optimizeImage, optimizeConfig, keepOptimized, shouldOptimize } from './optimize';
 export type { StorageAdapter, PutResult } from './types';
 export { uploadDir } from './local';
 
@@ -62,10 +64,14 @@ export async function putImage(bytes: Buffer): Promise<PutResult> {
   const v = validateImage(bytes, maxUploadBytes(), svgAllowed());
   if (!v.ok) return { ok: false, error: v.error };
 
-  const key = assetKey(bytes, v.type.ext);
+  // Optimize before hashing so the stored object IS the optimized one. Falls
+  // back to the original bytes/type if sharp is unavailable or a decode fails.
+  const opt = await optimizeImage(bytes, v.type, optimizeConfig());
+
+  const key = assetKey(opt.bytes, opt.type.ext);
   const adapter = getAdapter();
   try {
-    await adapter.put(key, bytes, v.type.mime);
+    await adapter.put(key, opt.bytes, opt.type.mime);
   } catch (e) {
     log.error('asset store failed', { backend: adapter.kind, err: (e as Error).message });
     return { ok: false, error: 'storage backend error' };

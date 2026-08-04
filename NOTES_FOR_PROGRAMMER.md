@@ -47,7 +47,7 @@
 | # | Item | Status | Who |
 |---|------|--------|-----|
 | 7 | ✅ **Real asset storage** — pluggable upload pipeline (`src/lib/storage/`). Images now upload to `/api/uploads` and are stored by URL, not inline base64. Local disk by default (zero config); S3/R2 via env, no code change. See §3. | ✅ done · 🟠 dev provisions bucket for cloud |
-| 8 | **Automate image optimization** — comic/ad images are currently hand-optimized (Pillow) during authoring. | 🔵 Claude · 🟠 dev decides pipeline |
+| 8 | ✅ **Automated image optimization** — uploads are auto-oriented, metadata-stripped, downscaled and re-encoded to WebP on the way in (`src/lib/storage/optimize.ts`, via sharp). No more hand-optimizing. See §3. | ✅ done |
 | 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
 | 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
 | 11 | ✅ **SEO basics** — `robots.ts`, `sitemap.ts` (dynamic, from published content), per-article canonical + Open Graph/Twitter metadata. Domain/DNS/TLS/CDN remain 🟠 dev. | ✅ done · 🟠 dev does DNS/TLS/CDN |
@@ -110,6 +110,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   pasted URLs keep working. Health check reports the mode. Adding Cloudinary/GCS
   is one file implementing `StorageAdapter`. Unit-tested (sniff, keygen, SigV4 vs
   an independent reference, local round-trip) + verified end-to-end. _(v0.32.0)_
+- ✅ **Automated image optimization** — `src/lib/storage/optimize.ts` runs inside
+  the upload pipeline (before hashing/storing) using **sharp**. Every uploaded
+  raster image is auto-oriented from EXIF, **metadata-stripped (incl. GPS)**,
+  downscaled to `IMAGE_MAX_DIM` (default 2000px) and re-encoded to `IMAGE_FORMAT`
+  (default WebP) — verified end-to-end: a 3000×2000 PNG stored as a 2000×1333
+  WebP ~79% smaller. Animated GIFs/SVGs pass through; if sharp is unavailable or a
+  decode fails, the **original is stored** (uploads never break). Never stores a
+  result larger than the source. Tunable/​disable-able via `IMAGE_*` env; health
+  check reports the mode. sharp is bundled into the standalone output. Pure policy
+  helpers + a real sharp transform are unit-tested. _(v0.33.0)_
 - ✅ **Error tracking + structured logging** — `src/lib/logger.ts` is the single
   error chokepoint: `captureError(err, ctx)` always writes a structured JSON log
   line (never secrets) **and** forwards to an optional sink. It's already wired

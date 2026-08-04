@@ -139,6 +139,16 @@ carry script). To add a non-S3 backend (Cloudinary, GCS…), implement
 `StorageAdapter` in one new file under `src/lib/storage/` and add a case to
 `getAdapter()`.
 
+**Image optimization** is automatic (via `sharp`, a dependency). On upload,
+images are auto-oriented, **stripped of metadata (including GPS)**, downscaled to
+`IMAGE_MAX_DIM` (default 2000px longest edge) and re-encoded to `IMAGE_FORMAT`
+(default WebP) — so a heavy phone photo becomes a small, right-sized asset before
+storage. Animated GIFs and SVGs pass through untouched, and if `sharp` can't load
+the **original is stored unchanged** (uploads never fail). Tune with
+`IMAGE_OPTIMIZE` / `IMAGE_FORMAT` / `IMAGE_MAX_DIM` / `IMAGE_QUALITY`, or set
+`IMAGE_OPTIMIZE=false` to disable. `sharp` is bundled into the standalone output;
+no extra install step. `/api/health` shows the active setting.
+
 ---
 
 ## 4. Create the schema (migrations)  **[automated: scripts + init SQL]**
