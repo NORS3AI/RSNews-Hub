@@ -19,19 +19,20 @@ export default function ClippingsList() {
   }
 
   function Actions({ c }: { c: Clipping }) {
+    const act = 'btn-sm !gap-1 !px-2.5 whitespace-nowrap';
     return (
-      <div className="mt-auto flex flex-wrap gap-2 pt-3">
-        <button onClick={() => downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`)} className="btn-primary btn-sm">
-          <Download width={15} height={15} /> Image
+      <div className="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
+        <button onClick={() => downloadDataUrl(imageFor(c), `rsnews-clip-${c.slug || 'quote'}.png`)} className={`btn-primary ${act}`}>
+          <Download width={14} height={14} /> Image
         </button>
-        <button onClick={() => openArticle(c.slug)} className="btn-outline btn-sm">
-          <ArrowRight width={15} height={15} /> Open article
+        <button onClick={() => openArticle(c.slug)} className={`btn-outline ${act}`}>
+          <ArrowRight width={14} height={14} /> Open article
         </button>
-        <button onClick={() => navigator.clipboard?.writeText(clipShareText(c.quote, c.title, c.slug))} className="btn-outline btn-sm">
-          <Copy width={15} height={15} /> Copy quote
+        <button onClick={() => navigator.clipboard?.writeText(clipShareText(c.quote, c.title, c.slug))} className={`btn-outline ${act}`}>
+          <Copy width={14} height={14} /> Copy quote
         </button>
-        <button onClick={() => removeClipping(c.id)} className="btn-ghost btn-sm text-red-500" aria-label="Delete clipping">
-          <Trash width={15} height={15} />
+        <button onClick={() => removeClipping(c.id)} className="btn-ghost btn-sm !px-2 text-red-500" aria-label="Delete clipping">
+          <Trash width={14} height={14} />
         </button>
       </div>
     );

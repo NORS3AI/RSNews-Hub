@@ -331,7 +331,9 @@ img { max-width:100%; display:block; }
 .clip-card { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); box-shadow:var(--shadow-inner); padding:18px; display:flex; flex-direction:column; }
 .clip-quote { font-size:18px; font-weight:700; line-height:1.4; letter-spacing:-.01em; }
 .clip-meta { margin-top:10px; font-size:13px; color:var(--muted); }
-.clip-actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+.clip-actions { margin-top:14px; display:flex; gap:6px; flex-wrap:nowrap; align-items:center; }
+.clip-actions .btn-sm { padding:7px 10px; gap:5px; white-space:nowrap; }
+.clip-actions .btn-del { padding:7px 9px; }
 .clip-view-toggle { display:inline-flex; gap:2px; padding:3px; border:1px solid var(--border); border-radius:11px; background:var(--tile-bot); }
 .clip-view-toggle button { border:0; background:transparent; color:var(--muted); font:inherit; font-size:13.5px; font-weight:700; padding:6px 14px; border-radius:8px; cursor:pointer; }
 .clip-view-toggle button.active { background:var(--orange); color:#fff; }
