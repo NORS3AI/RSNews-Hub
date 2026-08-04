@@ -332,6 +332,19 @@ img { max-width:100%; display:block; }
 .poll-arch .poll-res { margin-bottom:8px; }
 .poll-badge-live { background:#dcfce7; color:#15803d; }
 
+/* Backroom Humor comics */
+.comic-fig { margin:0 auto; max-width:560px; }
+.comic-fig img { width:100%; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow-card); display:block; }
+.comic-fig figcaption { margin-top:12px; text-align:center; font-size:14px; color:var(--muted); }
+.comic-grid { display:grid; gap:20px; grid-template-columns:1fr; }
+@media (min-width:640px){ .comic-grid { grid-template-columns:1fr 1fr; } }
+@media (min-width:1000px){ .comic-grid { grid-template-columns:1fr 1fr 1fr; } }
+.comic-card { margin:0; border:1px solid var(--border); border-radius:14px; background:var(--card-top); box-shadow:var(--shadow-card); padding:12px; }
+.comic-card img { width:100%; border-radius:10px; display:block; }
+.comic-card figcaption { margin-top:10px; display:flex; flex-direction:column; gap:3px; }
+.comic-title { font-weight:800; font-size:15px; }
+.comic-date { font-size:12px; color:var(--muted); }
+
 /* Smart in-article house ad */
 .had { margin:0 auto; width:100%; overflow:hidden; border:1px solid var(--border); border-radius:14px; background:var(--card-top); box-shadow:var(--shadow-card); }
 .had-rect { max-width:360px; }

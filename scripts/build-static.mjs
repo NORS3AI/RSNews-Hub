@@ -39,9 +39,14 @@ async function main() {
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
 
+  const comics = await prisma.comic.findMany({ orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] });
+
   const data = {
     generatedAt: new Date().toISOString(),
     industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt })),
+    // Relativize root-absolute asset paths so they resolve under the Pages subpath
+    // (data: URLs and full http(s) URLs pass through unchanged).
+    comics: comics.map((c) => ({ id: c.id, title: c.title, image: c.image.startsWith('/') ? c.image.slice(1) : c.image, caption: c.caption, active: c.active, postedAt: c.postedAt })),
     polls: polls.map((p) => ({ id: p.id, question: p.question, active: p.active, closesAt: p.closesAt, createdAt: p.createdAt,
       options: p.options.map((o) => ({ id: o.id, label: o.label, votes: o.votes })) })),
     articles: articles.map((a) => ({

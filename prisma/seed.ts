@@ -168,22 +168,49 @@ async function main() {
     }
   }
 
-  // Sample monthly poll (only if none exist yet).
+  // Sample polls: one active + two archived past polls (only if none exist).
   if ((await prisma.poll.count()) === 0) {
     await prisma.poll.create({
       data: {
-        question: 'What should we cover more this month?',
-        active: true,
-        options: {
-          create: [
-            { label: 'Shipping & carrier tips', order: 0, votes: 128 },
-            { label: 'Running the storefront', order: 1, votes: 94 },
-            { label: 'Marketing & local growth', order: 2, votes: 76 },
-            { label: 'Industry news & trends', order: 3, votes: 51 },
-          ],
-        },
+        question: 'What should we cover more this month?', active: true,
+        options: { create: [
+          { label: 'Shipping & carrier tips', order: 0, votes: 128 },
+          { label: 'Running the storefront', order: 1, votes: 94 },
+          { label: 'Marketing & local growth', order: 2, votes: 76 },
+          { label: 'Industry news & trends', order: 3, votes: 51 },
+        ] },
       },
     });
+    await prisma.poll.create({
+      data: {
+        question: 'Busiest shipping day at your counter?', active: false, createdAt: new Date(Date.now() - 40 * 864e5),
+        options: { create: [
+          { label: 'Monday', order: 0, votes: 88 }, { label: 'Friday', order: 1, votes: 141 },
+          { label: 'Saturday', order: 2, votes: 97 }, { label: 'It varies', order: 3, votes: 44 },
+        ] },
+      },
+    });
+    await prisma.poll.create({
+      data: {
+        question: 'Which service do customers ask about most?', active: false, createdAt: new Date(Date.now() - 70 * 864e5),
+        options: { create: [
+          { label: 'Shipping', order: 0, votes: 203 }, { label: 'Mailboxes', order: 1, votes: 76 },
+          { label: 'Printing & copies', order: 2, votes: 58 }, { label: 'Notary', order: 3, votes: 39 },
+        ] },
+      },
+    });
+  }
+
+  // Backroom Humor comics: one active (homepage) + two archived.
+  if ((await prisma.comic.count()) === 0) {
+    const comics = [
+      { title: 'Stamps then vs now', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: false, days: 40 },
+      { title: 'Keeping the lobby clean', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: false, days: 20 },
+      { title: 'Meanwhile, in Texas', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 2 },
+    ];
+    for (const c of comics) {
+      await prisma.comic.create({ data: { title: c.title, image: c.image, caption: c.caption, active: c.active, postedAt: new Date(Date.now() - c.days * 864e5) } });
+    }
   }
 
   console.log('Seed complete. Admin login: admin@rsnews.local / admin123');

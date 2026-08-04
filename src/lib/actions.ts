@@ -246,6 +246,41 @@ export async function deletePoll(id: string) {
   revalidatePath('/docs');
 }
 
+/* -------------------------------- Comics --------------------------------- */
+
+export async function saveComic(formData: FormData) {
+  await ensureStaff();
+  const id = (formData.get('id') as string) || '';
+  const title = ((formData.get('title') as string) || '').trim();
+  const image = ((formData.get('image') as string) || '').trim();
+  const caption = ((formData.get('caption') as string) || '').trim();
+  const active = formData.get('active') != null;
+  const postedRaw = ((formData.get('postedAt') as string) || '').trim();
+  if (!title || !image) throw new Error('A title and image are required');
+  const data: { title: string; image: string; caption: string | null; active: boolean; postedAt?: Date } =
+    { title, image, caption: caption || null, active };
+  const posted = postedRaw ? new Date(postedRaw) : null;
+  if (posted && !isNaN(posted.getTime())) data.postedAt = posted;
+  if (id) await prisma.comic.update({ where: { id }, data });
+  else await prisma.comic.create({ data });
+  revalidatePath('/admin/comics');
+  revalidatePath('/docs');
+}
+
+export async function toggleComic(id: string, active: boolean) {
+  await ensureStaff();
+  await prisma.comic.update({ where: { id }, data: { active } });
+  revalidatePath('/admin/comics');
+  revalidatePath('/docs');
+}
+
+export async function deleteComic(id: string) {
+  await ensureStaff();
+  await prisma.comic.delete({ where: { id } });
+  revalidatePath('/admin/comics');
+  revalidatePath('/docs');
+}
+
 /* --------------------------------- Tags ---------------------------------- */
 
 export async function saveTag(formData: FormData) {

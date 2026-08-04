@@ -41,6 +41,8 @@ export default async function DocsHome() {
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
 
+  const currentComic = await prisma.comic.findFirst({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] });
+
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
@@ -95,6 +97,21 @@ export default async function DocsHome() {
         }
         return <div key={id}>{indEl ?? pollEl}</div>;
       }
+      case 'comic':
+        if (!currentComic) return null;
+        return (
+          <section key={id} className="module">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="module-title">Backroom Humor</h2>
+              <Link href="/docs/archive/comics" className="text-sm font-semibold text-brand-600 hover:underline">View all comics</Link>
+            </div>
+            <figure className="mx-auto max-w-[560px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={currentComic.image} alt={currentComic.title} className="w-full rounded-xl border border-[var(--border)] shadow-[var(--shadow-card)]" />
+              <figcaption className="mt-3 text-center text-sm text-[var(--muted)]">{currentComic.caption || currentComic.title}</figcaption>
+            </figure>
+          </section>
+        );
       case 'categories':
         if (categories.length === 0) return null;
         return (
