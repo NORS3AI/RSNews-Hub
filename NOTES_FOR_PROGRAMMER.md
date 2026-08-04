@@ -29,9 +29,13 @@ reading, analytics) to that account id.
   wiring guide for your site: [`INTEGRATION.md`](./INTEGRATION.md).**
 - 🟠 The one thing your side provides: a verified account id per request (plus a
   few optional attributes). See INTEGRATION.md — it's a small change on the site.
-- 🔵 **Next up:** move favorites / pinned / saved clippings from browser
-  localStorage to server-side per-account storage (so they follow a member across
-  devices) now that identity is available.
+- ✅ **Per-account saved state** _(v0.38.0)_ — favorites, to-read (pinned), and
+  saved clippings are stored server-side per member (`SavedItem` + `Clipping`
+  tables, `/api/saved`), so they follow a signed-in member across devices.
+  Anonymous visitors stay local-only; a member's pre-login local items are merged
+  into their account on first sign-in. History stays local (ephemeral UI; reading
+  is also logged via `ReadingLog`). `StarProvider` is local-first (instant) with
+  the server as source of truth. See §3.
 
 ---
 
@@ -213,8 +217,8 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
-`AnalyticsDaily` (rollups), plus a `Setting` row for the homepage layout. See
-`prisma/schema.prisma`.
+`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), plus a
+`Setting` row for the homepage layout. See `prisma/schema.prisma`.
 
 ---
 
