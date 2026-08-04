@@ -9,7 +9,7 @@ import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
-import AdSlot from '@/components/AdSlot';
+import InArticleAd from '@/components/InArticleAd';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -49,6 +49,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
       ? prisma.subscription.findFirst({ where: { userId: user.id, categoryId: article.categoryId } }).then(Boolean)
       : Promise.resolve(false),
   ]);
+
+  const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
 
   return (
     <>
@@ -91,11 +93,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
         )}
 
-        <div className="my-6"><AdSlot size="in-article" slot="article-top" /></div>
+        <div className="my-6"><InArticleAd context={adContext} slot="article-top" size="in-article" /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''} dangerouslySetInnerHTML={{ __html: article.content }} />
 
-        <div className="my-8 flex justify-center"><AdSlot size="rectangle" slot="article-bottom" /></div>
+        <div className="my-8 flex justify-center"><InArticleAd context={adContext} slot="article-bottom" size="rectangle" /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">

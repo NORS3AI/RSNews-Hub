@@ -248,6 +248,64 @@
   function ad(kind) { var m = { leaderboard: '728 × 90', rectangle: '300 × 250', inarticle: 'In-article' }[kind] || '';
     return '<div class="ad ad-' + kind + '"><div class="ad-inner"><span class="ad-label">Advertisement</span><span class="ad-size">' + m + '</span></div></div>'; }
 
+  /* ---------- smart in-article ads ----------
+     Inside an article we must never show a competitor's ad (an article about
+     PostalMate must never carry a ShipRite ad). Each ad has a competitive
+     "group"; we scan the article for brands and drop any ad whose group is
+     represented by a rival brand. Neutral house ads (group:null) are safe. */
+  var AD_BRANDS = [
+    { name: 'PostalMate', group: 'shipping-software', aliases: ['postalmate', 'postal mate'] },
+    { name: 'ShipRite', group: 'shipping-software', aliases: ['shiprite', 'ship-rite', 'ship rite'] },
+    { name: 'Stamps.com', group: 'shipping-software', aliases: ['stamps.com', 'stamps .com'] },
+    { name: 'Endicia', group: 'shipping-software', aliases: ['endicia'] },
+    { name: 'AWS', group: 'cloud', aliases: ['aws', 'amazon web services'] },
+    { name: 'Azure', group: 'cloud', aliases: ['azure', 'microsoft azure'] },
+    { name: 'Google Cloud', group: 'cloud', aliases: ['google cloud', 'gcp'] },
+    { name: 'Stripe', group: 'payments', aliases: ['stripe'] },
+    { name: 'Square', group: 'payments', aliases: ['square payments', 'square pos'] },
+    { name: 'PayPal', group: 'payments', aliases: ['paypal'] }
+  ];
+  var HOUSE_ADS = [
+    { id: 'postalmate', brand: 'PostalMate', group: 'shipping-software', label: 'Shipping & POS software', headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.', cta: 'Start free trial', href: '#', accent: '#2f6f4f' },
+    { id: 'shiprite', brand: 'ShipRite', group: 'shipping-software', label: 'Shipping software', headline: 'ShipRite — multi-carrier shipping and store management, built for pack-and-ship stores.', cta: 'Book a demo', href: '#', accent: '#2b5a86' },
+    { id: 'stripe', brand: 'Stripe', group: 'payments', label: 'Payments', headline: 'Stripe — accept payments and grow revenue with a few lines of code.', cta: 'Get started', href: '#', accent: '#5a54d6' },
+    { id: 'rsnews-pro', brand: 'RSNews Pro', group: null, label: 'RSNews Hub', headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.', cta: 'Upgrade', href: '#', accent: '#E97D34' },
+    { id: 'clouddesk', brand: 'CloudDesk', group: null, label: 'Support software', headline: 'CloudDesk — the helpdesk your team will actually enjoy using.', cta: 'Try it free', href: '#', accent: '#2b7a8c' },
+    { id: 'brewcrate', brand: 'BrewCrate', group: null, label: 'Coffee club', headline: 'BrewCrate — freshly-roasted specialty coffee, delivered to your desk monthly.', cta: 'Shop now', href: '#', accent: '#8a5a2b' },
+    { id: 'ledgerlite', brand: 'LedgerLite', group: null, label: 'Accounting', headline: 'LedgerLite — simple bookkeeping and invoicing for small businesses.', cta: 'Learn more', href: '#', accent: '#4a6b8a' }
+  ];
+  function adNormalize(s) { return ' ' + (s || '').toLowerCase().replace(/<[^>]*>/g, ' ').replace(/[^a-z0-9. ]+/g, ' ').replace(/\s+/g, ' ') + ' '; }
+  function detectBrandMentions(text) {
+    var hay = adNormalize(text), out = [];
+    AD_BRANDS.forEach(function (b) {
+      if (b.aliases.some(function (a) { return hay.indexOf(' ' + a + ' ') >= 0 || hay.indexOf(' ' + a + '.') >= 0 || hay.indexOf(' ' + a + ',') >= 0; })) out.push({ group: b.group, brand: b.name });
+    });
+    return out;
+  }
+  function adConflicts(adObj, mentions) {
+    if (!adObj.group) return false;
+    return mentions.some(function (m) { return m.group === adObj.group && m.brand.toLowerCase() !== adObj.brand.toLowerCase(); });
+  }
+  function adSeed(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function pickInArticleAd(text, slotSeed) {
+    var mentions = detectBrandMentions(text);
+    var safe = HOUSE_ADS.filter(function (a) { return !adConflicts(a, mentions); });
+    if (!safe.length) return null;
+    var relevant = safe.filter(function (a) { return a.group && mentions.some(function (m) { return m.group === a.group && m.brand.toLowerCase() === a.brand.toLowerCase(); }); });
+    var neutral = safe.filter(function (a) { return !a.group; });
+    var pool = relevant.length ? relevant : (neutral.length ? neutral : safe);
+    return pool[adSeed(slotSeed) % pool.length];
+  }
+  function houseAd(context, slot, size) {
+    var a = pickInArticleAd(context, slot);
+    if (!a) return ad(size === 'rectangle' ? 'rectangle' : 'inarticle');
+    return '<div class="had' + (size === 'rectangle' ? ' had-rect' : '') + '" data-ad-brand="' + esc(a.brand) + '"><div class="had-bar" style="background:' + a.accent + '"></div>' +
+      '<div class="had-body"><div class="had-top"><span class="had-badge" style="background:' + a.accent + '">Ad</span><span class="had-brand">' + esc(a.brand) + '</span><span class="had-label">' + esc(a.label) + '</span></div>' +
+      '<p class="had-head">' + esc(a.headline) + '</p>' +
+      '<a class="had-cta" href="' + a.href + '" style="background:' + a.accent + '">' + esc(a.cta) + ' &rarr;</a></div></div>';
+  }
+  window.__rsAdPick = pickInArticleAd; // exposed for headless tests / debugging
+
   var CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>';
   var CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
   function carousel(items, build, width) {
@@ -449,6 +507,7 @@
     if (push !== false) { try { history.pushState({ m: slug }, '', '#' + slug); } catch (e) {} }
     document.body.classList.add('modal-open');
     var rel = related(a), nx = nextArticle(a);
+    var adCtx = a.title + ' ' + (a.content || '') + ' ' + (a.tags || []).map(function (t) { return t.name; }).join(' ');
     el('modal-host').innerHTML =
       '<div class="modal"><div class="modal-backdrop" data-close="1"></div><div class="modal-panel"><div class="modal-card">' +
       '<div class="modal-top"><div class="t">' + catBadge(a.category) + '<span class="tt">' + esc(a.title) + '</span></div>' +
@@ -462,9 +521,9 @@
       '<h1>' + esc(a.title) + '</h1><div class="rmeta">' + (a.author ? '<span>By ' + esc(a.author) + '</span>' : '') +
       '<span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min read</span><span>' + ICON.eye + (a.views || 0) + ' views</span></div>' +
       (a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" style="margin-top:24px;border-radius:14px;aspect-ratio:16/9;width:100%;object-fit:cover">' : '') +
-      '<div style="margin:24px 0">' + ad('inarticle') + '</div><div class="prose">' + (a.content || '') + '</div>' +
+      '<div style="margin:24px 0">' + houseAd(adCtx, 'reader-top', 'inarticle') + '</div><div class="prose">' + (a.content || '') + '</div>' +
       ((a.tags && a.tags.length) ? '<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px">' + a.tags.map(function (t) { return '<span class="badge" style="border:1px solid var(--border)">#' + esc(t.name) + '</span>'; }).join('') + '</div>' : '') +
-      '<div style="margin:32px 0;display:flex;justify-content:center">' + ad('rectangle') + '</div>' +
+      '<div style="margin:32px 0;display:flex;justify-content:center">' + houseAd(adCtx, 'reader-bottom', 'rectangle') + '</div>' +
       (nx ? '<div class="hero next" data-open="' + esc(nx.slug) + '"><div><div class="lbl">Read next</div><div class="nt">' + esc(nx.title) + '</div></div><span style="color:var(--orange)">' + ICON.arrow + '</span></div>' : '') +
       (rel.length ? '<div style="margin-top:32px"><h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin:0 0 14px">If you read this, you might like…</h2><div class="grid g3">' +
         rel.map(function (r) { return '<div class="ablock sm" data-open="' + esc(r.slug) + '" style="cursor:pointer"><span class="accent" style="background:' + (r.category ? r.category.color : 'var(--orange)') + '"></span><div class="body">' + (r.category ? '<span style="font-size:12.5px;font-weight:700;color:' + r.category.color + '">' + esc(r.category.name) + '</span>' : '') + '<h3 style="padding-right:0">' + esc(r.title) + '</h3></div></div>'; }).join('') + '</div></div>' : '') +
