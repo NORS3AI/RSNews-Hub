@@ -155,12 +155,12 @@ function Headline({ lead, support }: { lead: Card; support: Card[] }) {
             <StarButton item={{ id: lead.id, title: lead.title, slug: lead.slug }} />
           </div>
           <ArticleLink slug={lead.slug} className="grid h-full md:grid-cols-2">
-            <div className="relative min-h-[180px] bg-gradient-to-br from-brand-500 to-ink-800 md:min-h-[300px]">
+            <div className="relative grid min-h-[180px] place-items-center overflow-hidden bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28] md:min-h-[300px]">
               {lead.coverImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={lead.coverImage} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="grid h-full place-items-center p-8 text-white/90"><Sparkles width={52} height={52} /></div>
+                <span className="select-none text-6xl font-black tracking-tighter text-black/10 dark:text-white/10">RS</span>
               )}
             </div>
             <div className="flex flex-col justify-center p-5 sm:p-7">
@@ -183,15 +183,15 @@ function Headline({ lead, support }: { lead: Card; support: Card[] }) {
                 <StarButton item={{ id: a.id, title: a.title, slug: a.slug }} />
               </div>
               <ArticleLink slug={a.slug} className="flex h-full items-stretch">
-                <div className="hidden w-24 shrink-0 bg-gradient-to-br from-brand-400 to-ink-700 sm:block lg:w-28">
-                  {a.coverImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
+                {a.coverImage && (
+                  <div className="hidden w-24 shrink-0 sm:block lg:w-28">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={a.coverImage} alt="" className="h-full w-full object-cover" />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="flex flex-1 flex-col p-4">
                   {a.category && <span className="text-xs font-medium" style={{ color: a.category.color }}>{a.category.name}</span>}
-                  <h3 className="mt-1 line-clamp-3 pr-6 font-semibold leading-snug group-hover:text-brand-600">{a.title}</h3>
+                  <h3 className="mt-1 line-clamp-3 pr-[76px] font-semibold leading-snug group-hover:text-brand-600">{a.title}</h3>
                   <span className="mt-auto flex items-center gap-1 pt-2 text-xs text-[var(--muted)]"><Eye width={12} height={12} />{a.views}</span>
                 </div>
               </ArticleLink>

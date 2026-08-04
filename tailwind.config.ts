@@ -6,11 +6,12 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Primary brand — warm orange from the mockups.
+        // Primary brand — single flat orange #E97D34 (600/500). Tints kept for
+        // soft badges; 700 is the hover/pressed shade.
         brand: {
-          50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
-          400: '#fb923c', 500: '#f6851f', 600: '#ea6a0e', 700: '#c2540b',
-          800: '#9a4310', 900: '#7c3810', 950: '#431c07',
+          50: '#fdf3ec', 100: '#fbe4d3', 200: '#f6c7a6', 300: '#f1a978',
+          400: '#ee9356', 500: '#E97D34', 600: '#E97D34', 700: '#d76f28',
+          800: '#a9541c', 900: '#844217', 950: '#48210b',
         },
         // Dark slate / ink used for the header bar and dark surfaces.
         ink: {
