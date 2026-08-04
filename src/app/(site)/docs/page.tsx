@@ -130,7 +130,7 @@ export default async function DocsHome() {
     .filter((s) => s.items.length > 0);
 
   return (
-    <div className="space-y-8 px-4 py-6 lg:space-y-10 lg:px-7 lg:py-8">
+    <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
       {/* ===== Full-width headline ===== */}
       {lead && <Hero lead={lead} />}
 

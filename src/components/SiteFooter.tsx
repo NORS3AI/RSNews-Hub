@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SITE_NAME } from '@/lib/constants';
+import { SITE_NAME, APP_VERSION } from '@/lib/constants';
 
 export default function SiteFooter() {
   return (
@@ -36,8 +36,9 @@ export default function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-8 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
-          © {new Date().getFullYear()} {SITE_NAME}. Embeddable news hub.
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
+          <span>© {new Date().getFullYear()} {SITE_NAME}. Embeddable news hub.</span>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 font-semibold tracking-wide">{APP_VERSION}</span>
         </div>
       </div>
     </footer>
