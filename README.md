@@ -16,6 +16,26 @@ casing: the host (`nors3ai.github.io`) is lowercase, but the repository path
 segment is **case-sensitive** and must match the repo name exactly —
 `RSNews-Hub`, not `rsnews-hub`.
 
+### About the Pages preview
+
+GitHub Pages serves **static files only**, but the app itself is server-driven
+(database, API routes, auth, admin). So the `/docs` folder holds a
+**self-contained static preview** — a client-side snapshot of the reading
+experience: the design, headline block, modular cards, category browsing,
+in-browser search, the star strip and the article modal (stars are saved in
+`localStorage`). Admin, accounts and server-side search/recommendations only
+run in the full Next.js app (`npm run dev`, or any Node host).
+
+Regenerate the preview's content snapshot after changing articles:
+
+```bash
+npm run db:seed        # or edit content via the admin panel
+npm run build:static   # rewrites docs/data.js from the database
+```
+
+`docs/index.html`, `docs/styles.css` and `docs/app.js` are the static site;
+`docs/data.js` is the generated content.
+
 ## Features
 
 ### For readers
