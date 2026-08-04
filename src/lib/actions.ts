@@ -6,7 +6,7 @@ import { prisma } from './db';
 import { requireAdmin, hashPassword, getCurrentUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES } from './constants';
-import { getHomeLayout, saveHomeLayout, DEFAULT_LAYOUT } from './homepage';
+import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT } from './homepage';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -41,6 +41,7 @@ export async function saveArticle(formData: FormData) {
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
   const featured = formData.get('featured') === 'on';
+  const pinned = formData.get('pinned') === 'on';
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
 
@@ -69,7 +70,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         publishedAt: nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt,
         tags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
@@ -79,7 +80,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     await prisma.article.create({
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         publishedAt: nowPublished ? new Date() : null,
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
@@ -237,11 +238,20 @@ export async function moveHomeModule(id: string, direction: 'up' | 'down') {
   await ensureStaff();
   const layout = await getHomeLayout();
   const i = layout.findIndex((m) => m.id === id);
-  if (i === -1) return;
+  if (i === -1 || layout[i].locked) return;
   const j = direction === 'up' ? i - 1 : i + 1;
-  if (j < 0 || j >= layout.length) return;
+  if (j < 0 || j >= layout.length || layout[j].locked) return;
   [layout[i], layout[j]] = [layout[j], layout[i]];
   await saveHomeLayout(layout);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+// Persist a drag-and-drop order (locks are enforced server-side).
+export async function reorderHomeModules(orderedIds: string[]) {
+  await ensureStaff();
+  const layout = await getHomeLayout();
+  await saveHomeLayout(applyReorder(layout, orderedIds));
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');
 }
@@ -250,8 +260,19 @@ export async function toggleHomeModule(id: string) {
   await ensureStaff();
   const layout = await getHomeLayout();
   const m = layout.find((x) => x.id === id);
-  if (!m) return;
+  if (!m || m.locked) return; // locked modules can't be hidden
   m.enabled = !m.enabled;
+  await saveHomeLayout(layout);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+export async function toggleHomeLock(id: string) {
+  await ensureStaff();
+  const layout = await getHomeLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.locked = !m.locked;
   await saveHomeLayout(layout);
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');

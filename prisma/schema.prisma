@@ -68,6 +68,7 @@ model Article {
   coverImage  String?
   status      String    @default("DRAFT")
   featured    Boolean   @default(false)
+  pinned      Boolean   @default(false)
   views       Int       @default(0)
   readMinutes Int       @default(1)
   publishedAt DateTime?

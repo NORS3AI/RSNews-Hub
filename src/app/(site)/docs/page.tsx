@@ -24,7 +24,7 @@ const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t
 export default async function DocsHome() {
   const [featuredRaw, latestRaw, categories, layout] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
-    prisma.article.findMany({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, take: 20, select: cardSelect }),
+    prisma.article.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
     prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } } }),
     getHomeLayout(),
   ]);
@@ -131,14 +131,14 @@ export default async function DocsHome() {
   // Category spotlights + more pools for extra scroll.
   const topCats = [...categories].sort((a, b) => b._count.articles - a._count.articles).slice(0, 3);
   const spotlights = topCats
-    .map((c) => ({ cat: c, items: all.filter((a) => a.category?.slug === c.slug).slice(0, 3) }))
+    .map((c) => ({ cat: c, items: all.filter((a) => a.category?.slug === c.slug).slice(0, 10) }))
     .filter((s) => s.items.length > 0);
 
   const tagCounts = new Map<string, number>();
   for (const a of all) for (const t of a.tags) tagCounts.set(t.name, (tagCounts.get(t.name) ?? 0) + 1);
   const topics = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
-  const picks = trending.slice(1, 4);
-  const quick = [...all].sort((a, b) => a.readMinutes - b.readMinutes).slice(0, 8);
+  const picks = [...all].sort((a, b) => b.views - a.views);
+  const quick = [...all].sort((a, b) => a.readMinutes - b.readMinutes);
 
   return (
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
@@ -186,7 +186,7 @@ export default async function DocsHome() {
               See all {s.cat._count.articles}
             </Link>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</div>
+          <Carousel>{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
         </section>,
         i === 0 ? <div key="spotlight-ad" className="module flex justify-center"><AdSlot size="leaderboard" slot="home-spotlight" /></div> : null,
       ]).filter(Boolean)}
@@ -206,8 +206,11 @@ export default async function DocsHome() {
 
       {picks.length > 0 && (
         <section className="module">
-          <div className="mb-4"><h2 className="module-title">Editor&rsquo;s picks</h2></div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{picks.map((a) => <ArticleCard key={a.id} article={a} />)}</div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="module-title">Editor&rsquo;s picks</h2>
+            <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
+          </div>
+          <Carousel>{picks.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
         </section>
       )}
 
@@ -216,16 +219,17 @@ export default async function DocsHome() {
       <section className="module">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="module-title">Quick reads</h2>
-          <span className="text-sm font-semibold text-[var(--muted)]">5 min or less</span>
+          <span className="text-sm font-semibold text-[var(--muted)]">5 min or less · swipe →</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{quick.map((a) => <ArticleCard key={a.id} article={a} compact />)}</div>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
       </section>
 
       <section className="module">
-        <div className="mb-4"><h2 className="module-title">More to explore</h2></div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {all.slice(0, 8).map((a) => <ArticleCard key={a.id} article={a} compact />)}
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="module-title">More to explore</h2>
+          <span className="hidden text-sm font-semibold text-[var(--muted)] sm:inline">Swipe to see more →</span>
         </div>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a) => <ArticleCard key={a.id} article={a} compact />)}</Carousel>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

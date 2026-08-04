@@ -135,10 +135,11 @@
 
   var CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>';
   var CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
-  function carousel(items, build) {
+  function carousel(items, build, width) {
+    var w = width ? ' style="width:' + width + 'px"' : '';
     return '<div class="carousel">' +
       '<button class="car-btn car-prev" data-scroll="-1" aria-label="Previous">' + CHEV_L + '</button>' +
-      '<div class="car-track">' + items.map(function (a) { return '<div class="car-item">' + build(a) + '</div>'; }).join('') + '</div>' +
+      '<div class="car-track">' + items.map(function (a) { return '<div class="car-item"' + w + '>' + build(a) + '</div>'; }).join('') + '</div>' +
       '<button class="car-btn car-next" data-scroll="1" aria-label="Next">' + CHEV_R + '</button></div>';
   }
 
@@ -202,11 +203,11 @@
     /* Category spotlights — a module per popular category */
     var topCats = CATEGORIES.slice().sort(function (p, q) { return (q.count || 0) - (p.count || 0); }).slice(0, 3);
     topCats.forEach(function (c, idx) {
-      var items = ARTICLES.filter(function (a) { return a.category && a.category.slug === c.slug; }).slice(0, 3);
+      var items = ARTICLES.filter(function (a) { return a.category && a.category.slug === c.slug; }).slice(0, 10);
       if (!items.length) return;
       h += '<section class="module"><div class="module-head"><h2 style="color:' + c.color + '">In ' + esc(c.name) + '</h2>' +
         '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">See all ' + (c.count || 0) + '</span></div>' +
-        '<div class="grid g3">' + items.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
+        carousel(items, function (a) { return articleBlock(a); }) + '</section>';
       // Sprinkle an ad between the two spotlights
       if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
     });
@@ -221,24 +222,24 @@
         '</div></section>';
     }
 
-    /* Editor's picks — feature blocks */
-    var picks = trending.slice(1, 4);
+    /* Editor's picks — swipeable */
+    var picks = ARTICLES.slice().sort(function (p, q) { return (q.views || 0) - (p.views || 0); });
     if (picks.length) {
-      h += '<section class="module"><div class="module-head"><h2>Editor&rsquo;s picks</h2></div><div class="grid g3">' +
-        picks.map(function (a) { return articleBlock(a); }).join('') + '</div></section>';
+      h += '<section class="module"><div class="module-head"><h2>Editor&rsquo;s picks</h2><span class="link-orange" style="cursor:default">Swipe &rarr;</span></div>' +
+        carousel(picks, function (a) { return articleBlock(a); }) + '</section>';
     }
 
     /* Leaderboard ad */
     h += '<div class="module" style="display:flex;justify-content:center">' + ad('leaderboard') + '</div>';
 
     /* Quick reads — short articles */
-    var quick = sorted.slice().sort(function (p, q) { return (p.readMinutes || 1) - (q.readMinutes || 1); }).slice(0, 8);
-    h += '<section class="module"><div class="module-head"><h2>Quick reads</h2><span class="link-orange">5 min or less</span></div>' +
-      '<div class="grid g4">' + quick.map(function (a) { return articleBlock(a, { sm: true }); }).join('') + '</div></section>';
+    var quick = sorted.slice().sort(function (p, q) { return (p.readMinutes || 1) - (q.readMinutes || 1); });
+    h += '<section class="module"><div class="module-head"><h2>Quick reads</h2><span class="link-orange" style="cursor:default">5 min or less · swipe &rarr;</span></div>' +
+      carousel(quick, function (a) { return articleBlock(a, { sm: true }); }, 250) + '</section>';
 
-    /* More to explore — dense grid */
-    h += '<section class="module"><div class="module-head"><h2>More to explore</h2><a class="link-orange" href="#" data-home="1">Refresh</a></div>' +
-      '<div class="grid g4">' + sorted.slice(0, 8).map(function (a) { return articleBlock(a, { sm: true }); }).join('') + '</div></section>';
+    /* More to explore — swipeable */
+    h += '<section class="module"><div class="module-head"><h2>More to explore</h2><span class="link-orange" style="cursor:default">Swipe &rarr;</span></div>' +
+      carousel(sorted, function (a) { return articleBlock(a, { sm: true }); }, 250) + '</section>';
 
     /* Ad rectangles row */
     h += '<div class="row" style="grid-template-columns:1fr"><div class="grid g3">' +
