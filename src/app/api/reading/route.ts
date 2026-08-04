@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!article || article.status !== 'PUBLISHED') return NextResponse.json({ ok: false }, { status: 404 });
 
   const user = await getSessionUser();
-  const sessionId = getReaderSessionId();
+  const sessionId = await getReaderSessionId();
   const key = user ? { userId: user.id } : sessionId ? { sessionId } : null;
 
   if (key) {

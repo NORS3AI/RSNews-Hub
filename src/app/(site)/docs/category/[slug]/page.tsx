@@ -7,12 +7,14 @@ import SubscribeButton from '@/components/SubscribeButton';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const c = await prisma.category.findUnique({ where: { slug: params.slug } });
   return { title: c ? c.name : 'Category' };
 }
 
-export default async function CategoryPage({ params }: { params: { slug: string } }) {
+export default async function CategoryPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const category = await prisma.category.findUnique({ where: { slug: params.slug } });
   if (!category) notFound();
   const [articles, user] = await Promise.all([publishedArticles({ categoryId: category.id }), getCurrentUser()]);

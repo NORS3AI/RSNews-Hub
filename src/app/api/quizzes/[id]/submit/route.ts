@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 // Validates the quiz is still open, tallies each chosen option, logs the raw
 // response, and bumps the submission counter. No score is returned — correct
 // answers are revealed later in a reflection article.
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 });
 

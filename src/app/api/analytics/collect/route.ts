@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     events = body?.events ?? [];
   } catch { /* ignore malformed beacons */ }
 
-  const [user, visitorId] = await Promise.all([getSessionUser(), Promise.resolve(getReaderSessionId())]);
+  const [user, visitorId] = await Promise.all([getSessionUser(), getReaderSessionId()]);
   try {
     const n = await recordEvents(events, {
       visitorId: visitorId ?? null,

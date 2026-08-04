@@ -68,7 +68,7 @@ The first account ever created is automatically an admin.
 
 ## Tech stack
 
-- **Next.js 14** (App Router) + **TypeScript**
+- **Next.js 15** (App Router) + **TypeScript**
 - **Prisma** ORM with **SQLite** (swap to Postgres for production)
 - **Tailwind CSS** for responsive, themeable UI
 - Session auth via signed JWT cookies (`jose` + `bcryptjs`) — no external

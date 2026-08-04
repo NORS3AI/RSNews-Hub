@@ -10,7 +10,8 @@ export const runtime = 'nodejs';
 // our content-addressed pattern are allowed — this rejects path traversal and
 // anything that isn't one of our own objects. When S3/R2 is configured, image
 // URLs point straight at the bucket/CDN and this route is not used.
-export async function GET(_req: Request, { params }: { params: { path: string[] } }) {
+export async function GET(_req: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   const key = (params.path || []).join('/');
   if (!KEY_RE.test(key)) return new NextResponse('Not found', { status: 404 });
 

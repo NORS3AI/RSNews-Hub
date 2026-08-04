@@ -18,7 +18,8 @@ function fmtMs(ms: number) {
 const pctStr = (n: number) => `${Math.round(n * 100)}%`;
 const nf = (n: number) => n.toLocaleString();
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: Record<string, string | undefined> }) {
+export default async function AnalyticsPage(props: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const searchParams = await props.searchParams;
   const days = DAYS.includes(Number(searchParams.days)) ? Number(searchParams.days) : 30;
   const adSplit = AD_SPLITS.some((s) => s[0] === searchParams.adSplit) ? searchParams.adSplit! : 'placement';
   const artSplit = ART_SPLITS.some((s) => s[0] === searchParams.artSplit) ? searchParams.artSplit! : 'module';

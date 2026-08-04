@@ -29,7 +29,7 @@ export async function createSession(user: SessionUser): Promise<void> {
     .setExpirationTime('7d')
     .sign(getAuthSecret());
 
-  cookies().set(COOKIE_NAME, token, {
+  (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -39,11 +39,11 @@ export async function createSession(user: SessionUser): Promise<void> {
 }
 
 export async function destroySession(): Promise<void> {
-  cookies().delete(COOKIE_NAME);
+  (await cookies()).delete(COOKIE_NAME);
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getAuthSecret());
@@ -78,6 +78,6 @@ export async function requireAdmin() {
 }
 
 // Anonymous reading is tracked with a stable per-browser session id cookie.
-export function getReaderSessionId(): string | null {
-  return cookies().get('rsnews_reader')?.value ?? null;
+export async function getReaderSessionId(): Promise<string | null> {
+  return (await cookies()).get('rsnews_reader')?.value ?? null;
 }

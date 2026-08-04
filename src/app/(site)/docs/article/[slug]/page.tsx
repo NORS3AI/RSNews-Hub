@@ -27,7 +27,8 @@ async function getArticle(slug: string) {
   });
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await props.params;
   const a = await prisma.article.findUnique({ where: { slug: params.slug }, select: { title: true, excerpt: true, coverImage: true, publishedAt: true } });
   if (!a) return { title: 'Not found' };
   const description = a.excerpt ?? undefined;
@@ -41,7 +42,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ArticlePage({ params }: { params: { slug: string } }) {
+export default async function ArticlePage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const article = await getArticle(params.slug);
   if (!article || (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED')) notFound();
   // Scheduled (future-dated) articles are not yet public.
@@ -102,7 +104,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
         {article.coverImage && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
+          (<img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />)
         )}
 
         <div className="my-6"><InArticleAd ad={ads.top} slot="article-top" size="in-article" /></div>

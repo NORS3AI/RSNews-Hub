@@ -3,12 +3,14 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const p = await prisma.page.findUnique({ where: { slug: params.slug } });
   return { title: p ? p.title : 'Page' };
 }
 
-export default async function StaticPage({ params }: { params: { slug: string } }) {
+export default async function StaticPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const page = await prisma.page.findUnique({ where: { slug: params.slug } });
   if (!page || page.status !== 'PUBLISHED') notFound();
   return (
