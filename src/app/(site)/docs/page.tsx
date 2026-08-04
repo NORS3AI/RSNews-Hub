@@ -5,6 +5,8 @@ import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from 
 import { getHomeLayout, type ModuleId } from '@/lib/homepage';
 import ArticleCard from '@/components/ArticleCard';
 import AdSlot from '@/components/AdSlot';
+import InArticleAd from '@/components/InArticleAd';
+import { loadAds } from '@/lib/adsServer';
 import ArticleLink from '@/components/site/ArticleLink';
 import SaveButtons from '@/components/site/StarButton';
 import Carousel from '@/components/site/Carousel';
@@ -23,13 +25,25 @@ const cardSelect = {
 const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t.tag) });
 
 export default async function DocsHome() {
-  const [featuredRaw, latestRaw, categories, layout, industry] = await Promise.all([
+  const [featuredRaw, latestRaw, categories, layout, industry, allAds] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
     prisma.article.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
     prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED' } } } } } }),
     getHomeLayout(),
     prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] }),
+    loadAds(),
   ]);
+
+  // Homepage slots have no article context, so any advertiser is safe. Rotate
+  // through the image creatives so the real ads show on the home page too.
+  const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
+  let homeAdCursor = 0;
+  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string) => {
+    if (!homeImageAds.length) return <AdSlot size={size} slot={slot} />;
+    const ad = homeImageAds[homeAdCursor++ % homeImageAds.length];
+    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" />;
+    return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" /></div>;
+  };
 
   const user = await getSessionUser();
   const sessionId = getReaderSessionId();
@@ -119,13 +133,13 @@ export default async function DocsHome() {
           </section>
         );
       case 'ad-leaderboard':
-        return <div key={id} className="module flex justify-center"><AdSlot size="leaderboard" slot="home-leaderboard" /></div>;
+        return <div key={id} className="module flex justify-center">{homeAd('leaderboard', 'home-leaderboard')}</div>;
       case 'ad-rectangles':
         return (
           <div key={id} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-rect-1" /></div>
-            <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-rect-2" /></div>
-            <div className="module hidden justify-center lg:flex"><AdSlot size="rectangle" slot="home-rect-3" /></div>
+            <div className="module flex justify-center">{homeAd('rectangle', 'home-rect-1')}</div>
+            <div className="module flex justify-center">{homeAd('rectangle', 'home-rect-2')}</div>
+            <div className="module hidden justify-center lg:flex">{homeAd('rectangle', 'home-rect-3')}</div>
           </div>
         );
       default:
@@ -181,7 +195,7 @@ export default async function DocsHome() {
       {layout.filter((m) => m.enabled).map((m) => renderModule(m.id))}
 
       {/* ===== More content + interspersed ads ===== */}
-      <div className="module flex justify-center"><AdSlot size="leaderboard" slot="home-mid" /></div>
+      <div className="module flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>
 
       {spotlights.flatMap((s, i) => [
         <section key={s.cat.id} className="module">
@@ -193,7 +207,7 @@ export default async function DocsHome() {
           </div>
           <Carousel>{s.items.map((a) => <ArticleCard key={a.id} article={a} />)}</Carousel>
         </section>,
-        i === 0 ? <div key="spotlight-ad" className="module flex justify-center"><AdSlot size="leaderboard" slot="home-spotlight" /></div> : null,
+        i === 0 ? <div key="spotlight-ad" className="module flex justify-center">{homeAd('leaderboard', 'home-spotlight')}</div> : null,
       ]).filter(Boolean)}
 
       {topics.length > 0 && (
@@ -219,7 +233,7 @@ export default async function DocsHome() {
         </section>
       )}
 
-      <div className="module flex justify-center"><AdSlot size="leaderboard" slot="home-quick" /></div>
+      <div className="module flex justify-center">{homeAd('leaderboard', 'home-quick')}</div>
 
       <section className="module">
         <div className="mb-4 flex items-center justify-between">
@@ -238,9 +252,9 @@ export default async function DocsHome() {
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-r1" /></div>
-        <div className="module flex justify-center"><AdSlot size="rectangle" slot="home-r2" /></div>
-        <div className="module hidden justify-center lg:flex"><AdSlot size="rectangle" slot="home-r3" /></div>
+        <div className="module flex justify-center">{homeAd('rectangle', 'home-r1')}</div>
+        <div className="module flex justify-center">{homeAd('rectangle', 'home-r2')}</div>
+        <div className="module hidden justify-center lg:flex">{homeAd('rectangle', 'home-r3')}</div>
       </div>
 
       {/* Subscribe CTA */}
