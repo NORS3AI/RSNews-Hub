@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
-import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, ChevronRight } from '@/components/icons';
+import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, ChevronRight, Scissors } from '@/components/icons';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
 
@@ -14,6 +14,7 @@ type U = { id: string; name: string; role: string } | null;
 const NAV = [
   { href: '/docs', label: 'Home', icon: Home, exact: true },
   { href: '/docs/history', label: 'History', icon: Clock },
+  { href: '/docs/clippings', label: 'Clippings', icon: Scissors },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
   { href: '/docs/subscriptions', label: 'Subscriptions', icon: Bell },

@@ -294,6 +294,45 @@ img { max-width:100%; display:block; }
 
 .version-badge { border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:3px 10px; font-weight:700; letter-spacing:.03em; font-size:12px; }
 :root.dark .version-badge { border-color:var(--border); }
+/* Toast */
+.toast { position:fixed; left:50%; bottom:28px; transform:translate(-50%,20px); z-index:200; background:var(--header); color:#fff;
+  padding:11px 18px; border-radius:12px; font-size:14px; font-weight:600; box-shadow:var(--shadow-modal); opacity:0; transition:opacity .2s, transform .2s; }
+.toast.show { opacity:1; transform:translate(-50%,0); }
+
+/* Clip floating button (appears on text selection) */
+#clip-fab { position:fixed; z-index:150; display:flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:999px;
+  background:var(--orange); color:#fff; border:none; font-size:14px; font-weight:800; cursor:pointer; box-shadow:var(--shadow-hover); }
+#clip-fab[hidden] { display:none; }
+#clip-fab:hover { background:var(--orange-press); }
+.clip-hint { display:flex; align-items:center; gap:8px; margin-bottom:18px; padding:9px 13px; border-radius:11px;
+  background:var(--orange-soft); color:var(--orange); font-size:13.5px; font-weight:700; }
+
+/* Dialog */
+.dlg { position:fixed; inset:0; z-index:160; display:flex; align-items:center; justify-content:center; padding:16px; }
+.dlg-backdrop { position:absolute; inset:0; background:rgba(15,10,4,.6); backdrop-filter:blur(3px); animation:fade .18s ease; }
+.dlg-card { position:relative; z-index:1; width:100%; background:linear-gradient(180deg,var(--card-top),var(--card-bot)); border:1px solid var(--border);
+  border-radius:18px; box-shadow:var(--shadow-modal); overflow:hidden; animation:pop .2s cubic-bezier(.16,1,.3,1); }
+.dlg-head { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); }
+.dlg-head h3 { margin:0; font-size:18px; font-weight:800; }
+.dlg-body { padding:18px; }
+.dlg-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.dlg-note { margin:12px 0 0; font-size:13px; color:var(--muted); }
+.share-url { display:flex; gap:8px; margin-bottom:14px; }
+.share-url input { flex:1; min-width:0; height:38px; border-radius:10px; border:1px solid var(--border); background:var(--bg-soft); color:var(--fg); padding:0 12px; font-size:13px; }
+.share-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.share-opt { display:flex; align-items:center; justify-content:center; height:44px; border-radius:11px; border:1px solid var(--border);
+  background:var(--tile-top); color:var(--fg); font-weight:700; font-size:14px; cursor:pointer; }
+.share-opt:hover { border-color:var(--orange); color:var(--orange); }
+.clip-preview { width:100%; border-radius:12px; border:1px solid var(--border); display:block; margin-bottom:14px; }
+
+/* Clippings grid */
+.clip-grid { display:grid; gap:16px; grid-template-columns:1fr; }
+@media (min-width:700px){ .clip-grid{ grid-template-columns:1fr 1fr; } }
+.clip-card { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); box-shadow:var(--shadow-inner); padding:18px; display:flex; flex-direction:column; }
+.clip-quote { font-size:18px; font-weight:700; line-height:1.4; letter-spacing:-.01em; }
+.clip-meta { margin-top:10px; font-size:13px; color:var(--muted); }
+.clip-actions { margin-top:14px; display:flex; gap:8px; flex-wrap:wrap; }
+
 .preview-banner { background:var(--orange); color:#fff; font-size:13.5px; text-align:center; padding:9px 16px; }
 .preview-banner a { text-decoration:underline; }
 
