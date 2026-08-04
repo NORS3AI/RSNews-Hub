@@ -15,6 +15,25 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// House/advertiser creative for in-article ads. Each ad can declare the
+// competitors it must never appear alongside: if any of `competitors` (a
+// comma-separated list of brand keywords) is mentioned in an article, this ad
+// is suppressed in that article. `keywords` mark the ad's own brand terms so
+// it can be shown as contextually relevant. See src/lib/ads.ts.
+model Ad {
+  id          String   @id @default(cuid())
+  brand       String
+  label       String?
+  headline    String
+  cta         String   @default("Learn more")
+  href        String   @default("#")
+  accent      String   @default("#E97D34")
+  keywords    String   @default("") // comma-separated: this ad's own brand terms (relevance)
+  competitors String   @default("") // comma-separated: hide this ad if any appears in the article
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
 // NOTE: SQLite does not support native enums. Status/role fields are strings
 // with values constrained in the application layer (see src/lib/constants.ts):
 //   Role:          ADMIN | EDITOR | USER

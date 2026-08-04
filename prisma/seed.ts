@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_ADS } from '../src/lib/ads';
 
 const prisma = new PrismaClient();
 
@@ -133,6 +134,19 @@ async function main() {
       content: `<p>RSNews Hub is our central place for news, articles and documentation. It's built to be fast, accessible and easy to search.</p><p>Have feedback? We'd love to hear it.</p>`,
     },
   });
+
+  // Smart in-article ads (idempotent by id).
+  for (const ad of DEFAULT_ADS) {
+    await prisma.ad.upsert({
+      where: { id: ad.id },
+      update: {},
+      create: {
+        id: ad.id, brand: ad.brand, label: ad.label, headline: ad.headline,
+        cta: ad.cta, href: ad.href, accent: ad.accent,
+        keywords: ad.keywords, competitors: ad.competitors, active: ad.active,
+      },
+    });
+  }
 
   console.log('Seed complete. Admin login: admin@rsnews.local / admin123');
 }

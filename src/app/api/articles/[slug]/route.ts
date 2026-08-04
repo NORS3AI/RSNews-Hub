@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getRelatedArticles } from '@/lib/recommend';
+import { pickArticleAds } from '@/lib/adsServer';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,13 +20,15 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const [related, next] = await Promise.all([
+  const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;
+  const [related, next, ads] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true },
     }),
+    pickArticleAds(adContext, 'modal'),
   ]);
 
   return NextResponse.json({
@@ -45,5 +48,6 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
     },
     related: related.map((r) => ({ id: r.id, title: r.title, slug: r.slug, category: r.category })),
     next,
+    ads,
   });
 }
