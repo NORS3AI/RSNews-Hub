@@ -232,12 +232,14 @@ img { max-width:100%; display:block; }
 .car-track::-webkit-scrollbar { display:none; }
 .car-item { flex:0 0 auto; width:300px; scroll-snap-align:start; }
 @media (min-width:640px){ .car-item{ width:334px; } }
-.car-btn { position:absolute; top:calc(50% - 6px); transform:translateY(-50%); height:42px; width:42px; border-radius:999px;
+/* Always-visible, good-sized click arrows (auto-hidden at ends / when no overflow) */
+.car-btn { position:absolute; top:calc(50% - 6px); transform:translateY(-50%); height:48px; width:48px; border-radius:999px;
   border:1px solid var(--border); background:var(--card-top); color:var(--fg); box-shadow:var(--shadow-card); cursor:pointer;
-  display:none; align-items:center; justify-content:center; z-index:5; opacity:0; transition:opacity .15s, color .15s; }
-.car-btn:hover { color:var(--orange); }
-.car-prev { left:-8px; } .car-next { right:-8px; }
-@media (min-width:640px){ .carousel:hover .car-btn { display:flex; opacity:1; } }
+  display:flex; align-items:center; justify-content:center; z-index:6; transition:opacity .15s, color .15s, border-color .15s; }
+.car-btn:hover { color:var(--orange); border-color:var(--orange); }
+.car-prev { left:-10px; } .car-next { right:-10px; }
+.carousel.at-start .car-prev, .carousel.at-end .car-next { opacity:0; pointer-events:none; }
+.carousel.no-scroll .car-btn { display:none; }
 
 /* Ads */
 .ad { margin:0 auto; width:100%; }
