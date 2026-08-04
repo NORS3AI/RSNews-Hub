@@ -43,5 +43,6 @@ export function envReport() {
     errorTracking: process.env.SENTRY_DSN ? 'sentry' : 'logs-only',
     storage: process.env.STORAGE_DRIVER === 's3' || (process.env.STORAGE_DRIVER !== 'local' && process.env.S3_BUCKET) ? 's3' : 'local',
     imageOptimize: process.env.IMAGE_OPTIMIZE === 'false' ? 'off' : `on (${(process.env.IMAGE_FORMAT || 'webp')}, max ${process.env.IMAGE_MAX_DIM || '2000'}px)`,
+    authMode: (() => { const m = (process.env.AUTH_MODE || 'local').toLowerCase(); return m === 'jwt' || m === 'header' ? m : 'local'; })(),
   };
 }

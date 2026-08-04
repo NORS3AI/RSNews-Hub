@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
 import { prisma } from './db';
 import { getAuthSecret } from './env';
+import { authMode, resolveMember, provisionFromMember } from './identity';
 
 const COOKIE_NAME = 'rsnews_session';
 
@@ -43,6 +44,18 @@ export async function destroySession(): Promise<void> {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // Delegated auth (production): the member comes from the parent site. Key on
+  // the local mirror's id so all per-account state lines up; null until the
+  // mirror is provisioned (first full page load via getCurrentUser).
+  if (authMode() !== 'local') {
+    const member = await resolveMember();
+    if (!member) return null;
+    const u = await prisma.user.findUnique({
+      where: { externalId: member.externalId },
+      select: { id: true, email: true, name: true, role: true, status: true },
+    });
+    return u ? { id: u.id, email: u.email, name: u.name, role: u.role, status: u.status } : null;
+  }
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
@@ -59,8 +72,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   }
 }
 
-// Loads the fresh user record from DB, ensuring status changes (ban/suspend) take effect immediately.
+// Loads the fresh user record, ensuring status changes (ban/suspend) take effect
+// immediately. In delegated-auth modes (production: the parent site verifies the
+// member), the identity comes from the parent and a local mirror User is
+// provisioned; in `local` mode it's the hub's own cookie session.
 export async function getCurrentUser() {
+  if (authMode() !== 'local') {
+    const member = await resolveMember();
+    if (!member) return null;
+    return provisionFromMember(member); // upserts the mirror; null if suspended/banned
+  }
   const session = await getSessionUser();
   if (!session) return null;
   const user = await prisma.user.findUnique({

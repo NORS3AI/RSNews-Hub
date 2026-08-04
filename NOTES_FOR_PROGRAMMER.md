@@ -12,15 +12,26 @@
 
 ---
 
-## 0. The one big open question
+## 0. Architecture — how the hub relates to the RS News site
 
-- ❓ **Is this repo the live site, or a feature to port into an existing site?**
-  Everything here is a complete Next.js app (homepage, admin, accounts, articles,
-  polls, comics, quiz). If RSNews Hub already runs on a different platform, the
-  new pieces (Pop Quiz, poll, clippings, etc.) need to be **integrated into that
-  codebase**, and the data models below need to be created in the real database.
-  The programmer needs to confirm which path we're on — it changes most of the
-  steps below.
+**Resolved:** the hub is a **gated area of the existing RS News website**, not a
+standalone app. Members log in on the website (accounts already exist there);
+being a logged-in member unlocks the hub. **The hub does not run its own
+signup/login in production** — the site hands it a verified member identity and
+the hub keys all its own state (poll votes, quiz answers, clippings, favorites,
+reading, analytics) to that account id.
+
+- ✅ **Auth integration seam built** _(v0.37.0)_ — one integration point,
+  `src/lib/identity/`, with `AUTH_MODE` = `local` (dev/standalone, the hub's own
+  login) | `jwt` (parent site signs a token — recommended) | `header` (trusted
+  proxy). A local mirror `User` is provisioned per member on first visit. The
+  hub's `/login` + `/register` are auto-disabled in the delegated modes. **Full
+  wiring guide for your site: [`INTEGRATION.md`](./INTEGRATION.md).**
+- 🟠 The one thing your side provides: a verified account id per request (plus a
+  few optional attributes). See INTEGRATION.md — it's a small change on the site.
+- 🔵 **Next up:** move favorites / pinned / saved clippings from browser
+  localStorage to server-side per-account storage (so they follow a member across
+  devices) now that identity is available.
 
 ---
 
