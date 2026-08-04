@@ -19,10 +19,18 @@ export type AdRow = {
   accent: string;
   keywords: string;      // comma-separated own-brand terms
   competitors: string;   // comma-separated rival terms — hide this ad if any appear in the article
+  imageWide?: string | null; // wide banner creative (~3:1) for the in-article slot
+  imageRect?: string | null; // rectangle creative (~1.2:1) for the bottom slot
   active: boolean;
 };
 
 export const DEFAULT_ADS: AdRow[] = [
+  { id: 'seed-packagehub', brand: 'PackageHub', label: 'Pack & ship network',
+    headline: 'PackageHub Business Centers — solutions for independent pack & ship stores.',
+    cta: 'Learn more', href: '#', accent: '#1f3a5f',
+    keywords: 'PackageHub, package hub, pack and ship, pack & ship, pack-and-ship',
+    competitors: 'PostalMate, postal mate, ShipRite, ship rite, ship-rite, Stamps.com, Endicia',
+    imageWide: '/ads/packagehub-banner.png', imageRect: '/ads/packagehub-rect.png', active: true },
   { id: 'seed-postalmate', brand: 'PostalMate', label: 'Shipping & POS software',
     headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.',
     cta: 'Start free trial', href: '#', accent: '#2f6f4f',
@@ -90,9 +98,28 @@ export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: str
   const safe = active.filter((a) => adIsSafe(a, hay));
   if (!safe.length) return null;
 
+  // Prefer ads relevant to the article's topic; otherwise any safe ad is fair
+  // game (a safe ad by definition names no competitor present in the article).
   const relevant = safe.filter((a) => adIsRelevant(a, hay));
-  const neutral = safe.filter((a) => !terms(a.keywords).length && !terms(a.competitors).length);
-  const pool = relevant.length ? relevant : (neutral.length ? neutral : safe);
+  const pool = relevant.length ? relevant : safe;
 
   return pool[seedFrom(slotSeed) % pool.length];
+}
+
+// True if two ads are competitors of each other (so they must not share an
+// article). Used to keep the top and bottom slots from being rivals.
+export function adsAreRivals(a: AdRow, b: AdRow): boolean {
+  if (a.id === b.id || a.brand.toLowerCase() === b.brand.toLowerCase()) return true;
+  const aTerms = [a.brand.toLowerCase(), ...terms(a.keywords)];
+  const bTerms = [b.brand.toLowerCase(), ...terms(b.keywords)];
+  const aComp = terms(a.competitors), bComp = terms(b.competitors);
+  return aComp.some((t) => bTerms.includes(t)) || bComp.some((t) => aTerms.includes(t));
+}
+
+/** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string) {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`);
+  const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`);
+  return { top, bottom };
 }

@@ -254,6 +254,7 @@
      "group"; we scan the article for brands and drop any ad whose group is
      represented by a rival brand. Neutral house ads (group:null) are safe. */
   var AD_BRANDS = [
+    { name: 'PackageHub', group: 'shipping-software', aliases: ['packagehub', 'package hub', 'pack and ship', 'pack & ship', 'pack-and-ship'] },
     { name: 'PostalMate', group: 'shipping-software', aliases: ['postalmate', 'postal mate'] },
     { name: 'ShipRite', group: 'shipping-software', aliases: ['shiprite', 'ship-rite', 'ship rite'] },
     { name: 'Stamps.com', group: 'shipping-software', aliases: ['stamps.com', 'stamps .com'] },
@@ -266,6 +267,7 @@
     { name: 'PayPal', group: 'payments', aliases: ['paypal'] }
   ];
   var HOUSE_ADS = [
+    { id: 'packagehub', brand: 'PackageHub', group: 'shipping-software', label: 'Pack & ship network', headline: 'PackageHub Business Centers — solutions for independent pack & ship stores.', cta: 'Learn more', href: '#', accent: '#1f3a5f', imageWide: 'ads/packagehub-banner.png', imageRect: 'ads/packagehub-rect.png' },
     { id: 'postalmate', brand: 'PostalMate', group: 'shipping-software', label: 'Shipping & POS software', headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.', cta: 'Start free trial', href: '#', accent: '#2f6f4f' },
     { id: 'shiprite', brand: 'ShipRite', group: 'shipping-software', label: 'Shipping software', headline: 'ShipRite — multi-carrier shipping and store management, built for pack-and-ship stores.', cta: 'Book a demo', href: '#', accent: '#2b5a86' },
     { id: 'stripe', brand: 'Stripe', group: 'payments', label: 'Payments', headline: 'Stripe — accept payments and grow revenue with a few lines of code.', cta: 'Get started', href: '#', accent: '#5a54d6' },
@@ -287,24 +289,37 @@
     return mentions.some(function (m) { return m.group === adObj.group && m.brand.toLowerCase() !== adObj.brand.toLowerCase(); });
   }
   function adSeed(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-  function pickInArticleAd(text, slotSeed) {
+  function pickInArticleAd(ads, text, slotSeed) {
     var mentions = detectBrandMentions(text);
-    var safe = HOUSE_ADS.filter(function (a) { return !adConflicts(a, mentions); });
+    var safe = ads.filter(function (a) { return !adConflicts(a, mentions); });
     if (!safe.length) return null;
+    // Prefer ads relevant to the topic; otherwise any safe ad (a safe ad names
+    // no competitor present in the article).
     var relevant = safe.filter(function (a) { return a.group && mentions.some(function (m) { return m.group === a.group && m.brand.toLowerCase() === a.brand.toLowerCase(); }); });
-    var neutral = safe.filter(function (a) { return !a.group; });
-    var pool = relevant.length ? relevant : (neutral.length ? neutral : safe);
+    var pool = relevant.length ? relevant : safe;
     return pool[adSeed(slotSeed) % pool.length];
   }
-  function houseAd(context, slot, size) {
-    var a = pickInArticleAd(context, slot);
+  function adsAreRivals(a, b) { return a.id === b.id || (!!a.group && a.group === b.group); }
+  function pickTwoAds(text) {
+    var top = pickInArticleAd(HOUSE_ADS, text, 'reader-top');
+    var rest = top ? HOUSE_ADS.filter(function (a) { return !adsAreRivals(a, top); }) : HOUSE_ADS;
+    var bottom = pickInArticleAd(rest, text, 'reader-bottom');
+    return { top: top, bottom: bottom };
+  }
+  function houseAdRender(a, size) {
     if (!a) return ad(size === 'rectangle' ? 'rectangle' : 'inarticle');
+    var img = size === 'rectangle' ? (a.imageRect || a.imageWide) : (a.imageWide || a.imageRect);
+    if (img) {
+      return '<a class="had had-img' + (size === 'rectangle' ? ' had-rect' : '') + '" href="' + a.href + '" data-ad-brand="' + esc(a.brand) + '">' +
+        '<span class="had-adchip">Ad</span><img src="' + img + '" alt="' + esc(a.brand) + '"></a>';
+    }
     return '<div class="had' + (size === 'rectangle' ? ' had-rect' : '') + '" data-ad-brand="' + esc(a.brand) + '"><div class="had-bar" style="background:' + a.accent + '"></div>' +
       '<div class="had-body"><div class="had-top"><span class="had-badge" style="background:' + a.accent + '">Ad</span><span class="had-brand">' + esc(a.brand) + '</span><span class="had-label">' + esc(a.label) + '</span></div>' +
       '<p class="had-head">' + esc(a.headline) + '</p>' +
       '<a class="had-cta" href="' + a.href + '" style="background:' + a.accent + '">' + esc(a.cta) + ' &rarr;</a></div></div>';
   }
-  window.__rsAdPick = pickInArticleAd; // exposed for headless tests / debugging
+  window.__rsAdPick = function (text, slot) { return pickInArticleAd(HOUSE_ADS, text, slot); }; // exposed for headless tests / debugging
+  window.__rsAdPickTwo = pickTwoAds;
 
   var CHEV_L = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>';
   var CHEV_R = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
@@ -508,6 +523,7 @@
     document.body.classList.add('modal-open');
     var rel = related(a), nx = nextArticle(a);
     var adCtx = a.title + ' ' + (a.content || '') + ' ' + (a.tags || []).map(function (t) { return t.name; }).join(' ');
+    var adPair = pickTwoAds(adCtx);
     el('modal-host').innerHTML =
       '<div class="modal"><div class="modal-backdrop" data-close="1"></div><div class="modal-panel"><div class="modal-card">' +
       '<div class="modal-top"><div class="t">' + catBadge(a.category) + '<span class="tt">' + esc(a.title) + '</span></div>' +
@@ -521,9 +537,9 @@
       '<h1>' + esc(a.title) + '</h1><div class="rmeta">' + (a.author ? '<span>By ' + esc(a.author) + '</span>' : '') +
       '<span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min read</span><span>' + ICON.eye + (a.views || 0) + ' views</span></div>' +
       (a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" style="margin-top:24px;border-radius:14px;aspect-ratio:16/9;width:100%;object-fit:cover">' : '') +
-      '<div style="margin:24px 0">' + houseAd(adCtx, 'reader-top', 'inarticle') + '</div><div class="prose">' + (a.content || '') + '</div>' +
+      '<div style="margin:24px 0">' + houseAdRender(adPair.top, 'inarticle') + '</div><div class="prose">' + (a.content || '') + '</div>' +
       ((a.tags && a.tags.length) ? '<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:8px">' + a.tags.map(function (t) { return '<span class="badge" style="border:1px solid var(--border)">#' + esc(t.name) + '</span>'; }).join('') + '</div>' : '') +
-      '<div style="margin:32px 0;display:flex;justify-content:center">' + houseAd(adCtx, 'reader-bottom', 'rectangle') + '</div>' +
+      '<div style="margin:32px 0;display:flex;justify-content:center">' + houseAdRender(adPair.bottom, 'rectangle') + '</div>' +
       (nx ? '<div class="hero next" data-open="' + esc(nx.slug) + '"><div><div class="lbl">Read next</div><div class="nt">' + esc(nx.title) + '</div></div><span style="color:var(--orange)">' + ICON.arrow + '</span></div>' : '') +
       (rel.length ? '<div style="margin-top:32px"><h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin:0 0 14px">If you read this, you might like…</h2><div class="grid g3">' +
         rel.map(function (r) { return '<div class="ablock sm" data-open="' + esc(r.slug) + '" style="cursor:pointer"><span class="accent" style="background:' + (r.category ? r.category.color : 'var(--orange)') + '"></span><div class="body">' + (r.category ? '<span style="font-size:12.5px;font-weight:700;color:' + r.category.color + '">' + esc(r.category.name) + '</span>' : '') + '<h3 style="padding-right:0">' + esc(r.title) + '</h3></div></div>'; }).join('') + '</div></div>' : '') +

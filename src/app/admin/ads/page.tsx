@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { saveAd, deleteAd } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import InArticleAd from '@/components/InArticleAd';
+import AdImageInput from '@/components/admin/AdImageInput';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,8 @@ const FieldSet = ({ ad }: { ad?: any }) => (
       <input name="keywords" defaultValue={ad?.keywords ?? ''} className="input" placeholder="PostalMate, postal mate" />
       <p className="mt-1 text-xs text-[var(--muted)]">Optional. When these appear in an article, this ad is preferred as contextually relevant.</p>
     </div>
+    <AdImageInput name="imageWide" label="Banner image (wide ~3:1)" defaultValue={ad?.imageWide ?? ''} hint="Shown in the in-article slot. Leave blank to use the text card." />
+    <AdImageInput name="imageRect" label="Rectangle image (~1.2:1)" defaultValue={ad?.imageRect ?? ''} hint="Shown in the bottom slot (300×250-ish)." />
     <div className="flex items-center gap-4">
       <div><label className="label">Accent</label><input name="accent" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
       <label className="mt-5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={ad ? ad.active : true} className="h-4 w-4" /> Active</label>

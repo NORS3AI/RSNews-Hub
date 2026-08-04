@@ -139,11 +139,12 @@ async function main() {
   for (const ad of DEFAULT_ADS) {
     await prisma.ad.upsert({
       where: { id: ad.id },
-      update: {},
+      update: { imageWide: ad.imageWide ?? null, imageRect: ad.imageRect ?? null },
       create: {
         id: ad.id, brand: ad.brand, label: ad.label, headline: ad.headline,
         cta: ad.cta, href: ad.href, accent: ad.accent,
-        keywords: ad.keywords, competitors: ad.competitors, active: ad.active,
+        keywords: ad.keywords, competitors: ad.competitors,
+        imageWide: ad.imageWide ?? null, imageRect: ad.imageRect ?? null, active: ad.active,
       },
     });
   }

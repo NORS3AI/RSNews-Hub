@@ -30,6 +30,8 @@ model Ad {
   accent      String   @default("#E97D34")
   keywords    String   @default("") // comma-separated: this ad's own brand terms (relevance)
   competitors String   @default("") // comma-separated: hide this ad if any appears in the article
+  imageWide   String?  // wide banner creative (~3:1) for the in-article slot; url or data URL
+  imageRect   String?  // rectangle creative (~1.2:1) for the bottom slot; url or data URL
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 }

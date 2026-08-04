@@ -4,9 +4,10 @@ import AdSlot from '@/components/AdSlot';
 /**
  * Presentational house ad shown inside an article. The `ad` is already chosen
  * (server-side) so it never competes with a brand the article discusses — see
- * lib/ads + lib/adsServer. No hooks or DB access, so it's safe to render on the
- * server (full article page) or the client (modal reader). Falls back to the
- * neutral placeholder when no safe ad is available.
+ * lib/ads + lib/adsServer. Renders an image creative when the ad has one for
+ * this slot (wide banner for in-article, rectangle for the bottom), otherwise a
+ * text card. No hooks or DB access, so it's safe on server or client. Falls
+ * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
   ad, slot, size = 'in-article',
@@ -14,6 +15,27 @@ export default function InArticleAd({
   if (!ad) return <AdSlot size={size} slot={slot} />;
 
   const rect = size === 'rectangle';
+  const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
+
+  // Image creative — render the artwork with a small "Ad" chip; the card
+  // background keeps transparent PNG edges tidy.
+  if (image) {
+    return (
+      <a
+        href={ad.href}
+        data-ad-slot={slot}
+        data-ad-brand={ad.brand}
+        aria-label={`Advertisement: ${ad.brand}`}
+        className={`relative mx-auto block w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect ? 'max-w-[360px]' : ''}`}
+        style={{ boxShadow: 'var(--shadow-card)' }}
+      >
+        <span className="absolute left-2 top-2 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image} alt={ad.brand} className="block w-full" />
+      </a>
+    );
+  }
+
   return (
     <div
       data-ad-slot={slot}
