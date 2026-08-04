@@ -7,10 +7,10 @@
   --card-top:#fefcf8; --card-bot:#f2ece0;
   --tile-top:#faf6ee; --tile-bot:#efe7d9;
   --header:#22262e; --header-fg:#eef1f6; --header-muted:rgba(238,241,246,.62);
-  --shadow-card:0 1px 2px rgba(35,25,10,.14), 0 12px 26px rgba(30,20,8,.24);
-  --shadow-hover:0 3px 8px rgba(35,25,10,.18), 0 22px 48px rgba(30,20,8,.34);
-  --shadow-inner:0 1px 2px rgba(35,25,10,.10), 0 5px 14px rgba(30,20,8,.16);
-  --shadow-modal:0 30px 80px rgba(18,12,4,.5);
+  --shadow-card:0 2px 5px rgba(30,20,8,.22), 0 20px 44px rgba(24,15,5,.36);
+  --shadow-hover:0 4px 10px rgba(30,20,8,.26), 0 34px 64px rgba(24,15,5,.46);
+  --shadow-inner:0 1px 3px rgba(35,25,10,.16), 0 8px 20px rgba(30,20,8,.22);
+  --shadow-modal:0 40px 100px rgba(14,9,3,.58);
 }
 :root.dark {
   --orange-press:#f08e4b; --orange-soft:rgba(233,125,52,.22);
@@ -19,10 +19,10 @@
   --card-top:#242029; --card-bot:#1b1820;
   --tile-top:#2a2531; --tile-bot:#201d27;
   --header:#100e0c; --header-muted:rgba(238,241,246,.6);
-  --shadow-card:0 1px 2px rgba(0,0,0,.4), 0 14px 30px rgba(0,0,0,.55);
-  --shadow-hover:0 3px 8px rgba(0,0,0,.45), 0 24px 52px rgba(0,0,0,.65);
-  --shadow-inner:0 1px 2px rgba(0,0,0,.35), 0 5px 14px rgba(0,0,0,.42);
-  --shadow-modal:0 30px 80px rgba(0,0,0,.7);
+  --shadow-card:0 2px 5px rgba(0,0,0,.5), 0 22px 46px rgba(0,0,0,.62);
+  --shadow-hover:0 4px 10px rgba(0,0,0,.55), 0 36px 68px rgba(0,0,0,.72);
+  --shadow-inner:0 1px 3px rgba(0,0,0,.45), 0 8px 20px rgba(0,0,0,.5);
+  --shadow-modal:0 40px 100px rgba(0,0,0,.8);
 }
 * { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
@@ -123,7 +123,8 @@ img { max-width:100%; display:block; }
 .module { border:1px solid var(--border); border-radius:20px; background:linear-gradient(180deg,var(--card-top),var(--card-bot));
   box-shadow:var(--shadow-card); padding:22px; }
 @media (min-width:768px){ .module{ padding:26px; } }
-.module + .module, .row + .row, .module + .row, .row + .module { margin-top:20px; }
+.content > * + * { margin-top:34px; }
+@media (min-width:1024px){ .content > * + * { margin-top:40px; } }
 .module-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
 .module-head h2 { font-size:21px; font-weight:800; margin:0; display:flex; align-items:center; gap:9px; letter-spacing:-.01em; }
 .module-head h2::before { content:""; width:5px; height:20px; border-radius:3px; background:var(--orange); display:inline-block; }
