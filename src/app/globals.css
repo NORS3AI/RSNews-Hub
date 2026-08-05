@@ -36,16 +36,29 @@
    an aged vintage-mailer (postmarks + RS stamps) on the cream surfaces. Module
    shapes are unchanged — a background image is clipped to the existing radius.
    `--rs-cream-wash` (0 = raw stamps, 1 = flat cream) is the readability dial. */
-.rs { --rs-cream-wash: 0.42; }
+.rs { --rs-cream-wash: 0.42; --fg: #3d2a19; }   /* body text = dark brown, not black */
 
-/* Orange modules: lock the hue to brand orange (top layer, `color` blend) while
-   keeping the corrugation from the texture's luminance. Runs strong. */
-.rs .module-orange {
-  background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');
+/* Page surround: the cardboard board, slightly darkened. */
+.rs body::before {
+  background-image: linear-gradient(rgba(32,19,7,.18), rgba(32,19,7,.18)), url('/bg-cardboard.jpg');
   background-size: cover, cover;
   background-position: center, center;
   background-repeat: no-repeat, no-repeat;
-  background-blend-mode: color, normal;
+}
+
+/* Orange surfaces — modules AND the orange house-ad frames: lock the hue to
+   brand orange (`color` blend over the corrugation's luminance), then darken a
+   touch so the white text reads. */
+.rs .module-orange,
+.rs .ad-orange {
+  background-image:
+    linear-gradient(rgba(38,16,0,.26), rgba(38,16,0,.26)),
+    linear-gradient(#E97D34, #E97D34),
+    url('/textures/rs-orange.webp');
+  background-size: cover, cover, cover;
+  background-position: center, center, center;
+  background-repeat: no-repeat, no-repeat, no-repeat;
+  background-blend-mode: normal, color, normal;
 }
 
 /* Cream surfaces: the stamped paper under a cream wash so text stays readable. */

@@ -42,7 +42,7 @@ export default function InArticleAd({
         data-ad-brand={ad.brand}
         {...trk}
         aria-label={`Advertisement: ${ad.brand}`}
-        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
+        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
