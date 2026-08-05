@@ -142,10 +142,13 @@ body::before {
   .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
   .btn-sm { @apply px-3 py-1.5 text-xs; }
 
+  /* Form fields sit on a light surface (--card-2) with --fg text, so their text
+     is legible in every theme — never dark-on-dark. select options inherit too. */
   .input {
-    @apply w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--fg)]
+    @apply w-full rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-3 py-2 text-sm text-[var(--fg)]
     placeholder:text-[var(--muted)] focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
   }
+  .input option { @apply bg-[var(--card)] text-[var(--fg)]; }
   .label { @apply mb-1.5 block text-sm font-medium text-[var(--fg)]; }
 
   /* Modular cards — cream surface with a dark drop shadow. */
