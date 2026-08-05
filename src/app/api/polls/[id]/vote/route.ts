@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
+import { parseJson } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,8 +14,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 });
 
-  let optionId = '';
-  try { optionId = (await req.json())?.optionId || ''; } catch {}
+  const parsed = await parseJson(req, z.object({ optionId: z.string().min(1) }));
+  if (!parsed.ok) return parsed.res;
+  const { optionId } = parsed.data;
   const option = await prisma.pollOption.findFirst({ where: { id: optionId, pollId: params.id } });
   if (!option) return NextResponse.json({ error: 'Invalid option' }, { status: 400 });
 

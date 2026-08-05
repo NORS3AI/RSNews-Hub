@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
+import { parseJson } from '@/lib/http';
 
 // Records that an article was read (dedupes within a short window) and bumps views.
 export async function POST(req: Request) {
-  const { articleId } = await req.json().catch(() => ({ articleId: null }));
-  if (!articleId) return NextResponse.json({ error: 'articleId required' }, { status: 400 });
+  const parsed = await parseJson(req, z.object({ articleId: z.string().min(1) }));
+  if (!parsed.ok) return parsed.res;
+  const { articleId } = parsed.data;
 
   const article = await prisma.article.findUnique({ where: { id: articleId }, select: { id: true, status: true, requirement: true } });
   if (!article || article.status !== 'PUBLISHED') return NextResponse.json({ ok: false }, { status: 404 });
