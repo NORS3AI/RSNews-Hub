@@ -38,10 +38,7 @@
    `--rs-cream-wash` (0 = raw stamps, 1 = flat cream) is the readability dial. */
 .rs { --rs-cream-wash: 0.42; --fg: #3d2a19; }   /* body text = dark brown, not black */
 
-/* Page surround: the deep-brown cardboard board (used as-is). */
-.rs body::before {
-  background: url('/bg-rs.jpg') center center / cover no-repeat;
-}
+/* Page surround: RS Mode keeps the default gray textured surround (unchanged). */
 
 /* Orange surfaces — modules AND the orange house-ad frames: brand-orange hue
    locked over the corrugated paper. Kept bright so it pops. */
@@ -66,6 +63,12 @@
 /* Cream (not pure white) text on orange in RS Mode. */
 .rs .module-orange :is(h1,h2,h3,h4,p,span,a,time,strong),
 .rs .module-orange { color: #f7edd8; }
+/* …but the module headers (Published this week / Industry News + its subtitle)
+   read in dark brown, straight on the orange. */
+.rs .module-orange .module-title,
+.rs .module-orange .ind-head,
+.rs .module-orange .ind-bigtitle,
+.rs .module-orange .ind-sub { color: #3d2a19; }
 
 /* Cream surfaces: the stamped paper under a cream wash so text stays readable. */
 .rs .card,

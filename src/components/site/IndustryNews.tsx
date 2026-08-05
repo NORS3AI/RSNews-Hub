@@ -78,11 +78,11 @@ export default function IndustryNews({ links }: { links: IndustryItem[] }) {
   return (
     <>
       <section className="module module-orange w-full max-w-md bg-brand-600 text-white">
-        <button onClick={() => setOpen(true)} className="group/head flex items-center gap-2.5 text-left" title="Expand Industry News">
+        <button onClick={() => setOpen(true)} className="ind-head group/head flex items-center gap-2.5 text-left" title="Expand Industry News">
           <Newspaper width={32} height={32} />
-          <span className="text-[34px] font-black leading-[0.95] tracking-tight group-hover/head:underline sm:text-[40px]">Industry News</span>
+          <span className="ind-bigtitle text-[34px] font-black leading-[0.95] tracking-tight group-hover/head:underline sm:text-[40px]">Industry News</span>
         </button>
-        <p className="mb-4 mt-2 text-sm font-semibold text-white/80">Curated links — tap the title to expand</p>
+        <p className="ind-sub mb-4 mt-2 text-sm font-semibold text-white/80">Curated links — tap the title to expand</p>
         <div className="industry-scroll max-h-[460px] overflow-y-auto pr-1">
           {links.slice(0, 12).map((l) => <CardRow key={l.id} l={l} />)}
         </div>
