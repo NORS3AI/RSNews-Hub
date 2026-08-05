@@ -35,8 +35,10 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
 
   return (
     <Shell>
-      <h1 className="text-2xl font-bold">Your ad dashboard</h1>
-      <p className="mt-1 text-sm text-[var(--muted)]">{ent.vendorBrand || user.name} · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
+      <div className="card p-5 sm:p-6">
+        <h1 className="text-2xl font-bold">Your ad dashboard</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">{ent.vendorBrand || user.name} · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
+      </div>
 
       <div className="mt-5 mb-6 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
         {TABS.map(([key, label]) => (
