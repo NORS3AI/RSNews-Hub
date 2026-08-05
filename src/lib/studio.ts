@@ -109,6 +109,13 @@ export type Block = {
   // Optional small uppercase eyebrow shown above the element.
   label?: string;
   settings: BlockSettings;
+  // Optional schedule window (ISO 8601). The element only shows while now is
+  // within [startAt, endAt] (either end open). Outside the window it counts as
+  // "unavailable" and the slot falls through to the next rung — so scheduling A
+  // to take over a slot for a week, then hand it back to B, is just: A on top
+  // with a window, B as its fallback.
+  startAt?: string | null;
+  endAt?: string | null;
   // Priority stack: if this element has no content to show right now (a poll
   // that isn't running, a hand-picked article that's unpublished, an empty
   // image…), the renderer falls through to these in order and shows the first
@@ -211,6 +218,8 @@ function normalizeBlock(input: unknown, index: number, allowFallbacks = true): B
   const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim().slice(0, 64) : `b${index}`;
   const settings = normalizeSettings(o.type, o.settings);
   const label = str(o.label, 60).trim();
+  const startAt = isoOrNull(o.startAt);
+  const endAt = isoOrNull(o.endAt);
   // Fallbacks are a single level deep — a fallback's own `fallbacks` are dropped
   // so a slot can never fan out into an unbounded tree.
   let fallbacks: Block[] | undefined;
@@ -222,11 +231,30 @@ function normalizeBlock(input: unknown, index: number, allowFallbacks = true): B
     }
     if (fb.length) fallbacks = fb;
   }
-  return { id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}), settings, ...(fallbacks ? { fallbacks } : {}) };
+  return {
+    id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}),
+    ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}),
+    settings, ...(fallbacks ? { fallbacks } : {}),
+  };
+}
+
+// Is this block within its schedule window at time `now` (ms)? Blocks with no
+// window are always in-window. A start/end that's set gates the respective side.
+export function inSchedule(b: Block, now: number): boolean {
+  if (b.startAt && Date.parse(b.startAt) > now) return false;
+  if (b.endAt && Date.parse(b.endAt) < now) return false;
+  return true;
 }
 
 function str(v: unknown, max: number): string {
   return typeof v === 'string' ? v.slice(0, max) : '';
+}
+// Canonicalize a schedule bound to an ISO string, or null. Anything unparseable
+// is dropped so a bad value can never gate (or fail to gate) a slot by accident.
+function isoOrNull(v: unknown): string | null {
+  if (typeof v !== 'string' || !v.trim()) return null;
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 function bool(v: unknown, dflt: boolean): boolean {
   return typeof v === 'boolean' ? v : dflt;

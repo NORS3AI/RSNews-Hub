@@ -135,6 +135,8 @@ export default function StudioEditor({
         const fb = (patch as any).fallbacks as Block[] | undefined;
         b.fallbacks = fb && fb.length ? fb : undefined;
       }
+      if ('startAt' in patch) b.startAt = (patch as any).startAt || undefined;
+      if ('endAt' in patch) b.endAt = (patch as any).endAt || undefined;
       return t;
     });
   }
@@ -319,6 +321,7 @@ export default function StudioEditor({
                         chain={chain}
                         rung={rung}
                         onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
+                        scheduled={!!(b.startAt || b.endAt)}
                       >
                         <BlockView block={chain[rung]} />
                       </BlockFrame>
@@ -389,11 +392,11 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate, chain, rung, onRung }: {
+function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate, chain, rung, onRung, scheduled }: {
   selected: boolean; over: boolean; label: string; children: React.ReactNode;
   onSelect: (e: React.MouseEvent) => void; onDragStart: () => void; onDragEnd: () => void;
   onRemove: (e: React.MouseEvent) => void; onDuplicate: (e: React.MouseEvent) => void;
-  chain?: Block[]; rung?: number; onRung?: (k: number) => void;
+  chain?: Block[]; rung?: number; onRung?: (k: number) => void; scheduled?: boolean;
 }) {
   const hasFallbacks = !!chain && chain.length > 1;
   return (
@@ -409,12 +412,13 @@ function BlockFrame({ selected, over, label, children, onSelect, onDragStart, on
       {selected && <span className="absolute -top-2.5 left-2 z-10 rounded-md bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{label}</span>}
       {/* the block preview (non-interactive) */}
       <div className="pointer-events-none">{children}</div>
-      {/* Permutation stepper — walk the priority stack to preview each fallback
-          state ("if no poll → ad → article"). Only shown when fallbacks exist. */}
-      {hasFallbacks && (
+      {/* Permutation stepper + schedule marker. The stepper walks the priority
+          stack to preview each fallback state ("if no poll → ad → article"). */}
+      {(hasFallbacks || scheduled) && (
         <div className="mt-1 flex flex-wrap items-center gap-1 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-2)] px-1.5 py-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
-          <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>
-          {chain!.map((r, k) => (
+          {scheduled && <span className="rounded bg-amber-100 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title="This element has a schedule window">⏱ Scheduled</span>}
+          {hasFallbacks && <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>}
+          {hasFallbacks && chain!.map((r, k) => (
             <button key={k} type="button" onClick={() => onRung?.(k)}
               className={`rounded px-1.5 py-0.5 font-semibold transition ${k === rung ? 'bg-brand-600 text-white' : 'bg-[var(--card)] text-[var(--muted)] hover:text-[var(--fg)]'}`}
               title={k === 0 ? 'Your primary choice' : `Fallback ${k}`}>
@@ -465,15 +469,17 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
-  const [tab, setTab] = useState<'content' | 'style' | 'fallback'>('content');
+  const [tab, setTab] = useState<'content' | 'style' | 'fallback' | 'schedule'>('content');
   const fbCount = block.fallbacks?.length ?? 0;
-  const TABS: { id: 'content' | 'style' | 'fallback'; label: string }[] = [
+  const scheduled = !!(block.startAt || block.endAt);
+  const TABS: { id: 'content' | 'style' | 'fallback' | 'schedule'; label: string }[] = [
     { id: 'content', label: 'Content' }, { id: 'style', label: 'Style' },
     { id: 'fallback', label: fbCount ? `If empty (${fbCount})` : 'If empty' },
+    { id: 'schedule', label: scheduled ? 'Schedule •' : 'Schedule' },
   ];
   return (
     <InspectorShell title={BLOCKS[block.type].label}>
-      <div className="mb-3 inline-flex gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-0.5 text-xs font-bold">
+      <div className="mb-3 flex flex-wrap gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-0.5 text-xs font-bold">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`rounded-md px-2.5 py-1 ${tab === t.id ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{t.label}</button>
         ))}
@@ -559,6 +565,10 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 
       <div className={tab === 'fallback' ? '' : 'hidden'}>
         <FallbackEditor block={block} onPatch={onPatch} />
+      </div>
+
+      <div className={tab === 'schedule' ? '' : 'hidden'}>
+        <ScheduleEditor block={block} onPatch={onPatch} />
       </div>
 
       <div className="mt-4 flex gap-2 border-t border-[var(--border)] pt-3">
@@ -660,6 +670,60 @@ function FallbackRow({ index, count, block, onType, onSet, onUp, onDown, onRemov
         <button type="button" onClick={onRemove} className="grid h-7 w-6 place-items-center rounded border border-[var(--border)] text-red-600 hover:bg-red-50" title="Remove"><Trash width={12} height={12} /></button>
       </div>
       <FallbackControl block={block} onSet={onSet} />
+    </div>
+  );
+}
+
+/* ---- Schedule: an optional time window on the element ---- */
+
+// datetime-local <input> speaks local wall-clock; we persist ISO (UTC). Convert
+// both ways so the admin sees their own timezone and the renderer compares UTC.
+function isoToLocalInput(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function ScheduleEditor({ block, onPatch }: { block: Block; onPatch: (p: any) => void }) {
+  const start = block.startAt ?? null;
+  const end = block.endAt ?? null;
+  const now = Date.now();
+  const badStart = !!start && !!end && Date.parse(end) <= Date.parse(start);
+  const fmt = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  // What the reader would see right now, given the window.
+  let status: { tone: string; text: string };
+  if (!start && !end) status = { tone: 'text-[var(--muted)]', text: 'Always on — no window set. Add one to make this element appear or retire on a schedule.' };
+  else if (badStart) status = { tone: 'text-red-600', text: '“Until” is before “From” — this element would never show.' };
+  else if (start && Date.parse(start) > now) status = { tone: 'text-amber-600', text: `Hidden until ${fmt(start)} — the slot shows your fallback until then.` };
+  else if (end && Date.parse(end) < now) status = { tone: 'text-amber-600', text: `Expired ${fmt(end)} — the slot has fallen through to your fallback.` };
+  else status = { tone: 'text-green-700 dark:text-green-400', text: `Live now${end ? ` until ${fmt(end)}` : ''}.` };
+
+  return (
+    <div>
+      <p className="mb-3 text-xs leading-relaxed text-[var(--muted)]">
+        Show <strong>{BLOCKS[block.type].label}</strong> only within a time window. Outside it, the slot falls through to your <strong>fallbacks</strong> — so a scheduled element takes over, then hands the slot back automatically when it ends.
+      </p>
+      <Field label="Show from">
+        <div className="flex gap-1.5">
+          <input type="datetime-local" className="input" value={isoToLocalInput(start)} onChange={(e) => onPatch({ startAt: localInputToIso(e.target.value) })} />
+          {start && <button type="button" className="btn-outline btn-sm !px-2" title="Clear" onClick={() => onPatch({ startAt: null })}><X width={13} height={13} /></button>}
+        </div>
+      </Field>
+      <Field label="Show until">
+        <div className="flex gap-1.5">
+          <input type="datetime-local" className="input" value={isoToLocalInput(end)} onChange={(e) => onPatch({ endAt: localInputToIso(e.target.value) })} />
+          {end && <button type="button" className="btn-outline btn-sm !px-2" title="Clear" onClick={() => onPatch({ endAt: null })}><X width={13} height={13} /></button>}
+        </div>
+      </Field>
+      <p className={`mt-1 rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-2.5 py-2 text-xs font-medium ${status.tone}`}>{status.text}</p>
+      <p className="mt-2 text-[11px] leading-tight text-[var(--muted)]">Times are in your local timezone. Leave a side blank for open-ended (e.g. “from” only = appears then and stays).</p>
     </div>
   );
 }

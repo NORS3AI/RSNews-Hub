@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
-import { isCustomModuleId, parseTree, blockChain, type Block } from '@/lib/studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
 import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
@@ -207,7 +207,11 @@ export default async function DocsHome() {
     // null when it has nothing to show (poll not running, picked article
     // unpublished, empty image…). Returning null is the signal to try the next
     // fallback. `style` is the slot's background so the look holds across rungs.
+    const nowMs = Date.now();
     const renderRung = (b: Block, i: number, style: React.CSSProperties | undefined): React.ReactNode | null => {
+      // Outside its schedule window → treat as unavailable so the slot falls
+      // through to the next rung (which restores the "previous" content).
+      if (!inSchedule(b, nowMs)) return null;
       switch (b.type) {
         case 'heading': {
           const t = String(b.settings.text ?? '');

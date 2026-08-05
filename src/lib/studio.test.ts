@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeTree, emptyTree, makeBlock, serializeTree, parseTree, isHexColor,
-  MAX_BLOCKS, MAX_FALLBACKS, blockChain, customModuleId, isCustomModuleId, customIdOf,
+  MAX_BLOCKS, MAX_FALLBACKS, blockChain, inSchedule, customModuleId, isCustomModuleId, customIdOf,
 } from './studio';
 
 describe('studio tree model', () => {
@@ -130,6 +130,25 @@ describe('studio tree model', () => {
     const b = makeBlock('ad', 'a');
     expect(b.fallbacks).toBeUndefined();
     expect(blockChain(b)).toEqual([b]);
+  });
+
+  it('normalizes schedule bounds to ISO or drops them', () => {
+    const t = normalizeTree({ children: [
+      { type: 'ad', settings: {}, startAt: '2026-08-20T19:00:00.000Z', endAt: 'not-a-date' },
+    ] });
+    expect(t.children[0].startAt).toBe('2026-08-20T19:00:00.000Z');
+    expect(t.children[0].endAt).toBeUndefined(); // unparseable → dropped
+  });
+
+  it('inSchedule gates by window (open-ended sides allowed)', () => {
+    const now = Date.parse('2026-08-22T12:00:00Z');
+    const within = { ...makeBlock('ad', 'a'), startAt: '2026-08-20T00:00:00Z', endAt: '2026-08-25T00:00:00Z' };
+    const future = { ...makeBlock('ad', 'b'), startAt: '2026-08-30T00:00:00Z' };
+    const past = { ...makeBlock('ad', 'c'), endAt: '2026-08-21T00:00:00Z' };
+    expect(inSchedule(within, now)).toBe(true);
+    expect(inSchedule(future, now)).toBe(false);   // hasn't started
+    expect(inSchedule(past, now)).toBe(false);      // already ended
+    expect(inSchedule(makeBlock('ad', 'd'), now)).toBe(true); // no window = always on
   });
 
   it('namespaces custom module ids', () => {
