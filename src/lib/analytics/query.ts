@@ -27,6 +27,22 @@ export async function loadEvents(days: number, cap = 60000): Promise<{ events: E
   return { events, capped };
 }
 
+// Load events in an explicit [since, until) window (used by quarterly reports).
+export async function loadEventsBetween(since: Date, until: Date, cap = 100000): Promise<{ events: Ev[]; capped: boolean }> {
+  const rows = await prisma.analyticsEvent.findMany({
+    where: { createdAt: { gte: since, lt: until } },
+    orderBy: { createdAt: 'desc' },
+    take: cap + 1,
+  });
+  const capped = rows.length > cap;
+  const events: Ev[] = rows.slice(0, cap).map((r) => ({
+    type: r.type, subjectType: r.subjectType, subjectId: r.subjectId, placement: r.placement,
+    pageType: r.pageType, device: r.device, visitorId: r.visitorId, userId: r.userId,
+    sessionId: r.sessionId, value: r.value, props: safeProps(r.props), createdAt: r.createdAt,
+  }));
+  return { events, capped };
+}
+
 export async function totalEventCount(): Promise<number> {
   return prisma.analyticsEvent.count();
 }

@@ -4,6 +4,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { entitlementsOf, isVendor, brandKey } from '@/lib/entitlements';
 import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
+import { listPublishedReports, parseSnapshot } from '@/lib/reports';
+import ReportView from '@/components/ReportView';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +44,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const now = new Date();
   const current = mine.filter((c) => c.status === 'ACTIVE');
   const past = mine.filter((c) => c.status === 'COMPLETED' || c.status === 'CANCELLED');
+  const reports = vendorId ? await listPublishedReports(vendorId) : [];
 
   return (
     <Shell>
@@ -70,7 +73,18 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
           : <div className="space-y-4">{past.map((c) => <CampaignCard key={c.id} c={c} now={now} />)}</div>
       )}
       {tab === 'performance' && (
-        <Notice title="Performance reports" body="We publish a performance summary for your ads each quarter after review. Your latest report will appear here once it’s ready." />
+        reports.length === 0
+          ? <Notice title="Performance reports" body="We publish a performance summary for your ads each quarter after review. Your latest report will appear here once it’s ready." />
+          : <div className="space-y-4">{reports.map((r) => (
+              <div key={r.id} className="card p-5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold">{r.periodLabel}</span>
+                  <span className="text-xs text-[var(--muted)]">{formatDate(r.periodStart)} → {formatDate(r.periodEnd)}</span>
+                </div>
+                {r.summary && <p className="mb-4 whitespace-pre-line text-sm text-[var(--fg)]">{r.summary}</p>}
+                <ReportView snapshot={parseSnapshot(r.metrics)} />
+              </div>
+            ))}</div>
       )}
     </Shell>
   );
