@@ -149,12 +149,18 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   row (unique normalized `brandKey`) instead of matching on a brand string —
   `src/lib/vendors.ts` (`findOrCreateVendor`/`vendorIdForBrand`), campaign
   creation attaches/creates the vendor, the dashboard loads campaigns by FK, and
-  `scripts/backfill-vendors.mjs` links legacy rows. **Next phases:** (5)
-  **quarterly performance reports** (auto-drafted from the analytics we already
-  collect → admin review/approve → vendor Performance tab); (6) **JotForm
-  ingestion** (auto-pull submissions → images to storage → draft campaign for
-  admin review); (7) renewal reminder emails (needs the email seam wired + a
-  nightly cron hitting `/api/ads/maintenance`).
+  `scripts/backfill-vendors.mjs` links legacy rows. **Done (v0.45.0): quarterly
+  performance reports.** `src/lib/reports.ts` snapshots the ad analytics we
+  already collect (`advertiserReport` → impressions/viewable/clicks/CTR/dwell,
+  per-creative + per-placement + daily trend) for one vendor over a calendar
+  quarter; the admin (`/admin/reports`) auto-drafts, edits a summary, and
+  **publishes** (only PUBLISHED reports show on the vendor Performance tab). The
+  numbers are frozen into `PerformanceReport.metrics` (JSON) at generation, so a
+  published report is stable as raw events age out. `scripts/seed-ad-analytics.mjs`
+  seeds demo events. **Next phases:** (6) **JotForm ingestion** (auto-pull
+  submissions → images to storage → draft campaign for admin review); (7) renewal
+  reminder emails (needs the email seam wired + a nightly cron hitting
+  `/api/ads/maintenance`).
 - ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
   API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
   **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role
@@ -260,8 +266,8 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
-`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` (ad sales — a
-campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows), plus a
+`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` + `PerformanceReport` (ad sales — a
+campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows; reports are per vendor per quarter), plus a
 `Setting` row for the homepage layout. See `prisma/schema.prisma`. `User` also
 gained cached entitlement columns mirrored from the SSO token — `accountType`,
 `tier`, `affiliations` (comma list), `vendorBrand`, `region`, `storeType`.

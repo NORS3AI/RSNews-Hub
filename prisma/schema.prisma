@@ -202,6 +202,29 @@ model Vendor {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   campaigns    AdCampaign[]
+  reports      PerformanceReport[]
+}
+
+// A quarterly ad-performance report for one vendor. Auto-drafted from the ad
+// analytics we already collect (see lib/analytics advertiserReport), then the
+// admin reviews/edits the summary and publishes it — only PUBLISHED reports
+// show on the vendor's dashboard. `metrics` is the JSON snapshot taken at
+// generation time, so a published report is stable even as raw events age out.
+model PerformanceReport {
+  id          String    @id @default(cuid())
+  vendorId    String
+  vendor      Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  periodLabel String                          // e.g. "Q2 2026"
+  periodStart DateTime
+  periodEnd   DateTime
+  status      String    @default("DRAFT")     // DRAFT | PUBLISHED
+  summary     String    @default("")          // admin-authored note shown to the vendor
+  metrics     String                          // JSON snapshot of the computed report
+  createdAt   DateTime  @default(now())
+  publishedAt DateTime?
+
+  @@unique([vendorId, periodStart])            // one report per vendor per period
+  @@index([vendorId, status])
 }
 
 model AdCampaign {

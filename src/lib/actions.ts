@@ -11,6 +11,7 @@ import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
+import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -494,6 +495,45 @@ export async function cancelAdCampaign(id: string) {
   revalidatePath('/admin/campaigns');
   revalidatePath(`/admin/campaigns/${id}`);
   revalidatePath('/docs');
+}
+
+/* --------------------- Vendor performance reports ------------------------ */
+
+// Auto-draft a quarterly report for a vendor from the ad analytics. `period` is
+// the quarter start (ISO date) chosen in the admin; the quarter is derived from
+// it so start/end always align to real calendar quarters.
+export async function generatePerformanceReport(formData: FormData) {
+  await ensureStaff();
+  const vendorId = ((formData.get('vendorId') as string) || '').trim();
+  const periodStart = ((formData.get('periodStart') as string) || '').trim();
+  if (!vendorId) throw new Error('A vendor is required');
+  const d = new Date(periodStart);
+  if (isNaN(d.getTime())) throw new Error('A valid quarter is required');
+  const id = await generateReportDraft(vendorId, quarterOf(d));
+  revalidatePath('/admin/reports');
+  redirect(`/admin/reports/${id}`);
+}
+
+export async function savePerformanceReportSummary(id: string, formData: FormData) {
+  await ensureStaff();
+  await updateReportSummary(id, ((formData.get('summary') as string) || '').trim());
+  revalidatePath(`/admin/reports/${id}`);
+}
+
+export async function publishPerformanceReport(id: string) {
+  await ensureStaff();
+  await publishReport(id);
+  revalidatePath(`/admin/reports/${id}`);
+  revalidatePath('/admin/reports');
+  revalidatePath('/docs/vendor');
+}
+
+export async function unpublishPerformanceReport(id: string) {
+  await ensureStaff();
+  await unpublishReport(id);
+  revalidatePath(`/admin/reports/${id}`);
+  revalidatePath('/admin/reports');
+  revalidatePath('/docs/vendor');
 }
 
 /* ------------------------- Analytics maintenance ------------------------- */
