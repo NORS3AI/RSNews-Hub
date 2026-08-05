@@ -2,6 +2,9 @@
   "name": "rsnews-hub",
   "version": "0.24.6",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
