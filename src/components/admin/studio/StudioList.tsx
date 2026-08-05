@@ -64,7 +64,7 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
                     ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
                     : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Saved for later</span>}
                 </div>
-                <div className="text-sm text-[var(--muted)]">{SHAPES[m.shape as Shape]?.label ?? m.shape} · {m.blocks} block{m.blocks === 1 ? '' : 's'}</div>
+                <div className="text-sm text-[var(--muted)]">{SHAPES[m.shape as Shape]?.label ?? m.shape} · {m.blocks} element{m.blocks === 1 ? '' : 's'}</div>
               </div>
               <Link href={`/admin/studio/${m.id}`} className="btn-outline btn-sm"><Edit width={14} height={14} /> Edit</Link>
               <button disabled={pending} onClick={() => run(() => setCustomModulePublished(m.id, !m.published))}

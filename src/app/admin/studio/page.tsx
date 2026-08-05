@@ -22,7 +22,7 @@ export default async function StudioPage() {
     <div className="max-w-4xl">
       <h1 className="text-2xl font-bold">Module Studio</h1>
       <p className="mb-6 mt-1 text-[var(--muted)]">
-        Build custom homepage modules block by block — pick a shape, drop in articles, ads, polls and more, then publish and place it on the homepage.
+        Build custom homepage modules element by element — pick a shape, drop in articles, ads, polls and more, then publish and place it on the homepage.
       </p>
       <StudioList modules={modules} />
 

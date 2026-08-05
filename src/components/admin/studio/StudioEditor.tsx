@@ -31,6 +31,8 @@ export default function StudioEditor({
   const [saving, startSave] = useTransition();
   const drag = useRef<DragState>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const [past, setPast] = useState<ModuleTree[]>([]);
+  const [future, setFuture] = useState<ModuleTree[]>([]);
 
   const selectedBlock = useMemo(() => tree.children.find((b) => b.id === selected) ?? null, [tree, selected]);
 
@@ -42,8 +44,32 @@ export default function StudioEditor({
     return () => window.removeEventListener('beforeunload', h);
   }, [dirty]);
 
-  /* ---- tree mutations ---- */
-  const mutate = (fn: (t: ModuleTree) => ModuleTree) => { setTree((t) => fn(structuredClone(t))); setDirty(true); };
+  /* ---- tree mutations (with undo/redo history) ---- */
+  const mutate = (fn: (t: ModuleTree) => ModuleTree) => {
+    setPast((p) => [...p.slice(-49), tree]); // cap history
+    setFuture([]);
+    setTree(fn(structuredClone(tree)));
+    setDirty(true);
+  };
+  function undo() {
+    setPast((p) => {
+      if (!p.length) return p;
+      setFuture((f) => [tree, ...f]);
+      setTree(p[p.length - 1]);
+      setDirty(true);
+      setSelected(null);
+      return p.slice(0, -1);
+    });
+  }
+  function redo() {
+    setFuture((f) => {
+      if (!f.length) return f;
+      setPast((p) => [...p, tree]);
+      setTree(f[0]);
+      setDirty(true);
+      return f.slice(1);
+    });
+  }
 
   function addBlock(type: BlockType, at?: number) {
     if (tree.children.length >= MAX_BLOCKS) return;
@@ -136,6 +162,8 @@ export default function StudioEditor({
           ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
           : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Draft</span>}
         <div className="ml-auto flex items-center gap-2">
+          <button onClick={undo} disabled={!past.length} className="btn-outline btn-sm !px-2" title="Undo" aria-label="Undo">↶</button>
+          <button onClick={redo} disabled={!future.length} className="btn-outline btn-sm !px-2" title="Redo" aria-label="Redo">↷</button>
           {dirty && <span className="flex items-center gap-1.5 text-sm text-amber-600"><span className="h-2 w-2 rounded-full bg-amber-500" /> Unsaved</span>}
           <button onClick={save} disabled={saving || !dirty} className="btn-outline btn-sm">
             {saving ? 'Saving…' : <><Check width={14} height={14} /> Save</>}
@@ -168,7 +196,7 @@ export default function StudioEditor({
               ))}
             </div>
           </Panel>
-          <Panel title="Add block">
+          <Panel title="Add elements">
             <div className="space-y-2">
               {BLOCK_GROUPS.map((g) => {
                 const open = openGroups[g] !== false;
@@ -210,15 +238,15 @@ export default function StudioEditor({
               <input type="checkbox" checked={rsPreview} onChange={(e) => setRsPreview(e.target.checked)} /> RS-Mode preview
             </label>
           </div>
-          <div className={rsPreview ? 'rs rounded-2xl' : ''}>
-            <section className={`module studio-fill min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+          <div className={`mx-auto w-full max-w-2xl ${rsPreview ? 'rs rounded-2xl' : ''}`}>
+            <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
               {tree.children.length === 0 ? (
                 <div
                   onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
                   onDrop={() => onDropAt(0)}
                   className={`grid min-h-[160px] place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-[var(--muted)] ${overIndex === 0 ? 'border-brand-500 bg-brand-50/50' : 'border-[var(--border)]'}`}>
-                  Drag a block here, or click one in the palette.
+                  Drag an element here, or click one in the palette.
                 </div>
               ) : (
                 <div className={shapeInnerClass(tree.shape)}>
@@ -336,7 +364,7 @@ function ModuleInspector({ tree, onShape, onColor }: { tree: ModuleTree; onShape
         </select>
       </Field>
       <Field label="Background color"><ColorControl value={tree.rsColor} onChange={onColor} /></Field>
-      <p className="text-xs text-[var(--muted)]">Select a block on the canvas to edit its settings. {tree.children.length} block{tree.children.length === 1 ? '' : 's'} in this module.</p>
+      <p className="text-xs text-[var(--muted)]">Select an element on the canvas to edit its settings. {tree.children.length} element{tree.children.length === 1 ? '' : 's'} in this module.</p>
     </InspectorShell>
   );
 }
@@ -367,7 +395,8 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       {block.type === 'ad' && (
         <Field label="Ad format">
           <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
-            <option value="rectangle">Rectangle (medium)</option>
+            <option value="rectangle">Rectangle (square-ish)</option>
+            <option value="vertical">Vertical (skyscraper)</option>
             <option value="leaderboard">Leaderboard (wide banner)</option>
             <option value="video">Video</option>
           </select>

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
@@ -32,7 +32,12 @@ export default function AdminShell({
   children, user,
 }: { children: React.ReactNode; user: { name: string; role: string } }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  // Remember the desktop sidebar collapse across navigations/sessions.
+  useEffect(() => { try { setCollapsed(localStorage.getItem('admin_nav_collapsed') === '1'); } catch {} }, []);
+  const toggleCollapsed = () => setCollapsed((c) => { const n = !c; try { localStorage.setItem('admin_nav_collapsed', n ? '1' : '0'); } catch {} return n; });
   const isActive = (l: (typeof links)[number]) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
 
   const nav = (
@@ -56,6 +61,10 @@ export default function AdminShell({
           <button onClick={() => setOpen((o) => !o)} className="btn-ghost h-9 w-9 !px-0 lg:hidden" aria-label="Menu">
             {open ? <X /> : <Menu />}
           </button>
+          {/* Desktop: collapse/expand the left nav for a full-width workspace. */}
+          <button onClick={toggleCollapsed} className="btn-ghost hidden h-9 w-9 !px-0 lg:inline-flex" aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'} title={collapsed ? 'Show sidebar' : 'Hide sidebar'}>
+            <Menu />
+          </button>
           <Link href="/admin" className="flex items-center gap-2 font-bold">
             <BrandMark size={30} priority className="rounded-[6px]" />
             <span className="hidden sm:inline">RSNews Admin</span>
@@ -69,9 +78,9 @@ export default function AdminShell({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-7xl">
-        {/* Sidebar (desktop) */}
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-[var(--border)] bg-[var(--bg)] p-4 lg:block">
+      <div className={`mx-auto flex ${collapsed ? 'max-w-none' : 'max-w-7xl'}`}>
+        {/* Sidebar (desktop) — hidden when collapsed for a full-width workspace */}
+        <aside className={`sticky top-14 h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-[var(--border)] bg-[var(--bg)] p-4 ${collapsed ? 'hidden' : 'hidden lg:block'}`}>
           {nav}
         </aside>
 

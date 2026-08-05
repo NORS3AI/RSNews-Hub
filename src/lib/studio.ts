@@ -188,7 +188,7 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
     case 'article-headline':
       return { ...articleFill(s) };
     case 'ad': {
-      const format = s.format === 'leaderboard' || s.format === 'video' ? s.format : 'rectangle';
+      const format = s.format === 'leaderboard' || s.format === 'video' || s.format === 'vertical' ? s.format : 'rectangle';
       return { format };
     }
     case 'image': {
