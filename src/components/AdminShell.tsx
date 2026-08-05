@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
 import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail } from './icons';
+import { BrandMark } from './BrandLogo';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
@@ -55,7 +56,7 @@ export default function AdminShell({
             {open ? <X /> : <Menu />}
           </button>
           <Link href="/admin" className="flex items-center gap-2 font-bold">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-brand-600 text-xs font-black text-white">RS</span>
+            <BrandMark size={30} priority className="rounded-[6px]" />
             <span className="hidden sm:inline">RSNews Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">

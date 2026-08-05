@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Sparkles } from './icons';
+import { BrandLockup } from './BrandLogo';
 
 export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
@@ -35,7 +35,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     <div className="container-page flex min-h-[70vh] items-center justify-center py-10">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-brand-600 text-white"><Sparkles /></span>
+          {/* The page surround (--bg) is dark ink in both themes, so use the white wordmark. */}
+          <Link href="/docs" className="mx-auto mb-4 inline-block"><BrandLockup height={96} variant="dark" priority /></Link>
           <h1 className="text-2xl font-bold">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
             {mode === 'login' ? 'Sign in to subscribe and get recommendations.' : 'Join to follow topics and personalize your feed.'}

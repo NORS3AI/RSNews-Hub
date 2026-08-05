@@ -4,6 +4,7 @@ import Link from 'next/link';
 import SearchBar from './SearchBar';
 import ThemeToggle from './ThemeToggle';
 import { Menu, X, Archive, Bell, Layers, Clock } from './icons';
+import { BrandMark } from './BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 
 type U = { id: string; name: string; email: string; role: string } | null;
@@ -18,8 +19,8 @@ const nav = [
 
 function Logo() {
   return (
-    <Link href="/docs" className="flex shrink-0 items-center gap-2 font-bold text-[var(--header-fg)]">
-      <span className="grid h-8 w-8 place-items-center rounded-md bg-brand-600 text-sm font-black text-white">RS</span>
+    <Link href="/docs" className="flex shrink-0 items-center gap-2.5 font-bold text-[var(--header-fg)]">
+      <BrandMark size={34} priority className="rounded-[7px]" />
       <span className="hidden text-[15px] tracking-tight sm:inline">{SITE_NAME}</span>
     </Link>
   );

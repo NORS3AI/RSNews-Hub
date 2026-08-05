@@ -6,6 +6,7 @@ import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
 import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, ChevronRight, Scissors } from '@/components/icons';
+import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
 
@@ -66,7 +67,7 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
       >
         <div className={classNames('flex items-center px-2 pb-3 pt-1', collapsed ? 'justify-center' : 'justify-between')}>
           <Link href="/docs" className="flex min-w-0 items-center gap-2.5 font-extrabold">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[9px] bg-brand-600 text-sm font-black text-white">RS</span>
+            <BrandMark size={36} priority className="shrink-0 rounded-[8px]" />
             {!collapsed && <span className="truncate text-[17px]">{SITE_NAME}</span>}
           </Link>
           {!collapsed && (
