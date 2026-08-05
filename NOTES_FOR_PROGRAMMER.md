@@ -172,6 +172,22 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   tracked); listings show a 🔒 badge (`requirementLabel`); the article editor has
   an **Access** field. **Next phases:** (8) renewal reminder emails (wire the email
   seam + a nightly cron hitting `/api/ads/maintenance`); (9) payment reconciliation.
+- ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
+  gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
+  content-serving path, not just the article page — the article JSON API
+  (`/api/articles/[slug]` → 403 on gated), the reading tracker
+  (`/api/reading` — no view bump for content you can't see), and the RS Council
+  homepage module (ungated pieces only); report **publish/unpublish is
+  ADMIN-only**; JotForm ingest is now **idempotent** (once-only claim on the
+  unique `submissionId` — a webhook retry can't spawn a second campaign) and
+  **atomic** (vendor + campaign + creatives in one `$transaction`); creatives are
+  **capped** per submission (`MAX_CREATIVES`), the raw payload is size-capped, the
+  endpoint is **rate-limited**, error responses are generic (details only in the
+  audit row/logs), the SSRF allowlist is tightened to JotForm-owned `.com`
+  domains, and `sharp` gets an explicit `limitInputPixels`. Confirmed safe (no
+  change needed): webhook auth (timing-safe, fail-closed), the core SSRF guard
+  (redirect:error + punycode-anchored host match), vendor IDOR (brand not
+  attacker-controlled; empty-brand → no leak), no SQL injection, no stored XSS.
 - ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
   API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
   **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role

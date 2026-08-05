@@ -88,7 +88,9 @@ export async function optimizeImage(bytes: Buffer, input: ImageType, cfg: Optimi
 
     // failOn:'none' → don't reject slightly-corrupt files; rotate() bakes EXIF
     // orientation; metadata is stripped by default (no withMetadata()).
-    let pipe = sharpFn(bytes, { failOn: 'none' }).rotate();
+    // limitInputPixels makes the decompression-bomb guard explicit (a small file
+    // can still decode to a huge bitmap) rather than relying on sharp's default.
+    let pipe = sharpFn(bytes, { failOn: 'none', limitInputPixels: 40_000_000 }).rotate();
     const meta = await pipe.metadata();
     const longest = Math.max(meta.width || 0, meta.height || 0);
     if (longest > cfg.maxDim) {

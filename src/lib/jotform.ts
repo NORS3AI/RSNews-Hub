@@ -121,8 +121,11 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
 // ---- SSRF guard for fetching creatives -------------------------------------
 
 // Only fetch creatives from JotForm's own upload hosts. This blocks a forged
-// submission from pointing the fetcher at an internal address (SSRF).
-const ALLOWED_HOST_RE = /(^|\.)jotform(pro)?\.(com|io)$/i;
+// submission from pointing the fetcher at an internal address (SSRF). Limited to
+// domains JotForm actually owns (jotform.com / jotformpro.com and their
+// subdomains, e.g. www./eu./us. uploads) — deliberately NOT the .io variants,
+// whose ownership isn't verified and could otherwise be pointed at an internal IP.
+const ALLOWED_HOST_RE = /(^|\.)jotform(pro)?\.com$/i;
 
 /** Is this URL a safe creative source? https only, JotForm hosts only. */
 export function isAllowedCreativeHost(url: string): boolean {

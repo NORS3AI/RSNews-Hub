@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getSessionUser, getReaderSessionId } from '@/lib/auth';
+import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
+import { canViewContent } from '@/lib/entitlements';
 
 // Records that an article was read (dedupes within a short window) and bumps views.
 export async function POST(req: Request) {
   const { articleId } = await req.json().catch(() => ({ articleId: null }));
   if (!articleId) return NextResponse.json({ error: 'articleId required' }, { status: 400 });
 
-  const article = await prisma.article.findUnique({ where: { id: articleId }, select: { id: true, status: true } });
+  const article = await prisma.article.findUnique({ where: { id: articleId }, select: { id: true, status: true, requirement: true } });
   if (!article || article.status !== 'PUBLISHED') return NextResponse.json({ ok: false }, { status: 404 });
 
-  const user = await getSessionUser();
+  // Don't log a read or bump views for content the caller can't actually access
+  // (keeps the "no read tracked for gated content" invariant, and stops a locked
+  // article's views being inflated by a raw POST).
+  const user = await getCurrentUser();
+  if (!canViewContent(user, article.requirement)) return NextResponse.json({ ok: false }, { status: 403 });
+
   const sessionId = await getReaderSessionId();
   const key = user ? { userId: user.id } : sessionId ? { sessionId } : null;
 

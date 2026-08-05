@@ -69,17 +69,18 @@ describe('fieldMapFromEnv', () => {
 });
 
 describe('isAllowedCreativeHost (SSRF guard)', () => {
-  it('allows https JotForm hosts only', () => {
+  it('allows https JotForm .com hosts only', () => {
     expect(isAllowedCreativeHost('https://www.jotform.com/uploads/x/1.png')).toBe(true);
-    expect(isAllowedCreativeHost('https://files.jotform.io/a/b.png')).toBe(true);
     expect(isAllowedCreativeHost('https://eu.jotform.com/a.png')).toBe(true);
+    expect(isAllowedCreativeHost('https://files.jotformpro.com/a/b.png')).toBe(true);
   });
-  it('blocks non-JotForm hosts, http, credentials, and internal targets', () => {
+  it('blocks non-JotForm hosts, http, credentials, .io variants, and internal targets', () => {
     expect(isAllowedCreativeHost('https://evil.com/x.png')).toBe(false);
     expect(isAllowedCreativeHost('http://www.jotform.com/x.png')).toBe(false); // not https
     expect(isAllowedCreativeHost('https://user:pass@www.jotform.com/x.png')).toBe(false);
     expect(isAllowedCreativeHost('https://169.254.169.254/latest/meta-data')).toBe(false);
     expect(isAllowedCreativeHost('https://jotform.com.evil.com/x.png')).toBe(false);
+    expect(isAllowedCreativeHost('https://files.jotform.io/a/b.png')).toBe(false); // .io not verified-owned
     expect(isAllowedCreativeHost('not a url')).toBe(false);
   });
 });

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
+import { canViewContent } from '@/lib/entitlements';
 import { getRelatedArticles } from '@/lib/recommend';
 import { pickArticleAds } from '@/lib/adsServer';
 
@@ -23,6 +25,13 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // Scheduled (future-dated) articles are not yet public.
   if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  // Access gate — same rule as the page. Never return a gated body here; the
+  // modal falls back to the full page (which renders the locked teaser) on 403.
+  const user = await getCurrentUser();
+  if (!canViewContent(user, article.requirement)) {
+    return NextResponse.json({ error: 'Locked', requirement: article.requirement }, { status: 403 });
   }
 
   const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;

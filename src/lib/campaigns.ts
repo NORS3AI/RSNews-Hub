@@ -5,9 +5,12 @@
 // tidy-up: it ends elapsed flights, completes finished campaigns, and flags the
 // flights whose fresh creatives are due soon (reminder to the vendor).
 
+import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { planByKey, planEnd, generateFlights } from './adPlans';
 import { findOrCreateVendor } from './vendors';
+
+type Db = Prisma.TransactionClient | typeof prisma;
 
 const REMINDER_LEAD_DAYS = 21; // nudge the vendor this many days before a flight needs creatives
 
@@ -21,8 +24,9 @@ export type CreateCampaignInput = {
   status?: string;       // 'ACTIVE' (admin-created) | 'DRAFT' (e.g. JotForm — needs review)
 };
 
-/** Create a campaign and its flights. Returns the campaign id. */
-export async function createCampaign(input: CreateCampaignInput): Promise<string> {
+/** Create a campaign and its flights. Returns the campaign id. Pass `db` to run
+ *  inside a transaction (e.g. JotForm ingest). */
+export async function createCampaign(input: CreateCampaignInput, db: Db = prisma): Promise<string> {
   const plan = planByKey(input.plan);
   if (!plan) throw new Error('Unknown ad plan');
   const endAt = input.endAt ?? planEnd(plan, input.startAt);
@@ -31,10 +35,10 @@ export async function createCampaign(input: CreateCampaignInput): Promise<string
 
   // Attach to the Vendor entity (created on first use) so the campaign links by
   // id, not by the free-text label.
-  const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName));
+  const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName, db));
 
   const flights = generateFlights(input.startAt, endAt, plan.flightMonths);
-  const campaign = await prisma.adCampaign.create({
+  const campaign = await db.adCampaign.create({
     data: {
       vendorName: input.vendorName,
       vendorId,
