@@ -242,8 +242,12 @@ export default async function DocsHome() {
           if (b.type === 'article-headline') {
             return wrap(
               <article className="studio-fill card overflow-hidden p-3.5" style={style}>
-                <div className="text-[12px] font-semibold uppercase tracking-wide text-brand-600">{card.category?.name ?? 'Story'}</div>
-                <ArticleLink slug={card.slug} className="studio-fit mt-1 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
+                {/* A tag so a headline-only element still reads as an article
+                    (its category chip, or a plain "Article" fallback). */}
+                {card.category
+                  ? <span className="badge" style={{ backgroundColor: card.category.color + '22', color: card.category.color }}>{card.category.name}</span>
+                  : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
+                <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
               </article>
             );
           }

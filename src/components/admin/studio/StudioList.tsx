@@ -2,7 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { SHAPES, SHAPE_IDS, type Shape } from '@/lib/studio';
+import { SHAPES, type Shape } from '@/lib/studio';
 import { createCustomModule, setCustomModulePublished, deleteCustomModule } from '@/lib/actions';
 import { Plus, Edit, Trash, Check, Eye, Grid } from '@/components/icons';
 
@@ -12,13 +12,14 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState('');
-  const [shape, setShape] = useState<Shape>('column');
   const run = (fn: () => Promise<any>) => start(async () => { await fn(); router.refresh(); });
 
   function create() {
     const n = name.trim();
+    // Shape is chosen inside the editor (you can change it any time), so creation
+    // is just a name. Start on a sensible default column.
     start(async () => {
-      const id = await createCustomModule(n || 'Untitled module', shape);
+      const id = await createCustomModule(n || 'Untitled module', 'column');
       router.push(`/admin/studio/${id}`);
     });
   }
@@ -34,15 +35,9 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
             <input className="input" placeholder="e.g. Editor's picks column" value={name}
               onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') create(); }} />
           </label>
-          <label>
-            <span className="label">Shape</span>
-            <select className="input !w-44" value={shape} onChange={(e) => setShape(e.target.value as Shape)}>
-              {SHAPE_IDS.map((s) => <option key={s} value={s}>{SHAPES[s].label}</option>)}
-            </select>
-          </label>
           <button disabled={pending} className="btn-primary" onClick={create}>Create &amp; edit</button>
         </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">{SHAPES[shape].description}</p>
+        <p className="mt-2 text-xs text-[var(--muted)]">Just name it — you&apos;ll pick the shape (column, grid, sidebar…) and rename it any time inside the editor.</p>
       </div>
 
       {/* Existing modules */}

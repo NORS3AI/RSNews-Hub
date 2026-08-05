@@ -133,8 +133,8 @@ function blockInner(block: Block) {
     case 'article-headline':
       return (
         <article className="studio-fill card overflow-hidden p-3.5" style={style}>
-          <div className="text-[12px] font-semibold uppercase tracking-wide text-brand-600">{String(s.source ?? 'latest')}</div>
-          <h3 className="studio-fit mt-1 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
+          <span className="badge bg-brand-600/15 text-brand-600">Article</span>
+          <h3 className="studio-fit mt-1.5 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
         </article>
       );
     case 'article':
