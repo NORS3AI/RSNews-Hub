@@ -36,7 +36,7 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
   // id, not by the free-text label.
   const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName, db));
 
-  const flights = generateFlights(input.startAt, endAt, plan.flightMonths);
+  const flights = generateFlights(input.startAt, endAt, plan.flightDays);
   const campaign = await db.adCampaign.create({
     data: {
       vendorName: input.vendorName,
