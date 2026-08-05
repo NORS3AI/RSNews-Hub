@@ -178,8 +178,14 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   pure/tested; a reminder is marked sent only **after** a successful send (vendors
   with no email are skipped and stay due), so nothing is silently marked done.
   Uses the email seam (`RESEND_API_KEY` + `EMAIL_FROM`; logs a no-op when unset).
-  **Next phases:** (9) payment reconciliation (a `Payment` model; a campaign can't
-  go live unpaid — buildable against Stripe test mode).
+  **Done (v0.50.0): payment reconciliation.** A `Payment` model records what a
+  campaign paid — from the JotForm submission (optional `paymentAmount`/`paymentId`/
+  `paymentStatus` fields → a `jotform` Payment, deduped on the transaction id) or
+  entered by an admin (comped/offline). `src/lib/payments.ts` is pure where it
+  counts (`isPaid`/`parseAmountToCents`/`normalizePaymentStatus`). **A flight
+  can't be scheduled until its campaign is paid** (`scheduleFlight` throws); the
+  admin campaign page shows a Paid/Unpaid badge + a "Mark as paid" control. This
+  completes the ad-sales system end to end.
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API
@@ -301,8 +307,8 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
-`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` + `PerformanceReport` + `AdSubmission` (ad sales — a
-campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows; reports are per vendor per quarter; `AdSubmission` records each JotForm webhook), plus a
+`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` + `PerformanceReport` + `AdSubmission` + `Payment` (ad sales — a
+campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows; reports are per vendor per quarter; `AdSubmission` records each JotForm webhook; `Payment` gates campaign go-live), plus a
 `Setting` row for the homepage layout. See `prisma/schema.prisma`. `User` also
 gained cached entitlement columns mirrored from the SSO token — `accountType`,
 `tier`, `affiliations` (comma list), `vendorBrand`, `region`, `storeType`.

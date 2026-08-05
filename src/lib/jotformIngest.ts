@@ -9,6 +9,7 @@ import { putImage, maxUploadBytes } from './storage';
 import { findOrCreateVendor } from './vendors';
 import { createCampaign } from './campaigns';
 import { planByKey, addMonths } from './adPlans';
+import { recordPayment, parseAmountToCents, normalizePaymentStatus } from './payments';
 import { parseJotformSubmission, fieldMapFromEnv, isAllowedCreativeHost, type ParsedSubmission } from './jotform';
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -45,7 +46,7 @@ export type IngestResult = { vendorId: string; campaignId: string; creatives: nu
  * ids so the caller can record them on the AdSubmission. Throws on a fatal issue
  * (no vendor), so the caller marks the submission FAILED.
  */
-export async function ingestSubmission(rawObj: Record<string, unknown>): Promise<IngestResult> {
+export async function ingestSubmission(rawObj: Record<string, unknown>, submissionId?: string): Promise<IngestResult> {
   const parsed = parseJotformSubmission(rawObj, fieldMapFromEnv(process.env.JOTFORM_FIELD_MAP));
   if (!parsed.vendorName) throw new Error('Submission has no vendor name (check JOTFORM_FIELD_MAP).');
 
@@ -85,6 +86,17 @@ export async function ingestSubmission(rawObj: Record<string, unknown>): Promise
       await tx.ad.create({
         data: { brand: parsed.vendorName, headline: `${parsed.vendorName} — submitted ad`, imageWide: url, imageRect: url, active: false },
       });
+    }
+    // If the form collected payment, record it (deduped on the transaction id) so
+    // the campaign can go live. No payment info → stays unpaid until an admin
+    // records/marks it. Never blocks the draft from being created.
+    if (parsed.payment) {
+      await recordPayment({
+        campaignId, vendorId, submissionId,
+        provider: 'jotform', externalId: parsed.payment.externalId || undefined,
+        amountCents: parseAmountToCents(parsed.payment.amountRaw),
+        status: normalizePaymentStatus(parsed.payment.statusRaw),
+      }, tx);
     }
     return { vendorId, campaignId };
   });

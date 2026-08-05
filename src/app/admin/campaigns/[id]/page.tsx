@@ -1,10 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { assignFlightAds, scheduleAdFlight, pauseAdFlight, cancelAdCampaign } from '@/lib/actions';
+import { assignFlightAds, scheduleAdFlight, pauseAdFlight, cancelAdCampaign, markAdCampaignPaid } from '@/lib/actions';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
+import { isPaid, paidTotalCents } from '@/lib/payments';
 import { ActionButtons } from '@/components/admin/RowActions';
 import { formatDate } from '@/lib/utils';
+
+const money = (cents: number, currency: string) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +23,12 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
   const { id } = await params;
   const campaign = await prisma.adCampaign.findUnique({
     where: { id },
-    include: { flights: { orderBy: { index: 'asc' }, include: { ads: true } } },
+    include: { flights: { orderBy: { index: 'asc' }, include: { ads: true } }, payments: { orderBy: { createdAt: 'desc' } } },
   });
   if (!campaign) notFound();
+
+  const paid = isPaid(campaign.payments);
+  const paidLabel = paid ? money(paidTotalCents(campaign.payments), campaign.payments.find((p) => p.status === 'PAID')?.currency ?? 'usd') : null;
 
   // Ads not yet attached to any flight — the pool the admin assigns from.
   const unassigned = await prisma.ad.findMany({ where: { flightId: null }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true, video: true } });
@@ -34,13 +41,35 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
       <Link href="/admin/campaigns" className="mb-4 inline-block text-sm text-brand-600 hover:underline">← All campaigns</Link>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">{campaign.vendorName}</h1>
-        <span className="badge">{campaign.status}</span>
+        <div className="flex items-center gap-2">
+          <span className={`badge ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{paid ? `Paid${paidLabel ? ` · ${paidLabel}` : ''}` : 'Unpaid'}</span>
+          <span className="badge">{campaign.status}</span>
+        </div>
       </div>
       <p className="mb-5 text-sm text-[var(--muted)]">
         {plan?.label ?? campaign.plan}{campaign.allowsVideo ? ' · video allowed' : ''} · {formatDate(campaign.startAt)} → {formatDate(campaign.endAt)}
         {campaign.status === 'ACTIVE' && <> · {countdownLabel(campaign.endAt, now)}</>}
         {campaign.notes ? <> · {campaign.notes}</> : null}
       </p>
+
+      {!isOver && !paid && (
+        <div className="card mb-5 border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-800">This campaign isn’t paid — flights can’t go live until it is.</p>
+          <p className="mb-3 text-xs text-red-700">A JotForm payment records automatically. Otherwise, mark it paid here (comped or a payment taken offline).</p>
+          <form action={markAdCampaignPaid} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="campaignId" value={campaign.id} />
+            <div>
+              <label className="label text-xs">Amount (optional)</label>
+              <input name="amount" className="input h-9 w-32" placeholder="$300.00" />
+            </div>
+            <div className="min-w-40 flex-1">
+              <label className="label text-xs">Note (optional)</label>
+              <input name="note" className="input h-9" placeholder="PO#, offline check, comped…" />
+            </div>
+            <button className="btn-primary btn-sm">Mark as paid</button>
+          </form>
+        </div>
+      )}
 
       <div className="space-y-4">
         {campaign.flights.map((f) => {

@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await ingestSubmission(rawObj);
+    const result = await ingestSubmission(rawObj, submissionId);
     await prisma.adSubmission.update({
       where: { submissionId },
       data: { status: 'PROCESSED', vendorId: result.vendorId, campaignId: result.campaignId, error: result.parsed.issues.join('; ') || null },

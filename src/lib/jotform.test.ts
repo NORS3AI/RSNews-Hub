@@ -56,6 +56,11 @@ describe('parseJotformSubmission', () => {
   it('drops an invalid email to empty', () => {
     expect(parseJotformSubmission({ ...raw, email: 'not-an-email' }, DEFAULT_FIELD_MAP).email).toBe('');
   });
+  it('captures payment when amount or id is present, else null', () => {
+    expect(parseJotformSubmission(raw, DEFAULT_FIELD_MAP).payment).toBeNull();
+    const p = parseJotformSubmission({ ...raw, paymentAmount: '$300.00', paymentId: 'txn_123', paymentStatus: 'Completed' }, DEFAULT_FIELD_MAP).payment;
+    expect(p).toEqual({ amountRaw: '$300.00', externalId: 'txn_123', statusRaw: 'Completed' });
+  });
   it('records non-fatal issues for missing vendor/images', () => {
     const p = parseJotformSubmission({ package: '3-Month' }, DEFAULT_FIELD_MAP);
     expect(p.vendorName).toBe('');

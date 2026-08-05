@@ -17,6 +17,9 @@ export type JotformFieldMap = {
   endDate: string;
   notes: string;
   images: string;
+  paymentAmount: string;
+  paymentId: string;
+  paymentStatus: string;
 };
 
 // Readable defaults; a real form overrides these with its own field keys
@@ -29,6 +32,9 @@ export const DEFAULT_FIELD_MAP: JotformFieldMap = {
   endDate: 'endDate',
   notes: 'notes',
   images: 'ads',
+  paymentAmount: 'paymentAmount',
+  paymentId: 'paymentId',
+  paymentStatus: 'paymentStatus',
 };
 
 /** Parse the field map from env (JSON), falling back to the defaults per key. */
@@ -91,6 +97,8 @@ export function parseDate(v: unknown): Date | null {
   return isNaN(dt.getTime()) ? null : dt;
 }
 
+export type ParsedPayment = { amountRaw: string; externalId: string; statusRaw: string };
+
 export type ParsedSubmission = {
   vendorName: string;
   email: string;      // vendor contact for reminders ('' if absent/invalid)
@@ -99,6 +107,7 @@ export type ParsedSubmission = {
   endAt: Date | null;
   notes: string;
   imageUrls: string[];
+  payment: ParsedPayment | null;  // present when the form collected/declared payment
   issues: string[];   // non-fatal problems for the admin to see
 };
 
@@ -114,6 +123,13 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
   const emailRaw = str(raw[map.email]);
   const email = EMAIL_RE.test(emailRaw) ? emailRaw : '';
   const startAt = parseDate(raw[map.startDate]);
+
+  // Payment is optional — only build it when the form supplied an amount or id.
+  const amountRaw = str(raw[map.paymentAmount]);
+  const externalId = str(raw[map.paymentId]);
+  const statusRaw = str(raw[map.paymentStatus]);
+  const payment = amountRaw || externalId ? { amountRaw, externalId, statusRaw } : null;
+
   return {
     vendorName,
     email,
@@ -122,6 +138,7 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
     endAt: parseDate(raw[map.endDate]),
     notes: str(raw[map.notes]),
     imageUrls,
+    payment,
     issues,
   };
 }
