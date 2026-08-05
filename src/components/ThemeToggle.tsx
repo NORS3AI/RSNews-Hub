@@ -1,27 +1,44 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Sun, Moon } from './icons';
+import { Sun, Moon, Stamp } from './icons';
+
+// Three themes, cycled in order. RS Mode = Light palette + textured surfaces.
+type Theme = 'light' | 'dark' | 'rs';
+const ORDER: Theme[] = ['light', 'dark', 'rs'];
+const LABEL: Record<Theme, string> = { light: 'Light', dark: 'Dark', rs: 'RS' };
+
+function apply(t: Theme) {
+  const el = document.documentElement;
+  el.classList.toggle('dark', t === 'dark');
+  el.classList.toggle('rs', t === 'rs');
+}
 
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    setDark(document.documentElement.classList.contains('dark'));
+    const el = document.documentElement;
+    setTheme(el.classList.contains('dark') ? 'dark' : el.classList.contains('rs') ? 'rs' : 'light');
   }, []);
 
-  function toggle() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+  function cycle() {
+    const next = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
+    setTheme(next);
+    apply(next);
+    try { localStorage.setItem('theme', next); } catch {}
   }
 
   if (!mounted) return <div className="h-9 w-9" aria-hidden />;
+  const next = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
+  // Show the icon of the theme you'll switch TO (matches the old two-way toggle).
+  const icon = next === 'dark' ? <Moon /> : next === 'rs' ? <Stamp /> : <Sun />;
   return (
-    <button onClick={toggle} className="btn-ghost h-9 w-9 !px-0" aria-label="Toggle theme" title="Toggle theme">
-      {dark ? <Sun /> : <Moon />}
+    <button onClick={cycle} className="btn-ghost h-9 w-9 !px-0"
+      aria-label={`Theme: ${LABEL[theme]}. Switch to ${LABEL[next]} mode.`}
+      title={`Theme: ${LABEL[theme]} — click for ${LABEL[next]}`}>
+      {icon}
     </button>
   );
 }

@@ -29,6 +29,44 @@
   --shadow-hover: 0 6px 16px rgba(0,0,0,.6), 0 48px 88px rgba(0,0,0,.82);
 }
 
+/* ── RS Mode ───────────────────────────────────────────────────────────────
+   A third theme (Light → Dark → RS). Keeps the Light palette — dark ink text,
+   cream cards, brand accents — so everything stays legible, and swaps the FLAT
+   surfaces for textures: brand-orange corrugated paper on the orange modules,
+   an aged vintage-mailer (postmarks + RS stamps) on the cream surfaces. Module
+   shapes are unchanged — a background image is clipped to the existing radius.
+   `--rs-cream-wash` (0 = raw stamps, 1 = flat cream) is the readability dial. */
+.rs { --rs-cream-wash: 0.42; }
+
+/* Orange modules: lock the hue to brand orange (top layer, `color` blend) while
+   keeping the corrugation from the texture's luminance. Runs strong. */
+.rs .module-orange {
+  background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-blend-mode: color, normal;
+}
+
+/* Cream surfaces: the stamped paper under a cream wash so text stays readable. */
+.rs .card,
+.rs .tile,
+.rs .module:not(.module-orange) {
+  background-image:
+    linear-gradient(rgba(253,250,244,var(--rs-cream-wash)), rgba(253,250,244,var(--rs-cream-wash))),
+    url('/textures/rs-cream.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+/* Reframe per card so a different stamp lands each time (no two look identical). */
+.rs .card:nth-of-type(6n+1), .rs .module:nth-of-type(6n+1) { background-position: 9% 13%; }
+.rs .card:nth-of-type(6n+2), .rs .module:nth-of-type(6n+2) { background-position: 91% 9%; }
+.rs .card:nth-of-type(6n+3), .rs .module:nth-of-type(6n+3) { background-position: 87% 58%; }
+.rs .card:nth-of-type(6n+4), .rs .module:nth-of-type(6n+4) { background-position: 11% 90%; }
+.rs .card:nth-of-type(6n+5), .rs .module:nth-of-type(6n+5) { background-position: 50% 96%; }
+.rs .card:nth-of-type(6n),   .rs .module:nth-of-type(6n)   { background-position: 62% 42%; }
+
 html { -webkit-text-size-adjust: 100%; }
 body {
   color: var(--fg);
