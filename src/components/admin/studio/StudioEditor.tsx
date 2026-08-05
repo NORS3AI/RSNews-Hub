@@ -6,11 +6,11 @@ import {
   BLOCKS, BLOCK_GROUPS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, MAX_BLOCKS,
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
-import { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
+import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
 import EntityPicker from '@/components/admin/studio/EntityPicker';
 import RsColorPicker from '@/components/admin/studio/RsColorPicker';
-import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight } from '@/components/icons';
+import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X } from '@/components/icons';
 
 function newId(): string {
   try { return 'b' + crypto.randomUUID().slice(0, 8); } catch { return 'b' + Date.now().toString(36); }
@@ -37,7 +37,12 @@ export default function StudioEditor({
   const [pub, setPub] = useState(published);
   const [selected, setSelected] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [rsPreview, setRsPreview] = useState(false);
+  // The public homepage can be viewed in Light, Dark, or RS mode, so the builder
+  // previews the module in whichever the admin picks (per-element colors are
+  // RS-only, so RS is where those show). Defaults to Light — the common view.
+  const [previewMode, setPreviewMode] = useState<'light' | 'dark' | 'rs'>('light');
+  const [livePreview, setLivePreview] = useState(false);
+  const previewClass = previewMode === 'rs' ? 'rs' : previewMode === 'dark' ? 'dark' : '';
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [saving, startSave] = useTransition();
   const drag = useRef<DragState>(null);
@@ -255,13 +260,27 @@ export default function StudioEditor({
 
         {/* ---- Canvas ---- */}
         <div>
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas</span>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
-              <input type="checkbox" checked={rsPreview} onChange={(e) => setRsPreview(e.target.checked)} /> RS-Mode preview
-            </label>
+            <div className="flex items-center gap-2">
+              {/* Preview the module in the same three themes a reader can pick. */}
+              <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-xs font-semibold">
+                {(['light', 'dark', 'rs'] as const).map((m) => (
+                  <button key={m} type="button" onClick={() => setPreviewMode(m)}
+                    className={`px-2.5 py-1 capitalize transition-colors ${previewMode === m ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                    {m === 'rs' ? 'RS' : m}
+                  </button>
+                ))}
+              </div>
+              {/* WYSIWYG at homepage width — the canvas is narrower than the live
+                  column, so this shows the true relaxed layout. */}
+              <button type="button" onClick={() => setLivePreview(true)}
+                className="btn-outline btn-sm" title="See it at full homepage width">
+                <Eye width={14} height={14} /> Preview
+              </button>
+            </div>
           </div>
-          <div className={`mx-auto w-full max-w-2xl ${rsPreview ? 'rs rounded-2xl' : ''}`}>
+          <div className={`mx-auto w-full max-w-4xl rounded-2xl ${previewClass}`}>
             <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
               {tree.children.length === 0 ? (
@@ -311,6 +330,36 @@ export default function StudioEditor({
             : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} />}
         </aside>
       </div>
+
+      {/* ---- Full-width preview overlay: exactly how the module lands on the
+           homepage column, in the chosen theme. Closes the WYSIWYG gap the
+           narrower canvas can't. ---- */}
+      {livePreview && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/60 p-4 sm:p-8" onClick={() => setLivePreview(false)}>
+          <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col overflow-hidden rounded-2xl bg-[var(--card)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5">
+              <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Homepage preview — {previewMode === 'rs' ? 'RS' : previewMode} mode</span>
+              <div className="flex items-center gap-2">
+                <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-xs font-semibold">
+                  {(['light', 'dark', 'rs'] as const).map((m) => (
+                    <button key={m} type="button" onClick={() => setPreviewMode(m)}
+                      className={`px-2.5 py-1 capitalize ${previewMode === m ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                      {m === 'rs' ? 'RS' : m}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setLivePreview(false)} className="btn-ghost btn-sm !px-2" aria-label="Close preview"><X width={16} height={16} /></button>
+              </div>
+            </div>
+            {/* Mirror the homepage main column: full width, its padding + spacing. */}
+            <div className={`flex-1 overflow-y-auto ${previewClass}`}>
+              <div className="min-h-full bg-[var(--bg)] px-4 py-6 lg:px-7 lg:py-8">
+                <CustomModule tree={tree} title={name} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

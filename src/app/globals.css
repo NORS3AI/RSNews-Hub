@@ -115,6 +115,10 @@
    when it sits in a per-element tint (the immediate wrapper carries --studio-rs),
    make that inner card transparent so the tint — and its ink — show through. */
 .rs .studio-fill[style*='--studio-rs'] > .card { background: transparent !important; box-shadow: none !important; }
+/* Round the per-element tint to the same radius as the card it backs, and clip,
+   so the solid color never pokes past the card's rounded corners. Scoped off the
+   module container, which keeps its own larger radius. */
+.rs .studio-fill:not(.module)[style*='--studio-rs'] { border-radius: 0.75rem; overflow: hidden; }
 /* Ads default to the orange corrugated texture in RS Mode (unless overridden). */
 .rs .studio-ad:not([style*='--studio-rs']) {
   background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');

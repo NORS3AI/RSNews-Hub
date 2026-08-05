@@ -64,7 +64,7 @@ export default function RsColorPicker({ value, onChange }: { value?: string | nu
           <button onClick={saveToLibrary} disabled={!isHexColor(value)} className="btn-outline btn-sm shrink-0" title="Save this color to your library"><Plus width={13} height={13} /> Save</button>
         </div>
       )}
-      <p className="mt-1.5 text-[11px] text-[var(--muted)]">Applies in <strong>RS Mode</strong> only. Toggle “RS-Mode preview” to see it.</p>
+      <p className="mt-1.5 text-[11px] text-[var(--muted)]">Applies in <strong>RS Mode</strong> only. Switch the canvas to <strong>RS</strong> (Light/Dark/RS) to see it.</p>
     </div>
   );
 }
