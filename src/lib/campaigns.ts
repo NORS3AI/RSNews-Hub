@@ -65,14 +65,53 @@ export async function unassignAd(adId: string): Promise<void> {
   await prisma.ad.update({ where: { id: adId }, data: { flightId: null } });
 }
 
+/**
+ * The vendor's paid run must start when the admin puts the campaign LIVE, not
+ * when the JotForm arrived — otherwise review time silently eats into their run.
+ * Returns the milliseconds to slide the whole schedule so it begins at `now`, but
+ * only on the first go-live of a campaign that hasn't started yet and whose start
+ * is at/behind now. An already-running campaign, or a vendor-requested FUTURE
+ * start, is left alone (→ 0). Pure so it's unit-tested without a DB.
+ */
+export function firstRunAnchorDelta(startAt: Date, now: Date, everLive: boolean): number {
+  if (everLive) return 0;                                  // already running — don't move it
+  const delta = now.getTime() - startAt.getTime();
+  return delta > 0 ? delta : 0;                            // future/now start → honor it
+}
+
+/** On the first go-live, re-anchor the campaign + its flights to `now` so the
+ *  vendor gets their full purchased length from the admin's push, and flip a
+ *  DRAFT (e.g. from JotForm) to ACTIVE so the lifecycle + renewal reminders
+ *  start tracking it. Idempotent: does nothing once the campaign is running. */
+async function anchorToGoLive(campaignId: string, now: Date): Promise<void> {
+  const c = await prisma.adCampaign.findUnique({
+    where: { id: campaignId },
+    select: { status: true, startAt: true, endAt: true, flights: { select: { id: true, status: true, startAt: true, endAt: true } } },
+  });
+  if (!c) return;
+  const everLive = c.flights.some((f) => f.status === 'SCHEDULED' || f.status === 'ENDED');
+  const delta = firstRunAnchorDelta(c.startAt, now, everLive);
+  const goingActive = !everLive && c.status === 'DRAFT';
+  const ops: Prisma.PrismaPromise<unknown>[] = [];
+  if (delta > 0) {
+    ops.push(prisma.adCampaign.update({ where: { id: campaignId }, data: { startAt: now, endAt: new Date(c.endAt.getTime() + delta), ...(goingActive ? { status: 'ACTIVE' } : {}) } }));
+    for (const f of c.flights) ops.push(prisma.adFlight.update({ where: { id: f.id }, data: { startAt: new Date(f.startAt.getTime() + delta), endAt: new Date(f.endAt.getTime() + delta) } }));
+  } else if (goingActive) {
+    ops.push(prisma.adCampaign.update({ where: { id: campaignId }, data: { status: 'ACTIVE' } }));
+  }
+  if (ops.length) await prisma.$transaction(ops);
+}
+
 /** Schedule a flight ("Go"): it must have at least one creative AND the campaign's
  *  payment must be confirmed (a campaign can't go live before then — confirm it
- *  in the admin; JotForm confirms it automatically when the vendor pays there). */
+ *  in the admin; JotForm confirms it automatically when the vendor pays there).
+ *  The first go-live re-anchors the paid window to now (see anchorToGoLive). */
 export async function scheduleFlight(flightId: string): Promise<void> {
   const flight = await prisma.adFlight.findUnique({ where: { id: flightId }, select: { campaignId: true, _count: { select: { ads: true } } } });
   if (!flight) throw new Error('Flight not found');
   if (flight._count.ads === 0) throw new Error('Add at least one creative before scheduling this flight');
   if (!(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
+  await anchorToGoLive(flight.campaignId, new Date());
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
 }
 
