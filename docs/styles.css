@@ -601,10 +601,9 @@ img { max-width:100%; display:block; }
    unchanged (background clipped to the existing radius). Mirrors the Node app. */
 .rs { --rs-cream-wash:0.42; --fg:#3d2a19; }   /* body text = dark brown, not black */
 
-/* Page surround: the cardboard board, slightly darkened. */
+/* Page surround: the deep-brown cardboard board (used as-is). */
 :root.rs body::before {
-  background-image:linear-gradient(rgba(32,19,7,.18),rgba(32,19,7,.18)), url("assets/bg-cardboard.jpg");
-  background-size:cover,cover; background-position:center,center; background-repeat:no-repeat,no-repeat;
+  background:url("assets/bg-rs.jpg") center center / cover no-repeat;
 }
 
 /* Orange surfaces — modules AND the orange house-ad frames: brand-orange hue
