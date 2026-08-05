@@ -249,6 +249,7 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         question: str(s.question, 200),
         options,
         timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 72,
+        timerUnit: s.timerUnit === 'days' ? 'days' : 'hours',
         chart: s.chart === 'pie' ? 'pie' : 'bar',
       };
       // Link to the materialized Poll record (set once the module is published).

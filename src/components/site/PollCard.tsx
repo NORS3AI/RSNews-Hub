@@ -12,6 +12,15 @@ export type PollData = { id: string; question: string; closesAt?: string | Date 
  * in immediately after voting; closed polls and already-voted polls show
  * results read-only. "View latest polls" links to the polls archive.
  */
+// Compact "time remaining" label, e.g. "2d 5h", "5h", "12m".
+function fmtLeft(ms: number): string {
+  const m = Math.floor(ms / 60000);
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${mm}m`;
+  return `${Math.max(1, mm)}m`;
+}
+
 // Distinct slice colors for the pie view (brand-forward, theme-agnostic).
 const PIE_COLORS = ['#E97D34', '#3d6a8f', '#7a9e5b', '#c65b52', '#8a6fb0', '#d1a24a', '#5aa0a0', '#9c6b4a'];
 
@@ -52,6 +61,8 @@ export default function PollCard({ poll, loggedIn, votedOptionId = null, chart =
   const [busy, setBusy] = useState(false);
 
   const closed = !!poll.closesAt && new Date(poll.closesAt) < new Date();
+  const msLeft = poll.closesAt ? new Date(poll.closesAt).getTime() - Date.now() : 0;
+  const closesIn = !closed && msLeft > 0 ? fmtLeft(msLeft) : '';
   const total = opts.reduce((n, o) => n + o.votes, 0);
   const voted = choice !== null || closed;
   const canVote = loggedIn && !voted;
@@ -76,6 +87,7 @@ export default function PollCard({ poll, loggedIn, votedOptionId = null, chart =
       <div className="mb-1 flex items-center gap-2">
         <span className="rounded-md bg-brand-600 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.1em] text-white">Poll</span>
         <span className="text-sm font-semibold text-[var(--muted)]">Reader poll of the month</span>
+        {closesIn && <span className="ml-auto whitespace-nowrap rounded-full bg-[var(--bg-soft)] px-2 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300" title="Time remaining">⏱ {closesIn} left</span>}
       </div>
       <h2 className="mb-4 text-2xl font-black leading-tight tracking-tight">{poll.question}</h2>
 

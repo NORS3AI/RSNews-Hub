@@ -4,28 +4,44 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, ChevronDown, ChevronRight } from './icons';
 import { BrandMark } from './BrandLogo';
 
-const links = [
-  { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
-  { href: '/admin/analytics', label: 'Analytics', icon: Eye },
-  { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
-  { href: '/admin/studio', label: 'Module Studio', icon: Grid },
-  { href: '/admin/articles', label: 'Articles', icon: FileText },
-  { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
-  { href: '/admin/polls', label: 'Polls', icon: BarChart },
-  { href: '/admin/quizzes', label: 'Pop Quiz', icon: Check },
-  { href: '/admin/comics', label: 'Comics', icon: Sparkles },
-  { href: '/admin/pages', label: 'Pages', icon: Archive },
-  { href: '/admin/categories', label: 'Categories', icon: Layers },
-  { href: '/admin/tags', label: 'Tags', icon: Tag },
-  { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
-  { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
-  { href: '/admin/vendors', label: 'Vendors', icon: Users },
-  { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
-  { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
-  { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
+type NavLink = { href: string; label: string; icon: typeof Grid; exact?: boolean; adminOnly?: boolean };
+type NavGroup = { title: string | null; links: NavLink[] };
+
+// Grouped into collapsible sections to keep a long nav tidy.
+const groups: NavGroup[] = [
+  { title: null, links: [
+    { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
+    { href: '/admin/analytics', label: 'Analytics', icon: Eye },
+  ] },
+  { title: 'Homepage', links: [
+    { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
+    { href: '/admin/studio', label: 'Module Studio', icon: Grid },
+  ] },
+  { title: 'Create content', links: [
+    { href: '/admin/articles', label: 'Articles', icon: FileText },
+    { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
+    { href: '/admin/polls', label: 'Polls', icon: BarChart },
+    { href: '/admin/quizzes', label: 'Pop Quiz', icon: Check },
+    { href: '/admin/comics', label: 'Comics', icon: Sparkles },
+    { href: '/admin/pages', label: 'Pages', icon: Archive },
+  ] },
+  { title: 'Organize', links: [
+    { href: '/admin/categories', label: 'Categories', icon: Layers },
+    { href: '/admin/tags', label: 'Tags', icon: Tag },
+  ] },
+  { title: 'Advertising', links: [
+    { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
+    { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
+    { href: '/admin/vendors', label: 'Vendors', icon: Users },
+    { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
+  ] },
+  { title: 'System', links: [
+    { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
+    { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
+  ] },
 ];
 
 export default function AdminShell({
@@ -35,21 +51,51 @@ export default function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  // Remember the desktop sidebar collapse across navigations/sessions.
-  useEffect(() => { try { setCollapsed(localStorage.getItem('admin_nav_collapsed') === '1'); } catch {} }, []);
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+
+  // Remember the desktop sidebar collapse + section state across sessions.
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem('admin_nav_collapsed') === '1');
+      const g = localStorage.getItem('admin_nav_groups');
+      if (g) setClosedGroups(JSON.parse(g));
+    } catch {}
+  }, []);
   const toggleCollapsed = () => setCollapsed((c) => { const n = !c; try { localStorage.setItem('admin_nav_collapsed', n ? '1' : '0'); } catch {} return n; });
-  const isActive = (l: (typeof links)[number]) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
+  const toggleGroup = (title: string) => setClosedGroups((g) => { const n = { ...g, [title]: !g[title] }; try { localStorage.setItem('admin_nav_groups', JSON.stringify(n)); } catch {} return n; });
+  const isActive = (l: NavLink) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
+
+  const linkClass = (l: NavLink) =>
+    `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      isActive(l) ? 'bg-brand-600 text-white' : 'text-[var(--fg)]/75 hover:bg-[var(--bg-soft)] hover:text-[var(--fg)]'
+    }`;
 
   const nav = (
-    <nav className="space-y-1">
-      {links.filter((l) => !l.adminOnly || user.role === 'ADMIN').map((l) => (
-        <Link key={l.href} href={l.href} onClick={() => setOpen(false)}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive(l) ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--fg)]'
-          }`}>
-          <l.icon width={18} height={18} /> {l.label}
-        </Link>
-      ))}
+    <nav className="space-y-3">
+      {groups.map((group, gi) => {
+        const items = group.links.filter((l) => !l.adminOnly || user.role === 'ADMIN');
+        if (!items.length) return null;
+        const closed = group.title ? closedGroups[group.title] : false;
+        return (
+          <div key={group.title ?? `g${gi}`}>
+            {group.title && (
+              <button onClick={() => toggleGroup(group.title!)}
+                className="mb-1 flex w-full items-center gap-1 px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--fg)]/50 hover:text-[var(--fg)]/80">
+                {closed ? <ChevronRight width={12} height={12} /> : <ChevronDown width={12} height={12} />} {group.title}
+              </button>
+            )}
+            {!closed && (
+              <div className="space-y-0.5">
+                {items.map((l) => (
+                  <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className={linkClass(l)}>
+                    <l.icon width={18} height={18} /> {l.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </nav>
   );
 

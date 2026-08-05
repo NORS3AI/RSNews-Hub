@@ -161,26 +161,29 @@ export default function StudioEditor({
           aria-label="Module name"
         />
         {pub
-          ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
+          ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">On homepage</span>
           : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Draft</span>}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={undo} disabled={!past.length} className="btn-outline btn-sm !px-2" title="Undo" aria-label="Undo">↶</button>
           <button onClick={redo} disabled={!future.length} className="btn-outline btn-sm !px-2" title="Redo" aria-label="Redo">↷</button>
           {dirty && <span className="flex items-center gap-1.5 text-sm text-amber-600"><span className="h-2 w-2 rounded-full bg-amber-500" /> Unsaved</span>}
-          <button onClick={save} disabled={saving || !dirty} className="btn-outline btn-sm">
-            {saving ? 'Saving…' : <><Check width={14} height={14} /> Save</>}
+          <button onClick={save} disabled={saving || !dirty} className="btn-outline btn-sm" title="Save your changes">
+            {saving ? 'Saving…' : <><Check width={14} height={14} /> {pub ? 'Save' : 'Save draft'}</>}
           </button>
-          <button onClick={togglePublish} disabled={saving} className={pub ? 'btn-outline btn-sm' : 'btn-primary btn-sm'} title={pub ? 'Remove this module from the homepage' : 'Publish and stage on the homepage'}>
-            {pub ? 'Remove from homepage' : 'Publish'}
-          </button>
+          {!pub && (
+            <button onClick={togglePublish} disabled={saving} className="btn-primary btn-sm" title="Publish and stage this module on the homepage">
+              Push to homepage
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Follow-through nudge: a saved-but-unpublished module isn't live yet. */}
+      {/* Draft nudge: an unpublished module isn't on the homepage yet. To take a
+          published module back off, use Homepage layout (not the Studio). */}
       {!pub && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
           <span className="h-2 w-2 rounded-full bg-amber-500" />
-          This module is <strong>saved for later</strong> — it isn&apos;t staged on the homepage yet. Click <strong>Publish</strong> to stage it (then Go Live from Homepage layout).
+          This is a <strong>draft</strong> — save it for later, or <strong>Push to homepage</strong> when ready (then Go Live from Homepage layout).
         </div>
       )}
 
@@ -235,8 +238,8 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas</span>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--fg)]/80">Canvas</span>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--fg)]/80">
               <input type="checkbox" checked={rsPreview} onChange={(e) => setRsPreview(e.target.checked)} /> RS-Mode preview
             </label>
           </div>
@@ -361,8 +364,16 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
+  const [tab, setTab] = useState<'content' | 'style'>('content');
   return (
     <InspectorShell title={BLOCKS[block.type].label}>
+      <div className="mb-3 inline-flex gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-0.5 text-xs font-bold">
+        {(['content', 'style'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1 capitalize ${tab === t ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{t}</button>
+        ))}
+      </div>
+
+      <div className={tab === 'content' ? '' : 'hidden'}>
       {(block.type === 'article' || block.type === 'article-image' || block.type === 'article-headline') && (
         <>
           <ArticleFillFields s={s} set={set} />
@@ -410,7 +421,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <>
           <Field label="Question"><input className="input" value={String(s.question ?? '')} onChange={(e) => set('question', e.target.value)} placeholder="What's your question?" /></Field>
           <PollOptions options={Array.isArray(s.options) ? (s.options as string[]) : []} onChange={(opts) => set('options', opts)} />
-          <Field label="Timer (hours)"><input type="number" min={1} className="input" value={Number(s.timerHours ?? 72)} onChange={(e) => set('timerHours', Number(e.target.value))} /></Field>
+          <Field label="Timer"><TimerField hours={Number(s.timerHours ?? 72)} unit={String(s.timerUnit ?? 'hours')} onChange={(h, u) => onPatch({ settings: { timerHours: h, timerUnit: u } })} /></Field>
           <Field label="Results chart">
             <select className="input" value={String(s.chart ?? 'bar')} onChange={(e) => set('chart', e.target.value)}>
               <option value="bar">Bars</option>
@@ -434,15 +445,31 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       {block.type === 'text' && (
         <Field label="Body"><textarea className="input min-h-[120px]" value={String(s.body ?? '')} onChange={(e) => set('body', e.target.value)} /></Field>
       )}
+      </div>
 
-      <Field label="Label (small header)"><input className="input" value={String(block.label ?? '')} onChange={(e) => onPatch({ label: e.target.value })} placeholder="optional, e.g. FEATURED" /></Field>
-      <Field label="Background"><RsColorPicker value={block.rsColor} onChange={(c) => onPatch({ rsColor: c })} /></Field>
+      <div className={tab === 'style' ? '' : 'hidden'}>
+        <Field label="Label (small header)"><input className="input" value={String(block.label ?? '')} onChange={(e) => onPatch({ label: e.target.value })} placeholder="optional, e.g. FEATURED" /></Field>
+        <Field label="Background"><RsColorPicker value={block.rsColor} onChange={(c) => onPatch({ rsColor: c })} /></Field>
+      </div>
 
       <div className="mt-4 flex gap-2 border-t border-[var(--border)] pt-3">
         <button onClick={onDuplicate} className="btn-outline btn-sm flex-1"><Copy width={13} height={13} /> Duplicate</button>
         <button onClick={onRemove} className="btn-danger btn-sm flex-1"><Trash width={13} height={13} /> Remove</button>
       </div>
     </InspectorShell>
+  );
+}
+
+function TimerField({ hours, unit, onChange }: { hours: number; unit: string; onChange: (hours: number, unit: string) => void }) {
+  const n = unit === 'days' ? Math.max(1, Math.round(hours / 24)) : hours;
+  return (
+    <div className="flex gap-2">
+      <input type="number" min={1} className="input" value={n || ''} onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); onChange(unit === 'days' ? v * 24 : v, unit); }} />
+      <select className="input !w-28" value={unit} onChange={(e) => onChange(hours, e.target.value)}>
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
   );
 }
 
