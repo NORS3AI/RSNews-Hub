@@ -24,8 +24,14 @@ export function sameVendor(a: unknown, b: unknown): boolean {
 
 /**
  * Find (or create) the Vendor for a display name, keyed on its normalized brand
- * key. Idempotent: the same name in any casing returns the same vendor, and the
- * first-seen display name is preserved (a later spelling won't clobber it).
+ * key. Idempotent on identity: the same name in any casing returns the same
+ * vendor, and the first-seen display name is preserved (a later spelling won't
+ * clobber it).
+ *
+ * `contactEmail` (when provided — i.e. a JotForm order carried one) ALWAYS wins
+ * and refreshes the vendor's contact, because the email on the latest order is
+ * the most current person to reach for reminders. Omitting it (e.g. an
+ * admin-created campaign) leaves any existing address untouched.
  */
 export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string): Promise<string> {
   const key = brandKey(name);
@@ -33,15 +39,10 @@ export async function findOrCreateVendor(name: string, db: Db = prisma, contactE
   const email = contactEmail?.trim() || undefined;
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
-    update: {},
+    update: email ? { contactEmail: email } : {},
     create: { name: name.trim(), brandKey: key, contactEmail: email },
-    select: { id: true, contactEmail: true },
+    select: { id: true },
   });
-  // Backfill a contact email onto an existing vendor that doesn't have one yet
-  // (e.g. first submission lacked it) — but never overwrite an existing address.
-  if (email && !vendor.contactEmail) {
-    await db.vendor.update({ where: { id: vendor.id }, data: { contactEmail: email } });
-  }
   return vendor.id;
 }
 
