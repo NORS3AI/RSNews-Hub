@@ -592,3 +592,29 @@ img { max-width:100%; display:block; }
 @keyframes fade { from{opacity:0} to{opacity:1} }
 @keyframes pop { from{opacity:0; transform:translateY(8px) scale(.99)} to{opacity:1; transform:none} }
 @media (prefers-reduced-motion: reduce){ *{ animation-duration:.001ms!important; transition-duration:.001ms!important; } }
+
+/* ── RS Mode ─────────────────────────────────────────────────────────────────
+   Third theme (Light → Dark → RS). Keeps the Light palette, swaps flat surfaces
+   for textures: brand-orange corrugated paper on orange modules (hue locked via
+   `background-blend-mode:color`), an aged vintage-mailer on cream surfaces with
+   the framing shuffled per card so a different stamp shows each time. Shapes are
+   unchanged (background clipped to the existing radius). Mirrors the Node app. */
+.rs { --rs-cream-wash:0.42; }
+.rs .module.orange {
+  background-image:linear-gradient(#E97D34,#E97D34), url("assets/rs-orange.webp");
+  background-size:cover,cover; background-position:center,center;
+  background-repeat:no-repeat,no-repeat; background-blend-mode:color,normal;
+}
+.rs .module:not(.orange),
+.rs .card, .rs .tile {
+  background-image:
+    linear-gradient(rgba(253,250,244,var(--rs-cream-wash)),rgba(253,250,244,var(--rs-cream-wash))),
+    url("assets/rs-cream.webp");
+  background-size:cover; background-position:center; background-repeat:no-repeat;
+}
+.rs .module:nth-of-type(6n+1), .rs .card:nth-of-type(6n+1) { background-position:9% 13%; }
+.rs .module:nth-of-type(6n+2), .rs .card:nth-of-type(6n+2) { background-position:91% 9%; }
+.rs .module:nth-of-type(6n+3), .rs .card:nth-of-type(6n+3) { background-position:87% 58%; }
+.rs .module:nth-of-type(6n+4), .rs .card:nth-of-type(6n+4) { background-position:11% 90%; }
+.rs .module:nth-of-type(6n+5), .rs .card:nth-of-type(6n+5) { background-position:50% 96%; }
+.rs .module:nth-of-type(6n),   .rs .card:nth-of-type(6n)   { background-position:62% 42%; }

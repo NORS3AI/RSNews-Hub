@@ -31,6 +31,7 @@
     arrow: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>',
     moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+    stamp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>',
     share: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>',
     clip: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>',
     download: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
@@ -40,17 +41,25 @@
   };
 
   /* ---------- theme ---------- */
+  var THEME_ORDER = ['light', 'dark', 'rs'];
+  // The button shows the theme you'll switch TO next (matches the old two-way toggle).
+  var THEME_NEXT = { light: { icon: 'moon', label: 'Dark mode' }, dark: { icon: 'stamp', label: 'RS mode' }, rs: { icon: 'sun', label: 'Light mode' } };
   function applyTheme(t) {
-    document.documentElement.classList.toggle('dark', t === 'dark');
-    var b = el('theme-btn'); if (b) b.innerHTML = (t === 'dark' ? ICON.sun : ICON.moon) + '<span class="side-label">' + (t === 'dark' ? 'Light mode' : 'Dark mode') + '</span>';
+    var root = document.documentElement;
+    root.classList.toggle('dark', t === 'dark');
+    root.classList.toggle('rs', t === 'rs');
+    var b = el('theme-btn'); var n = THEME_NEXT[t] || THEME_NEXT.light;
+    if (b) b.innerHTML = ICON[n.icon] + '<span class="side-label">' + n.label + '</span>';
   }
   function initTheme() {
     var t; try { t = localStorage.getItem(THEME_KEY); } catch (e) {}
-    if (!t) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (THEME_ORDER.indexOf(t) < 0) t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     applyTheme(t);
   }
   function toggleTheme() {
-    var t = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+    var root = document.documentElement;
+    var cur = root.classList.contains('dark') ? 'dark' : root.classList.contains('rs') ? 'rs' : 'light';
+    var t = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
     try { localStorage.setItem(THEME_KEY, t); } catch (e) {}
     applyTheme(t);
   }
