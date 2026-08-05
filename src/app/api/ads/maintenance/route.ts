@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { requireAdmin } from '@/lib/auth';
 import { advanceLifecycle } from '@/lib/campaigns';
+import { sendDueReminders } from '@/lib/adReminders';
 import { captureError, log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -28,9 +29,11 @@ async function authorized(req: Request): Promise<boolean> {
 export async function POST(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   try {
-    const summary = await advanceLifecycle(new Date());
-    log.info('ad maintenance complete', { endedFlights: summary.endedFlights, completedCampaigns: summary.completedCampaigns, reminders: summary.remindersDue.length });
-    return NextResponse.json({ ok: true, ...summary });
+    const now = new Date();
+    const lifecycle = await advanceLifecycle(now);
+    const reminders = await sendDueReminders(now);
+    log.info('ad maintenance complete', { ...lifecycle, ...reminders });
+    return NextResponse.json({ ok: true, ...lifecycle, ...reminders });
   } catch (e) {
     captureError(e, { route: 'ads/maintenance' });
     return NextResponse.json({ ok: false, error: 'maintenance failed' }, { status: 500 });

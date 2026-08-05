@@ -149,3 +149,10 @@ What the hub does with each submission:
 
 Unset `JOTFORM_WEBHOOK_SECRET` disables the endpoint (returns 503). Renewals are
 just new submissions — the same flow drafts the next campaign for review.
+
+**Reminder emails.** Map an `email` field so the hub captures each vendor's
+contact address. A nightly `POST /api/ads/maintenance` (call it from your
+scheduler with `Authorization: Bearer $CRON_SECRET`) emails vendors when a flight
+needs fresh ads (21 days out) or a campaign is up for renewal (30 days out).
+Delivery needs `RESEND_API_KEY` + `EMAIL_FROM` (see the email section); without
+them the reminders are logged, not sent.

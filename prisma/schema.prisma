@@ -256,6 +256,9 @@ model AdCampaign {
   allowsVideo Boolean    @default(false)
   notes       String?
   createdAt   DateTime   @default(now())
+  // Set once we've emailed the vendor to renew (campaign nearing its end), so the
+  // nightly job never double-nudges. Cleared implies "renewal reminder still due".
+  renewalRemindedAt DateTime?
   flights     AdFlight[]
 
   @@index([status])

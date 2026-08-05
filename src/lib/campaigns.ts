@@ -12,8 +12,6 @@ import { findOrCreateVendor } from './vendors';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
-const REMINDER_LEAD_DAYS = 21; // nudge the vendor this many days before a flight needs creatives
-
 export type CreateCampaignInput = {
   vendorName: string;
   vendorId?: string;     // pre-resolved vendor; else derived from vendorName
@@ -84,29 +82,19 @@ export async function cancelCampaign(id: string): Promise<void> {
   await prisma.adCampaign.update({ where: { id }, data: { status: 'CANCELLED' } });
 }
 
-export type LifecycleSummary = { endedFlights: number; completedCampaigns: number; remindersDue: Array<{ flightId: string; campaignId: string; vendorName: string; startAt: Date }> };
+export type LifecycleSummary = { endedFlights: number; completedCampaigns: number };
 
 /**
- * Nightly maintenance. End elapsed scheduled flights, complete campaigns past
- * their end, and flag flights whose creatives are due soon (reminder). Idempotent.
+ * Nightly lifecycle transitions: end elapsed scheduled flights and complete
+ * campaigns past their end. Idempotent. Vendor reminder EMAILS are a separate
+ * step (src/lib/adReminders) that marks "reminded" only after a successful send,
+ * so nothing is silently marked done without actually notifying the vendor.
  */
 export async function advanceLifecycle(now: Date): Promise<LifecycleSummary> {
   const ended = await prisma.adFlight.updateMany({ where: { status: 'SCHEDULED', endAt: { lte: now } }, data: { status: 'ENDED' } });
   const completed = await prisma.adCampaign.updateMany({ where: { status: 'ACTIVE', endAt: { lte: now } }, data: { status: 'COMPLETED' } });
-
-  // Flights still needing creatives (not scheduled) that start within the lead
-  // window and haven't been reminded yet.
-  const lead = new Date(now.getTime() + REMINDER_LEAD_DAYS * 86_400_000);
-  const due = await prisma.adFlight.findMany({
-    where: { status: { in: ['AWAITING', 'REVIEW'] }, startAt: { gt: now, lte: lead }, remindedAt: null, campaign: { status: 'ACTIVE' } },
-    select: { id: true, campaignId: true, startAt: true, campaign: { select: { vendorName: true } } },
-  });
-  if (due.length) {
-    await prisma.adFlight.updateMany({ where: { id: { in: due.map((d) => d.id) } }, data: { remindedAt: now } });
-  }
   return {
     endedFlights: ended.count,
     completedCampaigns: completed.count,
-    remindersDue: due.map((d) => ({ flightId: d.id, campaignId: d.campaignId, vendorName: d.campaign.vendorName, startAt: d.startAt })),
   };
 }

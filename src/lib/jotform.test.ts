@@ -37,6 +37,7 @@ describe('parseDate', () => {
 describe('parseJotformSubmission', () => {
   const raw = {
     vendorName: 'PackWise',
+    email: 'ads@packwise.com',
     package: '6-Month',
     startDate: { month: '9', day: '1', year: '2026' },
     notes: 'Fall campaign',
@@ -45,11 +46,15 @@ describe('parseJotformSubmission', () => {
   it('maps the canonical fields', () => {
     const p = parseJotformSubmission(raw, DEFAULT_FIELD_MAP);
     expect(p.vendorName).toBe('PackWise');
+    expect(p.email).toBe('ads@packwise.com');
     expect(p.planKey).toBe('half');
     expect(p.startAt?.toISOString().slice(0, 10)).toBe('2026-09-01');
     expect(p.notes).toBe('Fall campaign');
     expect(p.imageUrls).toHaveLength(2);
     expect(p.issues).toEqual([]);
+  });
+  it('drops an invalid email to empty', () => {
+    expect(parseJotformSubmission({ ...raw, email: 'not-an-email' }, DEFAULT_FIELD_MAP).email).toBe('');
   });
   it('records non-fatal issues for missing vendor/images', () => {
     const p = parseJotformSubmission({ package: '3-Month' }, DEFAULT_FIELD_MAP);
