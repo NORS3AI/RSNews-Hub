@@ -18,7 +18,7 @@ export default function AutoPlugDialog({ kind, id, name, onClose }: {
   const [slots, setSlots] = useState<PlugSlot[] | null>(null); // null = still loading
   const [slotIdx, setSlotIdx] = useState(0);
   const [pending, start] = useTransition();
-  const [result, setResult] = useState<{ text: string; moduleId?: string } | null>(null);
+  const [result, setResult] = useState<{ text: string; action: 'pin' | 'publish'; moduleId?: string } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -33,14 +33,14 @@ export default function AutoPlugDialog({ kind, id, name, onClose }: {
     if (!slot) return;
     start(async () => {
       await pinToSlot(kind, id, slot.moduleId, slot.blockId);
-      setResult({ text: `Pinned into “${slot.moduleName}”.`, moduleId: slot.moduleId });
+      setResult({ text: `Pinned into “${slot.moduleName}”. It fills that element wherever the module already sits.`, action: 'pin', moduleId: slot.moduleId });
       router.refresh();
     });
   };
   const publishOwn = () => {
     start(async () => {
       await addElementToHomepage(kind, id, name, 'card', null);
-      setResult({ text: 'Published as its own module — staged on the homepage.' });
+      setResult({ text: 'Published as its own module — staged on the homepage. Arrange it and Go Live to make it public.', action: 'publish' });
       router.refresh();
     });
   };
@@ -58,10 +58,16 @@ export default function AutoPlugDialog({ kind, id, name, onClose }: {
 
         {result ? (
           <div className="rounded-xl border border-green-300 bg-green-50 p-4 text-sm dark:border-green-900/60 dark:bg-green-950/30">
-            <p className="flex items-center gap-2 font-semibold text-green-800 dark:text-green-300"><Check width={15} height={15} /> {result.text}</p>
+            <p className="flex items-start gap-2 font-semibold text-green-800 dark:text-green-300"><Check width={15} height={15} className="mt-0.5 shrink-0" /> {result.text}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/admin/homepage" className="btn-outline btn-sm"><Home width={13} height={13} /> Arrange &amp; Go Live</Link>
-              {result.moduleId && <Link href={`/admin/studio/${result.moduleId}`} className="btn-outline btn-sm"><Grid width={13} height={13} /> Open in Studio</Link>}
+              {/* Follow-up is contextual: a pinned element lives in its module
+                  (go see/tweak it); a fresh module needs arranging on the homepage. */}
+              {result.action === 'pin' && result.moduleId && (
+                <Link href={`/admin/studio/${result.moduleId}`} className="btn-outline btn-sm"><Grid width={13} height={13} /> View in Studio</Link>
+              )}
+              {result.action === 'publish' && (
+                <Link href="/admin/homepage" className="btn-outline btn-sm"><Home width={13} height={13} /> Arrange on homepage</Link>
+              )}
               <button onClick={onClose} className="btn-ghost btn-sm">Done</button>
             </div>
           </div>
@@ -89,9 +95,8 @@ export default function AutoPlugDialog({ kind, id, name, onClose }: {
               <button onClick={publishOwn} disabled={pending} className={`btn-sm mt-2 w-full ${slot ? 'btn-outline' : 'btn-primary'}`}>Publish as module</button>
             </div>
 
-            {/* 3 / 4 — go arrange by hand, or dismiss */}
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <Link href={slot ? `/admin/studio/${slot.moduleId}` : '/admin/studio'} className="btn-ghost btn-sm"><Grid width={13} height={13} /> {slot ? 'View spot in Studio' : 'Open Studio'}</Link>
+            {/* Dismiss — the "view / arrange" step comes AFTER you place it. */}
+            <div className="flex justify-end pt-1">
               <button onClick={onClose} className="btn-ghost btn-sm">Not now</button>
             </div>
             {slots === null && <p className="pt-1 text-center text-xs text-[var(--muted)]">Checking for existing spots…</p>}
