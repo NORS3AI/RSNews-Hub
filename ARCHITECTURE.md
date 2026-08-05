@@ -61,7 +61,8 @@ docs/      static GitHub Pages preview (generated data + static shell)
 `auth/{login,logout,register}` · `saved` (per-account favorites/clips) ·
 `reading` · `subscriptions` · `search` · `polls/[id]/vote` ·
 `quizzes/[id]/submit` · `articles/[slug]` · `industry/[id]/go` (click-through) ·
-`uploads` (admin image upload) · `analytics/{collect,rollup}` · `health`.
+`uploads` (admin image upload) · `analytics/{collect,rollup}` ·
+`ads/maintenance` (cron/admin) · `ingest/jotform` (webhook) · `health`.
 
 ## The lib layer (`src/lib`)
 
@@ -86,6 +87,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
 | `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
 | `reports.ts` | Quarterly performance reports: pure quarter math (`quarterOf`/`lastCompletedQuarter`/`recentQuarters`) + `computeSnapshot`/`generateReportDraft` (snapshot the ad analytics into a report) + publish/list lifecycle. |
+| `jotform.ts` / `jotformIngest.ts` | JotForm ad-submission ingestion: pure parsing + SSRF host guard + field map (`parseJotformSubmission`, `isAllowedCreativeHost`) / server side (`ingestSubmission` — fetch creatives, draft campaign, record). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
 | `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |
@@ -137,7 +139,8 @@ Content: `Article` · `Category` · `Tag` · `ArticleTag` · `Page` · `Comic` �
 the parent-site link + audience facets). Ad sales: `Vendor` (advertiser, unique
 normalized `brandKey`) → `AdCampaign` (a purchase, FK `vendorId`) → `AdFlight`
 (a 3-month window holding creatives); `PerformanceReport` (per vendor per
-quarter, admin-published snapshot of the ad analytics). Analytics:
+quarter, admin-published snapshot of the ad analytics); `AdSubmission` (one
+ingested JotForm webhook — audit + idempotency). Analytics:
 `AnalyticsEvent` (raw) +
 `AnalyticsDaily` (rollups). Config: `Setting` (key/value, e.g. homepage layout).
 

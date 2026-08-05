@@ -184,6 +184,23 @@ model Ad {
   @@index([flightId])
 }
 
+// One JotForm submission ingested by the hub. Recorded first (audit + raw
+// payload), then processed into a DRAFT campaign + creatives for admin review.
+// `submissionId` is unique so a webhook re-delivery can't double-create.
+model AdSubmission {
+  id           String   @id @default(cuid())
+  submissionId String   @unique                 // JotForm submission id (idempotency key)
+  formId       String?
+  vendorId     String?                           // resolved Vendor
+  campaignId   String?                           // draft AdCampaign created
+  status       String   @default("RECEIVED")     // RECEIVED | PROCESSED | FAILED
+  error        String?
+  raw          String                            // raw submission JSON (audit)
+  createdAt    DateTime @default(now())
+
+  @@index([status, createdAt])
+}
+
 // A vendor's purchase of an ad package. Everything runs in 3-month "flights";
 // packages just chain more flights (3mo = 1, 6mo = 2, 12mo = 4). No creative is
 // ever live longer than one flight — vendors submit fresh ads for each. `plan`
