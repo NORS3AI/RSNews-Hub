@@ -167,11 +167,14 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         .slice(0, MAX_OPTIONS);
       while (options.length < 2) options.push('');
       const hours = Number(s.timerHours);
-      return {
+      const out: BlockSettings = {
         question: str(s.question, 200),
         options,
         timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 72,
       };
+      // Link to the materialized Poll record (set once the module is published).
+      if (typeof s.pollId === 'string' && s.pollId) out.pollId = s.pollId.slice(0, 64);
+      return out;
     }
     case 'heading': {
       const level = Number(s.level);

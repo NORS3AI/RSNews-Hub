@@ -16,6 +16,7 @@ import { markCampaignPaid, parseAmountToCents } from './payments';
 import { updateVendorContact } from './vendors';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
+import { materializeModulePolls } from './studioPolls';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -231,10 +232,11 @@ export async function createPoll(formData: FormData) {
   const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8);
   if (!question || options.length < 2) throw new Error('A question and at least 2 options are required');
   const closes = closesRaw ? new Date(closesRaw) : null;
-  // Only one poll active at a time — deactivate the others when publishing a new one.
-  if (active) await prisma.poll.updateMany({ where: { active: true }, data: { active: false } });
+  // Only one COUNCIL poll active at a time — deactivate the others when
+  // publishing a new one (module polls run on their own timers, untouched).
+  if (active) await prisma.poll.updateMany({ where: { active: true, kind: 'council' }, data: { active: false } });
   await prisma.poll.create({
-    data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
+    data: { question, active, kind: 'council', closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
       options: { create: options.map((label, i) => ({ label, order: i })) } },
   });
   revalidatePath('/admin/polls');
@@ -249,7 +251,7 @@ export async function updatePoll(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const closes = closesRaw ? new Date(closesRaw) : null;
   if (!question) throw new Error('Question is required');
-  if (active) await prisma.poll.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
+  if (active) await prisma.poll.updateMany({ where: { active: true, kind: 'council', id: { not: id } }, data: { active: false } });
   await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
@@ -714,6 +716,14 @@ export async function setCustomModulePublished(id: string, published: boolean): 
   // there yet — the admin can then reorder/lock it like any module. Unpublishing
   // leaves it in the layout but gated off, so its slot is remembered.
   if (published) {
+    // Turn poll blocks into real, votable Poll records with their timers running.
+    const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
+    if (mod) {
+      const tree = parseTree(mod.tree);
+      if (await materializeModulePolls(tree)) {
+        await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
+      }
+    }
     const layoutId = `custom:${id}`;
     const layout = await getHomeLayout();
     if (!layout.some((m) => m.id === layoutId)) {

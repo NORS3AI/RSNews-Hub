@@ -4,6 +4,7 @@ import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
+import { sweepExpiredModulePolls } from '@/lib/studioPolls';
 import { shapeInnerClass, childWidthClass, rsStyle } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
@@ -42,7 +43,7 @@ export default async function DocsHome() {
   ]);
 
   const activePoll = await prisma.poll.findFirst({
-    where: { active: true },
+    where: { active: true, kind: 'council' },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
@@ -105,6 +106,21 @@ export default async function DocsHome() {
     : [];
   const customById = new Map(customRows.map((r) => [`custom:${r.id}`, r]));
 
+  // Poll lifecycle: close any module polls whose timer elapsed (hides them +
+  // logs), then load the still-open ones referenced by these modules so they
+  // render live and votable.
+  await sweepExpiredModulePolls();
+  const modulePollIds = customRows.flatMap((r) =>
+    parseTree(r.tree).children.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string));
+  const modulePolls = modulePollIds.length
+    ? await prisma.poll.findMany({ where: { id: { in: modulePollIds }, active: true }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
+    : [];
+  const modulePollById = new Map(modulePolls.map((p) => [p.id, p]));
+  const myModuleVotes = user && modulePollIds.length
+    ? await prisma.pollVote.findMany({ where: { userId: user.id, pollId: { in: modulePollIds } }, select: { pollId: true, optionId: true } })
+    : [];
+  const myModuleVoteByPoll = new Map(myModuleVotes.map((v) => [v.pollId, v.optionId]));
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -154,8 +170,18 @@ export default async function DocsHome() {
             </div>
           );
         }
+        case 'poll': {
+          const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
+          const p = pid ? modulePollById.get(pid) : null;
+          if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
+          return wrap(
+            <div className="studio-fill" style={style}>
+              <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} />
+            </div>
+          );
+        }
         default:
-          return null; // poll (Phase 5) and any future types
+          return null; // any future block types
       }
     }).filter(Boolean);
     if (kids.length === 0) return null;

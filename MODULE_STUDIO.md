@@ -203,8 +203,11 @@ A custom module is a **composition tree** stored as JSON:
   drag-drop + auto-layout + reorder, inspector.
 - **Phase 4 — Block settings + per-block RS color.** ✅ (shipped with Phase 3)
   Inspector fields per block type; RS-mode color overrides; ad orange default.
-- **Phase 5 — Poll timer lifecycle.** Timer setting + expiry sweep → hide + log
-  + archive; render live builder polls (currently skipped on the public site).
+- **Phase 5 — Poll timer lifecycle.** ✅ Poll blocks materialize into real,
+  votable `Poll` records (kind `module`) on publish, with `closesAt` from the
+  timer. A lazy sweep closes expired polls, hides them from their module, and
+  writes an `AdminLog` entry; they remain in the polls archive. Live polls render
+  via the existing `PollCard`. Activity log surfaced on the Studio page.
 - **Phase 6 — Inline homepage editing (§5.5)** — per-module pencil overlay,
   quick color/reorder with live preview, unsaved-changes guard.
 - **Phase 7 — Custom RS Mode background** + polish.

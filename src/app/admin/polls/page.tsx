@@ -13,7 +13,9 @@ function toLocalInput(d?: Date | string | null) {
 }
 
 export default async function AdminPolls() {
+  // Council polls only — module polls are managed inside the Module Studio.
   const polls = await prisma.poll.findMany({
+    where: { kind: 'council' },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' } } },
   });

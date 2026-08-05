@@ -48,10 +48,25 @@ model Poll {
   id        String       @id @default(cuid())
   question  String
   active    Boolean      @default(true)
+  // 'council' = the single hand-run reader poll shown in the council aside.
+  // 'module'  = a poll built inside a Module Studio module (has its own timer;
+  // excluded from the "one active council poll" rule).
+  kind      String       @default("council")
   createdAt DateTime     @default(now())
   closesAt  DateTime?
   options   PollOption[]
   votes     PollVote[]
+}
+
+// Lightweight admin activity log. Currently records automated lifecycle events
+// (e.g. a module poll's timer expiring) so admins have a trail of what happened.
+model AdminLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  kind      String   // e.g. poll_closed
+  message   String
+
+  @@index([createdAt])
 }
 
 // One row per account that votes, enforcing a single vote per poll per user.
