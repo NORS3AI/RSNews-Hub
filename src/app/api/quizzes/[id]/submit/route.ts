@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { isQuizOpen, validateAnswers } from '@/lib/quiz';
+import { parseJson } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,8 +17,9 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Login required' }, { status: 401 });
 
-  let answers: Record<string, string> = {};
-  try { answers = (await req.json())?.answers || {}; } catch {}
+  const parsed = await parseJson(req, z.object({ answers: z.record(z.string(), z.string()).optional() }));
+  if (!parsed.ok) return parsed.res;
+  const answers: Record<string, string> = parsed.data.answers ?? {};
 
   const quiz = await prisma.quiz.findUnique({
     where: { id: params.id },

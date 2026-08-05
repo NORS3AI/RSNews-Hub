@@ -42,6 +42,11 @@ All three are covered in **Step 6**.
 
 ## 2. Switch the database to Postgres  **[you: 1-line change]**
 
+> The committed schema is verified to translate cleanly to Postgres —
+> `prisma validate` passes and `prisma migrate diff` generates clean DDL for all
+> tables against the `postgresql` provider (no SQLite-only features). What's left
+> for you is running it against your provisioned instance (below).
+
 Local dev uses SQLite; production uses Postgres. Change the datasource provider:
 
 ```prisma

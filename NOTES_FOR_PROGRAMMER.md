@@ -194,6 +194,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   `/api/ads/maintenance` + `/api/analytics/rollup` on a schedule (set `PROD_URL`
   + `CRON_SECRET` repo secrets; no-ops otherwise) so reminders/lifecycle/rollups
   actually run. Payment wording is now "confirmation", not money-handling.
+- ✅ **Backend hardening** _(v0.52.0)_ — (1) **Integration tests**
+  (`src/lib/adsales.integration.test.ts`, DB-backed) lock in the money/gate/
+  reminder/report behaviour: the payment-confirmation go-live gate, vendor-email
+  freshness, report scoping (vendors see only PUBLISHED), reminder send/skip +
+  idempotency, and payment dedup. (2) **Input validation** — a `parseJson(req,
+  zodSchema)` helper (`src/lib/http.ts`) guards the member JSON routes (reading,
+  subscriptions, poll vote, quiz submit), so a malformed/hostile body is a clean
+  400, not a possible 500. (3) **Postgres** — the schema is verified to generate
+  clean Postgres DDL (validate + migrate diff); a live boot against a provisioned
+  Postgres is the one remaining infra step (see DEPLOYMENT).
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API
