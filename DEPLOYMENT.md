@@ -74,8 +74,10 @@ Set these in your host's dashboard (or a `.env` for a VPS). See `.env.example`.
 | `SEED_ADMIN_EMAIL` | ✅ (to seed) | Your real admin email. |
 | `SEED_ADMIN_PASSWORD` | ✅ (to seed) | A strong admin password. Seeding **fails in production** without these — so the demo login can never ship. |
 | `SITE_URL` | optional | Absolute URL used for Open Graph/meta tags, `robots.txt` and `sitemap.xml`. Set it in prod so links are absolute. |
-| `RESEND_API_KEY` | optional | Enables real email (see §3a). Unset → email is **logged, not sent**. |
-| `EMAIL_FROM` | optional | Verified sender, e.g. `RSNews Hub <no-reply@yoursite.com>`. Required alongside `RESEND_API_KEY`. |
+| `EMAIL_FROM` | optional | Verified sender, e.g. `RSNews Hub <no-reply@yoursite.com>`. Required alongside a provider key. |
+| `RESEND_API_KEY` / `SENDGRID_API_KEY` | optional | Either one enables real email (see §3a). Unset → email is **logged, not sent**. |
+| `EMAIL_PROVIDER` | optional | `resend` (default) or `sendgrid` — picks the transport when both keys are set. |
+| `AD_ORDER_URL` | optional | Your JotForm ad-order link; fills the `{submitUrl}` tag in the reminder email templates. |
 | `SENTRY_DSN` | optional | Turns on Sentry error forwarding (see §3b). Unset → errors go to structured logs only. |
 
 > Both email and error-tracking are **safe when unset** — the app degrades to
@@ -85,13 +87,19 @@ Set these in your host's dashboard (or a `.env` for a VPS). See `.env.example`.
 ### 3a. Enable email  **[1 step: provision + set 2 vars]**
 
 Email is wired turnkey via `src/lib/email.ts` (a welcome mail already sends on
-register). It uses [Resend](https://resend.com)'s REST API — no SDK:
+register). Two REST transports ship in the box — **Resend** and **SendGrid** — no SDK:
 
-1. Create a Resend account, verify your sending domain, grab an API key.
-2. Set `RESEND_API_KEY` and `EMAIL_FROM`. That's it — messages now send.
+1. Create a [Resend](https://resend.com) or [SendGrid](https://sendgrid.com)
+   account, verify your sending domain (or SendGrid Single Sender), grab an API key.
+2. Set `EMAIL_FROM` plus `RESEND_API_KEY` **or** `SENDGRID_API_KEY`. That's it —
+   messages now send from your address. If both keys are present, `EMAIL_PROVIDER`
+   (`resend`|`sendgrid`) picks which to use.
 
-To use Postmark/SES instead, edit the single `deliver()` function in
-`src/lib/email.ts`; every call site stays the same.
+To use Postmark/SES instead, add a `deliver*` branch in `src/lib/email.ts`;
+every call site stays the same.
+
+The vendor **reminder** email copy is editable in-app at `/admin/email-templates`
+(no deploy needed); set `AD_ORDER_URL` so the JotForm link fills in automatically.
 
 ### 3b. Enable Sentry (error tracking)  **[1 line of code + 1 var]**
 
@@ -171,7 +179,7 @@ to catch late-arriving events.
 
 Add a **second nightly cron** for ad-campaign upkeep (same `CRON_SECRET`) — it
 ends elapsed ad flights, completes finished campaigns, and **sends vendor reminder
-emails** (fresh-ads + renewal, when `RESEND_API_KEY`/`EMAIL_FROM` are set). Ad
+emails** (fresh-ads + renewal, when `EMAIL_FROM` + a provider key are set). Ad
 takedown itself is automatic (serving respects each flight's window), so this is
 bookkeeping + reminders:
 

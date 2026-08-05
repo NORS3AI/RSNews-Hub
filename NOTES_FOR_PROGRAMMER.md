@@ -194,6 +194,20 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   `/api/ads/maintenance` + `/api/analytics/rollup` on a schedule (set `PROD_URL`
   + `CRON_SECRET` repo secrets; no-ops otherwise) so reminders/lifecycle/rollups
   actually run. Payment wording is now "confirmation", not money-handling.
+- ✅ **Admin-editable email templates** _(v0.53.0)_ — the vendor reminder copy is
+  now edited in-app at **`/admin/email-templates`**, no deploy needed. A registry
+  (`src/lib/emailTemplates.ts`) defines each template (`fresh_ads`, `renewal`)
+  with a default subject/body and a `{mergeTag}` list; the admin overrides land in
+  a new `EmailTemplate` row (key-unique) and fall back to the code default when
+  cleared ("Reset to default"). Rendering is **pure + tested** (`renderCopy`):
+  substitutes `{tags}`, HTML-escapes injected values, auto-links URLs, paragraphs
+  the body, and wraps it in the branded shell — unknown tags are left literal so a
+  typo shows. `adReminders.ts` now builds the merge vars (vendor, package, date,
+  days-until, `{submitUrl}` from `AD_ORDER_URL`, and the batch ordinal) and calls
+  `renderTemplate`. The email seam (`src/lib/email.ts`) gained a **SendGrid**
+  transport alongside Resend — `EMAIL_PROVIDER` (or whichever key is set) picks
+  it, `EMAIL_FROM` is the sender for both, still a safe log-only no-op when
+  unconfigured. Admin page shows each template's live preview with sample data.
 - ✅ **Backend hardening** _(v0.52.0)_ — (1) **Integration tests**
   (`src/lib/adsales.integration.test.ts`, DB-backed) lock in the money/gate/
   reminder/report behaviour: the payment-confirmation go-live gate, vendor-email

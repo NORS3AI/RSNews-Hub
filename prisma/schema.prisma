@@ -184,6 +184,18 @@ model Ad {
   @@index([flightId])
 }
 
+// Admin-editable copy for an outgoing email (keyed by purpose, e.g. 'fresh_ads',
+// 'renewal'). Stored as plain text with {mergeTags}; the sender substitutes the
+// vendor's values and renders text + branded HTML. Absent row → the built-in
+// default copy is used (see src/lib/emailTemplates), so mail never goes out blank.
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  subject   String
+  body      String
+  updatedAt DateTime @updatedAt
+}
+
 // One JotForm submission ingested by the hub. Recorded first (audit + raw
 // payload), then processed into a DRAFT campaign + creatives for admin review.
 // `submissionId` is unique so a webhook re-delivery can't double-create.
