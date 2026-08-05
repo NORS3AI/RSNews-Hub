@@ -11,7 +11,7 @@ import { isHexColor } from '@/lib/studio';
 // live-content resolution is layered on in a later phase. Heading/text render
 // their real content immediately.
 
-function rsStyle(color?: string | null): CSSProperties | undefined {
+export function rsStyle(color?: string | null): CSSProperties | undefined {
   return color && isHexColor(color) ? ({ ['--studio-rs' as any]: color } as CSSProperties) : undefined;
 }
 
@@ -21,10 +21,13 @@ const SHAPE_INNER: Record<Shape, string> = {
   grid: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3',
   card: 'flex flex-col gap-3',
 };
+export function shapeInnerClass(shape: Shape): string {
+  return SHAPE_INNER[shape];
+}
 
 // In a horizontal row, each child needs a sensible min width so it doesn't
 // collapse; elsewhere children fill their track.
-function childWidth(shape: Shape): string {
+export function childWidthClass(shape: Shape): string {
   return shape === 'row' ? 'w-64 shrink-0' : 'w-full';
 }
 
@@ -37,7 +40,7 @@ export default function CustomModule({ tree, title }: { tree: ModuleTree; title?
       ) : (
         <div className={SHAPE_INNER[tree.shape]}>
           {tree.children.map((b) => (
-            <div key={b.id} className={childWidth(tree.shape)}>
+            <div key={b.id} className={childWidthClass(tree.shape)}>
               <BlockView block={b} />
             </div>
           ))}
@@ -47,7 +50,7 @@ export default function CustomModule({ tree, title }: { tree: ModuleTree; title?
   );
 }
 
-function BlockView({ block }: { block: Block }) {
+export function BlockView({ block }: { block: Block }) {
   const style = rsStyle(block.rsColor);
   const s = block.settings;
   switch (block.type) {

@@ -11,6 +11,7 @@ const links = [
   { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
   { href: '/admin/analytics', label: 'Analytics', icon: Eye },
   { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
+  { href: '/admin/studio', label: 'Module Studio', icon: Grid },
   { href: '/admin/articles', label: 'Articles', icon: FileText },
   { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
   { href: '/admin/polls', label: 'Polls', icon: BarChart },
