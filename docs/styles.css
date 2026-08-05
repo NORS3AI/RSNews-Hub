@@ -608,16 +608,29 @@ img { max-width:100%; display:block; }
 }
 
 /* Orange surfaces — modules AND the orange house-ad frames: brand-orange hue
-   locked over the corrugated paper, then darkened so the white text reads. */
+   locked over the corrugated paper. Kept bright so it pops. */
 .rs .module.orange,
 .rs .had-home .had {
-  background-image:
-    linear-gradient(rgba(38,16,0,.26),rgba(38,16,0,.26)),
-    linear-gradient(#E97D34,#E97D34),
-    url("assets/rs-orange.webp");
-  background-size:cover,cover,cover; background-position:center,center,center;
-  background-repeat:no-repeat,no-repeat,no-repeat; background-blend-mode:normal,color,normal;
+  background-image:linear-gradient(#E97D34,#E97D34), url("assets/rs-orange.webp");
+  background-size:cover,cover; background-position:center,center;
+  background-repeat:no-repeat,no-repeat; background-blend-mode:color,normal;
 }
+/* Sit the content on translucent dark-brown cards so the cream text reads while
+   the bright orange still shows in the gutters. Brown matches the --fg brown. */
+.rs .module.orange .oitem,
+.rs .ind-orange .ind-row {
+  background:rgba(61,42,25,.55); border:1px solid rgba(247,237,216,.18);
+}
+.rs .module.orange .oitem:hover { background:rgba(61,42,25,.68); }
+.rs .ind-orange .ind-row {
+  border-radius:12px; padding:12px 14px; margin-top:8px; border-top:1px solid rgba(247,237,216,.18);
+}
+.rs .ind-orange .ind-row:first-child { margin-top:0; }
+.rs .ind-orange .ind-row:hover { background:rgba(61,42,25,.68); }
+/* Cream (not pure white) text on orange in RS Mode. */
+.rs .module.orange, .rs .ind-head, .rs .ind-orange .ind-title,
+.rs .ind-orange .ind-src, .rs .ind-orange .ind-row:hover .ind-title { color:#f7edd8; }
+.rs .ind-orange .ind-ico { background:rgba(247,237,216,.16); color:#f7edd8; }
 .rs .module:not(.orange),
 .rs .card, .rs .tile {
   background-image:

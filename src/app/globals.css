@@ -46,20 +46,29 @@
   background-repeat: no-repeat, no-repeat;
 }
 
-/* Orange surfaces — modules AND the orange house-ad frames: lock the hue to
-   brand orange (`color` blend over the corrugation's luminance), then darken a
-   touch so the white text reads. */
+/* Orange surfaces — modules AND the orange house-ad frames: brand-orange hue
+   locked over the corrugated paper. Kept bright so it pops. */
 .rs .module-orange,
 .rs .ad-orange {
-  background-image:
-    linear-gradient(rgba(38,16,0,.26), rgba(38,16,0,.26)),
-    linear-gradient(#E97D34, #E97D34),
-    url('/textures/rs-orange.webp');
-  background-size: cover, cover, cover;
-  background-position: center, center, center;
-  background-repeat: no-repeat, no-repeat, no-repeat;
-  background-blend-mode: normal, color, normal;
+  background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-blend-mode: color, normal;
 }
+/* Content sits on translucent dark-brown cards so the cream text reads while the
+   bright orange still shows in the gutters. Brown matches the --fg brown. */
+.rs .owk-card { background: rgba(61,42,25,.55); border-color: rgba(247,237,216,.2); }
+.rs .owk-card:hover { background: rgba(61,42,25,.68); }
+.rs .oind-row {
+  background: rgba(61,42,25,.55); border: 1px solid rgba(247,237,216,.18);
+  border-radius: 12px; padding: 10px 12px; margin-top: 8px;
+}
+.rs .oind-row:first-child { margin-top: 0; }
+.rs .oind-row:hover { background: rgba(61,42,25,.68); }
+/* Cream (not pure white) text on orange in RS Mode. */
+.rs .module-orange :is(h1,h2,h3,h4,p,span,a,time,strong),
+.rs .module-orange { color: #f7edd8; }
 
 /* Cream surfaces: the stamped paper under a cream wash so text stays readable. */
 .rs .card,

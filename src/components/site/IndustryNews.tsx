@@ -12,7 +12,7 @@ const MODAL_LIMIT = 50;
 function CardRow({ l }: { l: IndustryItem }) {
   return (
     <a href={`/api/industry/${l.id}/go`} target="_blank" rel="noopener noreferrer"
-      className="group flex items-start gap-3 border-t border-white/20 py-3.5 first:border-t-0">
+      className="oind-row group flex items-start gap-3 border-t border-white/20 py-3.5 first:border-t-0">
       <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/15 text-white"><ExternalLink width={17} height={17} /></span>
       <span className="min-w-0 flex-1">
         <span className="block text-lg font-extrabold leading-snug tracking-tight text-white group-hover:underline">{l.title}</span>
