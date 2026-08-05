@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
-import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, ChevronRight, Scissors } from '@/components/icons';
+import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
@@ -21,19 +21,36 @@ const NAV = [
   { href: '/docs/subscriptions', label: 'Subscriptions', icon: Bell },
 ];
 
+// Three themes, cycled Light → Dark → RS (RS = Light palette + textured surfaces).
+type Theme = 'light' | 'dark' | 'rs';
+const THEME_ORDER: Theme[] = ['light', 'dark', 'rs'];
+const THEME_NEXT: Record<Theme, { label: string; Icon: typeof Sun }> = {
+  light: { label: 'Dark mode', Icon: Moon },
+  dark: { label: 'RS mode', Icon: Stamp },
+  rs: { label: 'Light mode', Icon: Sun },
+};
+
 function ThemeItem({ collapsed }: { collapsed: boolean }) {
-  const [dark, setDark] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); setDark(document.documentElement.classList.contains('dark')); }, []);
-  function toggle() {
-    const next = !dark; setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch {}
+  useEffect(() => {
+    setMounted(true);
+    const el = document.documentElement;
+    setTheme(el.classList.contains('dark') ? 'dark' : el.classList.contains('rs') ? 'rs' : 'light');
+  }, []);
+  function cycle() {
+    const next = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+    setTheme(next);
+    const el = document.documentElement;
+    el.classList.toggle('dark', next === 'dark');
+    el.classList.toggle('rs', next === 'rs');
+    try { localStorage.setItem('theme', next); } catch {}
   }
+  const { label, Icon } = THEME_NEXT[mounted ? theme : 'light'];
   return (
-    <button onClick={toggle} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--header-fg)]/70 hover:bg-white/10 hover:text-[var(--header-fg)]">
-      {mounted && dark ? <Sun width={21} height={21} /> : <Moon width={21} height={21} />}
-      {!collapsed && <span>{mounted && dark ? 'Light mode' : 'Dark mode'}</span>}
+    <button onClick={cycle} title={`Switch to ${label}`} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--header-fg)]/70 hover:bg-white/10 hover:text-[var(--header-fg)]">
+      <Icon width={21} height={21} />
+      {!collapsed && <span>{label}</span>}
     </button>
   );
 }
