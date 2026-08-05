@@ -21,8 +21,9 @@ export async function loadAds(): Promise<AdRow[]> {
   }
 }
 
-/** Pick the two in-article ads (top + bottom) for an article's text. */
-export async function pickArticleAds(context: string, prefix: string) {
+/** Pick the two in-article ads (top + bottom) for an article's text. When a
+ *  vendor is viewing, `favorBrand` (their own brand) is surfaced first. */
+export async function pickArticleAds(context: string, prefix: string, favorBrand = '') {
   const ads = await loadAds();
-  return pickTwoInArticleAds(ads, context, prefix);
+  return pickTwoInArticleAds(ads, context, prefix, new Date(), favorBrand);
 }

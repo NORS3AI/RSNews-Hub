@@ -7,7 +7,16 @@ afterEach(() => vi.unstubAllEnvs());
 describe('memberFromClaims', () => {
   it('maps a full claim set', () => {
     expect(memberFromClaims({ sub: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', region: 'West', storeType: 'chain', roles: ['member'] }))
-      .toEqual({ externalId: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', region: 'West', storeType: 'chain', isStaff: false });
+      .toEqual({ externalId: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', tier: null, affiliations: [], vendorBrand: null, region: 'West', storeType: 'chain', isStaff: false });
+  });
+
+  it('maps entitlement claims (tier, affiliations, vendorBrand/brand)', () => {
+    // affiliations as an array
+    expect(memberFromClaims({ sub: '1', tier: 'premium', affiliations: ['packagehub', 'PremiumClub'], vendorBrand: 'PackWise' }))
+      .toMatchObject({ tier: 'premium', affiliations: ['packagehub', 'PremiumClub'], vendorBrand: 'PackWise' });
+    // affiliations as a comma/space string; `brand` is accepted as a vendorBrand alias
+    expect(memberFromClaims({ sub: '1', affiliations: 'packagehub premiumclub', brand: 'Acme' }))
+      .toMatchObject({ affiliations: ['packagehub', 'premiumclub'], vendorBrand: 'Acme' });
   });
 
   it('requires an id claim (sub/accountId/uid) or returns null', () => {

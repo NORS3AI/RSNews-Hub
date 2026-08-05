@@ -123,14 +123,20 @@ function seedFrom(s: string): number {
  * - Prefers an ad relevant to the article (its own brand is mentioned).
  * - Otherwise a neutral ad (no keywords and no competitors).
  */
-export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date()): AdRow | null {
+export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = ''): AdRow | null {
   const hay = normalize(articleText);
   const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, hay));
   if (!safe.length) return null;
 
-  // Paid (flighted) vendor ads are the inventory the advertiser bought, so they
-  // win over house ads. Within each tier, an ad relevant to the article's topic
-  // is preferred. Falls back gracefully: relevant-paid → paid → relevant → any.
+  // Preference order:
+  //  1. the VISITING VENDOR's own live ads (favorBrand) — show them their brand,
+  //  2. paid (flighted) vendor inventory over house ads,
+  //  3. within each tier, an ad relevant to the article's topic.
+  // Falls back gracefully to any safe live ad.
+  const brand = favorBrand.trim().toLowerCase();
+  const favored = brand ? safe.filter((a) => a.brand.trim().toLowerCase() === brand) : [];
+  if (favored.length) return favored[seedFrom(slotSeed) % favored.length];
+
   const paid = safe.filter((a) => a.flightId);
   const rel = (pool: AdRow[]) => pool.filter((a) => adIsRelevant(a, hay));
   const pool = rel(paid).length ? rel(paid) : paid.length ? paid : rel(safe).length ? rel(safe) : safe;
@@ -149,9 +155,9 @@ export function adsAreRivals(a: AdRow, b: AdRow): boolean {
 }
 
 /** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
-export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date()) {
-  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now);
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '') {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand);
   const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
-  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now);
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand);
   return { top, bottom };
 }

@@ -50,6 +50,9 @@ export async function provisionFromMember(m: Member) {
     name: m.name || 'Member',
     role: roleFor(m),
     accountType: m.accountType || 'MEMBER',
+    tier: m.tier ?? null,
+    affiliations: (m.affiliations ?? []).join(','),
+    vendorBrand: m.vendorBrand ?? null,
     region: m.region ?? null,
     storeType: m.storeType ?? null,
   };
@@ -57,7 +60,7 @@ export async function provisionFromMember(m: Member) {
     where: { externalId: m.externalId },
     update: cached,
     create: { externalId: m.externalId, status: 'ACTIVE', passwordHash: '', ...cached },
-    select: { id: true, email: true, name: true, role: true, status: true, bio: true, createdAt: true },
+    select: { id: true, email: true, name: true, role: true, status: true, bio: true, createdAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true },
   });
   if (user.status === 'BANNED' || user.status === 'SUSPENDED') return null;
   return user;

@@ -21,8 +21,16 @@ attributes so reports are richer (they're never required):
 | `sub` (**required**) | the stable account id — the key for all hub state |
 | `email`, `name` | display + notifications |
 | `accountType` = `MEMBER` \| `VENDOR` \| `STAFF` | analytics segmentation; `STAFF` also grants hub-admin |
+| `tier` (e.g. `premium`) | entitlements — unlock tier-gated content/perks |
+| `affiliations` (array or comma list, e.g. `["packagehub"]`) | entitlements — unlock affiliation-gated content (e.g. Package Hub–only) |
+| `vendorBrand` (or `brand`) | the ad brand a vendor owns — unlocks their vendor dashboard and surfaces their own ads first |
 | `region`, `storeType` | analytics segmentation |
 | `roles: ["admin"]` (or `accountType=STAFF`) | grants access to the hub admin area |
+
+`tier` and `affiliations` are **free-form strings** — the hub never hardcodes an
+enum, so you can add new tiers or affiliations any time without a hub change (see
+`src/lib/entitlements.ts`). Gating a piece of content on `packagehub`, or adding a
+`franchisee` affiliation later, is purely a data change.
 
 The hub provisions a local "mirror" row for each member on first visit and keeps
 those cached attributes fresh on every request. You do **not** send passwords.
@@ -49,6 +57,9 @@ import { SignJWT } from 'jose';
 const token = await new SignJWT({
   email: user.email, name: user.name,
   accountType: user.isVendor ? 'VENDOR' : 'MEMBER',
+  tier: user.tier,                       // e.g. 'premium'
+  affiliations: user.affiliations,       // e.g. ['packagehub']
+  vendorBrand: user.adBrand,             // vendors only — the ad brand they own
   region: user.region, storeType: user.storeType,
   roles: user.isStaff ? ['admin'] : [],
 })
@@ -74,7 +85,8 @@ PARENT_HEADER_ID=x-member-id            # required header
 PARENT_HEADER_EMAIL=x-member-email
 PARENT_HEADER_NAME=x-member-name
 PARENT_HEADER_ACCOUNT_TYPE=x-member-type
-# also read: x-member-region, x-member-store-type, x-member-staff (true/1)
+# also read: x-member-region, x-member-store-type, x-member-staff (true/1),
+#            x-member-tier, x-member-affiliations (comma/space list), x-member-brand
 ```
 
 ### `AUTH_MODE=local` — default (dev / standalone only)
@@ -90,9 +102,18 @@ session. The rest of the hub is unchanged. Ask and we'll wire it to your schema.
 
 ## What "who the member is" unlocks
 Once identity is flowing, the hub keys everything to that account: one poll vote
-per member (closed until the next poll), one quiz submission, and — next on our
-list — server-side **favorites / pinned / saved clippings** so they follow the
-member across devices (today those still live in the browser). None of that
-needs anything from you beyond the verified id above.
+per member (closed until the next poll), one quiz submission, and server-side
+favorites / pinned / saved clippings so they follow the member across devices.
+The entitlement facets above additionally power:
+
+- **Vendor dashboard** (`/docs/vendor`) — a member with a `vendorBrand` (or
+  `accountType=VENDOR`) sees their live campaigns, flight countdowns, history,
+  and quarterly performance reports.
+- **Vendor-favored ads** — while a vendor is browsing, their own brand's live
+  ads are surfaced first in article ad slots.
+- **Entitlement-gated content** — `tier` / `affiliations` let you show content or
+  perks to just premium members or a specific affiliation (e.g. Package Hub).
+
+None of that needs anything from you beyond the verified claims above.
 
 `GET /api/health` reports the active `authMode` so you can confirm the wiring.

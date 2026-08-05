@@ -44,11 +44,17 @@ export function memberFromClaims(p: Record<string, unknown>): Member | null {
   if (!externalId) return null;
   const roles = Array.isArray(p.roles) ? p.roles.map((r) => String(r).toLowerCase()) : [];
   const accountType = str(p.accountType);
+  const affiliations = Array.isArray(p.affiliations)
+    ? p.affiliations.map((a) => String(a)).filter(Boolean)
+    : str(p.affiliations) ? str(p.affiliations)!.split(/[,\s]+/).filter(Boolean) : [];
   return {
     externalId,
     email: str(p.email),
     name: str(p.name) || str(p.displayName),
     accountType,
+    tier: str(p.tier),
+    affiliations,
+    vendorBrand: str(p.vendorBrand) || str(p.brand),
     region: str(p.region),
     storeType: str(p.storeType),
     isStaff: roles.includes('admin') || roles.includes('staff') || accountType === 'STAFF',

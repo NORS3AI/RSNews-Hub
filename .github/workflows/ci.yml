@@ -22,7 +22,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22 (current LTS). Required by jsdom 30 → undici 8, which uses
+          # worker_threads.markAsUncloneable (added in Node 22); on Node 20 the
+          # test run aborts with "webidl.util.markAsUncloneable is not a function"
+          # even though every test passes.
+          node-version: 22
           cache: npm
 
       - name: Install dependencies

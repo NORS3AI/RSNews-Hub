@@ -37,6 +37,21 @@ describe('pickInArticleAd — paid inventory preference', () => {
     const pick = pickInArticleAd([house, expired], 'text', 'seed', NOW);
     expect(pick?.id).toBe('house');
   });
+
+  it('surfaces the VISITING vendor’s own live ad first (favorBrand)', () => {
+    const house = ad({ id: 'house', brand: 'House' });
+    const paid = ad({ id: 'paid', brand: 'OtherVendor', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const mine = ad({ id: 'mine', brand: 'PackWise', flightId: 'fl2', flightStatus: 'SCHEDULED', ...inWindow });
+    // Without favorBrand, a paid ad wins; with it, the vendor's own brand wins.
+    expect(pickInArticleAd([house, paid, mine], 'text', 'seed', NOW)?.brand).not.toBe('PackWise');
+    expect(pickInArticleAd([house, paid, mine], 'text', 'seed', NOW, 'packwise')?.id).toBe('mine');
+  });
+
+  it('does not surface the vendor’s own ad if it is not currently live', () => {
+    const paid = ad({ id: 'paid', brand: 'OtherVendor', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const mineExpired = ad({ id: 'mine', brand: 'PackWise', flightId: 'fl2', flightStatus: 'SCHEDULED', flightStartAt: '2026-01-01T00:00:00Z', flightEndAt: '2026-02-01T00:00:00Z' });
+    expect(pickInArticleAd([paid, mineExpired], 'text', 'seed', NOW, 'packwise')?.id).toBe('paid');
+  });
 });
 
 const postalmate = ad({ id: 'pm', brand: 'PostalMate', keywords: 'PostalMate, postal mate', competitors: 'ShipRite, ship rite' });

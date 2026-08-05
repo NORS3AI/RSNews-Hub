@@ -13,8 +13,12 @@ export type Member = {
   externalId: string;
   email?: string | null;
   name?: string | null;
-  /** Audience facets the parent may share (used by analytics segmentation). */
+  /** Audience + entitlement facets the parent may share (segmentation, gating,
+   *  vendor recognition). tier/affiliations are free-form (see lib/entitlements). */
   accountType?: string | null; // MEMBER | VENDOR | STAFF
+  tier?: string | null;        // e.g. BASIC | PREMIUM
+  affiliations?: string[] | null; // e.g. ['packagehub']
+  vendorBrand?: string | null; // for vendors: the ad brand they own
   region?: string | null;
   storeType?: string | null;
   /** True when the parent flags this member as hub staff/admin. */

@@ -11,6 +11,7 @@ import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
 import InArticleAd from '@/components/InArticleAd';
 import { pickArticleAds } from '@/lib/adsServer';
+import { entitlementsOf } from '@/lib/entitlements';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -64,7 +65,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   ]);
 
   const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
-  const ads = await pickArticleAds(adContext, 'article');
+  // A visiting vendor sees their own brand's ads surfaced first.
+  const favorBrand = entitlementsOf(user ?? {}).vendorBrand;
+  const ads = await pickArticleAds(adContext, 'article', favorBrand);
 
   return (
     <>
