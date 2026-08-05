@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeTree, emptyTree, makeBlock, serializeTree, parseTree, isHexColor,
-  MAX_BLOCKS, customModuleId, isCustomModuleId, customIdOf,
+  MAX_BLOCKS, MAX_FALLBACKS, blockChain, customModuleId, isCustomModuleId, customIdOf,
 } from './studio';
 
 describe('studio tree model', () => {
@@ -104,6 +104,32 @@ describe('studio tree model', () => {
   it('parseTree degrades bad JSON to an empty tree', () => {
     expect(parseTree('not json{')).toEqual(emptyTree());
     expect(parseTree(null)).toEqual(emptyTree());
+  });
+
+  it('normalizes a fallback chain: one level deep, capped, bad rungs dropped', () => {
+    const t = normalizeTree({ children: [
+      { type: 'poll', settings: { pollId: 'p1' }, fallbacks: [
+        { type: 'ad', settings: { format: 'square' } },
+        { type: 'bogus', settings: {} },                                   // dropped (unknown type)
+        { type: 'article-headline', settings: { source: 'latest' },
+          fallbacks: [{ type: 'ad', settings: {} }] },                      // nested fallback stripped
+        { type: 'ad', settings: {} }, { type: 'ad', settings: {} }, { type: 'ad', settings: {} }, // overflow past cap
+      ] },
+    ] });
+    const slot = t.children[0];
+    expect(slot.type).toBe('poll');
+    expect(slot.fallbacks!.length).toBeLessThanOrEqual(MAX_FALLBACKS);
+    expect(slot.fallbacks![0].settings).toEqual({ format: 'square' });
+    expect(slot.fallbacks![1].type).toBe('article-headline');             // bogus was dropped
+    expect(slot.fallbacks![1].fallbacks).toBeUndefined();                 // no nesting
+    expect(blockChain(slot)[0]).toBe(slot);                                // chain = primary + fallbacks
+    expect(blockChain(slot).length).toBe(1 + slot.fallbacks!.length);
+  });
+
+  it('a block with no fallbacks has a chain of just itself', () => {
+    const b = makeBlock('ad', 'a');
+    expect(b.fallbacks).toBeUndefined();
+    expect(blockChain(b)).toEqual([b]);
   });
 
   it('namespaces custom module ids', () => {

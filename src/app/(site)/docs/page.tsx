@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
-import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
+import { isCustomModuleId, parseTree, blockChain, type Block } from '@/lib/studio';
 import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
@@ -114,8 +114,12 @@ export default async function DocsHome() {
   // render live and votable.
   await sweepExpiredModulePolls();
   await sweepExpiredModules();
-  const modulePollIds = customRows.flatMap((r) =>
-    parseTree(r.tree).children.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string));
+  // Scans below flatten each block into its full priority stack (block +
+  // fallbacks) so a poll/article/quiz that only appears as a *fallback* still
+  // has its live content pre-fetched and can fill its slot when promoted.
+  const allBlocks = customRows.flatMap((r) => parseTree(r.tree).children.flatMap(blockChain));
+  const modulePollIds = allBlocks
+    .filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string);
   const modulePolls = modulePollIds.length
     ? await prisma.poll.findMany({ where: { id: { in: modulePollIds } }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
     : [];
@@ -127,7 +131,7 @@ export default async function DocsHome() {
 
   // Resolve the non-pool article sourcing modes used by custom-module article
   // blocks: hand-picked ids, by-tag, and by-year (throwbacks).
-  const artBlocks = customRows.flatMap((r) => parseTree(r.tree).children.filter((b) => b.type.startsWith('article')));
+  const artBlocks = allBlocks.filter((b) => b.type.startsWith('article'));
   const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
   const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
@@ -152,7 +156,7 @@ export default async function DocsHome() {
   }));
 
   // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
-  const quizIds = [...new Set(customRows.flatMap((r) => parseTree(r.tree).children.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId))))];
+  const quizIds = [...new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)))];
   const pickedQuizzes = quizIds.length
     ? await prisma.quiz.findMany({ where: { id: { in: quizIds } }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
     : [];
@@ -199,19 +203,21 @@ export default async function DocsHome() {
       if (mode === 'year') return firstUnused(byYear.get(Number(b.settings.year)) ?? []);
       return firstUnused(featurePool(String(b.settings.source ?? 'latest')));
     };
-    const kids = tree.children.map((b: Block, i: number) => {
-      const style = rsStyle(b.rsColor);
-      const wrap = (node: React.ReactNode) => <div key={b.id} className={childWidthClass(tree.shape)}><Eyebrow label={b.label} />{node}</div>;
+    // Render ONE rung of a slot's priority stack — the block's live content, or
+    // null when it has nothing to show (poll not running, picked article
+    // unpublished, empty image…). Returning null is the signal to try the next
+    // fallback. `style` is the slot's background so the look holds across rungs.
+    const renderRung = (b: Block, i: number, style: React.CSSProperties | undefined): React.ReactNode | null => {
       switch (b.type) {
         case 'heading': {
           const t = String(b.settings.text ?? '');
-          return wrap(b.settings.level === 3 ? <h3 className="text-lg font-bold tracking-tight">{t}</h3> : <h2 className="text-xl font-black tracking-tight">{t}</h2>);
+          return b.settings.level === 3 ? <h3 className="text-lg font-bold tracking-tight">{t}</h3> : <h2 className="text-xl font-black tracking-tight">{t}</h2>;
         }
         case 'text':
-          return wrap(<div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>);
+          return <div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>;
         case 'ad': {
           const fmt = b.settings.format === 'leaderboard' ? 'leaderboard' : 'rectangle';
-          return wrap(<div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd(fmt, `custom-${row.id}-${i}`)}</div>);
+          return <div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd(fmt, `custom-${row.id}-${i}`)}</div>;
         }
         case 'image': {
           const url = String(b.settings.url ?? '');
@@ -219,7 +225,7 @@ export default async function DocsHome() {
           const w = Number(b.settings.widthPct) || 100;
           const radius = b.settings.radius !== false;
           // eslint-disable-next-line @next/next/no-img-element
-          return wrap(<img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />);
+          return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
         }
         case 'quiz': {
           const qid = b.settings.quizId ? String(b.settings.quizId) : '';
@@ -228,7 +234,7 @@ export default async function DocsHome() {
           // Once its timer ends, the quiz disappears from the homepage.
           if (quiz.closesAt && new Date(quiz.closesAt) < new Date()) return null;
           const done = qid ? myQuizDone.has(qid) : !!priorQuizResponse;
-          return wrap(
+          return (
             <div className="studio-fill" style={style}>
               <QuizCard quiz={{ id: quiz.id, title: quiz.title, closesAt: quiz.closesAt, questions: quiz.questions }} loggedIn={loggedIn} initialDone={done} />
             </div>
@@ -240,7 +246,7 @@ export default async function DocsHome() {
           const card = resolveArticle(b);
           if (!card) return null;
           if (b.type === 'article-headline') {
-            return wrap(
+            return (
               <article className="studio-fill card overflow-hidden p-3.5" style={style}>
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}
@@ -251,7 +257,7 @@ export default async function DocsHome() {
               </article>
             );
           }
-          return wrap(
+          return (
             <div className="studio-fill" style={style}>
               <ArticleCard article={card} compact={b.type === 'article'} trk={{ place: layoutId, props: { module: layoutId, moduleType: 'custom', pos: i } }} />
             </div>
@@ -261,7 +267,7 @@ export default async function DocsHome() {
           const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
           const p = pid ? modulePollById.get(pid) : null;
           if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
-          return wrap(
+          return (
             <div className="studio-fill" style={style}>
               <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} chart={b.settings.chart === 'pie' ? 'pie' : 'bar'} />
             </div>
@@ -270,11 +276,30 @@ export default async function DocsHome() {
         default:
           return null; // any future block types
       }
+    };
+    // Each slot walks its priority stack and shows the first rung that can fill —
+    // so a slot is only ever *replaced*, never left empty (as long as its last
+    // rung is an un-emptiable type like an ad or an auto/latest article).
+    const kids = tree.children.map((slot: Block, i: number) => {
+      const style = rsStyle(slot.rsColor);
+      for (const rung of blockChain(slot)) {
+        const node = renderRung(rung, i, rung.rsColor ? rsStyle(rung.rsColor) : style);
+        if (node) return (
+          <div key={slot.id} className={childWidthClass(tree.shape)}>
+            <Eyebrow label={rung.label ?? slot.label} />{node}
+          </div>
+        );
+      }
+      return null;
     }).filter(Boolean);
     if (kids.length === 0) return null;
     // A single poll/quiz already carries its own header, so don't repeat the
     // module name above it (avoids the title == poll-question duplication).
-    const soloSelfHeader = tree.children.length === 1 && (tree.children[0].type === 'poll' || tree.children[0].type === 'quiz');
+    // A lone poll/quiz carries its own header, so we skip the module title. But
+    // if it has fallbacks it might resolve to an article instead, so only treat
+    // it as self-headed when there's no chance of a fallback taking the slot.
+    const solo = tree.children.length === 1 ? tree.children[0] : null;
+    const soloSelfHeader = !!solo && !solo.fallbacks?.length && (solo.type === 'poll' || solo.type === 'quiz');
     return (
       <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
         {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BLOCKS, BLOCK_GROUPS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, MAX_BLOCKS,
+  BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, MAX_BLOCKS, MAX_FALLBACKS,
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
 import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
@@ -49,6 +49,10 @@ export default function StudioEditor({
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const [past, setPast] = useState<ModuleTree[]>([]);
   const [future, setFuture] = useState<ModuleTree[]>([]);
+  // Permutation preview: which rung of each slot's priority stack to show on the
+  // canvas, so the admin can eyeball "if no poll → the ad; if no ad → the
+  // article" before it ever happens live. Keyed by block id; default 0 (primary).
+  const [rungPreview, setRungPreview] = useState<Record<string, number>>({});
 
   const selectedBlock = useMemo(() => tree.children.find((b) => b.id === selected) ?? null, [tree, selected]);
 
@@ -127,6 +131,10 @@ export default function StudioEditor({
       if ('settings' in patch && patch.settings) b.settings = { ...b.settings, ...patch.settings };
       if ('rsColor' in patch) b.rsColor = (patch as any).rsColor;
       if ('label' in patch) b.label = ((patch as any).label as string) || undefined;
+      if ('fallbacks' in patch) {
+        const fb = (patch as any).fallbacks as Block[] | undefined;
+        b.fallbacks = fb && fb.length ? fb : undefined;
+      }
       return t;
     });
   }
@@ -292,7 +300,10 @@ export default function StudioEditor({
                 </div>
               ) : (
                 <div className={shapeInnerClass(tree.shape)}>
-                  {tree.children.map((b, i) => (
+                  {tree.children.map((b, i) => {
+                    const chain = blockChain(b);
+                    const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
+                    return (
                     <div key={b.id} className={childWidthClass(tree.shape)}
                       onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
                       onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
@@ -305,11 +316,14 @@ export default function StudioEditor({
                         onRemove={(e) => { e.stopPropagation(); removeBlock(b.id); }}
                         onDuplicate={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
                         label={BLOCKS[b.type].label}
+                        chain={chain}
+                        rung={rung}
+                        onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
                       >
-                        <BlockView block={b} />
+                        <BlockView block={chain[rung]} />
                       </BlockFrame>
                     </div>
-                  ))}
+                  ); })}
                   {/* trailing append zone */}
                   <div
                     onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
@@ -375,11 +389,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate }: {
+function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate, chain, rung, onRung }: {
   selected: boolean; over: boolean; label: string; children: React.ReactNode;
   onSelect: (e: React.MouseEvent) => void; onDragStart: () => void; onDragEnd: () => void;
   onRemove: (e: React.MouseEvent) => void; onDuplicate: (e: React.MouseEvent) => void;
+  chain?: Block[]; rung?: number; onRung?: (k: number) => void;
 }) {
+  const hasFallbacks = !!chain && chain.length > 1;
   return (
     <div onClick={onSelect}
       className={`group relative rounded-xl transition ${selected ? 'ring-2 ring-brand-500' : 'ring-1 ring-transparent hover:ring-brand-300'} ${over ? 'outline outline-2 outline-brand-500' : ''}`}>
@@ -393,6 +409,20 @@ function BlockFrame({ selected, over, label, children, onSelect, onDragStart, on
       {selected && <span className="absolute -top-2.5 left-2 z-10 rounded-md bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{label}</span>}
       {/* the block preview (non-interactive) */}
       <div className="pointer-events-none">{children}</div>
+      {/* Permutation stepper — walk the priority stack to preview each fallback
+          state ("if no poll → ad → article"). Only shown when fallbacks exist. */}
+      {hasFallbacks && (
+        <div className="mt-1 flex flex-wrap items-center gap-1 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-2)] px-1.5 py-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
+          <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>
+          {chain!.map((r, k) => (
+            <button key={k} type="button" onClick={() => onRung?.(k)}
+              className={`rounded px-1.5 py-0.5 font-semibold transition ${k === rung ? 'bg-brand-600 text-white' : 'bg-[var(--card)] text-[var(--muted)] hover:text-[var(--fg)]'}`}
+              title={k === 0 ? 'Your primary choice' : `Fallback ${k}`}>
+              {k > 0 && <span className="opacity-60">→ </span>}{BLOCKS[r.type].label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -435,12 +465,17 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
-  const [tab, setTab] = useState<'content' | 'style'>('content');
+  const [tab, setTab] = useState<'content' | 'style' | 'fallback'>('content');
+  const fbCount = block.fallbacks?.length ?? 0;
+  const TABS: { id: 'content' | 'style' | 'fallback'; label: string }[] = [
+    { id: 'content', label: 'Content' }, { id: 'style', label: 'Style' },
+    { id: 'fallback', label: fbCount ? `If empty (${fbCount})` : 'If empty' },
+  ];
   return (
     <InspectorShell title={BLOCKS[block.type].label}>
       <div className="mb-3 inline-flex gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-0.5 text-xs font-bold">
-        {(['content', 'style'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`rounded-md px-3 py-1 capitalize ${tab === t ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{t}</button>
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} className={`rounded-md px-2.5 py-1 ${tab === t.id ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{t.label}</button>
         ))}
       </div>
 
@@ -522,6 +557,10 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <Field label="Background"><RsColorPicker value={block.rsColor} onChange={(c) => onPatch({ rsColor: c })} /></Field>
       </div>
 
+      <div className={tab === 'fallback' ? '' : 'hidden'}>
+        <FallbackEditor block={block} onPatch={onPatch} />
+      </div>
+
       <div className="mt-4 flex gap-2 border-t border-[var(--border)] pt-3">
         <button onClick={onDuplicate} className="btn-outline btn-sm flex-1"><Copy width={13} height={13} /> Duplicate</button>
         <button onClick={onRemove} className="btn-danger btn-sm flex-1"><Trash width={13} height={13} /> Remove</button>
@@ -562,5 +601,98 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
       )}
     </>
   );
+}
+
+/* ---- Fallback chain: the slot's priority stack ---- */
+
+function FallbackEditor({ block, onPatch }: { block: Block; onPatch: (p: any) => void }) {
+  const fbs = block.fallbacks ?? [];
+  const commit = (next: Block[]) => onPatch({ fallbacks: next });
+  const add = () => { if (fbs.length < MAX_FALLBACKS) commit([...fbs, makeBlock('ad', newId())]); };
+  const update = (i: number, b: Block) => commit(fbs.map((f, k) => (k === i ? b : f)));
+  const remove = (i: number) => commit(fbs.filter((_, k) => k !== i));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= fbs.length) return;
+    const next = fbs.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    commit(next);
+  };
+  return (
+    <div>
+      <p className="mb-3 text-xs leading-relaxed text-[var(--muted)]">
+        If <strong>{BLOCKS[block.type].label}</strong> has nothing to show right now, the slot falls through these in order and shows the first that can fill — so it&apos;s never empty and never changes size. Put a can&apos;t-fail type last (an <strong>Ad</strong>, or an <strong>Auto/Latest</strong> article).
+      </p>
+      <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-2.5 py-1.5 text-xs">
+        <span className="rounded bg-brand-600 px-1.5 py-0.5 text-[10px] font-bold text-white">1</span>
+        <strong>{BLOCKS[block.type].label}</strong> <span className="text-[var(--muted)]">— your primary choice</span>
+      </div>
+      <div className="space-y-2">
+        {fbs.map((f, i) => (
+          <FallbackRow key={f.id} index={i} count={fbs.length} block={f}
+            onType={(t) => update(i, makeBlock(t, f.id))}
+            onSet={(k, v) => update(i, { ...f, settings: { ...f.settings, [k]: v } })}
+            onUp={() => move(i, -1)} onDown={() => move(i, 1)} onRemove={() => remove(i)} />
+        ))}
+      </div>
+      <button type="button" onClick={add} disabled={fbs.length >= MAX_FALLBACKS}
+        className="btn-outline btn-sm mt-2 w-full disabled:opacity-40">
+        <Plus width={13} height={13} /> Add fallback {fbs.length ? `(${fbs.length}/${MAX_FALLBACKS})` : ''}
+      </button>
+    </div>
+  );
+}
+
+function FallbackRow({ index, count, block, onType, onSet, onUp, onDown, onRemove }: {
+  index: number; count: number; block: Block;
+  onType: (t: BlockType) => void; onSet: (k: string, v: unknown) => void;
+  onUp: () => void; onDown: () => void; onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-2">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--muted)]">{index + 2}</span>
+        <select className="input !h-8 flex-1 !py-1 text-xs" value={block.type} onChange={(e) => onType(e.target.value as BlockType)}>
+          {BLOCK_IDS.map((t) => <option key={t} value={t}>{BLOCKS[t].label}</option>)}
+        </select>
+        <button type="button" onClick={onUp} disabled={index === 0} className="grid h-7 w-6 place-items-center rounded border border-[var(--border)] text-xs text-[var(--muted)] disabled:opacity-30" title="Higher priority">↑</button>
+        <button type="button" onClick={onDown} disabled={index === count - 1} className="grid h-7 w-6 place-items-center rounded border border-[var(--border)] text-xs text-[var(--muted)] disabled:opacity-30" title="Lower priority">↓</button>
+        <button type="button" onClick={onRemove} className="grid h-7 w-6 place-items-center rounded border border-[var(--border)] text-red-600 hover:bg-red-50" title="Remove"><Trash width={12} height={12} /></button>
+      </div>
+      <FallbackControl block={block} onSet={onSet} />
+    </div>
+  );
+}
+
+// The one contextual field a fallback rung needs — kept minimal on purpose:
+// fallbacks are generic "whatever's available of this type" safety nets.
+function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v: unknown) => void }) {
+  const s = block.settings;
+  switch (block.type) {
+    case 'article': case 'article-image': case 'article-headline':
+      return (
+        <select className="input !h-8 !py-1 text-xs" value={String(s.source ?? 'latest')} onChange={(e) => onSet('source', e.target.value)}>
+          <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option>
+        </select>
+      );
+    case 'ad':
+      return (
+        <select className="input !h-8 !py-1 text-xs" value={String(s.format ?? 'rectangle')} onChange={(e) => onSet('format', e.target.value)}>
+          <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="vertical">Vertical</option><option value="leaderboard">Leaderboard</option><option value="video">Video</option>
+        </select>
+      );
+    case 'image':
+      return <input className="input !h-8 !py-1 text-xs" value={String(s.url ?? '')} onChange={(e) => onSet('url', e.target.value)} placeholder="Image URL" />;
+    case 'poll':
+      return <EntityPicker value={String(s.pollId ?? '')} onChange={(id) => onSet('pollId', id)} endpoint="/api/admin/polls/search" placeholder="Poll (or leave for active)…" />;
+    case 'quiz':
+      return <EntityPicker value={String(s.quizId ?? '')} onChange={(id) => onSet('quizId', id)} endpoint="/api/admin/quizzes/search" placeholder="Quiz (or leave for active)…" />;
+    case 'heading':
+      return <input className="input !h-8 !py-1 text-xs" value={String(s.text ?? '')} onChange={(e) => onSet('text', e.target.value)} placeholder="Heading text" />;
+    case 'text':
+      return <input className="input !h-8 !py-1 text-xs" value={String(s.body ?? '')} onChange={(e) => onSet('body', e.target.value)} placeholder="Text" />;
+    default:
+      return null;
+  }
 }
 

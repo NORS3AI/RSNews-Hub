@@ -109,6 +109,14 @@ export type Block = {
   // Optional small uppercase eyebrow shown above the element.
   label?: string;
   settings: BlockSettings;
+  // Priority stack: if this element has no content to show right now (a poll
+  // that isn't running, a hand-picked article that's unpublished, an empty
+  // image…), the renderer falls through to these in order and shows the first
+  // one that CAN fill. A generic type at the bottom (e.g. an ad, or an
+  // auto/latest article) makes the slot un-emptiable, so the module never
+  // collapses or resizes — content is only ever replaced, never removed.
+  // Fallbacks are plain blocks; their own `fallbacks` are ignored (one level).
+  fallbacks?: Block[];
 };
 
 export type ModuleTree = {
@@ -122,7 +130,14 @@ export type ModuleTree = {
 
 // Hard caps so a malformed/hostile payload can't blow up the renderer or DB.
 export const MAX_BLOCKS = 40;
+export const MAX_FALLBACKS = 4;
 const MAX_OPTIONS = 12;
+
+// The full priority stack for a slot: the block itself, then its fallbacks in
+// order. The renderer/preview walk this and use the first rung that can fill.
+export function blockChain(b: Block): Block[] {
+  return b.fallbacks && b.fallbacks.length ? [b, ...b.fallbacks] : [b];
+}
 
 /* ------------------------------ Validation ------------------------------- */
 
@@ -189,14 +204,25 @@ export function normalizeTree(input: unknown): ModuleTree {
   return { shape, rsColor: color(obj.rsColor), expireDays, children };
 }
 
-function normalizeBlock(input: unknown, index: number): Block | null {
+function normalizeBlock(input: unknown, index: number, allowFallbacks = true): Block | null {
   if (!input || typeof input !== 'object') return null;
   const o = input as Record<string, unknown>;
   if (!isBlockType(o.type)) return null;
   const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim().slice(0, 64) : `b${index}`;
   const settings = normalizeSettings(o.type, o.settings);
   const label = str(o.label, 60).trim();
-  return { id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}), settings };
+  // Fallbacks are a single level deep — a fallback's own `fallbacks` are dropped
+  // so a slot can never fan out into an unbounded tree.
+  let fallbacks: Block[] | undefined;
+  if (allowFallbacks && Array.isArray(o.fallbacks)) {
+    const fb: Block[] = [];
+    for (let i = 0; i < o.fallbacks.length && fb.length < MAX_FALLBACKS; i++) {
+      const f = normalizeBlock(o.fallbacks[i], i, false);
+      if (f) fb.push(f);
+    }
+    if (fb.length) fallbacks = fb;
+  }
+  return { id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}), settings, ...(fallbacks ? { fallbacks } : {}) };
 }
 
 function str(v: unknown, max: number): string {
