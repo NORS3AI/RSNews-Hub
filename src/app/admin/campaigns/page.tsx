@@ -18,12 +18,16 @@ function toDateInput(d: Date) {
 }
 
 export default async function AdminCampaigns() {
-  const campaigns = await prisma.adCampaign.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: { flights: { orderBy: { index: 'asc' }, include: { _count: { select: { ads: true } } } } },
-  });
+  const [campaigns, failedSubs] = await Promise.all([
+    prisma.adCampaign.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { flights: { orderBy: { index: 'asc' }, include: { _count: { select: { ads: true } } } } },
+    }),
+    prisma.adSubmission.count({ where: { status: 'FAILED' } }),
+  ]);
   const now = new Date();
   const today = toDateInput(now);
+  const draftCount = campaigns.filter((c) => c.status === 'DRAFT').length;
 
   return (
     <div className="max-w-5xl">
@@ -31,6 +35,21 @@ export default async function AdminCampaigns() {
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
         A campaign is a vendor&apos;s purchase. Every package runs in <strong>3-month flights</strong> — no creative is ever up longer than one flight, so multi-month packages need fresh ads each flight. Schedule a flight to put its ads live; they come down automatically at the flight&apos;s end.
       </p>
+
+      {(draftCount > 0 || failedSubs > 0) && (
+        <div className="mb-5 space-y-2">
+          {draftCount > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+              <strong>{draftCount} draft campaign{draftCount === 1 ? '' : 's'}</strong> awaiting review — some arrive from JotForm submissions. Open one, assign its creatives to a flight, then schedule it to go live. Drafts never serve.
+            </div>
+          )}
+          {failedSubs > 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">
+              <strong>{failedSubs} JotForm submission{failedSubs === 1 ? '' : 's'} failed</strong> to process (e.g. missing vendor or field-map mismatch). Check the ingestion logs / field map.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Create */}

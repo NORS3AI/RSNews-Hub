@@ -157,10 +157,17 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   **publishes** (only PUBLISHED reports show on the vendor Performance tab). The
   numbers are frozen into `PerformanceReport.metrics` (JSON) at generation, so a
   published report is stable as raw events age out. `scripts/seed-ad-analytics.mjs`
-  seeds demo events. **Next phases:** (6) **JotForm ingestion** (auto-pull
-  submissions → images to storage → draft campaign for admin review); (7) renewal
-  reminder emails (needs the email seam wired + a nightly cron hitting
-  `/api/ads/maintenance`).
+  seeds demo events. **Done (v0.46.0): JotForm ingestion.** A JotForm webhook
+  (`POST /api/ingest/jotform`) turns each vendor submission into a DRAFT campaign
+  + creatives for admin review — timing-safe secret, idempotent on the submission
+  id, creatives fetched **only from JotForm hosts** (SSRF-guarded) through the
+  image pipeline, raw payload kept for audit. Field mapping is data
+  (`JOTFORM_FIELD_MAP`), parsing is pure/tested (`src/lib/jotform.ts`), the
+  fetch/DB side is `src/lib/jotformIngest.ts`. Admin `/admin/campaigns` shows a
+  review banner. **Next phases:** (7) renewal reminder emails (wire the email
+  seam + a nightly cron hitting `/api/ads/maintenance`); (8) payment
+  reconciliation; (9) Package-Hub content gating (the `meetsRequirement`
+  primitive is already built).
 - ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
   API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
   **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role
@@ -266,8 +273,8 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
-`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` + `PerformanceReport` (ad sales — a
-campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows; reports are per vendor per quarter), plus a
+`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `Vendor` + `AdCampaign` + `AdFlight` + `PerformanceReport` + `AdSubmission` (ad sales — a
+campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-vendors.mjs` once after deploy to link legacy rows; reports are per vendor per quarter; `AdSubmission` records each JotForm webhook), plus a
 `Setting` row for the homepage layout. See `prisma/schema.prisma`. `User` also
 gained cached entitlement columns mirrored from the SSO token — `accountType`,
 `tier`, `affiliations` (comma list), `vendorBrand`, `region`, `storeType`.

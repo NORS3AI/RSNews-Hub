@@ -117,3 +117,35 @@ The entitlement facets above additionally power:
 None of that needs anything from you beyond the verified claims above.
 
 `GET /api/health` reports the active `authMode` so you can confirm the wiring.
+
+## Ingesting ad submissions from JotForm
+Vendors buy + submit ads on a JotForm form (package, dates, creative images).
+Point a **JotForm webhook** at the hub and each submission becomes a **draft
+campaign + creatives waiting for admin review** — nothing goes live until an
+admin schedules a flight.
+
+1. Set a secret and (optionally) map your form's field keys:
+   ```
+   JOTFORM_WEBHOOK_SECRET=<a long random string>
+   # only the keys that differ from the defaults:
+   JOTFORM_FIELD_MAP={"vendorName":"q3_company","plan":"q5_package","images":"q9_ads"}
+   ```
+2. In JotForm → **Settings → Integrations → Webhooks**, add:
+   ```
+   https://<your-hub-host>/api/ingest/jotform?key=<JOTFORM_WEBHOOK_SECRET>
+   ```
+   (or send the secret as an `x-jotform-token` header instead of the query key).
+
+What the hub does with each submission:
+- verifies the secret (timing-safe) and **dedupes on the JotForm submission id**
+  (a re-delivered webhook can't double-create);
+- resolves/creates the `Vendor`, creates a **DRAFT** `AdCampaign` (its plan
+  mapped from the submitted package, split into 3-month flights);
+- fetches each creative **only from JotForm's own hosts** (SSRF-guarded, size +
+  timeout capped), runs it through the image pipeline, and files it as an
+  inactive creative;
+- records the raw submission for audit; failures are kept and surfaced in the
+  admin (`/admin/campaigns`) rather than lost.
+
+Unset `JOTFORM_WEBHOOK_SECRET` disables the endpoint (returns 503). Renewals are
+just new submissions — the same flow drafts the next campaign for review.

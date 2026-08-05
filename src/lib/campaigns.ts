@@ -18,6 +18,7 @@ export type CreateCampaignInput = {
   startAt: Date;
   endAt?: Date | null;   // required for seasonal plans; else derived from the plan length
   notes?: string;
+  status?: string;       // 'ACTIVE' (admin-created) | 'DRAFT' (e.g. JotForm — needs review)
 };
 
 /** Create a campaign and its flights. Returns the campaign id. */
@@ -42,7 +43,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<string
       endAt,
       allowsVideo: plan.allowsVideo,
       notes: input.notes || null,
-      status: 'ACTIVE',
+      status: input.status === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
       flights: { create: flights.map((f) => ({ index: f.index, startAt: f.startAt, endAt: f.endAt })) },
     },
   });
