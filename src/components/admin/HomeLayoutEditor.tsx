@@ -100,7 +100,7 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
       </ol>
 
       <div className="mt-5 flex items-center justify-between">
-        <p className="text-sm text-[var(--muted)]">Changes apply to the public homepage instantly.</p>
+        <p className="text-sm text-[var(--muted)]">Changes are saved as a draft — press <strong>Go Live</strong> above to publish.</p>
         <button disabled={pending} onClick={() => run(() => resetHomeLayout())} className="btn-outline btn-sm">Reset to default</button>
       </div>
     </div>

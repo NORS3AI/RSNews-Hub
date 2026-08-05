@@ -50,7 +50,7 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
         <div className="card grid place-items-center gap-2 p-10 text-center">
           <Grid width={28} height={28} className="text-[var(--muted)]" />
           <p className="font-semibold">No custom modules yet.</p>
-          <p className="max-w-sm text-sm text-[var(--muted)]">Create your first module above. Once you publish it, add it to the homepage from <Link href="/admin/homepage" className="text-brand-600 hover:underline">Homepage layout</Link>.</p>
+          <p className="max-w-sm text-sm text-[var(--muted)]">Create your first module above. Save it for later as a draft, and when you publish it, it&apos;s staged on the <Link href="/admin/homepage" className="text-brand-600 hover:underline">Homepage layout</Link> — arrange it, then press <strong>Go Live</strong>.</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -62,7 +62,7 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
                   {m.name}
                   {m.published
                     ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
-                    : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Draft</span>}
+                    : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Saved for later</span>}
                 </div>
                 <div className="text-sm text-[var(--muted)]">{SHAPES[m.shape as Shape]?.label ?? m.shape} · {m.blocks} block{m.blocks === 1 ? '' : 's'}</div>
               </div>

@@ -214,6 +214,11 @@ A custom module is a **composition tree** stored as JSON:
   + a draft "not live yet" nudge, on top of the existing unsaved-changes guard.
   *Deferred:* tweaking colors/order directly on the homepage with live preview
   (today you edit in the Studio, which shows a live canvas + RS preview).
+- **Phase 8 — "Go Live" staging.** ✅ Homepage arrangement edits (reorder,
+  visibility, lock, custom-module placement) go to a **draft** layout; the public
+  homepage renders the **live** layout until an admin presses **Go Live**
+  (Discard reverts to live). Publishing a Studio module stages it into the draft;
+  a module left unpublished is "saved for later" in the Studio library.
 - **Phase 7 — Custom RS Mode background** + polish. ✅ Admins can set the
   RS-Mode page background color from the Homepage layout page; it's injected
   server-side (validated hex) and applies only in RS Mode. Clearing it restores

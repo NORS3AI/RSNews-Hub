@@ -1,13 +1,15 @@
-import { getHomeLayout, moduleSource, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
+import { getDraftLayout, hasDraftChanges, moduleSource, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
 import { isCustomModuleId, customIdOf } from '@/lib/studio';
 import { prisma } from '@/lib/db';
 import HomeLayoutEditor from '@/components/admin/HomeLayoutEditor';
 import RsBackgroundControl from '@/components/admin/RsBackgroundControl';
+import GoLiveBar from '@/components/admin/GoLiveBar';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminHomepage() {
-  const layout = await getHomeLayout();
+  // Admins edit the DRAFT arrangement; it goes public only via Go Live.
+  const [layout, pending] = await Promise.all([getDraftLayout(), hasDraftChanges()]);
 
   // Resolve display names for any custom modules referenced in the layout.
   const customIds = layout.map((m) => customIdOf(m.id)).filter((v): v is string => !!v);
@@ -48,8 +50,9 @@ export default async function AdminHomepage() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold">Homepage layout</h1>
       <p className="mb-6 mt-1 text-[var(--muted)]">
-        Drag to reorder or use the arrows; toggle visibility, and lock a module to freeze it in place. The headline block stays pinned at the top.
+        Drag to reorder or use the arrows; toggle visibility, and lock a module to freeze it in place. Changes are saved as a draft — press <strong>Go Live</strong> to publish them to the public homepage. The headline block stays pinned at the top.
       </p>
+      <GoLiveBar pending={pending} />
       <RsBackgroundControl current={rsBg} />
       <HomeLayoutEditor modules={modules} />
     </div>

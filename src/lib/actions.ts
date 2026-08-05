@@ -6,7 +6,7 @@ import { prisma } from './db';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
@@ -602,68 +602,79 @@ export async function rebuildAnalyticsRollups() {
 
 /* ---------------------------- Homepage layout ---------------------------- */
 
+// All homepage arrangement edits below modify the DRAFT layout only; the public
+// homepage is unchanged until an admin calls publishHomeLayout ("Go Live").
 export async function moveHomeModule(id: string, direction: 'up' | 'down') {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const i = layout.findIndex((m) => m.id === id);
   if (i === -1 || layout[i].locked) return;
   const j = direction === 'up' ? i - 1 : i + 1;
   if (j < 0 || j >= layout.length || layout[j].locked) return;
   [layout[i], layout[j]] = [layout[j], layout[i]];
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 // Persist a drag-and-drop order (locks are enforced server-side).
 export async function reorderHomeModules(orderedIds: string[]) {
   await ensureStaff();
-  const layout = await getHomeLayout();
-  await saveHomeLayout(applyReorder(layout, orderedIds));
+  const layout = await getDraftLayout();
+  await saveDraftLayout(applyReorder(layout, orderedIds));
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function toggleHomeModule(id: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   if (!m || m.locked) return; // locked modules can't be hidden
   m.enabled = !m.enabled;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function toggleHomeLock(id: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   if (!m) return;
   m.locked = !m.locked;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function setHomeModuleSource(id: string, source: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   const def = MODULE_CATALOG[id as ModuleId];
   if (!m || !def?.sources) return;
   if (!def.sources.some((s) => s.value === source)) return; // reject unknown source
   m.source = source;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function resetHomeLayout() {
   await ensureStaff();
-  await saveHomeLayout(DEFAULT_LAYOUT);
+  await saveDraftLayout(DEFAULT_LAYOUT);
+  revalidatePath('/admin/homepage');
+}
+
+// Go Live: promote the draft arrangement to the public homepage.
+export async function publishHomeLayout() {
+  await ensureStaff();
+  await publishDraftLayout();
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');
+}
+
+// Throw away pending draft changes and snap back to what's currently live.
+export async function discardHomeDraft() {
+  await ensureStaff();
+  await discardDraftLayout();
+  revalidatePath('/admin/homepage');
 }
 
 // Persist the signed-in member's chosen UI theme so it follows them across
@@ -712,9 +723,10 @@ export async function renameCustomModule(id: string, name: string): Promise<void
 export async function setCustomModulePublished(id: string, published: boolean): Promise<void> {
   await ensureStaff();
   await prisma.customModule.update({ where: { id }, data: { published: !!published } });
-  // On publish, place the module on the homepage (appended, enabled) if it isn't
-  // there yet — the admin can then reorder/lock it like any module. Unpublishing
-  // leaves it in the layout but gated off, so its slot is remembered.
+  // On publish, STAGE the module into the draft homepage (appended, enabled) if
+  // it isn't placed yet — it won't appear publicly until the admin hits Go Live.
+  // Unpublishing leaves its slot in place but gated off (published=false), so it
+  // simply doesn't render live.
   if (published) {
     // Turn poll blocks into real, votable Poll records with their timers running.
     const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
@@ -725,9 +737,9 @@ export async function setCustomModulePublished(id: string, published: boolean): 
       }
     }
     const layoutId = `custom:${id}`;
-    const layout = await getHomeLayout();
+    const layout = await getDraftLayout();
     if (!layout.some((m) => m.id === layoutId)) {
-      await saveHomeLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
+      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
     }
   }
   revalidatePath('/admin/studio');
@@ -738,10 +750,13 @@ export async function setCustomModulePublished(id: string, published: boolean): 
 export async function deleteCustomModule(id: string): Promise<void> {
   await ensureStaff();
   await prisma.customModule.delete({ where: { id } });
-  // Drop it from the saved homepage layout too, so no dangling reference remains.
-  const layout = await getHomeLayout();
-  const pruned = layout.filter((m) => m.id !== `custom:${id}`);
-  if (pruned.length !== layout.length) await saveHomeLayout(pruned);
+  // Drop it from BOTH the live and draft layouts so no dangling reference remains.
+  const layoutId = `custom:${id}`;
+  const [live, draft] = await Promise.all([getHomeLayout(), getDraftLayout()]);
+  const prunedLive = live.filter((m) => m.id !== layoutId);
+  if (prunedLive.length !== live.length) await saveHomeLayout(prunedLive);
+  const prunedDraft = draft.filter((m) => m.id !== layoutId);
+  if (prunedDraft.length !== draft.length) await saveDraftLayout(prunedDraft);
   revalidatePath('/admin/studio');
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');

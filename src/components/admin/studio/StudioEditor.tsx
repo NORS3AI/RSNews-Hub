@@ -148,7 +148,7 @@ export default function StudioEditor({
       {!pub && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
           <span className="h-2 w-2 rounded-full bg-amber-500" />
-          This module is a <strong>draft</strong> — it isn&apos;t on the homepage yet. Click <strong>Publish</strong> when you&apos;re ready.
+          This module is <strong>saved for later</strong> — it isn&apos;t staged on the homepage yet. Click <strong>Publish</strong> to stage it (then Go Live from Homepage layout).
         </div>
       )}
 
