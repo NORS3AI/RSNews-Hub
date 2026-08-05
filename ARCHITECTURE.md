@@ -88,6 +88,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
 | `reports.ts` | Quarterly performance reports: pure quarter math (`quarterOf`/`lastCompletedQuarter`/`recentQuarters`) + `computeSnapshot`/`generateReportDraft` (snapshot the ad analytics into a report) + publish/list lifecycle. |
 | `jotform.ts` / `jotformIngest.ts` | JotForm ad-submission ingestion: pure parsing + SSRF host guard + field map (`parseJotformSubmission`, `isAllowedCreativeHost`) / server side (`ingestSubmission` — fetch creatives, draft campaign, record). |
+| `adReminders.ts` | Vendor reminder emails (pure templates `freshAdsEmail`/`renewalEmail` + `sendDueReminders` — find due, send via the email seam, mark reminded only after a successful send). Driven by the nightly `ads/maintenance` route. |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
 | `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |

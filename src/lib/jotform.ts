@@ -11,6 +11,7 @@ import { AD_PLANS } from './adPlans';
 
 export type JotformFieldMap = {
   vendorName: string;
+  email: string;
   plan: string;
   startDate: string;
   endDate: string;
@@ -22,6 +23,7 @@ export type JotformFieldMap = {
 // (e.g. "q5_package") via the JOTFORM_FIELD_MAP env var.
 export const DEFAULT_FIELD_MAP: JotformFieldMap = {
   vendorName: 'vendorName',
+  email: 'email',
   plan: 'package',
   startDate: 'startDate',
   endDate: 'endDate',
@@ -91,6 +93,7 @@ export function parseDate(v: unknown): Date | null {
 
 export type ParsedSubmission = {
   vendorName: string;
+  email: string;      // vendor contact for reminders ('' if absent/invalid)
   planKey: string;
   startAt: Date | null;
   endAt: Date | null;
@@ -99,6 +102,8 @@ export type ParsedSubmission = {
   issues: string[];   // non-fatal problems for the admin to see
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /** Parse a JotForm rawRequest object into the hub's canonical draft shape. */
 export function parseJotformSubmission(raw: Record<string, unknown>, map: JotformFieldMap): ParsedSubmission {
   const issues: string[] = [];
@@ -106,9 +111,12 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
   if (!vendorName) issues.push('No vendor name found — check the field map.');
   const imageUrls = collectUrls(raw[map.images]);
   if (!imageUrls.length) issues.push('No creative images found in the submission.');
+  const emailRaw = str(raw[map.email]);
+  const email = EMAIL_RE.test(emailRaw) ? emailRaw : '';
   const startAt = parseDate(raw[map.startDate]);
   return {
     vendorName,
+    email,
     planKey: resolvePlanKey(raw[map.plan]),
     startAt,
     endAt: parseDate(raw[map.endDate]),

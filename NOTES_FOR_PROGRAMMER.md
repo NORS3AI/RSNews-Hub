@@ -170,8 +170,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   `canViewContent` (which, unlike `meetsRequirement`, denies signed-out viewers of
   gated content). Locked articles show a teaser + gate screen (no content, no view
   tracked); listings show a 🔒 badge (`requirementLabel`); the article editor has
-  an **Access** field. **Next phases:** (8) renewal reminder emails (wire the email
-  seam + a nightly cron hitting `/api/ads/maintenance`); (9) payment reconciliation.
+  an **Access** field. **Done (v0.49.0): reminder emails.** The nightly
+  `POST /api/ads/maintenance` (cron/admin) now also sends vendor nudges via
+  `src/lib/adReminders.ts` — "fresh ads needed" (a flight starts within 21 days
+  but has no creatives) and "renewal" (a campaign ends within 30 days) — to the
+  vendor's `contactEmail` (captured from the JotForm `email` field). Templates are
+  pure/tested; a reminder is marked sent only **after** a successful send (vendors
+  with no email are skipped and stay due), so nothing is silently marked done.
+  Uses the email seam (`RESEND_API_KEY` + `EMAIL_FROM`; logs a no-op when unset).
+  **Next phases:** (9) payment reconciliation (a `Payment` model; a campaign can't
+  go live unpaid — buildable against Stripe test mode).
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API

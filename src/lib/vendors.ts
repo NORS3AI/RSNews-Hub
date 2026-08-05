@@ -27,15 +27,21 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * key. Idempotent: the same name in any casing returns the same vendor, and the
  * first-seen display name is preserved (a later spelling won't clobber it).
  */
-export async function findOrCreateVendor(name: string, db: Db = prisma): Promise<string> {
+export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
+  const email = contactEmail?.trim() || undefined;
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
     update: {},
-    create: { name: name.trim(), brandKey: key },
-    select: { id: true },
+    create: { name: name.trim(), brandKey: key, contactEmail: email },
+    select: { id: true, contactEmail: true },
   });
+  // Backfill a contact email onto an existing vendor that doesn't have one yet
+  // (e.g. first submission lacked it) — but never overwrite an existing address.
+  if (email && !vendor.contactEmail) {
+    await db.vendor.update({ where: { id: vendor.id }, data: { contactEmail: email } });
+  }
   return vendor.id;
 }
 
