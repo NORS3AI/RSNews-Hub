@@ -11,6 +11,7 @@ export type ArticleCard = {
   readMinutes: number;
   category: { name: string; slug: string; color: string } | null;
   tags: { name: string; slug: string }[];
+  requirement?: string;
 };
 
 const cardSelect = {
@@ -22,6 +23,7 @@ const cardSelect = {
   publishedAt: true,
   views: true,
   readMinutes: true,
+  requirement: true,
   category: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;

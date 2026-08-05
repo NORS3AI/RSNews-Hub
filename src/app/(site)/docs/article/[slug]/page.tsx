@@ -11,7 +11,7 @@ import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
 import InArticleAd from '@/components/InArticleAd';
 import { pickArticleAds } from '@/lib/adsServer';
-import { entitlementsOf } from '@/lib/entitlements';
+import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -51,6 +51,12 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
 
   const user = await getCurrentUser();
+
+  // Access gate (e.g. Package Hub–only content). Enforced here, server-side,
+  // before any content is read or a view is tracked.
+  if (!canViewContent(user, article.requirement)) {
+    return <LockedArticle article={article} signedIn={!!user} />;
+  }
 
   const [related, next, subscribed] = await Promise.all([
     getRelatedArticles(article.id, 3),
@@ -151,5 +157,35 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         </div>
       )}
     </>
+  );
+}
+
+// Access-gated article: the title/excerpt are shown as a teaser, but the content
+// is withheld and no read is tracked. `requirement` labels who it's for.
+function LockedArticle({ article, signedIn }: { article: { title: string; excerpt: string | null; requirement: string; category: { name: string; slug: string; color: string } | null }; signedIn: boolean }) {
+  const who = requirementLabel(article.requirement);
+  return (
+    <div className="container-reader py-8 sm:py-12">
+      <Link href="/docs" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
+        <ArrowLeft width={16} height={16} /> All articles
+      </Link>
+      {article.category && (
+        <div className="mb-4">
+          <span className="badge" style={{ backgroundColor: article.category.color + '22', color: article.category.color }}>{article.category.name}</span>
+        </div>
+      )}
+      <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
+      {article.excerpt && <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>}
+
+      <div className="card mt-8 p-8 text-center">
+        <p className="text-base font-semibold">This article is for {who}.</p>
+        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
+          {signedIn
+            ? `Your account doesn’t include ${who} access. If you think this is a mistake, contact RS News.`
+            : `Sign in on the main RS News site with a ${who} account to read it.`}
+        </p>
+        {!signedIn && <Link href="/login?next=/docs" className="btn-primary btn-sm mt-4 inline-flex">Sign in</Link>}
+      </div>
+    </div>
   );
 }

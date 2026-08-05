@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { entitlementsOf, parseAffiliations, isVendor, isPremium, isStaff, hasAffiliation, brandKey, meetsRequirement } from './entitlements';
+import { entitlementsOf, parseAffiliations, isVendor, isPremium, isStaff, hasAffiliation, brandKey, meetsRequirement, canViewContent, requirementLabel } from './entitlements';
 
 describe('parseAffiliations', () => {
   it('splits comma/space lists into normalized keys', () => {
@@ -59,5 +59,34 @@ describe('brandKey', () => {
   it('lowercases + trims for matching', () => {
     expect(brandKey('  PackWise ')).toBe('packwise');
     expect(brandKey(null)).toBe('');
+  });
+});
+
+describe('canViewContent (gating incl. the signed-out case)', () => {
+  const franchisee = { accountType: 'MEMBER', tier: 'premium', affiliations: 'packagehub' };
+  const basic = { accountType: 'MEMBER' };
+  it('public / blank content is open to everyone, even signed out', () => {
+    expect(canViewContent(null, '')).toBe(true);
+    expect(canViewContent(null, 'public')).toBe(true);
+  });
+  it('gated content always requires a signed-in account', () => {
+    expect(canViewContent(null, 'member')).toBe(false);
+    expect(canViewContent(null, 'packagehub')).toBe(false);
+    expect(canViewContent(null, 'premium')).toBe(false);
+  });
+  it('honors the entitlement for signed-in accounts', () => {
+    expect(canViewContent(basic, 'member')).toBe(true);
+    expect(canViewContent(basic, 'packagehub')).toBe(false);
+    expect(canViewContent(franchisee, 'packagehub')).toBe(true);
+    expect(canViewContent(franchisee, 'premium')).toBe(true);
+  });
+});
+
+describe('requirementLabel', () => {
+  it('maps known tokens and passes through affiliations', () => {
+    expect(requirementLabel('')).toBe('everyone');
+    expect(requirementLabel('premium')).toBe('RS Premium');
+    expect(requirementLabel('packagehub')).toBe('Package Hub');
+    expect(requirementLabel('CustomNetwork')).toBe('CustomNetwork');
   });
 });

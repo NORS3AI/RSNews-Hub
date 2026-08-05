@@ -8,7 +8,7 @@ import { CONTENT_STATUSES } from '@/lib/constants';
 type Cat = { id: string; name: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
-  status: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
+  status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
   publishedAt?: string | Date | null;
 };
 
@@ -95,6 +95,20 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
                 <option value="">Uncategorized</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="requirement">Access</label>
+              <input id="requirement" name="requirement" list="requirement-opts" defaultValue={article?.requirement ?? ''}
+                className="input" placeholder="public" autoComplete="off" />
+              <datalist id="requirement-opts">
+                <option value="public">Everyone (public)</option>
+                <option value="member">Any signed-in member</option>
+                <option value="premium">RS Premium</option>
+                <option value="packagehub">Package Hub</option>
+                <option value="vendor">Vendors</option>
+                <option value="staff">Staff</option>
+              </datalist>
+              <p className="mt-1 text-xs text-[var(--muted)]">Who can read this. Blank/<code>public</code> = everyone. Or a tier (<code>premium</code>), account type (<code>vendor</code>/<code>staff</code>), or an affiliation key (e.g. <code>packagehub</code>) — free-form, so new groups work without a code change.</p>
             </div>
             <div>
               <label className="label" htmlFor="publishedAt">Publish date &amp; time</label>
