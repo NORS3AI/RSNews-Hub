@@ -3,12 +3,12 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BLOCKS, BLOCK_IDS, SHAPES, SHAPE_IDS, makeBlock, MAX_BLOCKS,
+  BLOCKS, BLOCK_GROUPS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, MAX_BLOCKS,
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
-import { BlockView, shapeInnerClass, childWidthClass, rsStyle } from '@/components/site/CustomModule';
+import { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
-import { ArrowLeft, Plus, Grip, Trash, Copy, Check } from '@/components/icons';
+import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight } from '@/components/icons';
 
 function newId(): string {
   try { return 'b' + crypto.randomUUID().slice(0, 8); } catch { return 'b' + Date.now().toString(36); }
@@ -26,6 +26,7 @@ export default function StudioEditor({
   const [selected, setSelected] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [rsPreview, setRsPreview] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [saving, startSave] = useTransition();
   const drag = useRef<DragState>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
@@ -167,21 +168,36 @@ export default function StudioEditor({
             </div>
           </Panel>
           <Panel title="Add block">
-            <div className="space-y-1.5">
-              {BLOCK_IDS.map((t) => (
-                <button key={t}
-                  draggable
-                  onDragStart={() => { drag.current = { kind: 'palette', type: t }; }}
-                  onDragEnd={() => { drag.current = null; setOverIndex(null); }}
-                  onClick={() => addBlock(t)}
-                  disabled={tree.children.length >= MAX_BLOCKS}
-                  className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-2 text-left text-xs font-semibold hover:border-brand-400 disabled:opacity-40"
-                  title={BLOCKS[t].description}>
-                  <Plus width={13} height={13} className="shrink-0 text-brand-600" /> {BLOCKS[t].label}
-                </button>
-              ))}
+            <div className="space-y-2">
+              {BLOCK_GROUPS.map((g) => {
+                const open = openGroups[g] !== false;
+                return (
+                  <div key={g}>
+                    <button onClick={() => setOpenGroups((o) => ({ ...o, [g]: !open }))}
+                      className="flex w-full items-center gap-1 text-[11px] font-black uppercase tracking-wide text-[var(--muted)] hover:text-[var(--fg)]">
+                      {open ? <ChevronDown width={12} height={12} /> : <ChevronRight width={12} height={12} />} {g}
+                    </button>
+                    {open && (
+                      <div className="mt-1 space-y-1.5">
+                        {blocksInGroup(g).map((t) => (
+                          <button key={t}
+                            draggable
+                            onDragStart={() => { drag.current = { kind: 'palette', type: t }; }}
+                            onDragEnd={() => { drag.current = null; setOverIndex(null); }}
+                            onClick={() => addBlock(t)}
+                            disabled={tree.children.length >= MAX_BLOCKS}
+                            className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-2 text-left text-xs font-semibold hover:border-brand-400 disabled:opacity-40"
+                            title={BLOCKS[t].description}>
+                            <Plus width={13} height={13} className="shrink-0 text-brand-600" /> {BLOCKS[t].label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <p className="mt-2 text-[11px] leading-tight text-[var(--muted)]">Click to append, or drag onto the canvas to place. {tree.children.length}/{MAX_BLOCKS}</p>
+            <p className="mt-2 text-[11px] leading-tight text-[var(--muted)]">Click to append, or drag onto the canvas. {tree.children.length}/{MAX_BLOCKS}</p>
           </Panel>
         </aside>
 
@@ -194,7 +210,7 @@ export default function StudioEditor({
             </label>
           </div>
           <div className={rsPreview ? 'rs rounded-2xl' : ''}>
-            <section className="module studio-fill min-h-[200px]" style={rsStyle(tree.rsColor)}
+            <section className={`module studio-fill min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
               {tree.children.length === 0 ? (
                 <div
@@ -351,15 +367,50 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
           )}
         </>
       )}
+      {block.type === 'article-headline' && (
+        <Field label="Source">
+          <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
+            <option value="featured">Featured</option>
+            <option value="latest">Latest</option>
+            <option value="trending">Trending</option>
+          </select>
+        </Field>
+      )}
       {block.type === 'ad' && (
-        <Field label="Ad slot"><input className="input" value={String(s.slot ?? 'auto')} onChange={(e) => set('slot', e.target.value)} /></Field>
+        <Field label="Ad format">
+          <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
+            <option value="rectangle">Rectangle (medium)</option>
+            <option value="leaderboard">Leaderboard (wide banner)</option>
+            <option value="video">Video</option>
+          </select>
+        </Field>
+      )}
+      {block.type === 'image' && (
+        <>
+          <Field label="Image URL"><input className="input" value={String(s.url ?? '')} onChange={(e) => set('url', e.target.value)} placeholder="https://…" /></Field>
+          <Field label="Alt text"><input className="input" value={String(s.alt ?? '')} onChange={(e) => set('alt', e.target.value)} placeholder="Describe the image" /></Field>
+          <Field label={`Width — ${Number(s.widthPct ?? 100)}% of the module`}>
+            <input type="range" min={10} max={200} step={5} value={Number(s.widthPct ?? 100)} onChange={(e) => set('widthPct', Number(e.target.value))} className="w-full accent-brand-600" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% intentionally overflows the module edges.</p>
+          </Field>
+          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
+        </>
+      )}
+      {block.type === 'quiz' && (
+        <p className="mb-3 text-sm text-[var(--muted)]">Shows the current Pop Quiz on the homepage. Manage quizzes under <strong>Pop Quiz</strong>.</p>
       )}
       {block.type === 'poll' && (
         <>
           <Field label="Question"><input className="input" value={String(s.question ?? '')} onChange={(e) => set('question', e.target.value)} placeholder="What's your question?" /></Field>
           <PollOptions options={Array.isArray(s.options) ? (s.options as string[]) : []} onChange={(opts) => set('options', opts)} />
           <Field label="Timer (hours)"><input type="number" min={1} className="input" value={Number(s.timerHours ?? 72)} onChange={(e) => set('timerHours', Number(e.target.value))} /></Field>
-          <p className="-mt-1 mb-3 text-[11px] text-[var(--muted)]">When the timer ends the poll hides and moves to the archive (Phase 5).</p>
+          <Field label="Results chart">
+            <select className="input" value={String(s.chart ?? 'bar')} onChange={(e) => set('chart', e.target.value)}>
+              <option value="bar">Bars</option>
+              <option value="pie">Pie</option>
+            </select>
+          </Field>
+          <p className="-mt-1 mb-3 text-[11px] text-[var(--muted)]">When the timer ends the poll closes, is logged, and moves to the archive.</p>
         </>
       )}
       {block.type === 'heading' && (

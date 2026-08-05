@@ -5,7 +5,7 @@ import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from 
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
 import { sweepExpiredModulePolls } from '@/lib/studioPolls';
-import { shapeInnerClass, childWidthClass, rsStyle } from '@/components/site/CustomModule';
+import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -160,12 +160,39 @@ export default async function DocsHome() {
         }
         case 'text':
           return wrap(<div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>);
-        case 'ad':
-          return wrap(<div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd('rectangle', `custom-${row.id}-${i}`)}</div>);
+        case 'ad': {
+          const fmt = b.settings.format === 'leaderboard' ? 'leaderboard' : 'rectangle';
+          return wrap(<div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd(fmt, `custom-${row.id}-${i}`)}</div>);
+        }
+        case 'image': {
+          const url = String(b.settings.url ?? '');
+          if (!url) return null;
+          const w = Number(b.settings.widthPct) || 100;
+          const radius = b.settings.radius !== false;
+          // eslint-disable-next-line @next/next/no-img-element
+          return wrap(<img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />);
+        }
+        case 'quiz': {
+          if (!activeQuiz) return null;
+          return wrap(
+            <div className="studio-fill" style={style}>
+              <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />
+            </div>
+          );
+        }
         case 'article':
-        case 'article-image': {
+        case 'article-image':
+        case 'article-headline': {
           const card = nextCard(String(b.settings.source ?? 'latest'));
           if (!card) return null;
+          if (b.type === 'article-headline') {
+            return wrap(
+              <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+                <div className="text-[12px] font-semibold uppercase tracking-wide text-brand-600">{card.category?.name ?? 'Story'}</div>
+                <ArticleLink slug={card.slug} className="studio-fit mt-1 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
+              </article>
+            );
+          }
           return wrap(
             <div className="studio-fill" style={style}>
               <ArticleCard article={card} compact={b.type === 'article'} trk={{ place: layoutId, props: { module: layoutId, moduleType: 'custom', pos: i } }} />
@@ -178,7 +205,7 @@ export default async function DocsHome() {
           if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
           return wrap(
             <div className="studio-fill" style={style}>
-              <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} />
+              <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} chart={b.settings.chart === 'pie' ? 'pie' : 'bar'} />
             </div>
           );
         }
@@ -188,7 +215,7 @@ export default async function DocsHome() {
     }).filter(Boolean);
     if (kids.length === 0) return null;
     return (
-      <section key={layoutId} className="module studio-fill" style={rsStyle(tree.rsColor)}>
+      <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
         <h2 className="module-title mb-4">{row.name}</h2>
         <div className={shapeInnerClass(tree.shape)}>{kids}</div>
       </section>

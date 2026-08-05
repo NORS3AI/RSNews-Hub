@@ -65,8 +65,19 @@ describe('studio tree model', () => {
   });
 
   it('whitelists settings keys — unknown fields are stripped', () => {
-    const t = normalizeTree({ children: [{ type: 'ad', settings: { slot: 'auto', evil: '<script>' } }] });
-    expect(t.children[0].settings).toEqual({ slot: 'auto' });
+    const t = normalizeTree({ children: [{ type: 'ad', settings: { format: 'leaderboard', evil: '<script>' } }] });
+    expect(t.children[0].settings).toEqual({ format: 'leaderboard' });
+  });
+
+  it('normalizes new block types (image clamps width, ad format falls back)', () => {
+    const t = normalizeTree({ children: [
+      { type: 'image', settings: { url: 'https://x/y.png', widthPct: 500, alt: 'hi' } },
+      { type: 'ad', settings: { format: 'bogus' } },
+      { type: 'article-headline', settings: { source: 'trending' } },
+    ] });
+    expect(t.children[0].settings).toMatchObject({ url: 'https://x/y.png', widthPct: 200, alt: 'hi' }); // clamped to 200
+    expect(t.children[1].settings).toEqual({ format: 'rectangle' }); // unknown → default
+    expect(t.children[2].settings).toEqual({ source: 'trending' });
   });
 
   it('round-trips through serialize/parse', () => {

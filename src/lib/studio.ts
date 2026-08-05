@@ -5,11 +5,12 @@
 
 /* ------------------------------- Containers ------------------------------ */
 
-export type Shape = 'column' | 'row' | 'grid' | 'card';
+export type Shape = 'column' | 'sidebar' | 'row' | 'grid' | 'card';
 
 export type ShapeDef = { label: string; description: string };
 export const SHAPES: Record<Shape, ShapeDef> = {
-  column: { label: 'Column', description: 'Tall, narrow vertical stack.' },
+  column: { label: 'Column', description: 'Tall vertical stack (full width).' },
+  sidebar: { label: 'Sidebar', description: 'Skinny vertical column; blocks shrink to fit.' },
   row: { label: 'Row', description: 'Horizontal band of blocks.' },
   grid: { label: 'Grid', description: 'Auto-flowing responsive grid.' },
   card: { label: 'Card', description: 'A single framed block.' },
@@ -21,48 +22,73 @@ export function isShape(v: unknown): v is Shape {
 
 /* --------------------------------- Blocks -------------------------------- */
 
-export type BlockType = 'article' | 'article-image' | 'ad' | 'poll' | 'heading' | 'text';
+export type BlockType =
+  | 'article' | 'article-image' | 'article-headline'
+  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image';
+
+// Palette groups — let the builder collapse whole categories of blocks.
+export type BlockGroup = 'Articles' | 'Media' | 'Interactive' | 'Content';
 
 export type BlockDef = {
   label: string;
   description: string;
+  group: BlockGroup;
   // Default settings applied when a fresh block of this type is created.
   defaults: BlockSettings;
 };
 
 export const BLOCKS: Record<BlockType, BlockDef> = {
   article: {
-    label: 'Article',
+    label: 'Article', group: 'Articles',
     description: 'Headline + dek, no image.',
     defaults: { source: 'latest', showDek: true },
   },
   'article-image': {
-    label: 'Article + image',
+    label: 'Article + image', group: 'Articles',
     description: 'Headline + dek with image.',
     defaults: { source: 'latest', showDek: true, imagePosition: 'top' },
   },
+  'article-headline': {
+    label: 'Article headline', group: 'Articles',
+    description: 'Headline only — fills the row and shrinks to fit.',
+    defaults: { source: 'latest' },
+  },
   ad: {
-    label: 'Ad',
+    label: 'Ad', group: 'Media',
     description: 'Ad slot — auto-fits the container.',
-    defaults: { slot: 'auto' },
+    defaults: { format: 'rectangle' },
+  },
+  image: {
+    label: 'Image', group: 'Media',
+    description: 'A picture with manual resize.',
+    defaults: { url: '', alt: '', widthPct: 100, radius: true },
   },
   poll: {
-    label: 'Poll',
+    label: 'Poll', group: 'Interactive',
     description: 'Live reader poll with an optional timer.',
-    defaults: { question: '', options: ['', ''], timerHours: 72 },
+    defaults: { question: '', options: ['', ''], timerHours: 72, chart: 'bar' },
+  },
+  quiz: {
+    label: 'Quiz', group: 'Interactive',
+    description: 'Shows the current Pop Quiz.',
+    defaults: {},
   },
   heading: {
-    label: 'Heading',
+    label: 'Heading', group: 'Content',
     description: 'A section title.',
     defaults: { text: 'Section title', level: 2 },
   },
   text: {
-    label: 'Text',
+    label: 'Text', group: 'Content',
     description: 'Freeform rich text.',
     defaults: { body: '' },
   },
 };
 export const BLOCK_IDS = Object.keys(BLOCKS) as BlockType[];
+export const BLOCK_GROUPS: BlockGroup[] = ['Articles', 'Media', 'Interactive', 'Content'];
+export function blocksInGroup(group: BlockGroup): BlockType[] {
+  return BLOCK_IDS.filter((t) => BLOCKS[t].group === group);
+}
 export function isBlockType(v: unknown): v is BlockType {
   return typeof v === 'string' && v in BLOCKS;
 }
@@ -159,8 +185,24 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         showDek: bool(s.showDek, true),
         imagePosition: s.imagePosition === 'left' || s.imagePosition === 'top' ? s.imagePosition : 'top',
       };
-    case 'ad':
-      return { slot: str(s.slot, 40) || 'auto' };
+    case 'article-headline':
+      return { source: articleSource(s.source) };
+    case 'ad': {
+      const format = s.format === 'leaderboard' || s.format === 'video' ? s.format : 'rectangle';
+      return { format };
+    }
+    case 'image': {
+      const w = Number(s.widthPct);
+      return {
+        url: str(s.url, 2000),
+        alt: str(s.alt, 300),
+        // Manual resize: 10%–200% of the container (>100% intentionally overflows).
+        widthPct: Number.isFinite(w) ? Math.min(Math.max(Math.round(w), 10), 200) : 100,
+        radius: bool(s.radius, true),
+      };
+    }
+    case 'quiz':
+      return {};
     case 'poll': {
       const options = (Array.isArray(s.options) ? s.options : [])
         .map((o) => str(o, 120))
@@ -171,6 +213,7 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         question: str(s.question, 200),
         options,
         timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 72,
+        chart: s.chart === 'pie' ? 'pie' : 'bar',
       };
       // Link to the materialized Poll record (set once the module is published).
       if (typeof s.pollId === 'string' && s.pollId) out.pollId = s.pollId.slice(0, 64);

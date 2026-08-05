@@ -3,13 +3,13 @@ import type { ModuleTree, Block, Shape } from '@/lib/studio';
 import { isHexColor } from '@/lib/studio';
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
-// presentational — the same component draws the Studio canvas preview and (once
-// wired) the live homepage. RS-Mode-only colors are applied via the `--studio-rs`
-// custom property, which only RS-mode CSS reads (see globals.css .studio-fill).
+// presentational — the same component draws the Studio canvas preview and the
+// live homepage. RS-Mode-only colors are applied via the `--studio-rs` custom
+// property, which only RS-mode CSS reads (see globals.css .studio-fill).
 //
-// Data-driven blocks (article/ad/poll) render representative placeholders here;
-// live-content resolution is layered on in a later phase. Heading/text render
-// their real content immediately.
+// Data-driven blocks (article/ad/poll/quiz) render representative placeholders
+// here; the live homepage swaps in real content (see docs/page.tsx). Heading,
+// text and image render their real content immediately.
 
 export function rsStyle(color?: string | null): CSSProperties | undefined {
   return color && isHexColor(color) ? ({ ['--studio-rs' as any]: color } as CSSProperties) : undefined;
@@ -17,6 +17,7 @@ export function rsStyle(color?: string | null): CSSProperties | undefined {
 
 const SHAPE_INNER: Record<Shape, string> = {
   column: 'flex flex-col gap-4',
+  sidebar: 'flex flex-col gap-3',
   row: 'studio-row flex gap-4 overflow-x-auto pb-1',
   grid: 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3',
   card: 'flex flex-col gap-3',
@@ -25,15 +26,22 @@ export function shapeInnerClass(shape: Shape): string {
   return SHAPE_INNER[shape];
 }
 
-// In a horizontal row, each child needs a sensible min width so it doesn't
-// collapse; elsewhere children fill their track.
+// A horizontal row gives each child a min width; a sidebar is a skinny column
+// whose contents shrink to fit (with a font floor, see .studio-sidebar).
 export function childWidthClass(shape: Shape): string {
-  return shape === 'row' ? 'w-64 shrink-0' : 'w-full';
+  if (shape === 'row') return 'w-64 shrink-0';
+  return 'w-full';
+}
+
+// Extra classes for the module frame itself, per shape (e.g. the sidebar's
+// narrow width + font-scaling hook).
+export function shapeContainerClass(shape: Shape): string {
+  return shape === 'sidebar' ? 'studio-sidebar max-w-xs' : '';
 }
 
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
-    <section className="module studio-fill" style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
+    <section className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
       {title ? <h2 className="module-title mb-4">{title}</h2> : null}
       {tree.children.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">This module is empty.</p>
@@ -63,17 +71,37 @@ export function BlockView({ block }: { block: Block }) {
     }
     case 'text':
       return <div className="prose-article text-[15px] leading-relaxed">{String(s.body ?? '')}</div>;
-    case 'ad':
+    case 'image': {
+      const url = String(s.url ?? '');
+      const w = Number(s.widthPct) || 100;
+      const radius = s.radius !== false;
+      if (!url) {
+        return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Image — set a URL in settings</div>;
+      }
+      // eslint-disable-next-line @next/next/no-img-element
+      return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+    }
+    case 'ad': {
+      const format = String(s.format ?? 'rectangle');
+      const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : 'min-h-[90px]';
       return (
-        <div className="studio-fill studio-ad grid min-h-[90px] place-items-center rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4 text-center" style={style}>
-          <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">Advertisement</span>
+        <div className={`studio-fill studio-ad grid ${h} place-items-center rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4 text-center`} style={style}>
+          <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">{format === 'video' ? 'Video ad' : 'Advertisement'}</span>
+        </div>
+      );
+    }
+    case 'quiz':
+      return (
+        <div className="studio-fill card grid min-h-[90px] place-items-center p-4 text-center" style={style}>
+          <span className="text-sm font-bold text-[var(--muted)]">Pop Quiz — shows the current quiz</span>
         </div>
       );
     case 'poll': {
       const options = Array.isArray(s.options) ? (s.options as unknown[]).map(String).filter(Boolean) : [];
+      const pie = s.chart === 'pie';
       return (
         <div className="studio-fill card p-4" style={style}>
-          <div className="mb-2 text-sm font-bold">{String(s.question || 'Reader poll')}</div>
+          <div className="mb-2 text-sm font-bold">{String(s.question || 'Reader poll')}{pie ? ' · pie' : ''}</div>
           <ul className="space-y-1.5">
             {(options.length ? options : ['Option one', 'Option two']).map((o, i) => (
               <li key={i} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-3 py-1.5 text-sm">
@@ -85,6 +113,13 @@ export function BlockView({ block }: { block: Block }) {
         </div>
       );
     }
+    case 'article-headline':
+      return (
+        <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+          <div className="text-[12px] font-semibold uppercase tracking-wide text-brand-600">{String(s.source ?? 'latest')}</div>
+          <h3 className="studio-fit mt-1 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
+        </article>
+      );
     case 'article':
     case 'article-image': {
       const withImage = block.type === 'article-image';
