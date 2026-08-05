@@ -20,6 +20,7 @@ const links = [
   { href: '/admin/tags', label: 'Tags', icon: Tag },
   { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
   { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
+  { href: '/admin/vendors', label: 'Vendors', icon: Users },
   { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
   { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
 ];

@@ -65,13 +65,14 @@ export async function unassignAd(adId: string): Promise<void> {
   await prisma.ad.update({ where: { id: adId }, data: { flightId: null } });
 }
 
-/** Schedule a flight ("Go"): it must have at least one creative AND its campaign
- *  must be paid (a campaign can't go live unpaid — mark it paid in the admin). */
+/** Schedule a flight ("Go"): it must have at least one creative AND the campaign's
+ *  payment must be confirmed (a campaign can't go live before then — confirm it
+ *  in the admin; JotForm confirms it automatically when the vendor pays there). */
 export async function scheduleFlight(flightId: string): Promise<void> {
   const flight = await prisma.adFlight.findUnique({ where: { id: flightId }, select: { campaignId: true, _count: { select: { ads: true } } } });
   if (!flight) throw new Error('Flight not found');
   if (flight._count.ads === 0) throw new Error('Add at least one creative before scheduling this flight');
-  if (!(await campaignIsPaid(flight.campaignId))) throw new Error('This campaign isn’t marked paid yet — record payment before it can go live.');
+  if (!(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
 }
 

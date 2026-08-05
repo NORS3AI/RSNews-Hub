@@ -184,8 +184,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   entered by an admin (comped/offline). `src/lib/payments.ts` is pure where it
   counts (`isPaid`/`parseAmountToCents`/`normalizePaymentStatus`). **A flight
   can't be scheduled until its campaign is paid** (`scheduleFlight` throws); the
-  admin campaign page shows a Paid/Unpaid badge + a "Mark as paid" control. This
-  completes the ad-sales system end to end.
+  admin campaign page shows a payment-confirmed badge + a "Confirm payment"
+  control. **No money moves through the hub — this is a confirmation flag only**
+  (all paying is on JotForm). This completes the ad-sales system end to end.
+  **Done (v0.51.0): operational polish.** Admin **Vendors** page (`/admin/vendors`)
+  to view vendors + set/fix each one's reminder **contact email** (the reminder
+  emails need it; previously it could only come from JotForm). A committed
+  **nightly GitHub Action** (`.github/workflows/nightly.yml`) hits
+  `/api/ads/maintenance` + `/api/analytics/rollup` on a schedule (set `PROD_URL`
+  + `CRON_SECRET` repo secrets; no-ops otherwise) so reminders/lifecycle/rollups
+  actually run. Payment wording is now "confirmation", not money-handling.
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API

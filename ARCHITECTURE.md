@@ -42,6 +42,7 @@ src/
         article/[slug]/  category/[slug]/  tag/[slug]/  page/[slug]/
         search/  clippings/  history/  subscriptions/  archive/*  vendor/ (ad dashboard)
       login/  register/  account/  layout.tsx
+    admin/                 …articles, campaigns, vendors, reports, analytics, users, …
     admin/                 admin console (articles, users, ads, analytics, …)
     api/                   route handlers (see below)
     robots.ts  sitemap.ts  error.tsx  global-error.tsx  layout.tsx  globals.css

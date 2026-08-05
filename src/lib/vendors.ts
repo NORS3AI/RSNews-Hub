@@ -24,8 +24,14 @@ export function sameVendor(a: unknown, b: unknown): boolean {
 
 /**
  * Find (or create) the Vendor for a display name, keyed on its normalized brand
- * key. Idempotent: the same name in any casing returns the same vendor, and the
- * first-seen display name is preserved (a later spelling won't clobber it).
+ * key. Idempotent on identity: the same name in any casing returns the same
+ * vendor, and the first-seen display name is preserved (a later spelling won't
+ * clobber it).
+ *
+ * `contactEmail` (when provided — i.e. a JotForm order carried one) ALWAYS wins
+ * and refreshes the vendor's contact, because the email on the latest order is
+ * the most current person to reach for reminders. Omitting it (e.g. an
+ * admin-created campaign) leaves any existing address untouched.
  */
 export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string): Promise<string> {
   const key = brandKey(name);
@@ -33,15 +39,10 @@ export async function findOrCreateVendor(name: string, db: Db = prisma, contactE
   const email = contactEmail?.trim() || undefined;
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
-    update: {},
+    update: email ? { contactEmail: email } : {},
     create: { name: name.trim(), brandKey: key, contactEmail: email },
-    select: { id: true, contactEmail: true },
+    select: { id: true },
   });
-  // Backfill a contact email onto an existing vendor that doesn't have one yet
-  // (e.g. first submission lacked it) — but never overwrite an existing address.
-  if (email && !vendor.contactEmail) {
-    await db.vendor.update({ where: { id: vendor.id }, data: { contactEmail: email } });
-  }
   return vendor.id;
 }
 
@@ -51,4 +52,15 @@ export async function vendorIdForBrand(brand: unknown): Promise<string | null> {
   if (!key) return null;
   const v = await prisma.vendor.findUnique({ where: { brandKey: key }, select: { id: true } });
   return v?.id ?? null;
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Admin: set a vendor's reminder contact email + internal notes. Validates the
+ *  email (blank clears it). This is how an admin fixes/fills a missing address so
+ *  reminder emails can reach the vendor. */
+export async function updateVendorContact(id: string, contactEmail: string, notes: string): Promise<void> {
+  const email = contactEmail.trim();
+  if (email && !EMAIL_RE.test(email)) throw new Error('Enter a valid email address (or leave it blank).');
+  await prisma.vendor.update({ where: { id }, data: { contactEmail: email || null, notes: notes.trim() || null } });
 }

@@ -42,7 +42,7 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">{campaign.vendorName}</h1>
         <div className="flex items-center gap-2">
-          <span className={`badge ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{paid ? `Paid${paidLabel ? ` · ${paidLabel}` : ''}` : 'Unpaid'}</span>
+          <span className={`badge ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{paid ? `Payment confirmed${paidLabel ? ` · ${paidLabel}` : ''}` : 'Payment not confirmed'}</span>
           <span className="badge">{campaign.status}</span>
         </div>
       </div>
@@ -54,8 +54,8 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
 
       {!isOver && !paid && (
         <div className="card mb-5 border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-semibold text-red-800">This campaign isn’t paid — flights can’t go live until it is.</p>
-          <p className="mb-3 text-xs text-red-700">A JotForm payment records automatically. Otherwise, mark it paid here (comped or a payment taken offline).</p>
+          <p className="text-sm font-semibold text-red-800">Payment isn’t confirmed — flights can’t go live until it is.</p>
+          <p className="mb-3 text-xs text-red-700">Paying happens on JotForm, not here. JotForm confirms this automatically when the vendor pays; otherwise confirm it here (e.g. comped, or you verified the payment landed). The amount is just for your records.</p>
           <form action={markAdCampaignPaid} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="campaignId" value={campaign.id} />
             <div>
@@ -64,9 +64,9 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
             </div>
             <div className="min-w-40 flex-1">
               <label className="label text-xs">Note (optional)</label>
-              <input name="note" className="input h-9" placeholder="PO#, offline check, comped…" />
+              <input name="note" className="input h-9" placeholder="PO#, comped, verified in JotForm…" />
             </div>
-            <button className="btn-primary btn-sm">Mark as paid</button>
+            <button className="btn-primary btn-sm">Confirm payment</button>
           </form>
         </div>
       )}
