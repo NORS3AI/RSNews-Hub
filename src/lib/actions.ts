@@ -49,6 +49,9 @@ export async function saveArticle(formData: FormData) {
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
   const featured = formData.get('featured') === 'on';
   const pinned = formData.get('pinned') === 'on';
+  // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
+  const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
+  const requirement = requirementRaw === 'public' ? '' : requirementRaw;
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
   const publishedAtRaw = ((formData.get('publishedAt') as string) || '').trim();
@@ -80,7 +83,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         // Explicit date wins (backdate or schedule); otherwise keep existing or stamp now on publish.
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt),
@@ -91,7 +94,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     await prisma.article.create({
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, featured, pinned, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? new Date() : null),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },

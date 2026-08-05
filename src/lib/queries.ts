@@ -3,7 +3,7 @@ import type { ArticleCard } from './recommend';
 
 export const listSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, publishedAt: true,
-  views: true, readMinutes: true,
+  views: true, readMinutes: true, requirement: true,
   category: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;

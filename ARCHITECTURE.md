@@ -82,7 +82,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `rateLimit.ts` | In-memory fixed-window rate limiter (login/register brute-force + flood protection). |
 | `homepage.ts` | Homepage module catalog + admin-arranged layout (stored as JSON in `Setting`). |
 | `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance, flight-window, paid-inventory & visiting-vendor `favorBrand` preference) / DB inventory loader. |
-| `entitlements.ts` | Pure entitlement model over the SSO facets: free-form `tier`/`affiliations`/`vendorBrand` (no hardcoded enum) → `isVendor`/`isPremium`/`hasAffiliation`/`meetsRequirement` (data-driven content gating) + `brandKey`. |
+| `entitlements.ts` | Pure entitlement model over the SSO facets: free-form `tier`/`affiliations`/`vendorBrand` (no hardcoded enum) → `isVendor`/`isPremium`/`hasAffiliation`/`meetsRequirement` + `canViewContent` (content gating, denies signed-out) + `requirementLabel` + `brandKey`. |
 | `recommend.ts` | Article recommendations + `smartSearch`. |
 | `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
 | `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
@@ -132,8 +132,8 @@ These recur on purpose — learn them once and the codebase is predictable.
 
 ## Data model (`prisma/schema.prisma`)
 
-Content: `Article` · `Category` · `Tag` · `ArticleTag` · `Page` · `Comic` ·
-`IndustryLink` · `Ad`. Engagement (all per-account): `Poll`/`PollOption`/
+Content: `Article` (with `requirement`, an entitlement gate) · `Category` · `Tag`
+· `ArticleTag` · `Page` · `Comic` · `IndustryLink` · `Ad`. Engagement (all per-account): `Poll`/`PollOption`/
 `PollVote` · `Quiz`/`QuizQuestion`/`QuizOption`/`QuizResponse` · `Subscription` ·
 `ReadingLog` · `SavedItem` · `Clipping`. People: `User` (with `externalId` for
 the parent-site link + audience facets). Ad sales: `Vendor` (advertiser, unique

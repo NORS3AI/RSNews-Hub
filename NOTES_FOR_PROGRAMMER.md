@@ -164,10 +164,14 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   image pipeline, raw payload kept for audit. Field mapping is data
   (`JOTFORM_FIELD_MAP`), parsing is pure/tested (`src/lib/jotform.ts`), the
   fetch/DB side is `src/lib/jotformIngest.ts`. Admin `/admin/campaigns` shows a
-  review banner. **Next phases:** (7) renewal reminder emails (wire the email
-  seam + a nightly cron hitting `/api/ads/maintenance`); (8) payment
-  reconciliation; (9) Package-Hub content gating (the `meetsRequirement`
-  primitive is already built).
+  review banner. **Done (v0.47.0): content gating.** `Article.requirement`
+  (free-form token: `premium` | `vendor` | `staff` | `member` | an affiliation
+  like `packagehub`) gates a story — enforced server-side on the article page via
+  `canViewContent` (which, unlike `meetsRequirement`, denies signed-out viewers of
+  gated content). Locked articles show a teaser + gate screen (no content, no view
+  tracked); listings show a 🔒 badge (`requirementLabel`); the article editor has
+  an **Access** field. **Next phases:** (8) renewal reminder emails (wire the email
+  seam + a nightly cron hitting `/api/ads/maintenance`); (9) payment reconciliation.
 - ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
   API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
   **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role

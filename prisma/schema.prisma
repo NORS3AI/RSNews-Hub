@@ -389,6 +389,10 @@ model Article {
   content     String
   coverImage  String?
   status      String    @default("DRAFT")
+  // Access gate: '' / 'public' = everyone; else an entitlement token checked
+  // against the viewer (premium | vendor | staff | member | an affiliation key
+  // like 'packagehub'). Enforced server-side on the article page. See lib/entitlements.
+  requirement String    @default("")
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)

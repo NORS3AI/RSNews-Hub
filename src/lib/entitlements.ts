@@ -66,3 +66,26 @@ export function meetsRequirement(e: Entitlements, required: string): boolean {
   if (r === 'member') return true; // any signed-in account is a member
   return hasAffiliation(e, r);
 }
+
+/**
+ * Can this viewer see content gated by `requirement`? Unlike `meetsRequirement`,
+ * this handles the signed-OUT case: gated content (anything but public/'') always
+ * requires a signed-in account, so a null/absent account is denied.
+ */
+export function canViewContent(account: AccountLike | null | undefined, requirement: string): boolean {
+  const r = norm(requirement).toLowerCase();
+  if (!r || r === 'all' || r === 'public') return true;
+  if (!account) return false; // gated content requires sign-in
+  return meetsRequirement(entitlementsOf(account), r);
+}
+
+/** A human label for a requirement token, for gate screens and badges. */
+export function requirementLabel(requirement: string): string {
+  const r = norm(requirement).toLowerCase();
+  const known: Record<string, string> = {
+    premium: 'RS Premium', vendor: 'vendor', staff: 'staff', member: 'members',
+    packagehub: 'Package Hub',
+  };
+  if (!r || r === 'all' || r === 'public') return 'everyone';
+  return known[r] ?? norm(requirement);
+}

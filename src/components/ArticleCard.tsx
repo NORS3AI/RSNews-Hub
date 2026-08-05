@@ -1,5 +1,6 @@
 import { Clock, Eye } from './icons';
 import { formatDate } from '@/lib/utils';
+import { requirementLabel } from '@/lib/entitlements';
 import type { ArticleCard as Card } from '@/lib/recommend';
 import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
@@ -35,6 +36,9 @@ export default function ArticleCard({ article, compact = false, trk }: { article
               <span className="badge" style={{ backgroundColor: article.category.color + '22', color: article.category.color }}>
                 {article.category.name}
               </span>
+            )}
+            {article.requirement && (
+              <span className="badge bg-amber-100 text-amber-800">🔒 {requirementLabel(article.requirement)}</span>
             )}
           </div>
           {/* Title is never truncated — the card grows to fit it. */}
