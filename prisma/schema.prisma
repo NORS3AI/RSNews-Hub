@@ -349,6 +349,9 @@ model User {
   vendorBrand  String?       // for vendors: the ad brand they own (favored ads + dashboard)
   storeType    String?       // e.g. franchise | independent | chain (member facet)
   region       String?       // e.g. Northeast | Midwest | South | West
+  // Remembered UI theme (light | dark | rs). Lets the chosen theme follow the
+  // member across devices; anonymous visitors fall back to localStorage.
+  theme        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

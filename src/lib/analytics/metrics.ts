@@ -199,3 +199,35 @@ export function tally<T>(items: T[], keyFn: (t: T) => string): { key: string; co
   for (const it of items) { const k = keyFn(it); m.set(k, (m.get(k) ?? 0) + 1); }
   return [...m.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
 }
+
+// Theme usage: which UI mode people actually browse in. We count each distinct
+// actor (signed-in userId, else the anonymous visitorId, else the session) once,
+// by their MOST RECENT theme signal in the window — so a reader who switches
+// Light→RS lands in RS, not both. `switches` counts deliberate toggles.
+const THEME_LABELS: Record<string, string> = { light: 'Light', dark: 'Dark', rs: 'RS Mode' };
+export function aggregateThemes(evs: Ev[]): {
+  rows: { theme: string; label: string; users: number; pct: number }[];
+  totalUsers: number;
+  switches: number;
+} {
+  const latest = new Map<string, { theme: string; at: number }>();
+  let switches = 0;
+  for (const e of evs) {
+    if (e.type !== 'theme') continue;
+    const theme = String(e.props.theme ?? '');
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'rs') continue;
+    if (e.props.reason === 'switch') switches++;
+    const actor = e.userId || e.visitorId || e.sessionId;
+    if (!actor) continue;
+    const at = new Date(e.createdAt).getTime();
+    const prev = latest.get(actor);
+    if (!prev || at >= prev.at) latest.set(actor, { theme, at });
+  }
+  const counts: Record<string, number> = { light: 0, dark: 0, rs: 0 };
+  for (const { theme } of latest.values()) counts[theme] = (counts[theme] ?? 0) + 1;
+  const totalUsers = latest.size;
+  const rows = (['light', 'dark', 'rs'] as const).map((t) => ({
+    theme: t, label: THEME_LABELS[t], users: counts[t], pct: totalUsers ? counts[t] / totalUsers : 0,
+  }));
+  return { rows, totalUsers, switches };
+}

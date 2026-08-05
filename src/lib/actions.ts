@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from './db';
-import { requireAdmin, hashPassword, getCurrentUser } from './auth';
+import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
@@ -661,4 +661,14 @@ export async function resetHomeLayout() {
   await saveHomeLayout(DEFAULT_LAYOUT);
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');
+}
+
+// Persist the signed-in member's chosen UI theme so it follows them across
+// devices. No-ops for anonymous visitors (they rely on localStorage). Accepts
+// only the three known themes; anything else is ignored.
+export async function setUserTheme(theme: string) {
+  const user = await getSessionUser();
+  if (!user) return; // anonymous — localStorage handles persistence
+  if (theme !== 'light' && theme !== 'dark' && theme !== 'rs') return;
+  await prisma.user.update({ where: { id: user.id }, data: { theme } });
 }
