@@ -32,11 +32,11 @@ export default function ThemeToggle() {
 
   if (!mounted) return <div className="h-9 w-9" aria-hidden />;
   const next = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
-  // Show the icon of the theme you'll switch TO (matches the old two-way toggle).
-  const icon = next === 'dark' ? <Moon /> : next === 'rs' ? <Stamp /> : <Sun />;
+  // Show the icon of the CURRENT theme so it matches what's on screen.
+  const icon = theme === 'dark' ? <Moon /> : theme === 'rs' ? <Stamp /> : <Sun />;
   return (
     <button onClick={cycle} className="btn-ghost h-9 w-9 !px-0"
-      aria-label={`Theme: ${LABEL[theme]}. Switch to ${LABEL[next]} mode.`}
+      aria-label={`Theme: ${LABEL[theme]}. Click to switch to ${LABEL[next]} mode.`}
       title={`Theme: ${LABEL[theme]} — click for ${LABEL[next]}`}>
       {icon}
     </button>
