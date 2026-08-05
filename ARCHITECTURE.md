@@ -80,8 +80,9 @@ Business logic lives here so routes/components stay thin. One line each:
 | `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
 | `rateLimit.ts` | In-memory fixed-window rate limiter (login/register brute-force + flood protection). |
 | `homepage.ts` | Homepage module catalog + admin-arranged layout (stored as JSON in `Setting`). |
-| `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance) / DB inventory loader. |
+| `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance, flight-window & paid-inventory preference) / DB inventory loader. |
 | `recommend.ts` | Article recommendations + `smartSearch`. |
+| `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
 | `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |

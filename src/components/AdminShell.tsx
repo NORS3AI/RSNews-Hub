@@ -19,6 +19,7 @@ const links = [
   { href: '/admin/categories', label: 'Categories', icon: Layers },
   { href: '/admin/tags', label: 'Tags', icon: Tag },
   { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
+  { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
   { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
 ];
 

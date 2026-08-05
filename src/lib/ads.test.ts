@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { adIsSafe, adIsRelevant, pickInArticleAd, adsAreRivals, pickTwoInArticleAds, type AdRow } from './ads';
+import { adIsSafe, adIsRelevant, pickInArticleAd, adsAreRivals, pickTwoInArticleAds, adIsLive, type AdRow } from './ads';
 
 function ad(partial: Partial<AdRow> & { id: string; brand: string }): AdRow {
   return {
@@ -7,6 +7,37 @@ function ad(partial: Partial<AdRow> & { id: string; brand: string }): AdRow {
     accent: '#000', keywords: '', competitors: '', active: true, ...partial,
   };
 }
+
+const NOW = new Date('2026-06-15T00:00:00Z');
+const inWindow = { flightStartAt: '2026-06-01T00:00:00Z', flightEndAt: '2026-09-01T00:00:00Z' };
+
+describe('adIsLive', () => {
+  it('house ads (no flight) follow the active flag', () => {
+    expect(adIsLive(ad({ id: 'h', brand: 'House', active: true }), NOW)).toBe(true);
+    expect(adIsLive(ad({ id: 'h', brand: 'House', active: false }), NOW)).toBe(false);
+  });
+  it('flighted ads are live only when SCHEDULED and inside the window', () => {
+    expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow }), NOW)).toBe(true);
+    expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'REVIEW', ...inWindow }), NOW)).toBe(false); // not scheduled
+    expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-07-01T00:00:00Z', flightEndAt: '2026-10-01T00:00:00Z' }), NOW)).toBe(false); // before window
+    expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-01-01T00:00:00Z', flightEndAt: '2026-04-01T00:00:00Z' }), NOW)).toBe(false); // after window (auto-takedown)
+  });
+});
+
+describe('pickInArticleAd — paid inventory preference', () => {
+  it('serves a live paid (flighted) ad over an eligible house ad', () => {
+    const house = ad({ id: 'house', brand: 'House' });
+    const paid = ad({ id: 'paid', brand: 'Vendor', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const pick = pickInArticleAd([house, paid], 'some article text', 'seed', NOW);
+    expect(pick?.id).toBe('paid');
+  });
+  it('excludes a flighted ad whose window has passed (falls back to house)', () => {
+    const house = ad({ id: 'house', brand: 'House' });
+    const expired = ad({ id: 'old', brand: 'Vendor', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-01-01T00:00:00Z', flightEndAt: '2026-04-01T00:00:00Z' });
+    const pick = pickInArticleAd([house, expired], 'text', 'seed', NOW);
+    expect(pick?.id).toBe('house');
+  });
+});
 
 const postalmate = ad({ id: 'pm', brand: 'PostalMate', keywords: 'PostalMate, postal mate', competitors: 'ShipRite, ship rite' });
 const shiprite = ad({ id: 'sr', brand: 'ShipRite', keywords: 'ShipRite, ship rite', competitors: 'PostalMate, postal mate' });

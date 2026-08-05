@@ -124,6 +124,20 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ## 3. Already handled (so the dev doesn't redo it)
 
+- 🟠🔵 **Vendor ad-sales system** — being built in phases. **Done (v0.42.0):
+  campaign scheduling backbone.** A campaign (`AdCampaign`) is a vendor's purchase,
+  split into **3-month flights** (`AdFlight`): 3mo = 1 flight, 6mo = 2, 12mo = 4,
+  Premium adds video, Holiday/Seasonal = a custom window — all from a flexible,
+  addable plan catalog (`src/lib/adPlans.ts`), so new packages are config, not
+  code. Admin (`/admin/campaigns`) assigns creatives to a flight and **Schedules
+  ("Go")** it; serving (`lib/ads` — paid inventory preferred over house ads) only
+  shows a flight's ads inside its window, so **takedown is automatic** at flight
+  end. Nightly `POST /api/ads/maintenance` (cron/admin) ends elapsed flights,
+  completes finished campaigns, and flags flights whose fresh creatives are due
+  soon. **Next phases:** (2) flexible roles + vendor identity from the SSO token;
+  (3) vendor dashboard (status/history/countdown + admin-approved quarterly
+  performance); (4) **JotForm ingestion** (auto-pull submissions → images to
+  storage → draft campaign for admin review); (5) renewal reminder emails.
 - ✅ **Pre-launch security pass** _(v0.41.0)_ — full audit of auth/identity, all
   API routes, uploads, injection/XSS, secrets, headers. Fixes: editor HTML is
   **sanitized on write** (`src/lib/sanitize.ts` — no stored XSS from EDITOR-role
@@ -229,7 +243,7 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
-`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), plus a
+`AnalyticsDaily` (rollups), `SavedItem` + `Clipping` (per-account saves), `AdCampaign` + `AdFlight` (ad sales), plus a
 `Setting` row for the homepage layout. See `prisma/schema.prisma`.
 
 ---

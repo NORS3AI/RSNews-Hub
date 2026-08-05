@@ -174,7 +174,52 @@ model Ad {
   video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
+  // Vendor ads belong to a 3-month flight (paid inventory); house ads have no
+  // flight and serve whenever active. A flighted ad is only live inside its
+  // flight's scheduled window (auto-takedown is automatic — see lib/ads).
+  flightId    String?
+  flight      AdFlight? @relation(fields: [flightId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
+
+  @@index([flightId])
+}
+
+// A vendor's purchase of an ad package. Everything runs in 3-month "flights";
+// packages just chain more flights (3mo = 1, 6mo = 2, 12mo = 4). No creative is
+// ever live longer than one flight — vendors submit fresh ads for each. `plan`
+// is a catalog key (see src/lib/adPlans.ts), so new packages are config, not code.
+model AdCampaign {
+  id          String     @id @default(cuid())
+  vendorName  String                       // free-text for now; links to a vendor account in a later phase
+  plan        String                       // adPlans catalog key: 'quarter' | 'half' | 'annual' | 'premium' | …
+  startAt     DateTime
+  endAt       DateTime
+  status      String     @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | CANCELLED
+  allowsVideo Boolean    @default(false)
+  notes       String?
+  createdAt   DateTime   @default(now())
+  flights     AdFlight[]
+
+  @@index([status])
+}
+
+// One 3-month window within a campaign. Holds that window's creatives (~3, they
+// rotate). Admin reviews then schedules a flight ("Go"); serving filters by the
+// window so it auto-comes-down at endAt. `remindedAt` marks that we've nudged the
+// vendor to submit fresh ads for the next flight.
+model AdFlight {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  index      Int                            // 1-based flight number within the campaign
+  startAt    DateTime
+  endAt      DateTime
+  status     String     @default("AWAITING") // AWAITING (needs creatives) | REVIEW | SCHEDULED | ENDED
+  remindedAt DateTime?
+  ads        Ad[]
+
+  @@index([campaignId])
+  @@index([status, startAt, endAt])
 }
 
 // NOTE: SQLite does not support native enums. Status/role fields are strings
