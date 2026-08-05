@@ -165,13 +165,19 @@ it uses the admin session). The job is idempotent and re-rolls the last few days
 to catch late-arriving events.
 
 Add a **second nightly cron** for ad-campaign upkeep (same `CRON_SECRET`) — it
-ends elapsed ad flights, completes finished campaigns, and flags flights whose
-fresh creatives are due soon (vendor reminders). Ad takedown itself is automatic
-(serving respects each flight's window), so this is bookkeeping:
+ends elapsed ad flights, completes finished campaigns, and **sends vendor reminder
+emails** (fresh-ads + renewal, when `RESEND_API_KEY`/`EMAIL_FROM` are set). Ad
+takedown itself is automatic (serving respects each flight's window), so this is
+bookkeeping + reminders:
 
 ```bash
 curl -X POST https://YOURSITE/api/ads/maintenance -H "Authorization: Bearer $CRON_SECRET"
 ```
+
+**Don't want to configure a host scheduler?** A ready-made GitHub Action —
+`.github/workflows/nightly.yml` — hits both endpoints on a daily schedule.
+Just add two repo secrets (`PROD_URL`, `CRON_SECRET`) and it runs; without
+`PROD_URL` it no-ops. (Prefer your host's native cron if it has one.)
 
 **Image optimization** is automatic (via `sharp`, a dependency). On upload,
 images are auto-oriented, **stripped of metadata (including GPS)**, downscaled to

@@ -1,6 +1,7 @@
-// Payments against ad campaigns. A campaign can't go live (schedule a flight)
-// until it has a settled (PAID) payment — recorded from the JotForm submission
-// when it collected payment, or entered manually by an admin (comped/offline).
+// Payment CONFIRMATION for ad campaigns. No money moves through the hub — all
+// paying happens on JotForm. This records whether a campaign's payment has been
+// confirmed (JotForm reports it on the submission, or an admin confirms it), and
+// a campaign can't go live (schedule a flight) until it is.
 //
 // Pure helpers (isPaid, parseAmountToCents) are unit-tested; the rest are thin
 // DB writes that dedup on the provider's transaction id.
@@ -71,7 +72,7 @@ export async function recordPayment(input: RecordPaymentInput, db: Db = prisma):
 /** Admin: mark a campaign paid manually (comped / offline payment). */
 export async function markCampaignPaid(campaignId: string, amountCents = 0, note?: string): Promise<void> {
   const campaign = await prisma.adCampaign.findUnique({ where: { id: campaignId }, select: { vendorId: true } });
-  await recordPayment({ campaignId, vendorId: campaign?.vendorId ?? undefined, provider: 'manual', amountCents, status: 'PAID', note: note || 'Marked paid by admin' });
+  await recordPayment({ campaignId, vendorId: campaign?.vendorId ?? undefined, provider: 'manual', amountCents, status: 'PAID', note: note || 'Payment confirmed by admin' });
 }
 
 /** Whether a campaign has a settled payment (the go-live gate). */

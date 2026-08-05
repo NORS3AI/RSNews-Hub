@@ -1,0 +1,37 @@
+name: Nightly maintenance
+
+# Runs the hub's nightly jobs against your deployed instance:
+#   • /api/ads/maintenance — end elapsed flights, complete campaigns, send vendor
+#     reminder emails (fresh-ads + renewal).
+#   • /api/analytics/rollup — roll raw events into daily aggregates + prune.
+#
+# Setup: add two repository secrets (Settings → Secrets → Actions):
+#   PROD_URL     e.g. https://hub.rsnews.example   (no trailing slash)
+#   CRON_SECRET  the same value as the app's CRON_SECRET env var
+# Without PROD_URL set, the job no-ops (so forks / pre-deploy don't error).
+#
+# Prefer your host's native scheduler (Vercel Cron / Railway) if it has one; this
+# Action is a portable fallback that works anywhere.
+
+on:
+  schedule:
+    - cron: '15 7 * * *'   # 07:15 UTC daily
+  workflow_dispatch: {}      # allow manual runs
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit maintenance + rollup endpoints
+        env:
+          PROD_URL: ${{ secrets.PROD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$PROD_URL" ]; then echo "PROD_URL not set — skipping (configure repo secrets to enable)."; exit 0; fi
+          for path in api/ads/maintenance api/analytics/rollup; do
+            echo "POST $PROD_URL/$path"
+            code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "$PROD_URL/$path" \
+              -H "Authorization: Bearer $CRON_SECRET")
+            echo "  → HTTP $code"; cat /tmp/out.json; echo
+            if [ "$code" != "200" ]; then echo "::error::$path returned $code"; exit 1; fi
+          done

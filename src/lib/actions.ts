@@ -13,6 +13,7 @@ import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
+import { updateVendorContact } from './vendors';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -501,8 +502,18 @@ export async function cancelAdCampaign(id: string) {
   revalidatePath('/docs');
 }
 
-// Mark a campaign paid manually (comped / offline / a payment collected outside
-// JotForm), so its flights can be scheduled. Amount is optional (for the record).
+// Set a vendor's reminder contact email + notes (fills a gap when JotForm didn't
+// carry an email, so flight/renewal reminders can actually reach them).
+export async function saveVendorContact(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('vendorId') as string) || '').trim();
+  if (!id) throw new Error('vendorId required');
+  await updateVendorContact(id, (formData.get('contactEmail') as string) || '', (formData.get('notes') as string) || '');
+  revalidatePath('/admin/vendors');
+}
+
+// Confirm a campaign's payment landed (per JotForm) so its flights can be
+// scheduled. No money moves through the hub — this is a confirmation flag only.
 export async function markAdCampaignPaid(formData: FormData) {
   await ensureStaff();
   const id = ((formData.get('campaignId') as string) || '').trim();

@@ -52,3 +52,14 @@ export async function vendorIdForBrand(brand: unknown): Promise<string | null> {
   const v = await prisma.vendor.findUnique({ where: { brandKey: key }, select: { id: true } });
   return v?.id ?? null;
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Admin: set a vendor's reminder contact email + internal notes. Validates the
+ *  email (blank clears it). This is how an admin fixes/fills a missing address so
+ *  reminder emails can reach the vendor. */
+export async function updateVendorContact(id: string, contactEmail: string, notes: string): Promise<void> {
+  const email = contactEmail.trim();
+  if (email && !EMAIL_RE.test(email)) throw new Error('Enter a valid email address (or leave it blank).');
+  await prisma.vendor.update({ where: { id }, data: { contactEmail: email || null, notes: notes.trim() || null } });
+}
