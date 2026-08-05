@@ -62,7 +62,7 @@ img { max-width:100%; display:block; }
 }
 .side-head { display:flex; align-items:center; justify-content:space-between; padding:6px 8px 12px; }
 .logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:17px; color:var(--header-fg); min-width:0; }
-.logo .mark { display:grid; place-items:center; height:36px; width:36px; flex-shrink:0; border-radius:9px; background:var(--orange); color:#fff; font-weight:900; font-size:15px; }
+.logo .mark { height:36px; width:36px; flex-shrink:0; border-radius:8px; object-fit:contain; }
 .side-collapse { display:grid; place-items:center; height:32px; width:32px; border-radius:8px; background:transparent; border:none; color:var(--header-muted); cursor:pointer; }
 .side-collapse:hover { background:rgba(255,255,255,.1); color:var(--header-fg); }
 .side-nav { display:flex; flex-direction:column; gap:4px; margin-top:4px; }

@@ -78,6 +78,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `env.ts` | Centralized, validated env access; fails loud only at runtime-in-prod; `envReport()` powers `/api/health`. |
 | `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. Ships two REST transports — **Resend** and **SendGrid** — selected by `EMAIL_PROVIDER` (or whichever key is set); `EMAIL_FROM` is the sender for both. |
 | `emailTemplates.ts` | **Admin-editable email copy.** Registry of templates (`fresh_ads`, `renewal`) with default subject/body + `{mergeTag}` list; pure `renderCopy` (substitute tags, HTML-escape values, auto-link, paragraph) + `loadTemplateCopy` (DB override → default) + `renderTemplate`. Edited at `/admin/email-templates`. |
+| `components/BrandLogo.tsx` | The brand marks (assets in `/public/brand`): `BrandMark` (the 2×2 icon; reads on any background — used in headers + favicon) and `BrandLockup` (full stacked wordmark; `variant="auto"` swaps dark-ink/white on the theme). Favicon/apple/OG images live at `src/app/icon.png` / `apple-icon.png` / `opengraph-image.png`. |
 | `logger.ts` | Structured logging + one `captureError` chokepoint with a pluggable forwarder (Sentry = one line). |
 | `moderation.ts` | Pure, reusable user-text moderation (`moderateText` → ok/flag/block). The gate for any user-generated text. |
 | `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
