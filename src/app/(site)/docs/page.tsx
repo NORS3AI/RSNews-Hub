@@ -225,6 +225,8 @@ export default async function DocsHome() {
           const qid = b.settings.quizId ? String(b.settings.quizId) : '';
           const quiz = qid ? quizById.get(qid) : activeQuiz;
           if (!quiz) return null;
+          // Once its timer ends, the quiz disappears from the homepage.
+          if (quiz.closesAt && new Date(quiz.closesAt) < new Date()) return null;
           const done = qid ? myQuizDone.has(qid) : !!priorQuizResponse;
           return wrap(
             <div className="studio-fill" style={style}>
@@ -266,9 +268,12 @@ export default async function DocsHome() {
       }
     }).filter(Boolean);
     if (kids.length === 0) return null;
+    // A single poll/quiz already carries its own header, so don't repeat the
+    // module name above it (avoids the title == poll-question duplication).
+    const soloSelfHeader = tree.children.length === 1 && (tree.children[0].type === 'poll' || tree.children[0].type === 'quiz');
     return (
       <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
-        <h2 className="module-title mb-4">{row.name}</h2>
+        {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}
         <div className={shapeInnerClass(tree.shape)}>{kids}</div>
       </section>
     );

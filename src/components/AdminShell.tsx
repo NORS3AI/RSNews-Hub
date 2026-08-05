@@ -102,7 +102,9 @@ export default function AdminShell({
   );
 
   return (
-    <div className="min-h-screen bg-[var(--bg-soft)]">
+    // Light content area in Light/RS, dark in Dark — so page text (which uses the
+    // theme's --fg/--muted) is always readable. The chrome stays dark (below).
+    <div className="min-h-screen bg-slate-100 dark:bg-[var(--bg-soft)]">
       {/* Top bar — always-dark chrome, so text is forced light (text-slate-100) */}
       <header className="sticky top-0 z-40 border-b border-black/30 bg-[var(--bg)] text-slate-100">
         <div className="flex h-14 items-center gap-3 px-4">

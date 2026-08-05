@@ -256,8 +256,8 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Canvas</span>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas</span>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
               <input type="checkbox" checked={rsPreview} onChange={(e) => setRsPreview(e.target.checked)} /> RS-Mode preview
             </label>
           </div>
