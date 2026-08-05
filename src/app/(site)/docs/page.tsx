@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
+import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
+import { shapeInnerClass, childWidthClass, rsStyle } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -95,6 +97,14 @@ export default async function DocsHome() {
   ]);
   const loggedIn = !!user;
 
+  // Published custom modules (built in the Module Studio) referenced in the
+  // layout. Only published ones ever reach the public homepage.
+  const customIds = layout.filter((m) => m.enabled && isCustomModuleId(m.id)).map((m) => m.id.slice('custom:'.length));
+  const customRows = customIds.length
+    ? await prisma.customModule.findMany({ where: { id: { in: customIds }, published: true } })
+    : [];
+  const customById = new Map(customRows.map((r) => [`custom:${r.id}`, r]));
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -107,6 +117,54 @@ export default async function DocsHome() {
     if (source === 'latest') return latest;
     if (source === 'trending') return trending as unknown as Card[];
     return featured.length ? featured : all.slice(0, 5); // 'featured'
+  };
+
+  // Render a published custom module (Module Studio) with REAL content. Article
+  // blocks auto-fill from their source pool, de-duped within the module (a
+  // future refinement can let admins hand-pick specific articles). Poll blocks
+  // are skipped on the live site until the Phase 5 timer/archive lifecycle is
+  // wired to real Poll records.
+  const renderCustomModule = (row: { id: string; name: string; tree: string }, layoutId: string) => {
+    const tree = parseTree(row.tree);
+    const used = new Set<string>();
+    const nextCard = (source: string): Card | null => {
+      const pool = featurePool(source);
+      for (const c of pool) if (!used.has(c.id)) { used.add(c.id); return c; }
+      return null;
+    };
+    const kids = tree.children.map((b: Block, i: number) => {
+      const style = rsStyle(b.rsColor);
+      const wrap = (node: React.ReactNode) => <div key={b.id} className={childWidthClass(tree.shape)}>{node}</div>;
+      switch (b.type) {
+        case 'heading': {
+          const t = String(b.settings.text ?? '');
+          return wrap(b.settings.level === 3 ? <h3 className="text-lg font-bold tracking-tight">{t}</h3> : <h2 className="text-xl font-black tracking-tight">{t}</h2>);
+        }
+        case 'text':
+          return wrap(<div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>);
+        case 'ad':
+          return wrap(<div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd('rectangle', `custom-${row.id}-${i}`)}</div>);
+        case 'article':
+        case 'article-image': {
+          const card = nextCard(String(b.settings.source ?? 'latest'));
+          if (!card) return null;
+          return wrap(
+            <div className="studio-fill" style={style}>
+              <ArticleCard article={card} compact={b.type === 'article'} trk={{ place: layoutId, props: { module: layoutId, moduleType: 'custom', pos: i } }} />
+            </div>
+          );
+        }
+        default:
+          return null; // poll (Phase 5) and any future types
+      }
+    }).filter(Boolean);
+    if (kids.length === 0) return null;
+    return (
+      <section key={layoutId} className="module studio-fill" style={rsStyle(tree.rsColor)}>
+        <h2 className="module-title mb-4">{row.name}</h2>
+        <div className={shapeInnerClass(tree.shape)}>{kids}</div>
+      </section>
+    );
   };
 
   const renderModule = (m: HomeModule) => {
@@ -254,6 +312,10 @@ export default async function DocsHome() {
           </div>
         );
       default:
+        if (isCustomModuleId(id)) {
+          const row = customById.get(id);
+          return row ? renderCustomModule(row, id) : null;
+        }
         return null;
     }
   };

@@ -710,7 +710,18 @@ export async function renameCustomModule(id: string, name: string): Promise<void
 export async function setCustomModulePublished(id: string, published: boolean): Promise<void> {
   await ensureStaff();
   await prisma.customModule.update({ where: { id }, data: { published: !!published } });
+  // On publish, place the module on the homepage (appended, enabled) if it isn't
+  // there yet — the admin can then reorder/lock it like any module. Unpublishing
+  // leaves it in the layout but gated off, so its slot is remembered.
+  if (published) {
+    const layoutId = `custom:${id}`;
+    const layout = await getHomeLayout();
+    if (!layout.some((m) => m.id === layoutId)) {
+      await saveHomeLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
+    }
+  }
   revalidatePath('/admin/studio');
+  revalidatePath('/admin/homepage');
   revalidatePath('/docs');
 }
 

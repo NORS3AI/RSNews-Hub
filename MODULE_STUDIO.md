@@ -192,14 +192,19 @@ A custom module is a **composition tree** stored as JSON:
 - **Phase 1 — Quick, standalone wins** (low risk, no builder dependency): ✅
   - Account-remembered theme (sync chosen theme to `User`). ✅
   - Theme-usage analytics + admin dashboard tile. ✅
-- **Phase 2 — Data model + renderer.** `CustomModule` tree schema, save/load,
-  public renderer, slot into existing homepage layout list.
-- **Phase 3 — The Studio UI.** Three-pane builder: palette, canvas with
-  drag-drop + auto-layout + reorder, inspector shell.
-- **Phase 4 — Block settings + per-block RS color.** Inspector fields per block
-  type; RS-mode color overrides; ad orange-texture default.
+- **Phase 2 — Data model + renderer.** ✅ `CustomModule` tree schema, save/load,
+  renderer, slotted into the homepage layout list.
+  - **Phase 2b — Live homepage integration.** ✅ Published modules render on
+    `/docs` with real content: article blocks auto-fill from their source pool
+    (deduped within the module), ad blocks show real creatives, heading/text are
+    live. Publishing auto-places the module on the homepage (reorderable). Poll
+    blocks render live once Phase 5 lands.
+- **Phase 3 — The Studio UI.** ✅ Three-pane builder: palette, canvas with
+  drag-drop + auto-layout + reorder, inspector.
+- **Phase 4 — Block settings + per-block RS color.** ✅ (shipped with Phase 3)
+  Inspector fields per block type; RS-mode color overrides; ad orange default.
 - **Phase 5 — Poll timer lifecycle.** Timer setting + expiry sweep → hide + log
-  + archive.
+  + archive; render live builder polls (currently skipped on the public site).
 - **Phase 6 — Inline homepage editing (§5.5)** — per-module pencil overlay,
   quick color/reorder with live preview, unsaved-changes guard.
 - **Phase 7 — Custom RS Mode background** + polish.
