@@ -92,6 +92,27 @@ Block-specific highlight — **Poll settings**:
   3. Is moved to the **polls archive**.
 - (Timer lifecycle needs a scheduled sweep — see §9.)
 
+## 5.5 Inline homepage editing (admin overlay)
+
+When an admin views the live homepage, every module shows a small **pencil/edit
+icon in its corner**. This is the "edit in place" path (complementing the full
+Studio):
+
+- **Reorder contents** of that module directly — including modules whose content
+  scrolls horizontally off-screen (the 10-article carousels): the overlay lets
+  you drag/reorder within the scroller.
+- **Quick color changes without leaving the page:** change the module
+  **background color** and **per-element colors** inline, with **live preview**
+  right on the homepage so you immediately see the result.
+- **Or** the pencil can **open that module in the full Module Studio** for
+  deeper edits.
+- **Unsaved-changes guard ("follow along"):** once you make an inline change,
+  the app tracks it and **warns before you navigate away** if it isn't
+  saved/published ("You haven't published this / it's not saved"). Nothing is
+  silently lost.
+- The existing admin ability to **drag-reorder whole modules** on the homepage
+  stays as-is. ✅ (already shipped)
+
 ## 6. Save → place → publish flow
 
 1. Admin builds a module on the canvas.
@@ -168,9 +189,9 @@ A custom module is a **composition tree** stored as JSON:
 ## 10. Build phases (each ships independently)
 
 - **Phase 0 — Spec (this doc).** ✅
-- **Phase 1 — Quick, standalone wins** (low risk, no builder dependency):
-  - Account-remembered theme (sync chosen theme to `User`).
-  - Theme-usage analytics + admin dashboard tile.
+- **Phase 1 — Quick, standalone wins** (low risk, no builder dependency): ✅
+  - Account-remembered theme (sync chosen theme to `User`). ✅
+  - Theme-usage analytics + admin dashboard tile. ✅
 - **Phase 2 — Data model + renderer.** `CustomModule` tree schema, save/load,
   public renderer, slot into existing homepage layout list.
 - **Phase 3 — The Studio UI.** Three-pane builder: palette, canvas with
@@ -179,7 +200,9 @@ A custom module is a **composition tree** stored as JSON:
   type; RS-mode color overrides; ad orange-texture default.
 - **Phase 5 — Poll timer lifecycle.** Timer setting + expiry sweep → hide + log
   + archive.
-- **Phase 6 — Custom RS Mode background** + polish.
+- **Phase 6 — Inline homepage editing (§5.5)** — per-module pencil overlay,
+  quick color/reorder with live preview, unsaved-changes guard.
+- **Phase 7 — Custom RS Mode background** + polish.
 
 ## 11. Open questions
 

@@ -15,6 +15,20 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// A custom homepage module built in the Module Studio. `tree` is a JSON string
+// of the composition tree (see src/lib/studio.ts). Referenced from the homepage
+// layout by the namespaced id `custom:<id>`. `published` gates whether it may
+// appear on the public homepage.
+model CustomModule {
+  id        String   @id @default(cuid())
+  name      String
+  shape     String   @default("column")
+  tree      String   @default("")
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // "Backroom Humor" comics. The most recent active comic appears on the
 // homepage; the rest live in the comics archive. active=false = archived.
 model Comic {

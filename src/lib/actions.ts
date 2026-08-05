@@ -15,6 +15,7 @@ import { generateReportDraft, updateReportSummary, publishReport, unpublishRepor
 import { markCampaignPaid, parseAmountToCents } from './payments';
 import { updateVendorContact } from './vendors';
 import { EMAIL_TEMPLATES } from './emailTemplates';
+import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -671,4 +672,56 @@ export async function setUserTheme(theme: string) {
   if (!user) return; // anonymous — localStorage handles persistence
   if (theme !== 'light' && theme !== 'dark' && theme !== 'rs') return;
   await prisma.user.update({ where: { id: user.id }, data: { theme } });
+}
+
+/* --------------------------- Module Studio ------------------------------- */
+// Custom homepage modules built in the Studio. Trees are always normalized on
+// write (see lib/studio) so nothing unsafe is ever persisted.
+
+export async function createCustomModule(name: string, shape: string): Promise<string> {
+  await ensureStaff();
+  const clean = (name || '').trim().slice(0, 80) || 'Untitled module';
+  const s: Shape = isShape(shape) ? shape : 'column';
+  const mod = await prisma.customModule.create({
+    data: { name: clean, shape: s, tree: serializeTree(emptyTree(s)), published: false },
+  });
+  revalidatePath('/admin/studio');
+  return mod.id;
+}
+
+export async function saveCustomModuleTree(id: string, treeJson: string): Promise<void> {
+  await ensureStaff();
+  const tree = parseTree(treeJson); // parse + normalize (never throws)
+  await prisma.customModule.update({
+    where: { id },
+    data: { tree: serializeTree(tree), shape: tree.shape },
+  });
+  revalidatePath('/admin/studio');
+  revalidatePath(`/admin/studio/${id}`);
+  revalidatePath('/docs');
+}
+
+export async function renameCustomModule(id: string, name: string): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.update({ where: { id }, data: { name: (name || '').trim().slice(0, 80) || 'Untitled module' } });
+  revalidatePath('/admin/studio');
+}
+
+export async function setCustomModulePublished(id: string, published: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.update({ where: { id }, data: { published: !!published } });
+  revalidatePath('/admin/studio');
+  revalidatePath('/docs');
+}
+
+export async function deleteCustomModule(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.delete({ where: { id } });
+  // Drop it from the saved homepage layout too, so no dangling reference remains.
+  const layout = await getHomeLayout();
+  const pruned = layout.filter((m) => m.id !== `custom:${id}`);
+  if (pruned.length !== layout.length) await saveHomeLayout(pruned);
+  revalidatePath('/admin/studio');
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
 }

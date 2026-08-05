@@ -89,6 +89,25 @@
 .rs .card:nth-of-type(6n+5), .rs .module:nth-of-type(6n+5) { background-position: 50% 96%; }
 .rs .card:nth-of-type(6n),   .rs .module:nth-of-type(6n)   { background-position: 62% 42%; }
 
+/* ---- Module Studio ----
+   Per-element color overrides are RS-Mode ONLY. Each block/container always
+   carries its chosen color as the inline custom property `--studio-rs`, but only
+   RS-mode CSS reads it — so Light/Dark keep their standard surfaces untouched. */
+.rs .studio-fill[style*='--studio-rs'] {
+  background-image: none !important;
+  background-color: var(--studio-rs);
+}
+/* Ads default to the orange corrugated texture in RS Mode (unless overridden). */
+.rs .studio-ad:not([style*='--studio-rs']) {
+  background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');
+  background-size: cover;
+  color: #f7edd8;
+}
+/* Horizontal band that scrolls when it overflows, like the article carousels. */
+.studio-row { scrollbar-width: thin; }
+.studio-row::-webkit-scrollbar { height: 8px; }
+.studio-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
 html { -webkit-text-size-adjust: 100%; }
 body {
   color: var(--fg);

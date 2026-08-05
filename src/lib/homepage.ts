@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { isCustomModuleId } from './studio';
 
 export type ModuleId =
   | 'recommended'
@@ -15,7 +16,13 @@ export type ModuleId =
 // A module may carry an optional `source` (only meaningful for modules whose
 // catalog entry declares `sources`), letting an admin choose which pool of
 // articles it pulls from without changing the layout order.
-export type HomeModule = { id: ModuleId; enabled: boolean; locked?: boolean; source?: string };
+// `id` is a catalog ModuleId OR a namespaced custom-module id (`custom:<id>`),
+// so builder-made modules share the same ordered/lockable layout list.
+export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string };
+
+function isKnownId(id: string): boolean {
+  return id in MODULE_CATALOG || isCustomModuleId(id);
+}
 
 export type ModuleSource = { value: string; label: string };
 type ModuleDef = { label: string; description: string; sources?: ModuleSource[]; defaultSource?: string };
@@ -58,8 +65,8 @@ export const DEFAULT_LAYOUT: HomeModule[] = [
 // Resolve a module's effective source, honoring the saved value but falling
 // back to the catalog default (and ignoring values no longer offered).
 export function moduleSource(m: HomeModule): string | undefined {
-  const def = MODULE_CATALOG[m.id];
-  if (!def.sources) return undefined;
+  const def = MODULE_CATALOG[m.id as ModuleId];
+  if (!def || !def.sources) return undefined;
   const ok = m.source && def.sources.some((s) => s.value === m.source);
   return ok ? m.source : def.defaultSource ?? def.sources[0]?.value;
 }
@@ -74,7 +81,7 @@ export async function getHomeLayout(): Promise<HomeModule[]> {
     // Validate + reconcile with the catalog: drop unknown ids, append any
     // newly-added modules that aren't in the saved layout yet.
     const known = parsed
-      .filter((m) => m.id in MODULE_CATALOG)
+      .filter((m) => isKnownId(m.id))
       .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
     const present = new Set(known.map((m) => m.id));
     for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked });
@@ -101,7 +108,7 @@ export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeM
 
 export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
   const clean = layout
-    .filter((m) => m.id in MODULE_CATALOG)
+    .filter((m) => isKnownId(m.id))
     .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
   await prisma.setting.upsert({
     where: { key: KEY },
