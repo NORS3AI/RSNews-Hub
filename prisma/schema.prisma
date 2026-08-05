@@ -20,13 +20,16 @@ model Setting {
 // layout by the namespaced id `custom:<id>`. `published` gates whether it may
 // appear on the public homepage.
 model CustomModule {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  shape     String   @default("column")
-  tree      String   @default("")
-  published Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  shape     String    @default("column")
+  tree      String    @default("")
+  published Boolean   @default(false)
+  // Optional invisible expiry: when set (from the tree's expireDays at publish),
+  // a sweep pulls the module off the homepage after this time and logs it.
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 // "Backroom Humor" comics. The most recent active comic appears on the

@@ -113,6 +113,7 @@ export default function StudioEditor({
   }
   const setShape = (shape: Shape) => mutate((t) => { t.shape = shape; return t; });
   const setContainerColor = (c: string | null) => mutate((t) => { t.rsColor = c; return t; });
+  const setExpireDays = (d: number) => mutate((t) => { t.expireDays = d > 0 ? d : 0; return t; });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -307,7 +308,7 @@ export default function StudioEditor({
         <aside>
           {selectedBlock
             ? <BlockInspector block={selectedBlock} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
-            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} />}
+            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} />}
         </aside>
       </div>
     </div>
@@ -362,7 +363,7 @@ function InspectorShell({ title, children }: { title: string; children: React.Re
   );
 }
 
-function ModuleInspector({ tree, onShape, onColor }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void }) {
+function ModuleInspector({ tree, onShape, onColor, onExpireDays }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void }) {
   return (
     <InspectorShell title="Module">
       <Field label="Shape">
@@ -371,6 +372,10 @@ function ModuleInspector({ tree, onShape, onColor }: { tree: ModuleTree; onShape
         </select>
       </Field>
       <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
+      <Field label="Auto-remove after (days)">
+        <input type="number" min={0} className="input" value={Number(tree.expireDays) || 0} onChange={(e) => onExpireDays(Math.max(0, Number(e.target.value) || 0))} />
+        <p className="mt-1 text-[11px] text-[var(--muted)]">0 = never. Invisible timer starts when you publish; the module drops off the homepage when it elapses (logged in the activity log).</p>
+      </Field>
       <p className="text-xs text-[var(--muted)]">Select an element on the canvas to edit its settings. {tree.children.length} element{tree.children.length === 1 ? '' : 's'} in this module.</p>
     </InspectorShell>
   );
@@ -437,16 +442,14 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       )}
       {block.type === 'poll' && (
         <>
-          <Field label="Question"><input className="input" value={String(s.question ?? '')} onChange={(e) => set('question', e.target.value)} placeholder="What's your question?" /></Field>
-          <PollOptions options={Array.isArray(s.options) ? (s.options as string[]) : []} onChange={(opts) => set('options', opts)} />
-          <Field label="Timer"><TimerField hours={Number(s.timerHours ?? 72)} unit={String(s.timerUnit ?? 'hours')} onChange={(h, u) => onPatch({ settings: { timerHours: h, timerUnit: u } })} /></Field>
+          <Field label="Poll"><EntityPicker value={String(s.pollId ?? '')} onChange={(id) => set('pollId', id)} endpoint="/api/admin/polls/search" placeholder="Search polls…" /></Field>
           <Field label="Results chart">
             <select className="input" value={String(s.chart ?? 'bar')} onChange={(e) => set('chart', e.target.value)}>
               <option value="bar">Bars</option>
               <option value="pie">Pie</option>
             </select>
           </Field>
-          <p className="-mt-1 mb-3 text-[11px] text-[var(--muted)]">When the timer ends the poll closes, is logged, and moves to the archive.</p>
+          <p className="-mt-1 mb-3 text-[11px] text-[var(--muted)]">Create &amp; time polls under <strong>Polls</strong>; the countdown shows publicly. Or use <strong>Add to homepage</strong> there for a one-click post.</p>
         </>
       )}
       {block.type === 'heading' && (
@@ -475,19 +478,6 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <button onClick={onRemove} className="btn-danger btn-sm flex-1"><Trash width={13} height={13} /> Remove</button>
       </div>
     </InspectorShell>
-  );
-}
-
-function TimerField({ hours, unit, onChange }: { hours: number; unit: string; onChange: (hours: number, unit: string) => void }) {
-  const n = unit === 'days' ? Math.max(1, Math.round(hours / 24)) : hours;
-  return (
-    <div className="flex gap-2">
-      <input type="number" min={1} className="input" value={n || ''} onChange={(e) => { const v = Math.max(0, Number(e.target.value) || 0); onChange(unit === 'days' ? v * 24 : v, unit); }} />
-      <select className="input !w-28" value={unit} onChange={(e) => onChange(hours, e.target.value)}>
-        <option value="hours">hours</option>
-        <option value="days">days</option>
-      </select>
-    </div>
   );
 }
 
@@ -525,19 +515,3 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
   );
 }
 
-function PollOptions({ options, onChange }: { options: string[]; onChange: (o: string[]) => void }) {
-  const list = options.length ? options : ['', ''];
-  return (
-    <Field label="Options">
-      <div className="space-y-1.5">
-        {list.map((o, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <input className="input" value={o} onChange={(e) => { const next = list.slice(); next[i] = e.target.value; onChange(next); }} placeholder={`Option ${i + 1}`} />
-            {list.length > 2 && <button onClick={() => onChange(list.filter((_, j) => j !== i))} className="btn-outline btn-sm" aria-label="Remove option"><Trash width={12} height={12} /></button>}
-          </div>
-        ))}
-      </div>
-      {list.length < 12 && <button onClick={() => onChange([...list, ''])} className="btn-outline btn-sm mt-1.5"><Plus width={12} height={12} /> Add option</button>}
-    </Field>
-  );
-}

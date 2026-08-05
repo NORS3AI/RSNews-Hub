@@ -111,23 +111,12 @@ function blockInner(block: Block) {
           <span className="text-sm font-bold text-[var(--muted)]">Pop Quiz — shows the current quiz</span>
         </div>
       );
-    case 'poll': {
-      const options = Array.isArray(s.options) ? (s.options as unknown[]).map(String).filter(Boolean) : [];
-      const pie = s.chart === 'pie';
+    case 'poll':
       return (
-        <div className="studio-fill card p-4" style={style}>
-          <div className="mb-2 text-sm font-bold">{String(s.question || 'Reader poll')}{pie ? ' · pie' : ''}</div>
-          <ul className="space-y-1.5">
-            {(options.length ? options : ['Option one', 'Option two']).map((o, i) => (
-              <li key={i} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-3 py-1.5 text-sm">
-                <span className="h-3.5 w-3.5 shrink-0 rounded-full border-2 border-[var(--muted)]" />
-                {o}
-              </li>
-            ))}
-          </ul>
+        <div className="studio-fill card grid min-h-[90px] place-items-center p-4 text-center" style={style}>
+          <span className="text-sm font-bold text-[var(--muted)]">{s.pollId ? `Reader poll · ${s.chart === 'pie' ? 'pie' : 'bars'}` : 'Poll — pick one in settings'}</span>
         </div>
       );
-    }
     case 'article-headline':
       return (
         <article className="studio-fill card overflow-hidden p-3.5" style={style}>

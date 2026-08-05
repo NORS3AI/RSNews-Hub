@@ -18,7 +18,7 @@ describe('studio tree model', () => {
 
   it('makeBlock seeds default settings per type', () => {
     expect(makeBlock('article', 'x').settings).toEqual({ mode: 'auto', source: 'latest', showDek: true });
-    expect(makeBlock('poll', 'p').settings).toMatchObject({ timerHours: 72, options: ['', ''] });
+    expect(makeBlock('poll', 'p').settings).toEqual({ pollId: '', chart: 'bar' });
   });
 
   it('normalizes article sourcing modes (auto/tag/year/pick)', () => {
@@ -69,12 +69,15 @@ describe('studio tree model', () => {
     expect(normalizeTree({ children: many }).children.length).toBe(MAX_BLOCKS);
   });
 
-  it('sanitizes poll settings: pads options to 2, clamps timer', () => {
-    const t = normalizeTree({ children: [{ type: 'poll', settings: { options: ['only'], timerHours: -5, question: 'Q' } }] });
-    const s = t.children[0].settings;
-    expect((s.options as string[]).length).toBe(2);
-    expect(s.timerHours).toBe(72); // invalid → default
-    expect(s.question).toBe('Q');
+  it('poll block keeps pollId + chart (library picker model)', () => {
+    const t = normalizeTree({ children: [{ type: 'poll', settings: { pollId: 'p1', chart: 'pie', junk: 1 } }] });
+    expect(t.children[0].settings).toEqual({ pollId: 'p1', chart: 'pie' });
+  });
+
+  it('normalizes module expiry days (clamped, 0 default)', () => {
+    expect(normalizeTree({ expireDays: 7 }).expireDays).toBe(7);
+    expect(normalizeTree({ expireDays: -3 }).expireDays).toBe(0);
+    expect(normalizeTree({}).expireDays).toBe(0);
   });
 
   it('whitelists settings keys — unknown fields are stripped', () => {

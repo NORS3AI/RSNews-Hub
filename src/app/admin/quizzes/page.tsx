@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { createQuiz, updateQuiz, deleteQuiz } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
+import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,6 +100,9 @@ export default async function AdminQuizzes() {
                     <ActionButtons actions={[{ label: 'Delete', run: deleteQuiz.bind(null, quiz.id), danger: true, confirm: 'Delete this quiz and all its responses?' }]} />
                   </div>
                 </form>
+                <div className="mt-3 flex justify-end border-t border-[var(--border)] pt-3">
+                  <AddToHomepageButton kind="quiz" id={quiz.id} name={quiz.title} />
+                </div>
               </details>
             );
           })}

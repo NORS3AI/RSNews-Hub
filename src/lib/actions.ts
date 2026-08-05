@@ -232,9 +232,8 @@ export async function createPoll(formData: FormData) {
   const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8);
   if (!question || options.length < 2) throw new Error('A question and at least 2 options are required');
   const closes = closesRaw ? new Date(closesRaw) : null;
-  // Only one COUNCIL poll active at a time — deactivate the others when
-  // publishing a new one (module polls run on their own timers, untouched).
-  if (active) await prisma.poll.updateMany({ where: { active: true, kind: 'council' }, data: { active: false } });
+  // Polls are a library now — multiple can be active at once (each poll element
+  // picks one). The council aside simply shows the most recent active poll.
   await prisma.poll.create({
     data: { question, active, kind: 'council', closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
       options: { create: options.map((label, i) => ({ label, order: i })) } },
@@ -251,7 +250,6 @@ export async function updatePoll(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const closes = closesRaw ? new Date(closesRaw) : null;
   if (!question) throw new Error('Question is required');
-  if (active) await prisma.poll.updateMany({ where: { active: true, kind: 'council', id: { not: id } }, data: { active: false } });
   await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
@@ -728,19 +726,23 @@ export async function setCustomModulePublished(id: string, published: boolean): 
   // Unpublishing leaves its slot in place but gated off (published=false), so it
   // simply doesn't render live.
   if (published) {
-    // Turn poll blocks into real, votable Poll records with their timers running.
     const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
     if (mod) {
       const tree = parseTree(mod.tree);
-      if (await materializeModulePolls(tree)) {
-        await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
-      }
+      // Materialize any inline poll blocks (legacy) into real Poll records.
+      const changed = await materializeModulePolls(tree);
+      if (changed) await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
+      // Anchor the invisible expiry timer (if any) from now.
+      const expiresAt = tree.expireDays && tree.expireDays > 0 ? new Date(Date.now() + tree.expireDays * 86400000) : null;
+      await prisma.customModule.update({ where: { id }, data: { expiresAt } });
     }
     const layoutId = `custom:${id}`;
     const layout = await getDraftLayout();
     if (!layout.some((m) => m.id === layoutId)) {
       await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
     }
+  } else {
+    await prisma.customModule.update({ where: { id }, data: { expiresAt: null } });
   }
   revalidatePath('/admin/studio');
   revalidatePath('/admin/homepage');
@@ -777,4 +779,26 @@ export async function setRsBackground(color: string): Promise<void> {
   else await prisma.setting.upsert({ where: { key: RS_BG_KEY }, update: { value: raw }, create: { key: RS_BG_KEY, value: raw } });
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');
+}
+
+/* ------------------- Quick post to homepage (poll/quiz) ------------------ */
+// One-click: wrap a poll or quiz in its own single-element custom module,
+// publish it, and stage it on the homepage — no trip to the Module Studio.
+export async function addElementToHomepage(kind: 'poll' | 'quiz', refId: string, name: string, shape: string, rsColor: string | null): Promise<void> {
+  await ensureStaff();
+  if (!refId) throw new Error('Missing id');
+  const s: Shape = isShape(shape) ? shape : 'card';
+  const child = kind === 'poll'
+    ? { id: 'b0', type: 'poll', settings: { pollId: refId, chart: 'bar' } }
+    : { id: 'b0', type: 'quiz', settings: { quizId: refId, timerHours: 0 } };
+  const tree = parseTree(JSON.stringify({ shape: s, rsColor, children: [child] }));
+  const mod = await prisma.customModule.create({
+    data: { name: (name || (kind === 'poll' ? 'Poll' : 'Quiz')).slice(0, 80), shape: tree.shape, tree: serializeTree(tree), published: true },
+  });
+  const layout = await getDraftLayout();
+  await saveDraftLayout([...layout, { id: `custom:${mod.id}`, enabled: true, locked: false }]);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/admin/studio');
+  revalidatePath('/admin/polls');
+  revalidatePath('/admin/quizzes');
 }

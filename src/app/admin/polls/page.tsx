@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { createPoll, updatePoll, deletePoll } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
+import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,9 @@ export default async function AdminPolls() {
                     <ActionButtons actions={[{ label: 'Delete', run: deletePoll.bind(null, poll.id), danger: true, confirm: 'Delete this poll and all its votes?' }]} />
                   </div>
                 </form>
+                <div className="mt-3 flex justify-end border-t border-[var(--border)] pt-3">
+                  <AddToHomepageButton kind="poll" id={poll.id} name={poll.question} />
+                </div>
               </details>
             );
           })}

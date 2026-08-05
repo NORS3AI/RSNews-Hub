@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import type { ModuleTree } from './studio';
+import { getHomeLayout, saveHomeLayout } from './homepage';
 
 // Server-only helpers for the Module Studio poll lifecycle. A poll block becomes
 // a real, votable Poll record (kind 'module') the moment its module is
@@ -45,6 +46,28 @@ export async function sweepExpiredModulePolls(): Promise<number> {
   await prisma.poll.updateMany({ where: { id: { in: expired.map((e) => e.id) } }, data: { active: false } });
   await prisma.adminLog.createMany({
     data: expired.map((e) => ({ kind: 'poll_closed', message: `Poll timer ended — closed & archived: “${e.question}”` })),
+  });
+  return expired.length;
+}
+
+// Invisible module expiry: pull any published custom module whose timer elapsed
+// off the homepage (unpublish + remove from the live layout) and log it. Lazy
+// sweep — safe to call on any render. Returns the count removed.
+export async function sweepExpiredModules(): Promise<number> {
+  const now = new Date();
+  const expired = await prisma.customModule.findMany({
+    where: { published: true, expiresAt: { lt: now } },
+    select: { id: true, name: true },
+  });
+  if (!expired.length) return 0;
+  const ids = expired.map((e) => e.id);
+  await prisma.customModule.updateMany({ where: { id: { in: ids } }, data: { published: false, expiresAt: null } });
+  const remove = new Set(ids.map((id) => `custom:${id}`));
+  const layout = await getHomeLayout();
+  const pruned = layout.filter((m) => !remove.has(m.id));
+  if (pruned.length !== layout.length) await saveHomeLayout(pruned);
+  await prisma.adminLog.createMany({
+    data: expired.map((e) => ({ kind: 'module_expired', message: `Module timer ended — removed from homepage: “${e.name}”` })),
   });
   return expired.length;
 }

@@ -4,7 +4,7 @@ import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
-import { sweepExpiredModulePolls } from '@/lib/studioPolls';
+import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
@@ -113,10 +113,11 @@ export default async function DocsHome() {
   // logs), then load the still-open ones referenced by these modules so they
   // render live and votable.
   await sweepExpiredModulePolls();
+  await sweepExpiredModules();
   const modulePollIds = customRows.flatMap((r) =>
     parseTree(r.tree).children.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string));
   const modulePolls = modulePollIds.length
-    ? await prisma.poll.findMany({ where: { id: { in: modulePollIds }, active: true }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
+    ? await prisma.poll.findMany({ where: { id: { in: modulePollIds } }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
     : [];
   const modulePollById = new Map(modulePolls.map((p) => [p.id, p]));
   const myModuleVotes = user && modulePollIds.length

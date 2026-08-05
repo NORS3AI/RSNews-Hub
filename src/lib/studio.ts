@@ -65,8 +65,8 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   },
   poll: {
     label: 'Poll', group: 'Interactive',
-    description: 'Live reader poll with an optional timer.',
-    defaults: { question: '', options: ['', ''], timerHours: 72, chart: 'bar' },
+    description: 'Pick a reader poll to show.',
+    defaults: { pollId: '', chart: 'bar' },
   },
   quiz: {
     label: 'Quiz', group: 'Interactive',
@@ -115,6 +115,8 @@ export type ModuleTree = {
   shape: Shape;
   // RS-Mode-only container background override.
   rsColor?: string | null;
+  // Optional invisible expiry (days). 0 = never. Anchored at publish time.
+  expireDays?: number;
   children: Block[];
 };
 
@@ -182,7 +184,9 @@ export function normalizeTree(input: unknown): ModuleTree {
     const b = normalizeBlock(rawChildren[i], i);
     if (b) children.push(b);
   }
-  return { shape, rsColor: color(obj.rsColor), children };
+  const days = Number(obj.expireDays);
+  const expireDays = Number.isInteger(days) && days > 0 ? Math.min(days, 3650) : 0;
+  return { shape, rsColor: color(obj.rsColor), expireDays, children };
 }
 
 function normalizeBlock(input: unknown, index: number): Block | null {
@@ -239,23 +243,10 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 0,
       };
     }
-    case 'poll': {
-      const options = (Array.isArray(s.options) ? s.options : [])
-        .map((o) => str(o, 120))
-        .slice(0, MAX_OPTIONS);
-      while (options.length < 2) options.push('');
-      const hours = Number(s.timerHours);
-      const out: BlockSettings = {
-        question: str(s.question, 200),
-        options,
-        timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 72,
-        timerUnit: s.timerUnit === 'days' ? 'days' : 'hours',
-        chart: s.chart === 'pie' ? 'pie' : 'bar',
-      };
-      // Link to the materialized Poll record (set once the module is published).
-      if (typeof s.pollId === 'string' && s.pollId) out.pollId = s.pollId.slice(0, 64);
-      return out;
-    }
+    case 'poll':
+      // Poll elements pick a poll from the Polls library (built + timed there),
+      // just like the Quiz element picks a quiz.
+      return { pollId: str(s.pollId, 40), chart: s.chart === 'pie' ? 'pie' : 'bar' };
     case 'heading': {
       const level = Number(s.level);
       return { text: str(s.text, 120) || 'Section title', level: level === 2 || level === 3 ? level : 2 };
