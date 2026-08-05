@@ -208,8 +208,12 @@ A custom module is a **composition tree** stored as JSON:
   timer. A lazy sweep closes expired polls, hides them from their module, and
   writes an `AdminLog` entry; they remain in the polls archive. Live polls render
   via the existing `PollCard`. Activity log surfaced on the Studio page.
-- **Phase 6 — Inline homepage editing (§5.5)** — per-module pencil overlay,
-  quick color/reorder with live preview, unsaved-changes guard.
+- **Phase 6 — Inline homepage editing (§5.5)** — ✅ (v1) Admins see a hover
+  "Edit" chip on every homepage module: custom modules open in the Studio,
+  catalog modules open the layout manager. The editor gained Publish/Unpublish
+  + a draft "not live yet" nudge, on top of the existing unsaved-changes guard.
+  *Deferred:* tweaking colors/order directly on the homepage with live preview
+  (today you edit in the Studio, which shows a live canvas + RS preview).
 - **Phase 7 — Custom RS Mode background** + polish.
 
 ## 11. Open questions

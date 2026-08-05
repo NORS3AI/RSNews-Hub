@@ -7,7 +7,7 @@ import {
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
 import { BlockView, shapeInnerClass, childWidthClass, rsStyle } from '@/components/site/CustomModule';
-import { saveCustomModuleTree, renameCustomModule } from '@/lib/actions';
+import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
 import { ArrowLeft, Plus, Grip, Trash, Copy, Check } from '@/components/icons';
 
 function newId(): string {
@@ -22,6 +22,7 @@ export default function StudioEditor({
   const router = useRouter();
   const [tree, setTree] = useState<ModuleTree>(initialTree);
   const [name, setName] = useState(initialName);
+  const [pub, setPub] = useState(published);
   const [selected, setSelected] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [rsPreview, setRsPreview] = useState(false);
@@ -106,6 +107,16 @@ export default function StudioEditor({
     if (!n || n === initialName) return;
     startSave(async () => { await renameCustomModule(id, n); router.refresh(); });
   }
+  function togglePublish() {
+    // Save any pending edits first so we never publish a stale tree.
+    startSave(async () => {
+      if (dirty) { await saveCustomModuleTree(id, JSON.stringify(tree)); setDirty(false); }
+      const next = !pub;
+      await setCustomModulePublished(id, next);
+      setPub(next);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -119,16 +130,27 @@ export default function StudioEditor({
           onBlur={saveName}
           aria-label="Module name"
         />
-        {published
+        {pub
           ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
           : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Draft</span>}
         <div className="ml-auto flex items-center gap-2">
           {dirty && <span className="flex items-center gap-1.5 text-sm text-amber-600"><span className="h-2 w-2 rounded-full bg-amber-500" /> Unsaved</span>}
-          <button onClick={save} disabled={saving || !dirty} className="btn-primary btn-sm">
+          <button onClick={save} disabled={saving || !dirty} className="btn-outline btn-sm">
             {saving ? 'Saving…' : <><Check width={14} height={14} /> Save</>}
+          </button>
+          <button onClick={togglePublish} disabled={saving} className={pub ? 'btn-outline btn-sm' : 'btn-primary btn-sm'}>
+            {pub ? 'Unpublish' : 'Publish'}
           </button>
         </div>
       </div>
+
+      {/* Follow-through nudge: a saved-but-unpublished module isn't live yet. */}
+      {!pub && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          This module is a <strong>draft</strong> — it isn&apos;t on the homepage yet. Click <strong>Publish</strong> when you&apos;re ready.
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[180px_1fr_300px]">
         {/* ---- Palette ---- */}

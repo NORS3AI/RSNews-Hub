@@ -19,6 +19,7 @@ import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import PollCard from '@/components/site/PollCard';
+import AdminEditChip from '@/components/site/AdminEditChip';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -84,6 +85,7 @@ export default async function DocsHome() {
   };
 
   const user = await getSessionUser();
+  const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
   const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
@@ -391,7 +393,17 @@ export default async function DocsHome() {
       )}
 
       {/* ===== Admin-arranged modules ===== */}
-      {layout.filter((m) => m.enabled).map((m) => renderModule(m))}
+      {layout.filter((m) => m.enabled).map((m) => {
+        const el = renderModule(m);
+        if (!el) return null;
+        if (!isAdmin) return el;
+        // Admins get an in-place "Edit" chip on every module: custom modules open
+        // in the Studio; catalog modules open the homepage layout manager.
+        const isCustom = isCustomModuleId(m.id);
+        const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
+        const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
+        return <div key={`m-${m.id}`} className="group relative">{el}<AdminEditChip href={href} title={title} /></div>;
+      })}
 
       {/* ===== More content + interspersed ads ===== */}
       <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>
