@@ -188,9 +188,27 @@ model Ad {
 // packages just chain more flights (3mo = 1, 6mo = 2, 12mo = 4). No creative is
 // ever live longer than one flight — vendors submit fresh ads for each. `plan`
 // is a catalog key (see src/lib/adPlans.ts), so new packages are config, not code.
+// A vendor (advertiser). The single source of truth an ad account, its
+// campaigns, and (later) its performance reports all hang off — so nothing keys
+// off a brand *string*. `brandKey` is the normalized (trim+lowercase) match key,
+// unique so "PackWise" and "packwise " can never split into two vendors; it's
+// also what a logged-in vendor's `vendorBrand` resolves against.
+model Vendor {
+  id           String       @id @default(cuid())
+  name         String                       // display name, as first entered
+  brandKey     String       @unique         // normalized match key (see lib/vendors)
+  contactEmail String?                      // reminders / performance reports (later phases)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  campaigns    AdCampaign[]
+}
+
 model AdCampaign {
   id          String     @id @default(cuid())
-  vendorName  String                       // free-text for now; links to a vendor account in a later phase
+  vendorName  String                       // display label kept for back-compat; the link is vendorId
+  vendorId    String?                      // FK to the Vendor entity (nullable during/after transition)
+  vendor      Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   plan        String                       // adPlans catalog key: 'quarter' | 'half' | 'annual' | 'premium' | …
   startAt     DateTime
   endAt       DateTime
@@ -201,6 +219,7 @@ model AdCampaign {
   flights     AdFlight[]
 
   @@index([status])
+  @@index([vendorId])
 }
 
 // One 3-month window within a campaign. Holds that window's creatives (~3, they

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { entitlementsOf, isVendor, brandKey } from '@/lib/entitlements';
+import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { formatDate } from '@/lib/utils';
 
@@ -22,12 +23,21 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
     return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;
   }
 
-  // Match this vendor's campaigns by brand (case-insensitive). Volume is low, so
-  // filter in app; a vendor↔brand FK can replace this at scale.
-  const mine = (await prisma.adCampaign.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: { flights: { orderBy: { index: 'asc' } } },
-  })).filter((c) => brandKey(c.vendorName) === brandKey(ent.vendorBrand));
+  // Resolve the vendor by their brand to the Vendor entity, then load campaigns
+  // by FK (indexed). If no Vendor row exists yet (e.g. an account with no
+  // campaigns, or pre-backfill data), fall back to the brand-key label match so
+  // nothing silently disappears during the transition.
+  const vendorId = await vendorIdForBrand(ent.vendorBrand);
+  const mine = vendorId
+    ? await prisma.adCampaign.findMany({
+        where: { vendorId },
+        orderBy: { createdAt: 'desc' },
+        include: { flights: { orderBy: { index: 'asc' } } },
+      })
+    : (await prisma.adCampaign.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { flights: { orderBy: { index: 'asc' } } },
+      })).filter((c) => brandKey(c.vendorName) === brandKey(ent.vendorBrand));
 
   const now = new Date();
   const current = mine.filter((c) => c.status === 'ACTIVE');

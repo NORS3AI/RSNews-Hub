@@ -7,11 +7,13 @@
 
 import { prisma } from './db';
 import { planByKey, planEnd, generateFlights } from './adPlans';
+import { findOrCreateVendor } from './vendors';
 
 const REMINDER_LEAD_DAYS = 21; // nudge the vendor this many days before a flight needs creatives
 
 export type CreateCampaignInput = {
   vendorName: string;
+  vendorId?: string;     // pre-resolved vendor; else derived from vendorName
   plan: string;
   startAt: Date;
   endAt?: Date | null;   // required for seasonal plans; else derived from the plan length
@@ -26,10 +28,15 @@ export async function createCampaign(input: CreateCampaignInput): Promise<string
   if (!endAt) throw new Error('A seasonal plan needs an explicit end date');
   if (endAt <= input.startAt) throw new Error('End date must be after the start date');
 
+  // Attach to the Vendor entity (created on first use) so the campaign links by
+  // id, not by the free-text label.
+  const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName));
+
   const flights = generateFlights(input.startAt, endAt, plan.flightMonths);
   const campaign = await prisma.adCampaign.create({
     data: {
       vendorName: input.vendorName,
+      vendorId,
       plan: input.plan,
       startAt: input.startAt,
       endAt,

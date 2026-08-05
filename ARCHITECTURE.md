@@ -84,6 +84,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `entitlements.ts` | Pure entitlement model over the SSO facets: free-form `tier`/`affiliations`/`vendorBrand` (no hardcoded enum) → `isVendor`/`isPremium`/`hasAffiliation`/`meetsRequirement` (data-driven content gating) + `brandKey`. |
 | `recommend.ts` | Article recommendations + `smartSearch`. |
 | `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
+| `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
 | `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |
@@ -132,7 +133,9 @@ Content: `Article` · `Category` · `Tag` · `ArticleTag` · `Page` · `Comic` �
 `IndustryLink` · `Ad`. Engagement (all per-account): `Poll`/`PollOption`/
 `PollVote` · `Quiz`/`QuizQuestion`/`QuizOption`/`QuizResponse` · `Subscription` ·
 `ReadingLog` · `SavedItem` · `Clipping`. People: `User` (with `externalId` for
-the parent-site link + audience facets). Analytics: `AnalyticsEvent` (raw) +
+the parent-site link + audience facets). Ad sales: `Vendor` (advertiser, unique
+normalized `brandKey`) → `AdCampaign` (a purchase, FK `vendorId`) → `AdFlight`
+(a 3-month window holding creatives). Analytics: `AnalyticsEvent` (raw) +
 `AnalyticsDaily` (rollups). Config: `Setting` (key/value, e.g. homepage layout).
 
 ## Testing & CI
