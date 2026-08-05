@@ -601,10 +601,7 @@ img { max-width:100%; display:block; }
    unchanged (background clipped to the existing radius). Mirrors the Node app. */
 .rs { --rs-cream-wash:0.42; --fg:#3d2a19; }   /* body text = dark brown, not black */
 
-/* Page surround: the deep-brown cardboard board (used as-is). */
-:root.rs body::before {
-  background:url("assets/bg-rs.jpg") center center / cover no-repeat;
-}
+/* Page surround: RS Mode keeps the default gray textured surround (unchanged). */
 
 /* Orange surfaces — modules AND the orange house-ad frames: brand-orange hue
    locked over the corrugated paper. Kept bright so it pops. */
@@ -630,6 +627,10 @@ img { max-width:100%; display:block; }
 .rs .module.orange, .rs .ind-head, .rs .ind-orange .ind-title,
 .rs .ind-orange .ind-src, .rs .ind-orange .ind-row:hover .ind-title { color:#f7edd8; }
 .rs .ind-orange .ind-ico { background:rgba(247,237,216,.16); color:#f7edd8; }
+/* …but the module headers read in dark brown, straight on the orange. */
+.rs .module.orange .module-head h2 { color:#3d2a19; }
+.rs .ind-orange .ind-head { color:#3d2a19; }
+.rs .ind-orange .ind-sub { color:#3d2a19; }
 .rs .module:not(.orange),
 .rs .card, .rs .tile {
   background-image:
