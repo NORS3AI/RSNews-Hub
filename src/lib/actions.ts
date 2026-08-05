@@ -746,3 +746,20 @@ export async function deleteCustomModule(id: string): Promise<void> {
   revalidatePath('/admin/homepage');
   revalidatePath('/docs');
 }
+
+/* --------------------------- Appearance ---------------------------------- */
+
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const RS_BG_KEY = 'rs_bg_color';
+
+// Admin-set RS-Mode page background. Empty string clears it (back to the default
+// textured surround). Only affects RS Mode; Light/Dark are unchanged.
+export async function setRsBackground(color: string): Promise<void> {
+  await ensureStaff();
+  const raw = (color || '').trim();
+  if (raw && !HEX_RE.test(raw)) throw new Error('Invalid color');
+  if (!raw) await prisma.setting.deleteMany({ where: { key: RS_BG_KEY } });
+  else await prisma.setting.upsert({ where: { key: RS_BG_KEY }, update: { value: raw }, create: { key: RS_BG_KEY, value: raw } });
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}

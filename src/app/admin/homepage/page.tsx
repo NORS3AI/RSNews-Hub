@@ -2,6 +2,7 @@ import { getHomeLayout, moduleSource, MODULE_CATALOG, type ModuleId } from '@/li
 import { isCustomModuleId, customIdOf } from '@/lib/studio';
 import { prisma } from '@/lib/db';
 import HomeLayoutEditor from '@/components/admin/HomeLayoutEditor';
+import RsBackgroundControl from '@/components/admin/RsBackgroundControl';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,9 @@ export default async function AdminHomepage() {
     ? await prisma.customModule.findMany({ where: { id: { in: customIds } }, select: { id: true, name: true, shape: true, published: true } })
     : [];
   const customById = new Map(customs.map((c) => [c.id, c]));
+
+  const rsBgSetting = await prisma.setting.findUnique({ where: { key: 'rs_bg_color' } });
+  const rsBg = rsBgSetting?.value ?? '';
 
   const modules = layout.map((m) => {
     if (isCustomModuleId(m.id)) {
@@ -46,6 +50,7 @@ export default async function AdminHomepage() {
       <p className="mb-6 mt-1 text-[var(--muted)]">
         Drag to reorder or use the arrows; toggle visibility, and lock a module to freeze it in place. The headline block stays pinned at the top.
       </p>
+      <RsBackgroundControl current={rsBg} />
       <HomeLayoutEditor modules={modules} />
     </div>
   );

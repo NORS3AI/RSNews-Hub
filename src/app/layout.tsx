@@ -34,6 +34,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     }
   } catch { /* auth/db hiccup must never block the shell from rendering */ }
 
+  // Admin-configurable RS-Mode page background (Phase 7). Validated hex only, so
+  // it is safe to inline. Applies exclusively in RS Mode.
+  let rsBg = '';
+  try {
+    const s = await prisma.setting.findUnique({ where: { key: 'rs_bg_color' } });
+    if (s && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.value)) rsBg = s.value;
+  } catch { /* ignore */ }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -42,6 +50,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `(function(){try{var st=${JSON.stringify(serverTheme)};var t=st||localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var el=document.documentElement;if(t==='dark'||(!t&&m)){el.classList.add('dark');}else if(t==='rs'){el.classList.add('rs');}if(st){try{localStorage.setItem('theme',st);}catch(e){}}}catch(e){}})();`,
           }}
         />
+        {rsBg && (
+          <style dangerouslySetInnerHTML={{ __html: `.rs body::before{background-image:none!important;background-color:${rsBg}!important;}` }} />
+        )}
       </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>

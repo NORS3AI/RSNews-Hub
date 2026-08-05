@@ -214,7 +214,10 @@ A custom module is a **composition tree** stored as JSON:
   + a draft "not live yet" nudge, on top of the existing unsaved-changes guard.
   *Deferred:* tweaking colors/order directly on the homepage with live preview
   (today you edit in the Studio, which shows a live canvas + RS preview).
-- **Phase 7 — Custom RS Mode background** + polish.
+- **Phase 7 — Custom RS Mode background** + polish. ✅ Admins can set the
+  RS-Mode page background color from the Homepage layout page; it's injected
+  server-side (validated hex) and applies only in RS Mode. Clearing it restores
+  the default textured surround.
 
 ## 11. Open questions
 
