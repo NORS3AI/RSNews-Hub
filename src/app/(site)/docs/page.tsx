@@ -123,6 +123,32 @@ export default async function DocsHome() {
     : [];
   const myModuleVoteByPoll = new Map(myModuleVotes.map((v) => [v.pollId, v.optionId]));
 
+  // Resolve the non-pool article sourcing modes used by custom-module article
+  // blocks: hand-picked ids, by-tag, and by-year (throwbacks).
+  const artBlocks = customRows.flatMap((r) => parseTree(r.tree).children.filter((b) => b.type.startsWith('article')));
+  const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
+  const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
+  const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
+
+  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: 'PUBLISHED' }, select: cardSelect }) : [];
+  const pickById = new Map(pickRows.map((a) => [a.id, toCard(a)]));
+  const byTag = new Map<string, Card[]>();
+  await Promise.all(tags.map(async (t) => {
+    const rows = await prisma.article.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } },
+      orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
+    });
+    byTag.set(t, rows.map(toCard));
+  }));
+  const byYear = new Map<number, Card[]>();
+  await Promise.all(years.map(async (y) => {
+    const rows = await prisma.article.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } },
+      orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
+    });
+    byYear.set(y, rows.map(toCard));
+  }));
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -145,10 +171,21 @@ export default async function DocsHome() {
   const renderCustomModule = (row: { id: string; name: string; tree: string }, layoutId: string) => {
     const tree = parseTree(row.tree);
     const used = new Set<string>();
-    const nextCard = (source: string): Card | null => {
-      const pool = featurePool(source);
+    const firstUnused = (pool: Card[]): Card | null => {
       for (const c of pool) if (!used.has(c.id)) { used.add(c.id); return c; }
       return null;
+    };
+    // Resolve an article block's story by its sourcing mode.
+    const resolveArticle = (b: Block): Card | null => {
+      const mode = b.settings.mode ?? 'auto';
+      if (mode === 'pick') {
+        const a = pickById.get(String(b.settings.articleId ?? ''));
+        if (a) used.add(a.id); // a hand-picked story always shows, even if repeated
+        return a ?? null;
+      }
+      if (mode === 'tag') return firstUnused(byTag.get(String(b.settings.tag ?? '').trim().toLowerCase()) ?? []);
+      if (mode === 'year') return firstUnused(byYear.get(Number(b.settings.year)) ?? []);
+      return firstUnused(featurePool(String(b.settings.source ?? 'latest')));
     };
     const kids = tree.children.map((b: Block, i: number) => {
       const style = rsStyle(b.rsColor);
@@ -183,7 +220,7 @@ export default async function DocsHome() {
         case 'article':
         case 'article-image':
         case 'article-headline': {
-          const card = nextCard(String(b.settings.source ?? 'latest'));
+          const card = resolveArticle(b);
           if (!card) return null;
           if (b.type === 'article-headline') {
             return wrap(

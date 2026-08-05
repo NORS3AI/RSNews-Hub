@@ -8,6 +8,7 @@ import {
 } from '@/lib/studio';
 import { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
+import ArticlePicker from '@/components/admin/studio/ArticlePicker';
 import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight } from '@/components/icons';
 
 function newId(): string {
@@ -347,16 +348,12 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
   return (
     <InspectorShell title={BLOCKS[block.type].label}>
-      {(block.type === 'article' || block.type === 'article-image') && (
+      {(block.type === 'article' || block.type === 'article-image' || block.type === 'article-headline') && (
         <>
-          <Field label="Source">
-            <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
-              <option value="featured">Featured</option>
-              <option value="latest">Latest</option>
-              <option value="trending">Trending</option>
-            </select>
-          </Field>
-          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
+          <ArticleFillFields s={s} set={set} />
+          {(block.type === 'article' || block.type === 'article-image') && (
+            <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
+          )}
           {block.type === 'article-image' && (
             <Field label="Image position">
               <select className="input" value={String(s.imagePosition ?? 'top')} onChange={(e) => set('imagePosition', e.target.value)}>
@@ -366,15 +363,6 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
             </Field>
           )}
         </>
-      )}
-      {block.type === 'article-headline' && (
-        <Field label="Source">
-          <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
-            <option value="featured">Featured</option>
-            <option value="latest">Latest</option>
-            <option value="trending">Trending</option>
-          </select>
-        </Field>
       )}
       {block.type === 'ad' && (
         <Field label="Ad format">
@@ -435,6 +423,40 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <button onClick={onRemove} className="btn-danger btn-sm flex-1"><Trash width={13} height={13} /> Remove</button>
       </div>
     </InspectorShell>
+  );
+}
+
+function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  const mode = String(s.mode ?? 'auto');
+  return (
+    <>
+      <Field label="Fill with">
+        <select className="input" value={mode} onChange={(e) => set('mode', e.target.value)}>
+          <option value="auto">Auto — from a pool</option>
+          <option value="tag">By tag / keyword</option>
+          <option value="year">By year (throwback)</option>
+          <option value="pick">Pick a specific article</option>
+        </select>
+      </Field>
+      {mode === 'auto' && (
+        <Field label="Source">
+          <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
+            <option value="featured">Featured</option>
+            <option value="latest">Latest</option>
+            <option value="trending">Trending</option>
+          </select>
+        </Field>
+      )}
+      {mode === 'tag' && (
+        <Field label="Tag or keyword"><input className="input" value={String(s.tag ?? '')} onChange={(e) => set('tag', e.target.value)} placeholder="e.g. logistics" /></Field>
+      )}
+      {mode === 'year' && (
+        <Field label="Year"><input type="number" min={1990} max={2100} className="input" value={Number(s.year) || ''} onChange={(e) => set('year', Number(e.target.value))} placeholder="e.g. 2019" /></Field>
+      )}
+      {mode === 'pick' && (
+        <Field label="Article"><ArticlePicker value={String(s.articleId ?? '')} onChange={(id) => set('articleId', id)} /></Field>
+      )}
+    </>
   );
 }
 

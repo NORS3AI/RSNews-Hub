@@ -17,8 +17,21 @@ describe('studio tree model', () => {
   });
 
   it('makeBlock seeds default settings per type', () => {
-    expect(makeBlock('article', 'x').settings).toEqual({ source: 'latest', showDek: true });
+    expect(makeBlock('article', 'x').settings).toEqual({ mode: 'auto', source: 'latest', showDek: true });
     expect(makeBlock('poll', 'p').settings).toMatchObject({ timerHours: 72, options: ['', ''] });
+  });
+
+  it('normalizes article sourcing modes (auto/tag/year/pick)', () => {
+    const t = normalizeTree({ children: [
+      { type: 'article', settings: { mode: 'tag', tag: 'Logistics', showDek: false } },
+      { type: 'article-headline', settings: { mode: 'year', year: 2019 } },
+      { type: 'article-image', settings: { mode: 'pick', articleId: 'abc123' } },
+      { type: 'article', settings: { mode: 'year', year: 3000 } }, // out of range → 0
+    ] });
+    expect(t.children[0].settings).toMatchObject({ mode: 'tag', tag: 'Logistics', showDek: false });
+    expect(t.children[1].settings).toMatchObject({ mode: 'year', year: 2019 });
+    expect(t.children[2].settings).toMatchObject({ mode: 'pick', articleId: 'abc123' });
+    expect(t.children[3].settings.year).toBe(0);
   });
 
   it('normalizeTree drops unknown block types and keeps valid ones', () => {
@@ -77,7 +90,7 @@ describe('studio tree model', () => {
     ] });
     expect(t.children[0].settings).toMatchObject({ url: 'https://x/y.png', widthPct: 200, alt: 'hi' }); // clamped to 200
     expect(t.children[1].settings).toEqual({ format: 'rectangle' }); // unknown → default
-    expect(t.children[2].settings).toEqual({ source: 'trending' });
+    expect(t.children[2].settings).toEqual({ mode: 'auto', source: 'trending' });
   });
 
   it('round-trips through serialize/parse', () => {

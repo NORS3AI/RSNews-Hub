@@ -41,17 +41,17 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   article: {
     label: 'Article', group: 'Articles',
     description: 'Headline + dek, no image.',
-    defaults: { source: 'latest', showDek: true },
+    defaults: { mode: 'auto', source: 'latest', showDek: true },
   },
   'article-image': {
     label: 'Article + image', group: 'Articles',
     description: 'Headline + dek with image.',
-    defaults: { source: 'latest', showDek: true, imagePosition: 'top' },
+    defaults: { mode: 'auto', source: 'latest', showDek: true, imagePosition: 'top' },
   },
   'article-headline': {
     label: 'Article headline', group: 'Articles',
     description: 'Headline only — fills the row and shrinks to fit.',
-    defaults: { source: 'latest' },
+    defaults: { mode: 'auto', source: 'latest' },
   },
   ad: {
     label: 'Ad', group: 'Media',
@@ -178,15 +178,15 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
   const d = BLOCKS[type].defaults;
   switch (type) {
     case 'article':
-      return { source: articleSource(s.source), showDek: bool(s.showDek, true) };
+      return { ...articleFill(s), showDek: bool(s.showDek, true) };
     case 'article-image':
       return {
-        source: articleSource(s.source),
+        ...articleFill(s),
         showDek: bool(s.showDek, true),
         imagePosition: s.imagePosition === 'left' || s.imagePosition === 'top' ? s.imagePosition : 'top',
       };
     case 'article-headline':
-      return { source: articleSource(s.source) };
+      return { ...articleFill(s) };
     case 'ad': {
       const format = s.format === 'leaderboard' || s.format === 'video' ? s.format : 'rectangle';
       return { format };
@@ -233,6 +233,23 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
 const ARTICLE_SOURCE_VALUES = ['featured', 'latest', 'trending'] as const;
 function articleSource(v: unknown): string {
   return typeof v === 'string' && (ARTICLE_SOURCE_VALUES as readonly string[]).includes(v) ? v : 'latest';
+}
+
+// How an article block chooses its story:
+//   auto → a pool (featured/latest/trending), de-duped within the module
+//   tag  → auto-fill from articles carrying a tag/keyword
+//   year → auto-fill from a given year (throwbacks)
+//   pick → a specific hand-picked article
+export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick';
+function articleFill(s: Record<string, unknown>): BlockSettings {
+  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' ? s.mode : 'auto';
+  if (mode === 'tag') return { mode, tag: str(s.tag, 60), source: articleSource(s.source) };
+  if (mode === 'year') {
+    const y = Number(s.year);
+    return { mode, year: Number.isInteger(y) && y >= 1990 && y <= 2100 ? y : 0, source: articleSource(s.source) };
+  }
+  if (mode === 'pick') return { mode, articleId: str(s.articleId, 40) };
+  return { mode: 'auto', source: articleSource(s.source) };
 }
 
 /* ----------------------------- Serialization ----------------------------- */
