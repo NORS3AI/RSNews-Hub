@@ -212,8 +212,9 @@ A custom module is a **composition tree** stored as JSON:
   "Edit" chip on every homepage module: custom modules open in the Studio,
   catalog modules open the layout manager. The editor gained Publish/Unpublish
   + a draft "not live yet" nudge, on top of the existing unsaved-changes guard.
-  *Deferred:* tweaking colors/order directly on the homepage with live preview
-  (today you edit in the Studio, which shows a live canvas + RS preview).
+  Inline **color editing on the homepage** is now built too: a "Colors" chip on
+  each custom module opens a live-preview editor (module background + every block,
+  RS-Mode) with an unsaved-changes guard.
 - **Phase 8 — "Go Live" staging.** ✅ Homepage arrangement edits (reorder,
   visibility, lock, custom-module placement) go to a **draft** layout; the public
   homepage renders the **live** layout until an admin presses **Go Live**

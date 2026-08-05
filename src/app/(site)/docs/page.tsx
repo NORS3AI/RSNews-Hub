@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import PollCard from '@/components/site/PollCard';
 import AdminEditChip from '@/components/site/AdminEditChip';
+import InlineColorEditor from '@/components/site/InlineColorEditor';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -466,7 +467,14 @@ export default async function DocsHome() {
         const isCustom = isCustomModuleId(m.id);
         const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
         const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
-        return <div key={`m-${m.id}`} className="group relative">{el}<AdminEditChip href={href} title={title} /></div>;
+        const customRow = isCustom ? customById.get(m.id) : null;
+        return (
+          <div key={`m-${m.id}`} className="group relative">
+            {el}
+            {customRow && <InlineColorEditor moduleId={customRow.id} name={customRow.name} initialTree={parseTree(customRow.tree)} />}
+            <AdminEditChip href={href} title={title} />
+          </div>
+        );
       })}
 
       {/* ===== More content + interspersed ads ===== */}
