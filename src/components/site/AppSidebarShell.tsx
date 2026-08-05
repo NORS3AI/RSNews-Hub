@@ -22,12 +22,13 @@ const NAV = [
 ];
 
 // Three themes, cycled Light → Dark → RS (RS = Light palette + textured surfaces).
+// The button shows the CURRENT theme so the label matches what's on screen.
 type Theme = 'light' | 'dark' | 'rs';
 const THEME_ORDER: Theme[] = ['light', 'dark', 'rs'];
-const THEME_NEXT: Record<Theme, { label: string; Icon: typeof Sun }> = {
-  light: { label: 'Dark mode', Icon: Moon },
-  dark: { label: 'RS mode', Icon: Stamp },
-  rs: { label: 'Light mode', Icon: Sun },
+const THEME_META: Record<Theme, { label: string; next: string; Icon: typeof Sun }> = {
+  light: { label: 'Light mode', next: 'Dark', Icon: Sun },
+  dark: { label: 'Dark mode', next: 'RS', Icon: Moon },
+  rs: { label: 'RS mode', next: 'Light', Icon: Stamp },
 };
 
 function ThemeItem({ collapsed }: { collapsed: boolean }) {
@@ -46,9 +47,9 @@ function ThemeItem({ collapsed }: { collapsed: boolean }) {
     el.classList.toggle('rs', next === 'rs');
     try { localStorage.setItem('theme', next); } catch {}
   }
-  const { label, Icon } = THEME_NEXT[mounted ? theme : 'light'];
+  const { label, next, Icon } = THEME_META[mounted ? theme : 'light'];
   return (
-    <button onClick={cycle} title={`Switch to ${label}`} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--header-fg)]/70 hover:bg-white/10 hover:text-[var(--header-fg)]">
+    <button onClick={cycle} title={`Theme: ${label} — click for ${next}`} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--header-fg)]/70 hover:bg-white/10 hover:text-[var(--header-fg)]">
       <Icon width={21} height={21} />
       {!collapsed && <span>{label}</span>}
     </button>

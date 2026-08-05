@@ -42,14 +42,16 @@
 
   /* ---------- theme ---------- */
   var THEME_ORDER = ['light', 'dark', 'rs'];
-  // The button shows the theme you'll switch TO next (matches the old two-way toggle).
-  var THEME_NEXT = { light: { icon: 'moon', label: 'Dark mode' }, dark: { icon: 'stamp', label: 'RS mode' }, rs: { icon: 'sun', label: 'Light mode' } };
+  // The button shows the CURRENT theme, so the label always matches what's on
+  // screen; clicking cycles to the next. (Tooltip hints what's next.)
+  var THEME_META = { light: { icon: 'sun', label: 'Light mode' }, dark: { icon: 'moon', label: 'Dark mode' }, rs: { icon: 'stamp', label: 'RS mode' } };
+  var THEME_NEXT_LABEL = { light: 'Dark', dark: 'RS', rs: 'Light' };
   function applyTheme(t) {
     var root = document.documentElement;
     root.classList.toggle('dark', t === 'dark');
     root.classList.toggle('rs', t === 'rs');
-    var b = el('theme-btn'); var n = THEME_NEXT[t] || THEME_NEXT.light;
-    if (b) b.innerHTML = ICON[n.icon] + '<span class="side-label">' + n.label + '</span>';
+    var b = el('theme-btn'); var m = THEME_META[t] || THEME_META.light;
+    if (b) { b.innerHTML = ICON[m.icon] + '<span class="side-label">' + m.label + '</span>'; b.title = 'Theme: ' + m.label + ' — click for ' + THEME_NEXT_LABEL[t]; }
   }
   function initTheme() {
     var t; try { t = localStorage.getItem(THEME_KEY); } catch (e) {}
