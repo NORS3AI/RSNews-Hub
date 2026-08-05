@@ -12,6 +12,7 @@ import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
+import { markCampaignPaid, parseAmountToCents } from './payments';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -498,6 +499,19 @@ export async function cancelAdCampaign(id: string) {
   revalidatePath('/admin/campaigns');
   revalidatePath(`/admin/campaigns/${id}`);
   revalidatePath('/docs');
+}
+
+// Mark a campaign paid manually (comped / offline / a payment collected outside
+// JotForm), so its flights can be scheduled. Amount is optional (for the record).
+export async function markAdCampaignPaid(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('campaignId') as string) || '').trim();
+  if (!id) throw new Error('campaignId required');
+  const amountCents = parseAmountToCents((formData.get('amount') as string) || '');
+  const note = ((formData.get('note') as string) || '').trim() || undefined;
+  await markCampaignPaid(id, amountCents, note);
+  revalidatePath(`/admin/campaigns/${id}`);
+  revalidatePath('/admin/campaigns');
 }
 
 /* --------------------- Vendor performance reports ------------------------ */

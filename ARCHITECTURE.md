@@ -89,6 +89,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `reports.ts` | Quarterly performance reports: pure quarter math (`quarterOf`/`lastCompletedQuarter`/`recentQuarters`) + `computeSnapshot`/`generateReportDraft` (snapshot the ad analytics into a report) + publish/list lifecycle. |
 | `jotform.ts` / `jotformIngest.ts` | JotForm ad-submission ingestion: pure parsing + SSRF host guard + field map (`parseJotformSubmission`, `isAllowedCreativeHost`) / server side (`ingestSubmission` — fetch creatives, draft campaign, record). |
 | `adReminders.ts` | Vendor reminder emails (pure templates `freshAdsEmail`/`renewalEmail` + `sendDueReminders` — find due, send via the email seam, mark reminded only after a successful send). Driven by the nightly `ads/maintenance` route. |
+| `payments.ts` | Campaign payments: pure `isPaid`/`paidTotalCents`/`parseAmountToCents`/`normalizePaymentStatus` + `recordPayment`/`markCampaignPaid`/`campaignIsPaid`. A flight can't be scheduled until its campaign is paid (`scheduleFlight` gate). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
 | `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |
@@ -141,7 +142,8 @@ the parent-site link + audience facets). Ad sales: `Vendor` (advertiser, unique
 normalized `brandKey`) → `AdCampaign` (a purchase, FK `vendorId`) → `AdFlight`
 (a 3-month window holding creatives); `PerformanceReport` (per vendor per
 quarter, admin-published snapshot of the ad analytics); `AdSubmission` (one
-ingested JotForm webhook — audit + idempotency). Analytics:
+ingested JotForm webhook — audit + idempotency); `Payment` (against a campaign —
+gates go-live). Analytics:
 `AnalyticsEvent` (raw) +
 `AnalyticsDaily` (rollups). Config: `Setting` (key/value, e.g. homepage layout).
 

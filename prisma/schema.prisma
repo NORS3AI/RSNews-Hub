@@ -260,9 +260,32 @@ model AdCampaign {
   // nightly job never double-nudges. Cleared implies "renewal reminder still due".
   renewalRemindedAt DateTime?
   flights     AdFlight[]
+  payments    Payment[]
 
   @@index([status])
   @@index([vendorId])
+}
+
+// A payment against a campaign. Recorded from the JotForm submission (if it
+// collected payment) or entered manually by an admin. A campaign must have a
+// PAID payment before any of its flights can be scheduled (go live) — see
+// lib/payments + scheduleFlight. `externalId` (the provider's transaction id) is
+// unique so a re-delivered webhook can't double-record the same charge.
+model Payment {
+  id           String      @id @default(cuid())
+  campaignId   String?
+  campaign     AdCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  vendorId     String?
+  submissionId String?                              // the JotForm submission it came from
+  provider     String      @default("manual")       // jotform | stripe | manual
+  externalId   String?     @unique                  // provider transaction id (dedup)
+  amountCents  Int         @default(0)
+  currency     String      @default("usd")
+  status       String      @default("PAID")         // PAID | PENDING | REFUNDED | FAILED
+  note         String?
+  createdAt    DateTime    @default(now())
+
+  @@index([campaignId])
 }
 
 // One 3-month window within a campaign. Holds that window's creatives (~3, they

@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { planByKey, planEnd, generateFlights } from './adPlans';
 import { findOrCreateVendor } from './vendors';
+import { campaignIsPaid } from './payments';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -64,10 +65,13 @@ export async function unassignAd(adId: string): Promise<void> {
   await prisma.ad.update({ where: { id: adId }, data: { flightId: null } });
 }
 
-/** Schedule a flight ("Go"): it must have at least one creative. */
+/** Schedule a flight ("Go"): it must have at least one creative AND its campaign
+ *  must be paid (a campaign can't go live unpaid — mark it paid in the admin). */
 export async function scheduleFlight(flightId: string): Promise<void> {
-  const count = await prisma.ad.count({ where: { flightId } });
-  if (count === 0) throw new Error('Add at least one creative before scheduling this flight');
+  const flight = await prisma.adFlight.findUnique({ where: { id: flightId }, select: { campaignId: true, _count: { select: { ads: true } } } });
+  if (!flight) throw new Error('Flight not found');
+  if (flight._count.ads === 0) throw new Error('Add at least one creative before scheduling this flight');
+  if (!(await campaignIsPaid(flight.campaignId))) throw new Error('This campaign isn’t marked paid yet — record payment before it can go live.');
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
 }
 

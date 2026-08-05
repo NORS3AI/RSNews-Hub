@@ -156,3 +156,8 @@ scheduler with `Authorization: Bearer $CRON_SECRET`) emails vendors when a fligh
 needs fresh ads (21 days out) or a campaign is up for renewal (30 days out).
 Delivery needs `RESEND_API_KEY` + `EMAIL_FROM` (see the email section); without
 them the reminders are logged, not sent.
+
+**Payments.** A campaign can't go live (schedule a flight) until it's paid. If
+your JotForm collects payment, map `paymentAmount` / `paymentId` / `paymentStatus`
+and the hub records it automatically (deduped on the transaction id). Otherwise an
+admin marks a campaign paid on its page (comped or a payment taken offline).
