@@ -16,7 +16,17 @@ function newId(): string {
   try { return 'b' + crypto.randomUUID().slice(0, 8); } catch { return 'b' + Date.now().toString(36); }
 }
 
-type DragState = { kind: 'palette'; type: BlockType } | { kind: 'move'; index: number } | null;
+type DragState = { kind: 'palette'; type: BlockType; preset?: Record<string, unknown> } | { kind: 'move'; index: number } | null;
+
+// Ad sizes shown directly in the palette so you drop the right shape for the
+// slot (e.g. Square fits a sidebar; Leaderboard is a wide banner).
+const AD_VARIANTS: { label: string; format: string }[] = [
+  { label: 'Ad — rectangle', format: 'rectangle' },
+  { label: 'Ad — square', format: 'square' },
+  { label: 'Ad — vertical', format: 'vertical' },
+  { label: 'Ad — leaderboard', format: 'leaderboard' },
+  { label: 'Ad — video', format: 'video' },
+];
 
 export default function StudioEditor({
   id, name: initialName, published, initialTree,
@@ -72,9 +82,10 @@ export default function StudioEditor({
     });
   }
 
-  function addBlock(type: BlockType, at?: number) {
+  function addBlock(type: BlockType, at?: number, preset?: Record<string, unknown>) {
     if (tree.children.length >= MAX_BLOCKS) return;
     const block = makeBlock(type, newId());
+    if (preset) block.settings = { ...block.settings, ...preset };
     mutate((t) => {
       const i = at ?? t.children.length;
       t.children.splice(i, 0, block);
@@ -120,7 +131,7 @@ export default function StudioEditor({
     setOverIndex(null);
     drag.current = null;
     if (!d) return;
-    if (d.kind === 'palette') addBlock(d.type, index);
+    if (d.kind === 'palette') addBlock(d.type, index, d.preset);
     else moveBlock(d.index, index);
   }
 
@@ -213,18 +224,24 @@ export default function StudioEditor({
                     </button>
                     {open && (
                       <div className="mt-1 space-y-1.5">
-                        {blocksInGroup(g).map((t) => (
-                          <button key={t}
-                            draggable
-                            onDragStart={() => { drag.current = { kind: 'palette', type: t }; }}
-                            onDragEnd={() => { drag.current = null; setOverIndex(null); }}
-                            onClick={() => addBlock(t)}
-                            disabled={tree.children.length >= MAX_BLOCKS}
-                            className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-2 text-left text-xs font-semibold hover:border-brand-400 disabled:opacity-40"
-                            title={BLOCKS[t].description}>
-                            <Plus width={13} height={13} className="shrink-0 text-brand-600" /> {BLOCKS[t].label}
-                          </button>
-                        ))}
+                        {blocksInGroup(g).flatMap((t) => {
+                          // The Ad element expands into its sizes so you can drop the right shape.
+                          const entries = t === 'ad'
+                            ? AD_VARIANTS.map((v) => ({ key: `ad:${v.format}`, type: 'ad' as BlockType, label: v.label, preset: { format: v.format }, desc: `${v.label} — cycles your live ad library` }))
+                            : [{ key: t, type: t, label: BLOCKS[t].label, preset: undefined as Record<string, unknown> | undefined, desc: BLOCKS[t].description }];
+                          return entries.map((e) => (
+                            <button key={e.key}
+                              draggable
+                              onDragStart={() => { drag.current = { kind: 'palette', type: e.type, preset: e.preset }; }}
+                              onDragEnd={() => { drag.current = null; setOverIndex(null); }}
+                              onClick={() => addBlock(e.type, undefined, e.preset)}
+                              disabled={tree.children.length >= MAX_BLOCKS}
+                              className="flex w-full items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-2 text-left text-xs font-semibold hover:border-brand-400 disabled:opacity-40"
+                              title={e.desc}>
+                              <Plus width={13} height={13} className="shrink-0 text-brand-600" /> {e.label}
+                            </button>
+                          ));
+                        })}
                       </div>
                     )}
                   </div>
@@ -238,8 +255,8 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--fg)]/80">Canvas</span>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-[var(--fg)]/80">
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-300">Canvas</span>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
               <input type="checkbox" checked={rsPreview} onChange={(e) => setRsPreview(e.target.checked)} /> RS-Mode preview
             </label>
           </div>
@@ -393,7 +410,8 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       {block.type === 'ad' && (
         <Field label="Ad format">
           <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
-            <option value="rectangle">Rectangle (square-ish)</option>
+            <option value="rectangle">Rectangle (medium)</option>
+            <option value="square">Square (fits a sidebar)</option>
             <option value="vertical">Vertical (skyscraper)</option>
             <option value="leaderboard">Leaderboard (wide banner)</option>
             <option value="video">Video</option>

@@ -98,7 +98,7 @@ function blockInner(block: Block) {
     }
     case 'ad': {
       const format = String(s.format ?? 'rectangle');
-      const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : format === 'vertical' ? 'min-h-[250px]' : 'min-h-[90px]';
+      const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : format === 'vertical' ? 'min-h-[250px]' : format === 'square' ? 'min-h-[200px]' : 'min-h-[90px]';
       return (
         <div className={`studio-fill studio-ad grid ${h} place-items-center rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4 text-center`} style={style}>
           <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">{format === 'video' ? 'Video ad' : 'Advertisement'}</span>

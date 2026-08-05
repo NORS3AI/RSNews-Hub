@@ -29,20 +29,21 @@ function Pie({ options, total }: { options: PollOption[]; total: number }) {
   const R = 52, C = 60, cir = 2 * Math.PI * R;
   let offset = 0;
   return (
-    <div className="flex items-center gap-4">
-      <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0 -rotate-90">
+    <div className="flex flex-col items-center gap-3">
+      {/* Bigger donut, centered; percentages read underneath. */}
+      <svg viewBox="0 0 120 120" className="h-40 w-40 shrink-0 -rotate-90">
         {options.map((o, i) => {
           const frac = o.votes / total;
           const dash = frac * cir;
           const el = (
             <circle key={o.id} cx={C} cy={C} r={R} fill="none" stroke={PIE_COLORS[i % PIE_COLORS.length]}
-              strokeWidth={16} strokeDasharray={`${dash} ${cir - dash}`} strokeDashoffset={-offset} />
+              strokeWidth={18} strokeDasharray={`${dash} ${cir - dash}`} strokeDashoffset={-offset} />
           );
           offset += dash;
           return el;
         })}
       </svg>
-      <ul className="min-w-0 flex-1 space-y-1">
+      <ul className="w-full space-y-1.5">
         {options.map((o, i) => (
           <li key={o.id} className="flex items-center gap-2 text-sm">
             <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
@@ -84,12 +85,12 @@ export default function PollCard({ poll, loggedIn, votedOptionId = null, chart =
 
   return (
     <section className="module flex h-full flex-col">
-      <div className="mb-1 flex items-center gap-2">
+      <div className="mb-2.5 flex items-center gap-2">
         <span className="rounded-md bg-brand-600 px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.1em] text-white">Poll</span>
-        <span className="text-sm font-semibold text-[var(--muted)]">Reader poll of the month</span>
-        {closesIn && <span className="ml-auto whitespace-nowrap rounded-full bg-[var(--bg-soft)] px-2 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300" title="Time remaining">⏱ {closesIn} left</span>}
+        {closesIn && <span className="ml-auto whitespace-nowrap rounded-full bg-[var(--bg-soft)] px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300" title="Time remaining">⏱ {closesIn} left</span>}
+        {closed && <span className="ml-auto whitespace-nowrap rounded-full bg-[var(--bg-soft)] px-2.5 py-0.5 text-xs font-bold text-[var(--muted)]">Closed</span>}
       </div>
-      <h2 className="mb-4 text-2xl font-black leading-tight tracking-tight">{poll.question}</h2>
+      <h2 className="mb-4 text-xl font-black leading-tight tracking-tight sm:text-2xl">{poll.question}</h2>
 
       {voted && chart === 'pie' ? (
         <Pie options={opts} total={total} />

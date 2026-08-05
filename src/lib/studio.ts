@@ -219,8 +219,8 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
     case 'article-headline':
       return { ...articleFill(s) };
     case 'ad': {
-      const format = s.format === 'leaderboard' || s.format === 'video' || s.format === 'vertical' ? s.format : 'rectangle';
-      return { format };
+      const ok = ['leaderboard', 'video', 'vertical', 'square', 'rectangle'];
+      return { format: ok.includes(String(s.format)) ? String(s.format) : 'rectangle' };
     }
     case 'image': {
       const w = Number(s.widthPct);

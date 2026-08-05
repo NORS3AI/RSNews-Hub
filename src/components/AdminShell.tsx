@@ -65,9 +65,11 @@ export default function AdminShell({
   const toggleGroup = (title: string) => setClosedGroups((g) => { const n = { ...g, [title]: !g[title] }; try { localStorage.setItem('admin_nav_groups', JSON.stringify(n)); } catch {} return n; });
   const isActive = (l: NavLink) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
 
+  // The admin chrome (sidebar + top bar) is always dark, so its text must be a
+  // FIXED light color — the theme's --fg is dark in Light mode (dark-on-dark).
   const linkClass = (l: NavLink) =>
     `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-      isActive(l) ? 'bg-brand-600 text-white' : 'text-[var(--fg)]/75 hover:bg-[var(--bg-soft)] hover:text-[var(--fg)]'
+      isActive(l) ? 'bg-brand-600 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
     }`;
 
   const nav = (
@@ -80,7 +82,7 @@ export default function AdminShell({
           <div key={group.title ?? `g${gi}`}>
             {group.title && (
               <button onClick={() => toggleGroup(group.title!)}
-                className="mb-1 flex w-full items-center gap-1 px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--fg)]/50 hover:text-[var(--fg)]/80">
+                className="mb-1 flex w-full items-center gap-1 px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 hover:text-slate-200">
                 {closed ? <ChevronRight width={12} height={12} /> : <ChevronDown width={12} height={12} />} {group.title}
               </button>
             )}
@@ -101,24 +103,24 @@ export default function AdminShell({
 
   return (
     <div className="min-h-screen bg-[var(--bg-soft)]">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--bg)]">
+      {/* Top bar — always-dark chrome, so text is forced light (text-slate-100) */}
+      <header className="sticky top-0 z-40 border-b border-black/30 bg-[var(--bg)] text-slate-100">
         <div className="flex h-14 items-center gap-3 px-4">
-          <button onClick={() => setOpen((o) => !o)} className="btn-ghost h-9 w-9 !px-0 lg:hidden" aria-label="Menu">
+          <button onClick={() => setOpen((o) => !o)} className="btn-ghost h-9 w-9 !px-0 text-slate-200 hover:bg-white/10 lg:hidden" aria-label="Menu">
             {open ? <X /> : <Menu />}
           </button>
           {/* Desktop: collapse/expand the left nav for a full-width workspace. */}
-          <button onClick={toggleCollapsed} className="btn-ghost hidden h-9 w-9 !px-0 lg:inline-flex" aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'} title={collapsed ? 'Show sidebar' : 'Hide sidebar'}>
+          <button onClick={toggleCollapsed} className="btn-ghost hidden h-9 w-9 !px-0 text-slate-200 hover:bg-white/10 lg:inline-flex" aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'} title={collapsed ? 'Show sidebar' : 'Hide sidebar'}>
             <Menu />
           </button>
-          <Link href="/admin" className="flex items-center gap-2 font-bold">
+          <Link href="/admin" className="flex items-center gap-2 font-bold text-slate-100">
             <BrandMark size={30} priority className="rounded-[6px]" />
             <span className="hidden sm:inline">RSNews Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <Link href="/docs" className="btn-ghost btn-sm"><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>
+            <Link href="/docs" className="btn-ghost btn-sm text-slate-200 hover:bg-white/10"><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>
             <ThemeToggle />
-            <span className="hidden text-sm text-[var(--muted)] sm:inline">{user.name}</span>
+            <span className="hidden text-sm text-slate-400 sm:inline">{user.name}</span>
             <LogoutButton />
           </div>
         </div>
@@ -126,7 +128,7 @@ export default function AdminShell({
 
       <div className={`mx-auto flex ${collapsed ? 'max-w-none' : 'max-w-7xl'}`}>
         {/* Sidebar (desktop) — hidden when collapsed for a full-width workspace */}
-        <aside className={`sticky top-14 h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-[var(--border)] bg-[var(--bg)] p-4 ${collapsed ? 'hidden' : 'hidden lg:block'}`}>
+        <aside className={`sticky top-14 h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-black/30 bg-[var(--bg)] p-4 text-slate-100 ${collapsed ? 'hidden' : 'hidden lg:block'}`}>
           {nav}
         </aside>
 
@@ -134,7 +136,7 @@ export default function AdminShell({
         {open && (
           <div className="fixed inset-0 z-30 lg:hidden">
             <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-            <aside className="absolute left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-[var(--border)] bg-[var(--bg)] p-4">{nav}</aside>
+            <aside className="absolute left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-black/30 bg-[var(--bg)] p-4 text-slate-100">{nav}</aside>
           </div>
         )}
 
