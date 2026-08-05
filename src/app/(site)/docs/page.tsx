@@ -184,9 +184,21 @@ export default async function DocsHome() {
   // future refinement can let admins hand-pick specific articles). Poll blocks
   // are skipped on the live site until the Phase 5 timer/archive lifecycle is
   // wired to real Poll records.
+  // Global de-dup across the WHOLE homepage: a poll / quiz / article shows at
+  // most once, so a piece placed in a dedicated module can't also reappear in a
+  // generic "latest" slot (e.g. a Package Hub poll pinned in its own element AND
+  // the council aside). Explicitly-pinned poll/quiz ids win over the generic
+  // aside — the aside yields them to the module that named them; among modules,
+  // first in layout order wins and a duplicate falls through its fallback chain.
+  const pinnedPollIds = new Set(allBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
+  const pinnedQuizIds = new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
+  const shownArticleIds = new Set<string>();
+  const shownPollIds = new Set<string>();
+  const shownQuizIds = new Set<string>();
+
   const renderCustomModule = (row: { id: string; name: string; tree: string }, layoutId: string) => {
     const tree = parseTree(row.tree);
-    const used = new Set<string>();
+    const used = shownArticleIds; // page-global so articles don't repeat across modules
     const firstUnused = (pool: Card[]): Card | null => {
       for (const c of pool) if (!used.has(c.id)) { used.add(c.id); return c; }
       return null;
@@ -237,6 +249,8 @@ export default async function DocsHome() {
           if (!quiz) return null;
           // Once its timer ends, the quiz disappears from the homepage.
           if (quiz.closesAt && new Date(quiz.closesAt) < new Date()) return null;
+          if (shownQuizIds.has(quiz.id)) return null; // already shown → fall through
+          shownQuizIds.add(quiz.id);
           const done = qid ? myQuizDone.has(qid) : !!priorQuizResponse;
           return (
             <div className="studio-fill" style={style}>
@@ -271,6 +285,8 @@ export default async function DocsHome() {
           const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
           const p = pid ? modulePollById.get(pid) : null;
           if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
+          if (shownPollIds.has(p.id)) return null; // already shown elsewhere → fall through
+          shownPollIds.add(p.id);
           return (
             <div className="studio-fill" style={style}>
               <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} chart={b.settings.chart === 'pie' ? 'pie' : 'bar'} />
@@ -362,14 +378,21 @@ export default async function DocsHome() {
         const indEl = hasIndustry
           ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
           : null;
-        const pollEl = activePoll
-          ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} loggedIn={loggedIn} votedOptionId={priorPollVote?.optionId ?? null} />
-          : null;
-        const quizEl = activeQuiz
-          ? <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />
-          : null;
+        // Yield to a module that pinned this poll/quiz, and never repeat one a
+        // module already rendered (global de-dup).
+        let pollEl: React.ReactNode = null;
+        if (activePoll && !pinnedPollIds.has(activePoll.id) && !shownPollIds.has(activePoll.id)) {
+          shownPollIds.add(activePoll.id);
+          pollEl = <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} loggedIn={loggedIn} votedOptionId={priorPollVote?.optionId ?? null} />;
+        }
+        let quizEl: React.ReactNode = null;
+        if (activeQuiz && !pinnedQuizIds.has(activeQuiz.id) && !shownQuizIds.has(activeQuiz.id)) {
+          shownQuizIds.add(activeQuiz.id);
+          quizEl = <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />;
+        }
         // Poll + Pop Quiz stack together in the narrower right-hand column.
         const asideEl = (pollEl || quizEl) ? <div className="flex flex-col gap-6">{pollEl}{quizEl}</div> : null;
+        if (!indEl && !asideEl) return null; // everything here was deduped away
         if (indEl && asideEl) {
           return <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">{indEl}{asideEl}</div>;
         }
