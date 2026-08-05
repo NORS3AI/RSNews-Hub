@@ -14,6 +14,7 @@ import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelC
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
 import { updateVendorContact } from './vendors';
+import { EMAIL_TEMPLATES } from './emailTemplates';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -500,6 +501,26 @@ export async function cancelAdCampaign(id: string) {
   revalidatePath('/admin/campaigns');
   revalidatePath(`/admin/campaigns/${id}`);
   revalidatePath('/docs');
+}
+
+// Save an admin override for an email template's copy (subject + body). Falls
+// back to the built-in default if the row is later reset/removed.
+export async function saveEmailTemplate(formData: FormData) {
+  await ensureStaff();
+  const key = ((formData.get('key') as string) || '').trim();
+  if (!EMAIL_TEMPLATES[key]) throw new Error('Unknown template');
+  const subject = ((formData.get('subject') as string) || '').trim().slice(0, 300);
+  const body = ((formData.get('body') as string) || '').trim().slice(0, 8000);
+  if (!subject || !body) throw new Error('Subject and body are required');
+  await prisma.emailTemplate.upsert({ where: { key }, update: { subject, body }, create: { key, subject, body } });
+  revalidatePath('/admin/email-templates');
+}
+
+// Reset a template to its built-in default (drops the admin override).
+export async function resetEmailTemplate(key: string) {
+  await ensureStaff();
+  await prisma.emailTemplate.deleteMany({ where: { key } });
+  revalidatePath('/admin/email-templates');
 }
 
 // Set a vendor's reminder contact email + notes (fills a gap when JotForm didn't

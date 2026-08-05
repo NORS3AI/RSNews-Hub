@@ -1,17 +1,30 @@
 // Transactional email — provider-agnostic and safe by default.
 //
 // With no provider configured it LOGS the message instead of sending, so a
-// misconfigured environment never accidentally emails anyone. Set
-// RESEND_API_KEY + EMAIL_FROM to actually send (via Resend's REST API — no SDK).
-// Swappable for Postmark/SES by editing the one `deliver` function.
+// misconfigured environment never accidentally emails anyone. To actually send,
+// set EMAIL_FROM (the sender — use one of your own verified addresses) plus one
+// provider key:
+//   • Resend  — RESEND_API_KEY   (default)
+//   • SendGrid — SENDGRID_API_KEY (set EMAIL_PROVIDER=sendgrid, or just supply the key)
+// EMAIL_PROVIDER (resend|sendgrid) picks the transport when both keys exist.
 
 import { log } from './logger';
 
 export type EmailMessage = { to: string; subject: string; html: string; text?: string };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Which transport to use, given the configured keys. null = none configured. */
+function activeProvider(): 'resend' | 'sendgrid' | null {
+  const pref = (process.env.EMAIL_PROVIDER || '').toLowerCase();
+  if (pref === 'sendgrid' && process.env.SENDGRID_API_KEY) return 'sendgrid';
+  if (pref === 'resend' && process.env.RESEND_API_KEY) return 'resend';
+  if (process.env.RESEND_API_KEY) return 'resend';
+  if (process.env.SENDGRID_API_KEY) return 'sendgrid';
+  return null;
+}
+
 export function isEmailConfigured(): boolean {
-  return !!(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  return !!(process.env.EMAIL_FROM && activeProvider());
 }
 
 function redact(email: string): string {
@@ -32,14 +45,35 @@ export function renderEmail(title: string, bodyHtml: string): string {
     `<tr><td style="padding:16px 24px;color:#8a8f98;font-size:12px;border-top:1px solid #eee">You're receiving this because you have an RSNews Hub account.</td></tr></table></body></html>`;
 }
 
-async function deliver(msg: EmailMessage): Promise<{ ok: boolean; error?: string }> {
+async function deliverResend(msg: EmailMessage): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: process.env.EMAIL_FROM, to: msg.to, subject: msg.subject, html: msg.html, text: msg.text }),
   });
-  if (!res.ok) return { ok: false, error: `provider ${res.status}` };
+  if (!res.ok) return { ok: false, error: `resend ${res.status}` };
   return { ok: true };
+}
+
+async function deliverSendgrid(msg: EmailMessage): Promise<{ ok: boolean; error?: string }> {
+  const content = [{ type: 'text/plain', value: msg.text || '' }, { type: 'text/html', value: msg.html }]
+    .filter((c) => c.value);
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: msg.to }] }],
+      from: { email: process.env.EMAIL_FROM },
+      subject: msg.subject,
+      content,
+    }),
+  });
+  if (!res.ok) return { ok: false, error: `sendgrid ${res.status}` };
+  return { ok: true };
+}
+
+function deliver(msg: EmailMessage): Promise<{ ok: boolean; error?: string }> {
+  return activeProvider() === 'sendgrid' ? deliverSendgrid(msg) : deliverResend(msg);
 }
 
 /** Send an email. Never throws; returns a result. No-ops (logs) when unconfigured. */

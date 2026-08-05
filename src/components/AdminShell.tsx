@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail } from './icons';
 
 const links = [
   { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
@@ -22,6 +22,7 @@ const links = [
   { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
   { href: '/admin/vendors', label: 'Vendors', icon: Users },
   { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
+  { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
   { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
 ];
 

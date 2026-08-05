@@ -2,57 +2,25 @@
 //   • "fresh ads needed" — a flight starts soon but has no scheduled creatives;
 //   • "renewal" — a campaign is nearing its end, submit again to keep running.
 //
-// Templates are pure (subject/text/html) so they're unit-tested; `sendDueReminders`
-// finds what's due, sends via the email seam, and marks "reminded" ONLY after a
-// successful (or safely no-op'd) send, so we never mark done without notifying.
-// Vendors with no `contactEmail` are skipped (and left due) until one is known.
+// The COPY is admin-editable (see src/lib/emailTemplates + /admin/email-templates);
+// here we just find what's due, build the merge-tag values, render the chosen
+// template, and send. A reminder is marked sent ONLY after a successful (or safely
+// no-op'd) send, so we never mark done without notifying. Vendors with no
+// `contactEmail` are skipped (and left due) until one is known.
 
 import { prisma } from './db';
-import { sendEmail, renderEmail, escapeHtml } from './email';
-import { daysLeft } from './adPlans';
+import { sendEmail } from './email';
+import { renderTemplate, type TemplateVars } from './emailTemplates';
+import { daysLeft, planByKey } from './adPlans';
 
 export const FRESH_ADS_LEAD_DAYS = 21;
 export const RENEWAL_LEAD_DAYS = 30;
 
 const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-
-export type BuiltEmail = { subject: string; text: string; html: string };
-
-/** "Your next flight needs fresh ads" nudge. */
-export function freshAdsEmail(p: { vendorName: string; flightIndex: number; startAt: Date; now: Date }): BuiltEmail {
-  const when = fmtDate(p.startAt);
-  const days = daysLeft(p.startAt, p.now);
-  const subject = `Fresh ads needed for your RS News flight (starts ${when})`;
-  const text =
-    `Hi ${p.vendorName},\n\n` +
-    `Flight ${p.flightIndex} of your RS News ad campaign starts on ${when} (about ${days} day${days === 1 ? '' : 's'} away) and still needs its creatives.\n` +
-    `Please submit your fresh ads so we can review and schedule them before it begins.\n\n` +
-    `— RS News`;
-  const html = renderEmail('Fresh ads needed', `
-    <p style="margin:0 0 12px">Hi ${escapeHtml(p.vendorName)},</p>
-    <p style="margin:0 0 12px">Flight <strong>${p.flightIndex}</strong> of your RS News ad campaign starts on <strong>${escapeHtml(when)}</strong> (about ${days} day${days === 1 ? '' : 's'} away) and still needs its creatives.</p>
-    <p style="margin:0 0 12px">Please submit your fresh ads so we can review and schedule them before it begins.</p>
-    <p style="margin:16px 0 0;color:#8a8f98">— RS News</p>`);
-  return { subject, text, html };
-}
-
-/** "Your campaign is ending soon — renew" nudge. */
-export function renewalEmail(p: { vendorName: string; endAt: Date; now: Date }): BuiltEmail {
-  const when = fmtDate(p.endAt);
-  const days = daysLeft(p.endAt, p.now);
-  const subject = `Your RS News campaign ends ${when} — renew to keep running`;
-  const text =
-    `Hi ${p.vendorName},\n\n` +
-    `Your RS News ad campaign ends on ${when} (about ${days} day${days === 1 ? '' : 's'} away).\n` +
-    `To keep your ads running without a gap, submit a new package before then.\n\n` +
-    `— RS News`;
-  const html = renderEmail('Time to renew', `
-    <p style="margin:0 0 12px">Hi ${escapeHtml(p.vendorName)},</p>
-    <p style="margin:0 0 12px">Your RS News ad campaign ends on <strong>${escapeHtml(when)}</strong> (about ${days} day${days === 1 ? '' : 's'} away).</p>
-    <p style="margin:0 0 12px">To keep your ads running without a gap, submit a new package before then.</p>
-    <p style="margin:16px 0 0;color:#8a8f98">— RS News</p>`);
-  return { subject, text, html };
-}
+const ORDINALS = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+const ordinal = (n: number) => ORDINALS[n] ?? `${n}th`;
+const orderUrl = () => process.env.AD_ORDER_URL || '';
+const packageLabel = (plan: string) => planByKey(plan)?.label ?? plan;
 
 export type ReminderSummary = { freshAdsReminders: number; renewalReminders: number; skippedNoEmail: number };
 
@@ -65,12 +33,19 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const freshLead = new Date(now.getTime() + FRESH_ADS_LEAD_DAYS * 86_400_000);
   const flights = await prisma.adFlight.findMany({
     where: { status: { in: ['AWAITING', 'REVIEW'] }, startAt: { gt: now, lte: freshLead }, remindedAt: null, campaign: { status: 'ACTIVE' } },
-    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, vendor: { select: { contactEmail: true } } } } },
+    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, plan: true, vendor: { select: { contactEmail: true } } } } },
   });
   for (const f of flights) {
     const to = f.campaign.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
-    const { subject, text, html } = freshAdsEmail({ vendorName: f.campaign.vendorName, flightIndex: f.index, startAt: f.startAt, now });
+    const vars: TemplateVars = {
+      vendorName: f.campaign.vendorName,
+      batchOrdinal: ordinal(f.index), batchNumber: String(f.index),
+      packageLabel: packageLabel(f.campaign.plan),
+      date: fmtDate(f.startAt), daysUntil: String(daysLeft(f.startAt, now)),
+      submitUrl: orderUrl(),
+    };
+    const { subject, text, html } = await renderTemplate('fresh_ads', vars);
     const r = await sendEmail({ to, subject, text, html });
     if (r.ok) { await prisma.adFlight.update({ where: { id: f.id }, data: { remindedAt: now } }); freshAdsReminders++; }
   }
@@ -79,12 +54,17 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const renewLead = new Date(now.getTime() + RENEWAL_LEAD_DAYS * 86_400_000);
   const campaigns = await prisma.adCampaign.findMany({
     where: { status: 'ACTIVE', endAt: { gt: now, lte: renewLead }, renewalRemindedAt: null },
-    select: { id: true, vendorName: true, endAt: true, vendor: { select: { contactEmail: true } } },
+    select: { id: true, vendorName: true, plan: true, endAt: true, vendor: { select: { contactEmail: true } } },
   });
   for (const c of campaigns) {
     const to = c.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
-    const { subject, text, html } = renewalEmail({ vendorName: c.vendorName, endAt: c.endAt, now });
+    const vars: TemplateVars = {
+      vendorName: c.vendorName, packageLabel: packageLabel(c.plan),
+      date: fmtDate(c.endAt), daysUntil: String(daysLeft(c.endAt, now)),
+      submitUrl: orderUrl(),
+    };
+    const { subject, text, html } = await renderTemplate('renewal', vars);
     const r = await sendEmail({ to, subject, text, html });
     if (r.ok) { await prisma.adCampaign.update({ where: { id: c.id }, data: { renewalRemindedAt: now } }); renewalReminders++; }
   }

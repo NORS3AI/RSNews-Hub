@@ -76,7 +76,8 @@ Business logic lives here so routes/components stay thin. One line each:
 | `actions.ts` | `'use server'` admin write actions (articles, users, homepage, analytics rollup…). |
 | `constants.ts` | String-enum sources of truth (roles, statuses, account types) — SQLite has no enums. |
 | `env.ts` | Centralized, validated env access; fails loud only at runtime-in-prod; `envReport()` powers `/api/health`. |
-| `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. |
+| `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. Ships two REST transports — **Resend** and **SendGrid** — selected by `EMAIL_PROVIDER` (or whichever key is set); `EMAIL_FROM` is the sender for both. |
+| `emailTemplates.ts` | **Admin-editable email copy.** Registry of templates (`fresh_ads`, `renewal`) with default subject/body + `{mergeTag}` list; pure `renderCopy` (substitute tags, HTML-escape values, auto-link, paragraph) + `loadTemplateCopy` (DB override → default) + `renderTemplate`. Edited at `/admin/email-templates`. |
 | `logger.ts` | Structured logging + one `captureError` chokepoint with a pluggable forwarder (Sentry = one line). |
 | `moderation.ts` | Pure, reusable user-text moderation (`moderateText` → ok/flag/block). The gate for any user-generated text. |
 | `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
@@ -89,7 +90,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
 | `reports.ts` | Quarterly performance reports: pure quarter math (`quarterOf`/`lastCompletedQuarter`/`recentQuarters`) + `computeSnapshot`/`generateReportDraft` (snapshot the ad analytics into a report) + publish/list lifecycle. |
 | `jotform.ts` / `jotformIngest.ts` | JotForm ad-submission ingestion: pure parsing + SSRF host guard + field map (`parseJotformSubmission`, `isAllowedCreativeHost`) / server side (`ingestSubmission` — fetch creatives, draft campaign, record). |
-| `adReminders.ts` | Vendor reminder emails (pure templates `freshAdsEmail`/`renewalEmail` + `sendDueReminders` — find due, send via the email seam, mark reminded only after a successful send). Driven by the nightly `ads/maintenance` route. |
+| `adReminders.ts` | Vendor reminder emails (`sendDueReminders` — find due flights/campaigns, build merge-tag vars, render the admin-editable template via `emailTemplates`, send via the email seam, mark reminded only after a successful send). Driven by the nightly `ads/maintenance` route. |
 | `payments.ts` | Campaign payments: pure `isPaid`/`paidTotalCents`/`parseAmountToCents`/`normalizePaymentStatus` + `recordPayment`/`markCampaignPaid`/`campaignIsPaid`. A flight can't be scheduled until its campaign is paid (`scheduleFlight` gate). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
 | `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |

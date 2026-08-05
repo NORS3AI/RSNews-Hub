@@ -153,9 +153,13 @@ just new submissions — the same flow drafts the next campaign for review.
 **Reminder emails.** Map an `email` field so the hub captures each vendor's
 contact address. A nightly `POST /api/ads/maintenance` (call it from your
 scheduler with `Authorization: Bearer $CRON_SECRET`) emails vendors when a flight
-needs fresh ads (21 days out) or a campaign is up for renewal (30 days out).
-Delivery needs `RESEND_API_KEY` + `EMAIL_FROM` (see the email section); without
-them the reminders are logged, not sent.
+needs fresh ads (21 days out) or a campaign is up for renewal (30 days out). The
+**copy is admin-editable** at `/admin/email-templates` — subject + body with
+`{mergeTags}` (vendor name, package, date, days, and `{submitUrl}`) that fill in
+per vendor; set `AD_ORDER_URL` to your JotForm ad-order link so `{submitUrl}`
+resolves automatically. Delivery needs `EMAIL_FROM` + a provider key
+(`RESEND_API_KEY` or `SENDGRID_API_KEY`; see the email section); without them the
+reminders are logged, not sent.
 
 **Payment confirmation.** No money is handled by the hub — all paying happens on
 JotForm. The hub only records **whether** a campaign's payment is confirmed, and a
