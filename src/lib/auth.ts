@@ -88,7 +88,7 @@ export async function getCurrentUser() {
   if (!session) return null;
   const user = await prisma.user.findUnique({
     where: { id: session.id },
-    select: { id: true, email: true, name: true, role: true, status: true, bio: true, createdAt: true },
+    select: { id: true, email: true, name: true, role: true, status: true, bio: true, createdAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true },
   });
   if (!user || user.status === 'BANNED') return null;
   return user;

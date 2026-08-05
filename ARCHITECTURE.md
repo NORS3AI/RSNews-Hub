@@ -40,7 +40,7 @@ src/
     (site)/                public + member site (route group)
       docs/                the reader experience, served under /docs
         article/[slug]/  category/[slug]/  tag/[slug]/  page/[slug]/
-        search/  clippings/  history/  subscriptions/  archive/*
+        search/  clippings/  history/  subscriptions/  archive/*  vendor/ (ad dashboard)
       login/  register/  account/  layout.tsx
     admin/                 admin console (articles, users, ads, analytics, …)
     api/                   route handlers (see below)
@@ -80,7 +80,8 @@ Business logic lives here so routes/components stay thin. One line each:
 | `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
 | `rateLimit.ts` | In-memory fixed-window rate limiter (login/register brute-force + flood protection). |
 | `homepage.ts` | Homepage module catalog + admin-arranged layout (stored as JSON in `Setting`). |
-| `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance, flight-window & paid-inventory preference) / DB inventory loader. |
+| `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance, flight-window, paid-inventory & visiting-vendor `favorBrand` preference) / DB inventory loader. |
+| `entitlements.ts` | Pure entitlement model over the SSO facets: free-form `tier`/`affiliations`/`vendorBrand` (no hardcoded enum) → `isVendor`/`isPremium`/`hasAffiliation`/`meetsRequirement` (data-driven content gating) + `brandKey`. |
 | `recommend.ts` | Article recommendations + `smartSearch`. |
 | `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
 | `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |

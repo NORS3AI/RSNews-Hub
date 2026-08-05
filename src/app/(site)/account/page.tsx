@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import LogoutButton from '@/components/LogoutButton';
+import { entitlementsOf, isVendor } from '@/lib/entitlements';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export default async function AccountPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {isVendor(entitlementsOf(user)) && <Link href="/docs/vendor" className="btn-primary btn-sm">Ad dashboard</Link>}
           {(user.role === 'ADMIN' || user.role === 'EDITOR') && <Link href="/admin" className="btn-primary btn-sm">Admin dashboard</Link>}
           <LogoutButton />
         </div>

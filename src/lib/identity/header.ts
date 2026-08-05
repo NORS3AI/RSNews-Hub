@@ -20,11 +20,15 @@ export class HeaderIdentityProvider implements IdentityProvider {
     if (!externalId) return null;
     const accountType = p(process.env.PARENT_HEADER_ACCOUNT_TYPE || 'x-member-type');
     const staff = p('x-member-staff');
+    const aff = p('x-member-affiliations');
     return {
       externalId,
       email: p(process.env.PARENT_HEADER_EMAIL || 'x-member-email'),
       name: p(process.env.PARENT_HEADER_NAME || 'x-member-name'),
       accountType,
+      tier: p('x-member-tier'),
+      affiliations: aff ? aff.split(/[,\s]+/).filter(Boolean) : [],
+      vendorBrand: p('x-member-brand'),
       region: p('x-member-region'),
       storeType: p('x-member-store-type'),
       isStaff: staff === 'true' || staff === '1' || accountType === 'STAFF',
