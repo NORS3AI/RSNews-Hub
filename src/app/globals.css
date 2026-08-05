@@ -93,6 +93,10 @@
    Per-element color overrides are RS-Mode ONLY. Each block/container always
    carries its chosen color as the inline custom property `--studio-rs`, but only
    RS-mode CSS reads it — so Light/Dark keep their standard surfaces untouched. */
+/* Reset the texture var at every studio-fill so a parent's texture never
+   inherits into a child (a solid-tinted element inside a textured module must
+   NOT inherit the module's texture — it would tint every child the same). */
+.studio-fill { --studio-rs-img: none; }
 .rs .studio-fill[style*='--studio-rs'] {
   background-image: var(--studio-rs-img, none) !important;
   background-color: var(--studio-rs);
@@ -101,7 +105,16 @@
 }
 /* Texture backgrounds carry a readable dark-brown text in RS Mode. */
 .rs .studio-fill[style*='studio-rs-img'],
-.rs .studio-fill[style*='studio-rs-img'] :is(h1, h2, h3, h4, p, span, a, time, li) { color: #3d2a19; }
+.rs .studio-fill[style*='studio-rs-img'] :is(h1, h2, h3, h4, p, span, a, time, li, .studio-eyebrow) { color: #3d2a19; }
+/* Solid tints carry a luminance-matched ink (--studio-fg): cream on dark tints,
+   dark-brown on light tints. The custom property cascades to the nearest tinted
+   ancestor, so a tinted element inside a tinted module keeps its own ink. */
+.rs .studio-fill[style*='--studio-rs']:not([style*='studio-rs-img']),
+.rs .studio-fill[style*='--studio-rs']:not([style*='studio-rs-img']) :is(h1, h2, h3, h4, h5, p, span, a, time, li, .studio-eyebrow) { color: var(--studio-fg, #3d2a19); }
+/* On the live homepage an article/poll/quiz keeps its own opaque .card surface;
+   when it sits in a per-element tint (the immediate wrapper carries --studio-rs),
+   make that inner card transparent so the tint — and its ink — show through. */
+.rs .studio-fill[style*='--studio-rs'] > .card { background: transparent !important; box-shadow: none !important; }
 /* Ads default to the orange corrugated texture in RS Mode (unless overridden). */
 .rs .studio-ad:not([style*='--studio-rs']) {
   background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');

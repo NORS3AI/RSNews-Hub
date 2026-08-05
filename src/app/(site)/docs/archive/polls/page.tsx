@@ -27,7 +27,7 @@ export default async function PollsArchive() {
                 <h2 className="text-lg font-extrabold leading-snug">{poll.question}</h2>
                 {poll.active ? <span className="badge shrink-0 bg-green-100 text-green-700">Live</span>
                   : closed ? <span className="badge shrink-0 bg-amber-100 text-amber-700">Closed</span>
-                  : <span className="badge shrink-0 bg-[var(--bg-soft)] text-[var(--muted)]">Past</span>}
+                  : <span className="badge shrink-0 bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Past</span>}
               </div>
               <div className="space-y-2">
                 {poll.options.map((o) => {

@@ -65,11 +65,11 @@ export default function AdminShell({
   const toggleGroup = (title: string) => setClosedGroups((g) => { const n = { ...g, [title]: !g[title] }; try { localStorage.setItem('admin_nav_groups', JSON.stringify(n)); } catch {} return n; });
   const isActive = (l: NavLink) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
 
-  // The admin chrome (sidebar + top bar) is always dark, so its text must be a
-  // FIXED light color — the theme's --fg is dark in Light mode (dark-on-dark).
+  // Fully theme-aware chrome: light in Light/RS, dark in Dark — consistent with
+  // the content area, so the whole admin flips with the theme toggle.
   const linkClass = (l: NavLink) =>
     `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-      isActive(l) ? 'bg-brand-600 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+      isActive(l) ? 'bg-brand-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
     }`;
 
   const nav = (
@@ -82,7 +82,7 @@ export default function AdminShell({
           <div key={group.title ?? `g${gi}`}>
             {group.title && (
               <button onClick={() => toggleGroup(group.title!)}
-                className="mb-1 flex w-full items-center gap-1 px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 hover:text-slate-200">
+                className="mb-1 flex w-full items-center gap-1 px-2 text-[11px] font-bold uppercase tracking-[0.1em] text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300">
                 {closed ? <ChevronRight width={12} height={12} /> : <ChevronDown width={12} height={12} />} {group.title}
               </button>
             )}
@@ -101,28 +101,30 @@ export default function AdminShell({
     </nav>
   );
 
+  const chrome = 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800';
+  const ghost = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white';
   return (
-    // Light content area in Light/RS, dark in Dark — so page text (which uses the
-    // theme's --fg/--muted) is always readable. The chrome stays dark (below).
-    <div className="min-h-screen bg-slate-100 dark:bg-[var(--bg-soft)]">
-      {/* Top bar — always-dark chrome, so text is forced light (text-slate-100) */}
-      <header className="sticky top-0 z-40 border-b border-black/30 bg-[var(--bg)] text-slate-100">
+    // Fully theme-aware admin: light surfaces in Light/RS, dark in Dark. All text
+    // uses slate scales that flip with the theme, so it's readable in every mode.
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+      {/* Top bar */}
+      <header className={`sticky top-0 z-40 border-b ${chrome}`}>
         <div className="flex h-14 items-center gap-3 px-4">
-          <button onClick={() => setOpen((o) => !o)} className="btn-ghost h-9 w-9 !px-0 text-slate-200 hover:bg-white/10 lg:hidden" aria-label="Menu">
+          <button onClick={() => setOpen((o) => !o)} className={`btn-ghost h-9 w-9 !px-0 ${ghost} lg:hidden`} aria-label="Menu">
             {open ? <X /> : <Menu />}
           </button>
           {/* Desktop: collapse/expand the left nav for a full-width workspace. */}
-          <button onClick={toggleCollapsed} className="btn-ghost hidden h-9 w-9 !px-0 text-slate-200 hover:bg-white/10 lg:inline-flex" aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'} title={collapsed ? 'Show sidebar' : 'Hide sidebar'}>
+          <button onClick={toggleCollapsed} className={`btn-ghost hidden h-9 w-9 !px-0 ${ghost} lg:inline-flex`} aria-label={collapsed ? 'Show sidebar' : 'Hide sidebar'} title={collapsed ? 'Show sidebar' : 'Hide sidebar'}>
             <Menu />
           </button>
-          <Link href="/admin" className="flex items-center gap-2 font-bold text-slate-100">
+          <Link href="/admin" className="flex items-center gap-2 font-bold">
             <BrandMark size={30} priority className="rounded-[6px]" />
             <span className="hidden sm:inline">RSNews Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
-            <Link href="/docs" className="btn-ghost btn-sm text-slate-200 hover:bg-white/10"><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>
+            <Link href="/docs" className={`btn-ghost btn-sm ${ghost}`}><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>
             <ThemeToggle />
-            <span className="hidden text-sm text-slate-400 sm:inline">{user.name}</span>
+            <span className="hidden text-sm text-slate-500 dark:text-slate-400 sm:inline">{user.name}</span>
             <LogoutButton />
           </div>
         </div>
@@ -130,7 +132,7 @@ export default function AdminShell({
 
       <div className={`mx-auto flex ${collapsed ? 'max-w-none' : 'max-w-7xl'}`}>
         {/* Sidebar (desktop) — hidden when collapsed for a full-width workspace */}
-        <aside className={`sticky top-14 h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-black/30 bg-[var(--bg)] p-4 text-slate-100 ${collapsed ? 'hidden' : 'hidden lg:block'}`}>
+        <aside className={`sticky top-14 h-[calc(100vh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r p-4 ${chrome} ${collapsed ? 'hidden' : 'hidden lg:block'}`}>
           {nav}
         </aside>
 
@@ -138,7 +140,7 @@ export default function AdminShell({
         {open && (
           <div className="fixed inset-0 z-30 lg:hidden">
             <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-            <aside className="absolute left-0 top-14 h-[calc(100vh-3.5rem)] w-64 border-r border-black/30 bg-[var(--bg)] p-4 text-slate-100">{nav}</aside>
+            <aside className={`absolute left-0 top-14 h-[calc(100vh-3.5rem)] w-64 overflow-y-auto border-r p-4 ${chrome}`}>{nav}</aside>
           </div>
         )}
 

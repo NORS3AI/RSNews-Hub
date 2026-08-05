@@ -174,7 +174,7 @@ export default function StudioEditor({
         />
         {pub
           ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">On homepage</span>
-          : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Draft</span>}
+          : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Draft</span>}
         <div className="ml-auto flex items-center gap-2">
           <button onClick={undo} disabled={!past.length} className="btn-outline btn-sm !px-2" title="Undo" aria-label="Undo">↶</button>
           <button onClick={redo} disabled={!future.length} className="btn-outline btn-sm !px-2" title="Redo" aria-label="Redo">↷</button>

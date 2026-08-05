@@ -57,7 +57,7 @@ export default async function AdminIndustry() {
                     <span className="font-bold">{linkSource(l.url, l.source)}</span>
                     <span>{postedLabel(l.postedAt)}</span>
                     <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>
-                    {!l.active && <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">hidden</span>}
+                    {!l.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">hidden</span>}
                   </span>
                 </span>
               </summary>

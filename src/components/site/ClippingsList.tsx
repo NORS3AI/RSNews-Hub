@@ -110,7 +110,7 @@ export default function ClippingsList() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={c.image as string} alt={c.title} onClick={() => openZoom({ src: c.image as string, alt: c.title }, c)} className="h-16 w-16 shrink-0 cursor-zoom-in rounded-lg object-cover" />
                   <div>
-                    <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Comic</span>
+                    <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Comic</span>
                     <div className="mt-1 font-bold leading-snug">{c.title}</div>
                   </div>
                 </div>

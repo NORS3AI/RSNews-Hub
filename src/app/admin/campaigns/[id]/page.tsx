@@ -15,8 +15,8 @@ export const dynamic = 'force-dynamic';
 const flightChip: Record<string, string> = {
   SCHEDULED: 'bg-green-100 text-green-700',
   REVIEW: 'bg-amber-100 text-amber-700',
-  AWAITING: 'bg-[var(--bg-soft)] text-[var(--muted)]',
-  ENDED: 'bg-[var(--bg-soft)] text-[var(--muted)]',
+  AWAITING: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+  ENDED: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
 };
 
 export default async function CampaignDetail({ params }: { params: Promise<{ id: string }> }) {

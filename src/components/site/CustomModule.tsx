@@ -11,17 +11,30 @@ import { isHexColor, rsTextureUrl } from '@/lib/studio';
 // here; the live homepage swaps in real content (see docs/page.tsx). Heading,
 // text and image render their real content immediately.
 
+// Pick a readable ink for text sitting on a solid RS tint. Uses relative
+// luminance (WCAG) so light tints get dark-brown ink and dark tints get cream.
+export function readableOn(hex: string): string {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  const chan = (i: number) => parseInt(h.slice(i, i + 2), 16) / 255;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const L = 0.2126 * lin(chan(0)) + 0.7152 * lin(chan(2)) + 0.0722 * lin(chan(4));
+  return L > 0.45 ? '#2b2118' : '#f7edd8';
+}
+
 export function rsStyle(color?: string | null): CSSProperties | undefined {
   if (!color) return undefined;
   const url = rsTextureUrl(color);
   if (url) return { ['--studio-rs' as any]: 'transparent', ['--studio-rs-img' as any]: `url('${url}')` } as CSSProperties;
-  if (isHexColor(color)) return { ['--studio-rs' as any]: color } as CSSProperties;
+  // A solid tint also carries a readable text color so dark tints (ink, green)
+  // flip their text to cream automatically.
+  if (isHexColor(color)) return { ['--studio-rs' as any]: color, ['--studio-fg' as any]: readableOn(color) } as CSSProperties;
   return undefined;
 }
 
 // Small uppercase eyebrow shown above an element when it has a label.
 export function Eyebrow({ label }: { label?: string }) {
-  return label ? <div className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-brand-600">{label}</div> : null;
+  return label ? <div className="studio-eyebrow mb-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-brand-600">{label}</div> : null;
 }
 
 const SHAPE_INNER: Record<Shape, string> = {

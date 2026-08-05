@@ -56,13 +56,13 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
         <ul className="space-y-2">
           {modules.map((m) => (
             <li key={m.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-card">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[var(--bg-soft)] text-[var(--muted)]"><Grid width={16} height={16} /></span>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"><Grid width={16} height={16} /></span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
                   {m.name}
                   {m.published
                     ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
-                    : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Saved for later</span>}
+                    : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Saved for later</span>}
                 </div>
                 <div className="text-sm text-[var(--muted)]">{SHAPES[m.shape as Shape]?.label ?? m.shape} · {m.blocks} element{m.blocks === 1 ? '' : 's'}</div>
               </div>

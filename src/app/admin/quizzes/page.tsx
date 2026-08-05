@@ -58,7 +58,7 @@ export default async function AdminQuizzes() {
                   <span className="shrink-0">
                     {live ? <span className="badge bg-green-100 text-green-700">Live</span>
                       : closed ? <span className="badge bg-amber-100 text-amber-700">Closed</span>
-                      : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Archived</span>}
+                      : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Archived</span>}
                   </span>
                 </summary>
 

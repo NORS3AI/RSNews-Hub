@@ -125,7 +125,7 @@ function CampaignCard({ c, now, live = false }: { c: CampaignWithFlights; now: D
               {isLive && <span className="badge bg-green-100 text-green-700">Live · {countdownLabel(f.endAt, now)}</span>}
               {upcoming && f.status === 'SCHEDULED' && <span className="badge bg-blue-100 text-blue-700">Starts {formatDate(f.startAt)}</span>}
               {(f.status === 'AWAITING' || f.status === 'REVIEW') && upcoming && <span className="badge bg-amber-100 text-amber-700">Fresh ads needed</span>}
-              {f.status === 'ENDED' && <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Ended</span>}
+              {f.status === 'ENDED' && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Ended</span>}
             </li>
           );
         })}
