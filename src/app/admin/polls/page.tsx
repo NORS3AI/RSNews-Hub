@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { createPoll, updatePoll, deletePoll } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
+import AutoPlugForm from '@/components/admin/AutoPlugForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export default async function AdminPolls() {
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <form action={createPoll} className="card h-fit space-y-3 p-5 lg:col-span-1">
+        <AutoPlugForm kind="poll" action={createPoll} className="card h-fit space-y-3 p-5 lg:col-span-1">
           <h2 className="font-semibold">New poll</h2>
           <div><label className="label">Question</label><input name="question" required className="input" placeholder="What should we cover next?" /></div>
           <div>
@@ -39,7 +40,7 @@ export default async function AdminPolls() {
           <div><label className="label">Closes (optional)</label><input name="closesAt" type="datetime-local" className="input" /></div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active (show on homepage)</label>
           <button className="btn-primary w-full">Publish poll</button>
-        </form>
+        </AutoPlugForm>
 
         <div className="space-y-3 lg:col-span-2">
           {polls.map((poll) => {

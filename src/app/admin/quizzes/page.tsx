@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { createQuiz, updateQuiz, deleteQuiz } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
+import AutoPlugForm from '@/components/admin/AutoPlugForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export default async function AdminQuizzes() {
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <form action={createQuiz} className="card h-fit space-y-3 p-5 lg:col-span-1">
+        <AutoPlugForm kind="quiz" action={createQuiz} className="card h-fit space-y-3 p-5 lg:col-span-1">
           <h2 className="font-semibold">New quiz</h2>
           <div><label className="label">Title</label><input name="title" required className="input" placeholder="Shipping trivia — week 32" /></div>
           <div>
@@ -42,7 +43,7 @@ export default async function AdminQuizzes() {
           </div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active (show on homepage)</label>
           <button className="btn-primary w-full">Publish quiz</button>
-        </form>
+        </AutoPlugForm>
 
         <div className="space-y-3 lg:col-span-2">
           {quizzes.map((quiz) => {

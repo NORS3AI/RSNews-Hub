@@ -223,23 +223,27 @@ export async function deleteIndustryLink(id: string) {
 
 /* -------------------------------- Polls ---------------------------------- */
 
-export async function createPoll(formData: FormData) {
+// Returns the new poll's id/name so the client can offer to place it on the
+// homepage (the auto-plug dialog). Returns {ok:false,error} instead of throwing
+// on validation so the client form can show the message inline.
+export async function createPoll(formData: FormData): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
   await ensureStaff();
   const question = ((formData.get('question') as string) || '').trim();
   const optionsRaw = ((formData.get('options') as string) || '').trim();
   const active = formData.get('active') != null;
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8);
-  if (!question || options.length < 2) throw new Error('A question and at least 2 options are required');
+  if (!question || options.length < 2) return { ok: false, error: 'A question and at least 2 options are required' };
   const closes = closesRaw ? new Date(closesRaw) : null;
   // Polls are a library now — multiple can be active at once (each poll element
   // picks one). The council aside simply shows the most recent active poll.
-  await prisma.poll.create({
+  const poll = await prisma.poll.create({
     data: { question, active, kind: 'council', closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
       options: { create: options.map((label, i) => ({ label, order: i })) } },
   });
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
+  return { ok: true, id: poll.id, name: question };
 }
 
 export async function updatePoll(formData: FormData) {
@@ -264,7 +268,7 @@ export async function deletePoll(id: string) {
 
 /* -------------------------------- Pop Quiz -------------------------------- */
 
-export async function createQuiz(formData: FormData) {
+export async function createQuiz(formData: FormData): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
   await ensureStaff();
   const title = ((formData.get('title') as string) || '').trim();
   const body = ((formData.get('questions') as string) || '').trim();
@@ -272,13 +276,13 @@ export async function createQuiz(formData: FormData) {
   const hoursRaw = ((formData.get('hours') as string) || '').trim();
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const questions = parseQuizBlocks(body);
-  if (!title || questions.length < 1) throw new Error('A title and at least one question (each with 2+ options) are required');
+  if (!title || questions.length < 1) return { ok: false, error: 'A title and at least one question (each with 2+ options) are required' };
 
   // Timer: an explicit close time wins; otherwise now + N hours (default 48).
   const closesAt = resolveClosesAt({ explicit: closesRaw ? new Date(closesRaw) : null, hours: hoursRaw ? Number(hoursRaw) : null });
 
   if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
-  await prisma.quiz.create({
+  const quiz = await prisma.quiz.create({
     data: {
       title, active, closesAt,
       questions: {
@@ -291,6 +295,7 @@ export async function createQuiz(formData: FormData) {
   });
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');
+  return { ok: true, id: quiz.id, name: title };
 }
 
 export async function updateQuiz(formData: FormData) {
@@ -801,4 +806,42 @@ export async function addElementToHomepage(kind: 'poll' | 'quiz', refId: string,
   revalidatePath('/admin/studio');
   revalidatePath('/admin/polls');
   revalidatePath('/admin/quizzes');
+}
+
+export type PlugSlot = { moduleId: string; moduleName: string; blockId: string; filled: boolean };
+
+/** Find published modules that already have a poll/quiz element — spots this new
+ *  poll/quiz could be pinned into. One slot per module (the first top-level one);
+ *  `filled` flags a slot that already points at something (pinning replaces it). */
+export async function findPollQuizSlots(kind: 'poll' | 'quiz'): Promise<PlugSlot[]> {
+  await ensureStaff();
+  const mods = await prisma.customModule.findMany({ where: { published: true }, select: { id: true, name: true, tree: true }, orderBy: { updatedAt: 'desc' } });
+  const slots: PlugSlot[] = [];
+  for (const m of mods) {
+    const block = parseTree(m.tree).children.find((b) => b.type === kind);
+    if (block) {
+      const filled = kind === 'poll' ? !!block.settings.pollId : !!block.settings.quizId;
+      slots.push({ moduleId: m.id, moduleName: m.name, blockId: block.id, filled });
+    }
+  }
+  return slots;
+}
+
+/** Pin a specific poll/quiz into an existing element (writes its id into that
+ *  block's settings). The module keeps everything else — this only fills the slot. */
+export async function pinToSlot(kind: 'poll' | 'quiz', refId: string, moduleId: string, blockId: string): Promise<void> {
+  await ensureStaff();
+  if (!refId) throw new Error('Missing id');
+  const mod = await prisma.customModule.findUnique({ where: { id: moduleId }, select: { tree: true } });
+  if (!mod) throw new Error('Module not found');
+  const tree = parseTree(mod.tree);
+  const block = tree.children.find((b) => b.id === blockId && b.type === kind);
+  if (!block) throw new Error('That slot no longer exists');
+  block.settings = kind === 'poll'
+    ? { ...block.settings, pollId: refId }
+    : { ...block.settings, quizId: refId };
+  await prisma.customModule.update({ where: { id: moduleId }, data: { tree: serializeTree(tree) } });
+  revalidatePath('/admin/studio');
+  revalidatePath(`/admin/studio/${moduleId}`);
+  revalidatePath('/docs');
 }
