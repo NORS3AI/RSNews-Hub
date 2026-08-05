@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import CustomModule from '@/components/site/CustomModule';
-import { BLOCKS, isHexColor, type ModuleTree } from '@/lib/studio';
+import RsColorPicker from '@/components/admin/studio/RsColorPicker';
+import { BLOCKS, type ModuleTree } from '@/lib/studio';
 import { saveCustomModuleTree } from '@/lib/actions';
 import { Edit, Check, X } from '@/components/icons';
 
@@ -66,12 +67,12 @@ export default function InlineColorEditor({ moduleId, name, initialTree }: { mod
               </div>
               {/* Controls */}
               <div className="overflow-auto border-t border-[var(--border)] bg-[var(--card)] p-4 sm:border-l sm:border-t-0">
-                <Swatch label="Module background" value={tree.rsColor} onChange={setContainer} />
-                <div className="my-2 border-t border-[var(--border)]" />
+                <Labeled label="Module background"><RsColorPicker value={tree.rsColor} onChange={setContainer} /></Labeled>
+                <div className="my-3 border-t border-[var(--border)]" />
                 {tree.children.map((b) => (
-                  <Swatch key={b.id} label={BLOCKS[b.type]?.label ?? b.type} value={b.rsColor} onChange={(c) => setBlock(b.id, c)} />
+                  <Labeled key={b.id} label={b.label || BLOCKS[b.type]?.label || b.type}><RsColorPicker value={b.rsColor} onChange={(c) => setBlock(b.id, c)} /></Labeled>
                 ))}
-                {tree.children.length === 0 && <p className="text-sm text-[var(--muted)]">This module has no blocks.</p>}
+                {tree.children.length === 0 && <p className="text-sm text-[var(--muted)]">This module has no elements.</p>}
               </div>
             </div>
           </div>
@@ -81,17 +82,11 @@ export default function InlineColorEditor({ moduleId, name, initialTree }: { mod
   );
 }
 
-function Swatch({ label, value, onChange }: { label: string; value?: string | null; onChange: (c: string | null) => void }) {
+function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-2.5">
+    <div className="mb-3">
       <div className="mb-1 text-xs font-semibold text-[var(--muted)]">{label}</div>
-      <div className="flex items-center gap-2">
-        <input type="color" value={value && isHexColor(value) ? value : '#e97d34'} onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 cursor-pointer rounded border border-[var(--border)] bg-transparent p-0.5" />
-        <input className="input flex-1 font-mono text-xs" value={value || ''} placeholder="theme default"
-          onChange={(e) => { const v = e.target.value.trim(); onChange(isHexColor(v) ? v : v === '' ? null : value ?? null); }} />
-        {value && <button onClick={() => onChange(null)} className="btn-outline btn-sm">Clear</button>}
-      </div>
+      {children}
     </div>
   );
 }

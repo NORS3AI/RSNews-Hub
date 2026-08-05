@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
-import { isHexColor } from '@/lib/studio';
+import { isHexColor, rsTextureUrl } from '@/lib/studio';
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -12,7 +12,16 @@ import { isHexColor } from '@/lib/studio';
 // text and image render their real content immediately.
 
 export function rsStyle(color?: string | null): CSSProperties | undefined {
-  return color && isHexColor(color) ? ({ ['--studio-rs' as any]: color } as CSSProperties) : undefined;
+  if (!color) return undefined;
+  const url = rsTextureUrl(color);
+  if (url) return { ['--studio-rs' as any]: 'transparent', ['--studio-rs-img' as any]: `url('${url}')` } as CSSProperties;
+  if (isHexColor(color)) return { ['--studio-rs' as any]: color } as CSSProperties;
+  return undefined;
+}
+
+// Small uppercase eyebrow shown above an element when it has a label.
+export function Eyebrow({ label }: { label?: string }) {
+  return label ? <div className="mb-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-brand-600">{label}</div> : null;
 }
 
 const SHAPE_INNER: Record<Shape, string> = {
@@ -59,6 +68,12 @@ export default function CustomModule({ tree, title }: { tree: ModuleTree; title?
 }
 
 export function BlockView({ block }: { block: Block }) {
+  const inner = blockInner(block);
+  if (inner == null) return null;
+  return <>{block.label ? <Eyebrow label={block.label} /> : null}{inner}</>;
+}
+
+function blockInner(block: Block) {
   const style = rsStyle(block.rsColor);
   const s = block.settings;
   switch (block.type) {

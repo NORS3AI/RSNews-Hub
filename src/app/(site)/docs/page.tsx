@@ -5,7 +5,7 @@ import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from 
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, type Block } from '@/lib/studio';
 import { sweepExpiredModulePolls } from '@/lib/studioPolls';
-import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
+import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -150,6 +150,16 @@ export default async function DocsHome() {
     byYear.set(y, rows.map(toCard));
   }));
 
+  // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
+  const quizIds = [...new Set(customRows.flatMap((r) => parseTree(r.tree).children.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId))))];
+  const pickedQuizzes = quizIds.length
+    ? await prisma.quiz.findMany({ where: { id: { in: quizIds } }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
+    : [];
+  const quizById = new Map(pickedQuizzes.map((q) => [q.id, q]));
+  const myQuizDone = user && quizIds.length
+    ? new Set((await prisma.quizResponse.findMany({ where: { userId: user.id, quizId: { in: quizIds } }, select: { quizId: true } })).map((r) => r.quizId))
+    : new Set<string>();
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -190,7 +200,7 @@ export default async function DocsHome() {
     };
     const kids = tree.children.map((b: Block, i: number) => {
       const style = rsStyle(b.rsColor);
-      const wrap = (node: React.ReactNode) => <div key={b.id} className={childWidthClass(tree.shape)}>{node}</div>;
+      const wrap = (node: React.ReactNode) => <div key={b.id} className={childWidthClass(tree.shape)}><Eyebrow label={b.label} />{node}</div>;
       switch (b.type) {
         case 'heading': {
           const t = String(b.settings.text ?? '');
@@ -211,10 +221,13 @@ export default async function DocsHome() {
           return wrap(<img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />);
         }
         case 'quiz': {
-          if (!activeQuiz) return null;
+          const qid = b.settings.quizId ? String(b.settings.quizId) : '';
+          const quiz = qid ? quizById.get(qid) : activeQuiz;
+          if (!quiz) return null;
+          const done = qid ? myQuizDone.has(qid) : !!priorQuizResponse;
           return wrap(
             <div className="studio-fill" style={style}>
-              <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />
+              <QuizCard quiz={{ id: quiz.id, title: quiz.title, closesAt: quiz.closesAt, questions: quiz.questions }} loggedIn={loggedIn} initialDone={done} />
             </div>
           );
         }

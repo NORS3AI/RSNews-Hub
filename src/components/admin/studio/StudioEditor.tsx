@@ -8,7 +8,8 @@ import {
 } from '@/lib/studio';
 import { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
-import ArticlePicker from '@/components/admin/studio/ArticlePicker';
+import EntityPicker from '@/components/admin/studio/EntityPicker';
+import RsColorPicker from '@/components/admin/studio/RsColorPicker';
 import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight } from '@/components/icons';
 
 function newId(): string {
@@ -108,6 +109,7 @@ export default function StudioEditor({
       if (!b) return t;
       if ('settings' in patch && patch.settings) b.settings = { ...b.settings, ...patch.settings };
       if ('rsColor' in patch) b.rsColor = (patch as any).rsColor;
+      if ('label' in patch) b.label = ((patch as any).label as string) || undefined;
       return t;
     });
   }
@@ -168,8 +170,8 @@ export default function StudioEditor({
           <button onClick={save} disabled={saving || !dirty} className="btn-outline btn-sm">
             {saving ? 'Saving…' : <><Check width={14} height={14} /> Save</>}
           </button>
-          <button onClick={togglePublish} disabled={saving} className={pub ? 'btn-outline btn-sm' : 'btn-primary btn-sm'}>
-            {pub ? 'Unpublish' : 'Publish'}
+          <button onClick={togglePublish} disabled={saving} className={pub ? 'btn-outline btn-sm' : 'btn-primary btn-sm'} title={pub ? 'Remove this module from the homepage' : 'Publish and stage on the homepage'}>
+            {pub ? 'Remove from homepage' : 'Publish'}
           </button>
         </div>
       </div>
@@ -331,21 +333,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="mb-3 block"><span className="label !mb-1 text-xs">{label}</span>{children}</label>;
 }
 
-function ColorControl({ value, onChange }: { value: string | null | undefined; onChange: (c: string | null) => void }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        <input type="color" value={value || '#e97d34'} onChange={(e) => onChange(e.target.value)}
-          className="h-9 w-12 cursor-pointer rounded border border-[var(--border)] bg-transparent p-0.5" />
-        <input className="input flex-1 font-mono text-xs" value={value || ''} placeholder="theme default"
-          onChange={(e) => { const v = e.target.value.trim(); onChange(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v) ? v : v === '' ? null : value ?? null); }} />
-        {value && <button onClick={() => onChange(null)} className="btn-outline btn-sm">Clear</button>}
-      </div>
-      <p className="mt-1 text-[11px] text-[var(--muted)]">Applies in <strong>RS Mode</strong> only. Toggle “RS-Mode preview” to see it.</p>
-    </div>
-  );
-}
-
 function InspectorShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card lg:sticky lg:top-4">
@@ -363,7 +350,7 @@ function ModuleInspector({ tree, onShape, onColor }: { tree: ModuleTree; onShape
           {SHAPE_IDS.map((s) => <option key={s} value={s}>{SHAPES[s].label}</option>)}
         </select>
       </Field>
-      <Field label="Background color"><ColorControl value={tree.rsColor} onChange={onColor} /></Field>
+      <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
       <p className="text-xs text-[var(--muted)]">Select an element on the canvas to edit its settings. {tree.children.length} element{tree.children.length === 1 ? '' : 's'} in this module.</p>
     </InspectorShell>
   );
@@ -414,7 +401,10 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         </>
       )}
       {block.type === 'quiz' && (
-        <p className="mb-3 text-sm text-[var(--muted)]">Shows the current Pop Quiz on the homepage. Manage quizzes under <strong>Pop Quiz</strong>.</p>
+        <>
+          <Field label="Quiz"><EntityPicker value={String(s.quizId ?? '')} onChange={(id) => set('quizId', id)} endpoint="/api/admin/quizzes/search" placeholder="Search quizzes…" /></Field>
+          <p className="-mt-1 mb-3 text-[11px] text-[var(--muted)]">Leave empty to show the current active quiz. Build quizzes under <strong>Pop Quiz</strong>; their open/close timer is set there.</p>
+        </>
       )}
       {block.type === 'poll' && (
         <>
@@ -445,7 +435,8 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <Field label="Body"><textarea className="input min-h-[120px]" value={String(s.body ?? '')} onChange={(e) => set('body', e.target.value)} /></Field>
       )}
 
-      <Field label="Color"><ColorControl value={block.rsColor} onChange={(c) => onPatch({ rsColor: c })} /></Field>
+      <Field label="Label (small header)"><input className="input" value={String(block.label ?? '')} onChange={(e) => onPatch({ label: e.target.value })} placeholder="optional, e.g. FEATURED" /></Field>
+      <Field label="Background"><RsColorPicker value={block.rsColor} onChange={(c) => onPatch({ rsColor: c })} /></Field>
 
       <div className="mt-4 flex gap-2 border-t border-[var(--border)] pt-3">
         <button onClick={onDuplicate} className="btn-outline btn-sm flex-1"><Copy width={13} height={13} /> Duplicate</button>
@@ -483,7 +474,7 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
         <Field label="Year"><input type="number" min={1990} max={2100} className="input" value={Number(s.year) || ''} onChange={(e) => set('year', Number(e.target.value))} placeholder="e.g. 2019" /></Field>
       )}
       {mode === 'pick' && (
-        <Field label="Article"><ArticlePicker value={String(s.articleId ?? '')} onChange={(id) => set('articleId', id)} /></Field>
+        <Field label="Article"><EntityPicker value={String(s.articleId ?? '')} onChange={(id) => set('articleId', id)} endpoint="/api/admin/articles/search" placeholder="Search articles…" /></Field>
       )}
     </>
   );

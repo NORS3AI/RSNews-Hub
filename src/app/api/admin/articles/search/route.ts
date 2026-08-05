@@ -13,17 +13,17 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const id = url.searchParams.get('id');
   const q = (url.searchParams.get('q') || '').trim();
-  const select = { id: true, title: true, slug: true } as const;
+  const select = { id: true, title: true } as const;
 
   if (id) {
     const a = await prisma.article.findUnique({ where: { id }, select });
-    return NextResponse.json({ articles: a ? [a] : [] });
+    return NextResponse.json({ items: a ? [{ id: a.id, label: a.title }] : [] });
   }
-  const articles = await prisma.article.findMany({
+  const rows = await prisma.article.findMany({
     where: { status: 'PUBLISHED', ...(q ? { title: { contains: q } } : {}) },
     orderBy: { publishedAt: 'desc' },
     take: 15,
     select,
   });
-  return NextResponse.json({ articles });
+  return NextResponse.json({ items: rows.map((a) => ({ id: a.id, label: a.title })) });
 }

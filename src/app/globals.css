@@ -94,9 +94,14 @@
    carries its chosen color as the inline custom property `--studio-rs`, but only
    RS-mode CSS reads it — so Light/Dark keep their standard surfaces untouched. */
 .rs .studio-fill[style*='--studio-rs'] {
-  background-image: none !important;
+  background-image: var(--studio-rs-img, none) !important;
   background-color: var(--studio-rs);
+  background-size: cover;
+  background-position: center;
 }
+/* Texture backgrounds carry a readable dark-brown text in RS Mode. */
+.rs .studio-fill[style*='studio-rs-img'],
+.rs .studio-fill[style*='studio-rs-img'] :is(h1, h2, h3, h4, p, span, a, time, li) { color: #3d2a19; }
 /* Ads default to the orange corrugated texture in RS Mode (unless overridden). */
 .rs .studio-ad:not([style*='--studio-rs']) {
   background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');

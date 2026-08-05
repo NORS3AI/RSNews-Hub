@@ -70,8 +70,8 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   },
   quiz: {
     label: 'Quiz', group: 'Interactive',
-    description: 'Shows the current Pop Quiz.',
-    defaults: {},
+    description: 'Pick a Pop Quiz to show.',
+    defaults: { quizId: '', timerHours: 0 },
   },
   heading: {
     label: 'Heading', group: 'Content',
@@ -103,8 +103,11 @@ export type BlockSettings = Record<string, unknown>;
 export type Block = {
   id: string;
   type: BlockType;
-  // RS-Mode-ONLY color override (hex). Ignored in Light/Dark. null = theme default.
+  // RS-Mode-ONLY background (hex OR a texture key, see RS_TEXTURES). Ignored in
+  // Light/Dark. null = theme default.
   rsColor?: string | null;
+  // Optional small uppercase eyebrow shown above the element.
+  label?: string;
   settings: BlockSettings;
 };
 
@@ -126,8 +129,35 @@ const MAX_OPTIONS = 12;
 export function isHexColor(v: unknown): v is string {
   return typeof v === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v);
 }
+
+// The RS-Mode palette shown in the Studio's Theme picker. Backgrounds may be a
+// solid color OR one of these textures (referenced by `key`, e.g. "tex:orange").
+export type RsTexture = { key: string; label: string; url: string };
+export const RS_TEXTURES: RsTexture[] = [
+  { key: 'tex:orange', label: 'Corrugated orange', url: '/textures/rs-orange.webp' },
+  { key: 'tex:cream', label: 'Cream stamps', url: '/textures/rs-cream.webp' },
+];
+export type RsSolid = { value: string; label: string };
+export const RS_SOLIDS: RsSolid[] = [
+  { value: '#E97D34', label: 'Brand orange' },
+  { value: '#3d2a19', label: 'Brown' },
+  { value: '#f7edd8', label: 'Cream' },
+  { value: '#2b333c', label: 'Ink' },
+  { value: '#7a5a3a', label: 'Kraft' },
+  { value: '#b23b2e', label: 'Barn red' },
+];
+export function isRsTexture(v: unknown): v is string {
+  return typeof v === 'string' && RS_TEXTURES.some((t) => t.key === v);
+}
+export function rsTextureUrl(v: string): string | null {
+  return RS_TEXTURES.find((t) => t.key === v)?.url ?? null;
+}
+// A valid RS background is a hex color OR a known texture key.
+export function isRsColor(v: unknown): v is string {
+  return isHexColor(v) || isRsTexture(v);
+}
 function color(v: unknown): string | null {
-  return isHexColor(v) ? v : null;
+  return isRsColor(v) ? (v as string) : null;
 }
 
 // Create a fresh block of a type with its default settings.
@@ -161,7 +191,8 @@ function normalizeBlock(input: unknown, index: number): Block | null {
   if (!isBlockType(o.type)) return null;
   const id = typeof o.id === 'string' && o.id.trim() ? o.id.trim().slice(0, 64) : `b${index}`;
   const settings = normalizeSettings(o.type, o.settings);
-  return { id, type: o.type, rsColor: color(o.rsColor), settings };
+  const label = str(o.label, 60).trim();
+  return { id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}), settings };
 }
 
 function str(v: unknown, max: number): string {
@@ -201,8 +232,13 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         radius: bool(s.radius, true),
       };
     }
-    case 'quiz':
-      return {};
+    case 'quiz': {
+      const hours = Number(s.timerHours);
+      return {
+        quizId: str(s.quizId, 40),
+        timerHours: Number.isFinite(hours) && hours > 0 ? Math.min(Math.round(hours), 24 * 365) : 0,
+      };
+    }
     case 'poll': {
       const options = (Array.isArray(s.options) ? s.options : [])
         .map((o) => str(o, 120))
