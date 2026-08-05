@@ -6,10 +6,15 @@
 // The pure helpers (brandKey, sameVendor) are DB-free and unit-tested; the two
 // async helpers are thin upserts/lookups over that key.
 
+import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { brandKey } from './entitlements';
 
 export { brandKey };
+
+// Either the base client or a transaction client — so callers can run these
+// inside a `prisma.$transaction(...)` for atomicity (e.g. JotForm ingest).
+type Db = Prisma.TransactionClient | typeof prisma;
 
 /** Do two vendor names refer to the same advertiser? Case/whitespace-insensitive. */
 export function sameVendor(a: unknown, b: unknown): boolean {
@@ -22,10 +27,10 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * key. Idempotent: the same name in any casing returns the same vendor, and the
  * first-seen display name is preserved (a later spelling won't clobber it).
  */
-export async function findOrCreateVendor(name: string): Promise<string> {
+export async function findOrCreateVendor(name: string, db: Db = prisma): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
-  const vendor = await prisma.vendor.upsert({
+  const vendor = await db.vendor.upsert({
     where: { brandKey: key },
     update: {},
     create: { name: name.trim(), brandKey: key },

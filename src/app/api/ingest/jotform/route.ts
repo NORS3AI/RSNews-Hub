@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/db';
 import { captureError, log } from '@/lib/logger';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { ingestSubmission } from '@/lib/jotformIngest';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+// Cap the stored raw payload so a caller can't bloat the DB with giant bodies.
+const MAX_RAW_BYTES = 512 * 1024;
 
 // JotForm webhook receiver. Configure a JotForm webhook to
 //   POST https://<hub>/api/ingest/jotform?key=<JOTFORM_WEBHOOK_SECRET>
@@ -36,6 +40,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
 
+  // Blunt flooding / secret-guessing (best-effort, per-process).
+  const rl = rateLimit(`ingest:${clientIp(req)}`, 60, 60_000);
+  if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate limited' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+
   // JotForm posts multipart/form-data with `rawRequest` (JSON), `submissionID`, `formID`.
   let rawRequest = '';
   let submissionId = '';
@@ -51,19 +59,20 @@ export async function POST(req: Request) {
   if (!submissionId || !rawRequest) {
     return NextResponse.json({ ok: false, error: 'missing submissionID or rawRequest' }, { status: 400 });
   }
-
-  // Idempotency: a re-delivered webhook must not double-create.
-  const existing = await prisma.adSubmission.findUnique({ where: { submissionId } });
-  if (existing?.status === 'PROCESSED') {
-    return NextResponse.json({ ok: true, deduped: true, campaignId: existing.campaignId });
+  if (Buffer.byteLength(rawRequest) > MAX_RAW_BYTES) {
+    return NextResponse.json({ ok: false, error: 'payload too large' }, { status: 413 });
   }
 
-  // Record the raw submission first (audit), so we keep it even if processing fails.
-  await prisma.adSubmission.upsert({
-    where: { submissionId },
-    update: { raw: rawRequest, formId, status: 'RECEIVED', error: null },
-    create: { submissionId, formId, raw: rawRequest, status: 'RECEIVED' },
-  });
+  // Idempotency: claim the submission exactly once via the unique submissionId.
+  // The first delivery creates the row (and processes); any concurrent or later
+  // re-delivery hits the unique constraint and is treated as a dedup — so a
+  // webhook retry can never spawn a second campaign, whatever the prior outcome.
+  try {
+    await prisma.adSubmission.create({ data: { submissionId, formId, raw: rawRequest, status: 'RECEIVED' } });
+  } catch {
+    const existing = await prisma.adSubmission.findUnique({ where: { submissionId }, select: { status: true, campaignId: true } });
+    return NextResponse.json({ ok: true, deduped: true, status: existing?.status ?? 'RECEIVED', campaignId: existing?.campaignId ?? null });
+  }
 
   let rawObj: Record<string, unknown>;
   try {
@@ -71,7 +80,7 @@ export async function POST(req: Request) {
     rawObj = parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     await prisma.adSubmission.update({ where: { submissionId }, data: { status: 'FAILED', error: 'rawRequest is not valid JSON' } });
-    return NextResponse.json({ ok: false, error: 'rawRequest is not valid JSON' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'invalid payload' }, { status: 400 });
   }
 
   try {
@@ -83,10 +92,10 @@ export async function POST(req: Request) {
     log.info('jotform submission ingested', { submissionId, vendorId: result.vendorId, campaignId: result.campaignId, creatives: result.creatives });
     return NextResponse.json({ ok: true, campaignId: result.campaignId, creatives: result.creatives, issues: result.parsed.issues });
   } catch (e) {
-    const error = (e as Error).message;
-    await prisma.adSubmission.update({ where: { submissionId }, data: { status: 'FAILED', error } });
+    // Keep the detailed reason in the audit row + logs; return a generic message.
+    await prisma.adSubmission.update({ where: { submissionId }, data: { status: 'FAILED', error: (e as Error).message } });
     captureError(e, { route: 'ingest/jotform' });
     // 200 so JotForm doesn't retry-storm; the failure is recorded for review.
-    return NextResponse.json({ ok: false, error }, { status: 200 });
+    return NextResponse.json({ ok: false, error: 'processing failed' }, { status: 200 });
   }
 }

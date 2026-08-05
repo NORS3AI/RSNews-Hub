@@ -53,9 +53,12 @@ export default async function DocsHome() {
     include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } },
   });
 
-  // RS Council columns — shown in full inside the tall column module.
+  // RS Council columns — shown in full inside the tall column module. Because the
+  // body is rendered inline on this public homepage, only UNGATED council pieces
+  // appear here (requirement === ''); gated ones stay on their own page behind the
+  // access gate and still show in listings with a lock badge.
   const councilArticles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council' } },
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council' }, requirement: '' },
     orderBy: { publishedAt: 'desc' },
     take: 12,
     select: { id: true, title: true, slug: true, content: true, publishedAt: true, author: { select: { name: true } } },

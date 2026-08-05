@@ -524,7 +524,8 @@ export async function savePerformanceReportSummary(id: string, formData: FormDat
 }
 
 export async function publishPerformanceReport(id: string) {
-  await ensureStaff();
+  // Publishing pushes a report to the vendor — admin-only, above the EDITOR bar.
+  await ensureAdmin();
   await publishReport(id);
   revalidatePath(`/admin/reports/${id}`);
   revalidatePath('/admin/reports');
@@ -532,7 +533,7 @@ export async function publishPerformanceReport(id: string) {
 }
 
 export async function unpublishPerformanceReport(id: string) {
-  await ensureStaff();
+  await ensureAdmin();
   await unpublishReport(id);
   revalidatePath(`/admin/reports/${id}`);
   revalidatePath('/admin/reports');
