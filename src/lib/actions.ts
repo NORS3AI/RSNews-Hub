@@ -10,6 +10,7 @@ import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CAT
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
+import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -444,6 +445,55 @@ export async function deleteUser(id: string) {
   if (actor.id === id) throw new Error('You cannot delete yourself.');
   await prisma.user.delete({ where: { id } });
   revalidatePath('/admin/users');
+}
+
+/* --------------------------- Ad campaigns -------------------------------- */
+
+export async function createAdCampaign(formData: FormData) {
+  await ensureStaff();
+  const vendorName = ((formData.get('vendorName') as string) || '').trim();
+  const plan = ((formData.get('plan') as string) || '').trim();
+  const startRaw = ((formData.get('startAt') as string) || '').trim();
+  const endRaw = ((formData.get('endAt') as string) || '').trim();
+  const notes = ((formData.get('notes') as string) || '').trim();
+  if (!vendorName) throw new Error('Vendor name is required');
+  const startAt = new Date(startRaw);
+  if (isNaN(startAt.getTime())) throw new Error('A valid start date is required');
+  const endAt = endRaw ? new Date(endRaw) : undefined;
+  if (endAt && isNaN(endAt.getTime())) throw new Error('Invalid end date');
+  const id = await createCampaign({ vendorName, plan, startAt, endAt: endAt ?? null, notes });
+  revalidatePath('/admin/campaigns');
+  redirect(`/admin/campaigns/${id}`);
+}
+
+export async function assignFlightAds(formData: FormData) {
+  await ensureStaff();
+  const flightId = (formData.get('flightId') as string) || '';
+  const adIds = formData.getAll('adIds').map(String).filter(Boolean);
+  if (flightId && adIds.length) await assignAdsToFlight(flightId, adIds);
+  revalidatePath(`/admin/campaigns/${(formData.get('campaignId') as string) || ''}`);
+}
+
+export async function scheduleAdFlight(campaignId: string, flightId: string) {
+  await ensureStaff();
+  await scheduleFlight(flightId);
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+  revalidatePath('/docs');
+}
+
+export async function pauseAdFlight(campaignId: string, flightId: string) {
+  await ensureStaff();
+  await pauseFlight(flightId);
+  revalidatePath(`/admin/campaigns/${campaignId}`);
+  revalidatePath('/docs');
+}
+
+export async function cancelAdCampaign(id: string) {
+  await ensureStaff();
+  await cancelCampaign(id);
+  revalidatePath('/admin/campaigns');
+  revalidatePath(`/admin/campaigns/${id}`);
+  revalidatePath('/docs');
 }
 
 /* ------------------------- Analytics maintenance ------------------------- */

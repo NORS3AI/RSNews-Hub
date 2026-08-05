@@ -164,6 +164,15 @@ click **Rebuild rollups** on the analytics page at any time (no secret needed â€
 it uses the admin session). The job is idempotent and re-rolls the last few days
 to catch late-arriving events.
 
+Add a **second nightly cron** for ad-campaign upkeep (same `CRON_SECRET`) â€” it
+ends elapsed ad flights, completes finished campaigns, and flags flights whose
+fresh creatives are due soon (vendor reminders). Ad takedown itself is automatic
+(serving respects each flight's window), so this is bookkeeping:
+
+```bash
+curl -X POST https://YOURSITE/api/ads/maintenance -H "Authorization: Bearer $CRON_SECRET"
+```
+
 **Image optimization** is automatic (via `sharp`, a dependency). On upload,
 images are auto-oriented, **stripped of metadata (including GPS)**, downscaled to
 `IMAGE_MAX_DIM` (default 2000px longest edge) and re-encoded to `IMAGE_FORMAT`

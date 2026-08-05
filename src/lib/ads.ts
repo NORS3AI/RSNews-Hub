@@ -24,7 +24,24 @@ export type AdRow = {
   video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
+  // Flight (paid vendor inventory). House ads have no flight and serve while
+  // active; a flighted ad is live only when its flight is SCHEDULED and now is
+  // inside the window — so it auto-comes-down at the flight's end.
+  flightId?: string | null;
+  flightStatus?: string | null;      // 'SCHEDULED' | 'AWAITING' | 'REVIEW' | 'ENDED'
+  flightStartAt?: Date | string | null;
+  flightEndAt?: Date | string | null;
 };
+
+/** Whether an ad may be served right now: house ad (active) vs flighted-in-window. Pure. */
+export function adIsLive(ad: AdRow, now: Date): boolean {
+  if (ad.flightId) {
+    if (ad.flightStatus !== 'SCHEDULED' || !ad.flightStartAt || !ad.flightEndAt) return false;
+    const t = now.getTime();
+    return t >= new Date(ad.flightStartAt).getTime() && t < new Date(ad.flightEndAt).getTime();
+  }
+  return ad.active;
+}
 
 export const DEFAULT_ADS: AdRow[] = [
   { id: 'seed-packagehub', brand: 'PackageHub', label: 'Pack & ship network',
@@ -106,16 +123,17 @@ function seedFrom(s: string): number {
  * - Prefers an ad relevant to the article (its own brand is mentioned).
  * - Otherwise a neutral ad (no keywords and no competitors).
  */
-export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string): AdRow | null {
+export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date()): AdRow | null {
   const hay = normalize(articleText);
-  const active = ads.filter((a) => a.active);
-  const safe = active.filter((a) => adIsSafe(a, hay));
+  const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, hay));
   if (!safe.length) return null;
 
-  // Prefer ads relevant to the article's topic; otherwise any safe ad is fair
-  // game (a safe ad by definition names no competitor present in the article).
-  const relevant = safe.filter((a) => adIsRelevant(a, hay));
-  const pool = relevant.length ? relevant : safe;
+  // Paid (flighted) vendor ads are the inventory the advertiser bought, so they
+  // win over house ads. Within each tier, an ad relevant to the article's topic
+  // is preferred. Falls back gracefully: relevant-paid → paid → relevant → any.
+  const paid = safe.filter((a) => a.flightId);
+  const rel = (pool: AdRow[]) => pool.filter((a) => adIsRelevant(a, hay));
+  const pool = rel(paid).length ? rel(paid) : paid.length ? paid : rel(safe).length ? rel(safe) : safe;
 
   return pool[seedFrom(slotSeed) % pool.length];
 }
@@ -131,9 +149,9 @@ export function adsAreRivals(a: AdRow, b: AdRow): boolean {
 }
 
 /** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
-export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string) {
-  const top = pickInArticleAd(ads, articleText, `${prefix}-top`);
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date()) {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now);
   const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
-  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`);
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now);
   return { top, bottom };
 }
