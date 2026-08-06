@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { saveIndustryLink, deleteIndustryLink } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
+import IndustryQuickAdd from '@/components/admin/IndustryQuickAdd';
 import { linkSource, postedLabel } from '@/lib/industry';
 import { Eye } from '@/components/icons';
 
@@ -41,11 +42,7 @@ export default async function AdminIndustry() {
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <form action={saveIndustryLink} className="card h-fit space-y-3 p-5 lg:col-span-1">
-          <h2 className="font-semibold">Add a link</h2>
-          <Fields />
-          <button className="btn-primary w-full">Add link</button>
-        </form>
+        <IndustryQuickAdd />
 
         <div className="space-y-3 lg:col-span-2">
           {links.map((l) => (
