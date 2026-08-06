@@ -342,6 +342,9 @@ model AdCampaign {
   // Set once we've emailed the vendor to renew (campaign nearing its end), so the
   // nightly job never double-nudges. Cleared implies "renewal reminder still due".
   renewalRemindedAt DateTime?
+  // Set once we've emailed the vendor that their ads went live (first go-live), so
+  // the "your ads are live" note is sent exactly once per campaign.
+  liveNotifiedAt    DateTime?
   flights     AdFlight[]
   payments    Payment[]
 

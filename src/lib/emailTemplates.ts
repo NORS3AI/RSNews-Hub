@@ -37,6 +37,21 @@ Once we receive them, your ads should go live within one work week.
 
 Thanks for advertising with RS News!`,
   },
+  ads_live: {
+    key: 'ads_live',
+    label: 'Ads are live',
+    description: 'Sent to a vendor the first time their campaign goes live, with a link to see their ads in the Hub.',
+    tags: [VENDOR_TAG, DATE_TAG, { tag: 'dashboardUrl', desc: 'Link to their vendor dashboard (their live ad preview)' }],
+    subject: '🎉 Your RS News ads are live, {vendorName}',
+    body:
+`Hi {vendorName},
+
+Good news — your ads are now live on RS News Hub, as of {date}.
+
+See exactly how they look to readers (only your ads, in real article and homepage layouts): {dashboardUrl}
+
+Thanks for advertising with RS News!`,
+  },
   renewal: {
     key: 'renewal',
     label: 'Renewal',
@@ -104,6 +119,7 @@ export async function renderTemplate(key: string, vars: TemplateVars): Promise<B
 /** Sample values for the admin preview. */
 export function sampleVars(key: string): TemplateVars {
   const submitUrl = process.env.AD_ORDER_URL || 'https://form.jotform.com/your-ad-form';
+  if (key === 'ads_live') return { vendorName: 'PackWise', date: 'August 6, 2026', dashboardUrl: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/vendor` };
   if (key === 'renewal') return { vendorName: 'PackWise', packageLabel: '12-Month', date: 'December 31, 2026', daysUntil: '21', submitUrl };
   return { vendorName: 'PackWise', batchOrdinal: 'second', batchNumber: '2', packageLabel: '6-Month', date: 'September 1, 2026', daysUntil: '14', submitUrl };
 }

@@ -8,6 +8,8 @@
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { planByKey, planEnd, generateFlights } from './adPlans';
+import { sendEmail } from './email';
+import { renderTemplate } from './emailTemplates';
 import { findOrCreateVendor } from './vendors';
 import { campaignIsPaid } from './payments';
 
@@ -113,6 +115,25 @@ export async function scheduleFlight(flightId: string): Promise<void> {
   if (!(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
   await anchorToGoLive(flight.campaignId, new Date());
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
+  await notifyAdsLive(flight.campaignId);
+}
+
+/** The first time a campaign has a live flight, email the vendor that their ads
+ *  are live with a link to their dashboard preview. Sent once (guarded by
+ *  liveNotifiedAt), only after a successful send, and only if we have an email. */
+async function notifyAdsLive(campaignId: string): Promise<void> {
+  const c = await prisma.adCampaign.findUnique({
+    where: { id: campaignId },
+    select: { vendorName: true, liveNotifiedAt: true, vendor: { select: { contactEmail: true } } },
+  });
+  if (!c || c.liveNotifiedAt) return;
+  const to = c.vendor?.contactEmail;
+  if (!to) return; // no address yet — leave unnotified so a later go-live can still send
+  const dashboardUrl = `${process.env.SITE_URL || ''}/docs/vendor`;
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+  const { subject, text, html } = await renderTemplate('ads_live', { vendorName: c.vendorName, date, dashboardUrl });
+  const r = await sendEmail({ to, subject, text, html });
+  if (r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: new Date() } });
 }
 
 /** Pull a scheduled flight back to review (stops it serving immediately). */
