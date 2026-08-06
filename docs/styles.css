@@ -343,6 +343,10 @@ img { max-width:100%; display:block; }
 .ind-modal-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 .ind-modal-body { flex:1; min-height:0; overflow-y:auto; padding:4px 22px 8px; }
 .ind-arch { border:1px solid var(--border); border-radius:14px; padding:2px 16px; }
+.ind-arch-search { position:relative; max-width:520px; margin:4px 0 8px; }
+.ind-arch-search .ind-search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; display:flex; }
+.ind-arch-search input { width:100%; height:46px; border-radius:12px; border:1px solid var(--border); background:var(--card-top); color:var(--fg); padding:0 14px 0 42px; font-size:15px; outline:none; box-shadow:var(--shadow-inner); }
+.ind-arch-search input:focus { border-color:var(--orange); box-shadow:0 0 0 2px var(--orange-soft); }
 .ind-modal-foot { padding:22px 0 10px; text-align:center; }
 .ind-mrow { display:flex; align-items:flex-start; gap:16px; padding:20px 2px; border-bottom:1px solid var(--border); text-decoration:none; color:inherit; }
 .ind-mico { flex:0 0 auto; margin-top:3px; display:grid; place-items:center; width:44px; height:44px; border-radius:13px; background:var(--tile-bot); color:var(--orange); }

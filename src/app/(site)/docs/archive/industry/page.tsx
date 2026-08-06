@@ -6,8 +6,16 @@ import { linkSource, postedLabel } from '@/lib/industry';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Industry News archive' };
 
-export default async function IndustryArchive() {
-  const links = await prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ postedAt: 'desc' }] });
+export default async function IndustryArchive({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q: qRaw } = await searchParams;
+  const q = (qRaw || '').trim();
+  const links = await prisma.industryLink.findMany({
+    where: {
+      active: true,
+      ...(q ? { OR: [{ title: { contains: q } }, { source: { contains: q } }, { author: { contains: q } }] } : {}),
+    },
+    orderBy: [{ postedAt: 'desc' }],
+  });
 
   const groups = new Map<string, typeof links>();
   for (const l of links) {
@@ -19,8 +27,18 @@ export default async function IndustryArchive() {
   return (
     <div className="container-page py-8 sm:py-10">
       <Link href="/docs/archive" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]"><ArrowLeft width={16} height={16} /> Archive</Link>
-      <div className="mb-8 flex items-center gap-2"><Newspaper className="text-brand-600" /><h1 className="text-2xl font-bold">Industry News archive</h1></div>
-      {links.length === 0 && <p className="text-[var(--muted)]">No industry links yet.</p>}
+      <div className="mb-5 flex items-center gap-2"><Newspaper className="text-brand-600" /><h1 className="text-2xl font-bold">Industry News archive</h1></div>
+
+      {/* Search — filters the whole archive by headline, source or poster. */}
+      <form className="mb-8 flex max-w-xl gap-2" role="search">
+        <input name="q" defaultValue={q} placeholder="Search industry news…" aria-label="Search industry news" className="input flex-1" />
+        <button className="btn-primary btn-sm shrink-0">Search</button>
+        {q && <Link href="/docs/archive/industry" className="btn-outline btn-sm shrink-0">Clear</Link>}
+      </form>
+
+      {q && <p className="mb-4 text-sm text-[var(--muted)]">{links.length} result{links.length === 1 ? '' : 's'} for &ldquo;{q}&rdquo;</p>}
+      {links.length === 0 && <p className="text-[var(--muted)]">{q ? 'No stories matched your search.' : 'No industry links yet.'}</p>}
+
       <div className="space-y-9">
         {[...groups.entries()].map(([month, items]) => (
           <section key={month}>
@@ -33,6 +51,7 @@ export default async function IndustryArchive() {
                     <span className="min-w-0 flex-1">
                       <span className="block font-extrabold leading-snug group-hover:text-brand-600">{l.title}</span>
                       <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--muted)]">
+                        {l.author && <span className="font-bold text-[var(--fg)]/70">{l.author}</span>}
                         <span className="font-bold text-[var(--fg)]/70">{linkSource(l.url, l.source)}</span>
                         <span>{postedLabel(l.postedAt)}</span>
                         <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>

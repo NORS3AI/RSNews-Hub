@@ -219,12 +219,13 @@ export async function saveIndustryLink(formData: FormData) {
   const title = ((formData.get('title') as string) || '').trim();
   const url = ((formData.get('url') as string) || '').trim();
   const source = ((formData.get('source') as string) || '').trim();
+  const author = ((formData.get('author') as string) || '').trim() || 'Brandon Gale';
   const order = parseInt((formData.get('order') as string) || '0', 10) || 0;
   const active = formData.get('active') != null;
   const postedRaw = ((formData.get('postedAt') as string) || '').trim();
   if (!title || !url) throw new Error('Title and URL are required');
-  const data: { title: string; url: string; source: string | null; order: number; active: boolean; postedAt?: Date } =
-    { title, url, source: source || null, order, active };
+  const data: { title: string; url: string; source: string | null; author: string; order: number; active: boolean; postedAt?: Date } =
+    { title, url, source: source || null, author, order, active };
   const posted = postedRaw ? new Date(postedRaw) : null;
   if (posted && !isNaN(posted.getTime())) data.postedAt = posted;
   if (id) await prisma.industryLink.update({ where: { id }, data });

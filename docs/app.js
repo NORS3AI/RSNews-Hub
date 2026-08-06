@@ -398,7 +398,8 @@
       return '<a class="ind-row" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span class="ind-ico">' + ICON_EXT + '</span>' +
         '<span class="ind-main"><span class="ind-title">' + esc(l.title) + '</span>' +
-        '<span class="ind-meta"><span class="ind-src">' + esc(shortSource(linkSource(l.url, l.source))) + '</span>' +
+        '<span class="ind-meta">' + (l.author ? '<span class="ind-src">' + esc(l.author) + '</span>' : '') +
+        '<span class="ind-src">' + esc(shortSource(linkSource(l.url, l.source))) + '</span>' +
         '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
         '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
     }).join('');
@@ -414,7 +415,8 @@
       return '<a class="ind-mrow ind-reveal" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
         '<span class="ind-mico">' + ICON_EXT + '</span>' +
         '<span class="ind-mmain"><span class="ind-mtitle">' + esc(l.title) + '</span>' +
-        '<span class="ind-mmeta"><span class="ind-msrc">' + esc(linkSource(l.url, l.source)) + '</span>' +
+        '<span class="ind-mmeta">' + (l.author ? '<span class="ind-msrc">' + esc(l.author) + '</span>' : '') +
+        '<span class="ind-msrc">' + esc(linkSource(l.url, l.source)) + '</span>' +
         '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
         '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
     }).join('');
@@ -604,29 +606,41 @@
     h += '</section></div>';
     el('main').innerHTML = h; window.scrollTo(0, 0);
   }
-  function renderIndustryArchive() {
-    closeDialog();
-    var byMonth = {};
-    INDUSTRY.forEach(function (l) {
-      var k = new Date(l.postedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-      (byMonth[k] = byMonth[k] || []).push(l);
+  // The archive list, filtered by a search query (headline / source / poster).
+  function indArchListHtml(query) {
+    var q = (query || '').trim().toLowerCase();
+    var items = INDUSTRY.filter(function (l) {
+      if (!q) return true;
+      return (l.title + ' ' + (l.source || '') + ' ' + (l.author || '') + ' ' + linkSource(l.url, l.source)).toLowerCase().indexOf(q) >= 0;
     });
-    var h = '<div class="content"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_PAPER + ' Industry News archive</h2>' +
-      '<a class="link-orange" href="#" data-home="1">Home</a></div>';
-    if (!INDUSTRY.length) { h += '<p style="color:var(--muted);margin:0">No industry links yet.</p>'; }
+    if (!items.length) return '<p style="color:var(--muted);margin:8px 0 0">' + (q ? 'No stories matched your search.' : 'No industry links yet.') + '</p>';
+    var byMonth = {};
+    items.forEach(function (l) { var k = new Date(l.postedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }); (byMonth[k] = byMonth[k] || []).push(l); });
+    var out = (q ? '<p style="color:var(--muted);margin:0 0 6px;font-size:14px">' + items.length + ' result' + (items.length === 1 ? '' : 's') + '</p>' : '');
     Object.keys(byMonth).forEach(function (m) {
-      h += '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin:22px 0 10px">' + esc(m) + '</h3>' +
+      out += '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800;margin:22px 0 10px">' + esc(m) + '</h3>' +
         '<div class="ind-arch">' + byMonth[m].map(function (l) {
           return '<a class="ind-row" href="' + esc(l.url) + '" target="_blank" rel="noopener noreferrer">' +
             '<span class="ind-ico">' + ICON_EXT + '</span>' +
             '<span class="ind-main"><span class="ind-title">' + esc(l.title) + '</span>' +
-            '<span class="ind-meta"><span class="ind-src">' + esc(linkSource(l.url, l.source)) + '</span>' +
+            '<span class="ind-meta">' + (l.author ? '<span class="ind-src">' + esc(l.author) + '</span>' : '') +
+            '<span class="ind-src">' + esc(linkSource(l.url, l.source)) + '</span>' +
             '<span>' + esc(postedLabel(l.postedAt)) + '</span>' +
             '<span class="ind-views">' + ICON.eye + (l.views || 0) + '</span></span></span></a>';
         }).join('') + '</div>';
     });
-    h += '</section></div>';
+    return out;
+  }
+  function renderIndustryArchive() {
+    closeDialog();
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON_PAPER + ' Industry News archive</h2>' +
+      '<a class="link-orange" href="#" data-home="1">Home</a></div>' +
+      '<div class="ind-arch-search"><span class="ind-search-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>' +
+      '<input type="search" id="ind-arch-search" data-ind-search="1" placeholder="Search industry news…" autocomplete="off"></div>' +
+      '<div id="ind-arch-list">' + indArchListHtml('') + '</div>' +
+      '</section></div>';
     el('main').innerHTML = h; window.scrollTo(0, 0);
+    var inp = document.getElementById('ind-arch-search'); if (inp) inp.focus();
   }
 
   /* ---------- smart in-article ads ----------
@@ -1268,6 +1282,9 @@
   window.addEventListener('popstate', function () { var hs = (location.hash || '').replace('#', ''); if (hs && bySlug[hs]) openModal(hs, false); else closeModal(false); });
   document.addEventListener('input', function (e) { if (!e.target.matches('[data-search]')) return; var i = e.target, q = i.value;
     if (q.trim().length < 2) { var b = i.parentNode.querySelector('.suggest'); if (b) b.remove(); return; } renderSuggest(i, searchArticles(q)); });
+  // Live-filter the Industry News archive (keeps input focus — only the list updates).
+  document.addEventListener('input', function (e) { if (!e.target.matches || !e.target.matches('[data-ind-search]')) return;
+    var list = document.getElementById('ind-arch-list'); if (list) list.innerHTML = indArchListHtml(e.target.value); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-search]')) { e.preventDefault(); var q = e.target.value.trim(); var b = e.target.parentNode.querySelector('.suggest'); if (b) b.remove(); if (q) runSearch(q); } });
   document.addEventListener('click', function (e) { if (!e.target.closest('.search')) document.querySelectorAll('.suggest').forEach(function (b) { b.remove(); }); });
   // Move a favorite into a folder (native select) + add folder on Enter.

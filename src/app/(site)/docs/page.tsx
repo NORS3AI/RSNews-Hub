@@ -418,7 +418,7 @@ export default async function DocsHome() {
         const hasIndustry = industry.length > 0;
         if (!hasIndustry && !activePoll && !activeQuiz) return null;
         const indEl = hasIndustry
-          ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
+          ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, author: l.author, views: l.views, postedAt: l.postedAt }))} />
           : null;
         // Yield to a module that pinned this poll/quiz, and never repeat one a
         // module already rendered (global de-dup).

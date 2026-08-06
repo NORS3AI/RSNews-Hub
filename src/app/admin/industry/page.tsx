@@ -12,6 +12,7 @@ const Fields = ({ link }: { link?: any }) => (
     <div><label className="label">Article title</label><input name="title" required defaultValue={link?.title ?? ''} className="input" placeholder="Fed signals rate cut as inflation cools" /></div>
     <div><label className="label">Link (URL)</label><input name="url" required defaultValue={link?.url ?? ''} className="input" placeholder="https://reuters.com/…" /></div>
     <div><label className="label">Source (optional)</label><input name="source" defaultValue={link?.source ?? ''} className="input" placeholder="Reuters" /><p className="mt-1 text-xs text-[var(--muted)]">Blank = use the link&apos;s domain.</p></div>
+    <div><label className="label">Posted by</label><input name="author" defaultValue={link?.author ?? 'Brandon Gale'} list="ind-posters" className="input" placeholder="Brandon Gale" /></div>
     <div className="flex items-end gap-4">
       <div className="flex-1">
         <label className="label">Posted date/time</label>
@@ -30,9 +31,12 @@ function toLocalInput(d: Date | string) {
 
 export default async function AdminIndustry() {
   const links = await prisma.industryLink.findMany({ orderBy: [{ order: 'asc' }, { postedAt: 'desc' }] });
+  // Known poster names for the "Posted by" datalist (Brandon Gale + anyone used).
+  const posters = [...new Set(['Brandon Gale', ...links.map((l) => l.author).filter(Boolean)])];
 
   return (
     <div>
+      <datalist id="ind-posters">{posters.map((p) => <option key={p} value={p} />)}</datalist>
       <h1 className="mb-1 text-2xl font-bold">Industry News</h1>
       <p className="mb-5 max-w-2xl text-sm text-[var(--muted)]">
         Curated external links shown in the scrollable <strong>Industry News</strong> module on the homepage. To add one, paste the article link on the left — it reads the headline, source and date for you — then hit <strong>Add link</strong>. The newest ones show first. Each row shows the headline, its source, when it was added, and how many times it&apos;s been clicked; the trash icon removes it.

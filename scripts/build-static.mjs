@@ -59,7 +59,7 @@ async function main() {
 
   const data = {
     generatedAt: new Date().toISOString(),
-    industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt })),
+    industry: industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, author: l.author, views: l.views, postedAt: l.postedAt })),
     // Relativize root-absolute asset paths so they resolve under the Pages subpath
     // (data: URLs and full http(s) URLs pass through unchanged).
     comics: comics.map((c) => ({ id: c.id, title: c.title, image: c.image.startsWith('/') ? c.image.slice(1) : c.image, caption: c.caption, active: c.active, postedAt: c.postedAt })),

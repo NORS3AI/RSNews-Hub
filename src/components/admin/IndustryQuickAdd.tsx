@@ -62,6 +62,11 @@ export default function IndustryQuickAdd() {
         <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="Fills in automatically — or type it" />
       </div>
 
+      <div>
+        <label className="label">Posted by</label>
+        <input name="author" defaultValue="Brandon Gale" list="ind-posters" className="input" placeholder="Brandon Gale" autoComplete="off" />
+      </div>
+
       {/* Automatic + hidden: source falls back to the link's domain, the posted
           date is now (when he adds it), newest first, and new links are shown. */}
       <input type="hidden" name="source" value={source} />
