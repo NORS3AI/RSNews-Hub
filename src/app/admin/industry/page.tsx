@@ -11,10 +11,7 @@ const Fields = ({ link }: { link?: any }) => (
   <>
     <div><label className="label">Article title</label><input name="title" required defaultValue={link?.title ?? ''} className="input" placeholder="Fed signals rate cut as inflation cools" /></div>
     <div><label className="label">Link (URL)</label><input name="url" required defaultValue={link?.url ?? ''} className="input" placeholder="https://reuters.com/…" /></div>
-    <div className="grid grid-cols-2 gap-3">
-      <div><label className="label">Source (optional)</label><input name="source" defaultValue={link?.source ?? ''} className="input" placeholder="Reuters" /><p className="mt-1 text-xs text-[var(--muted)]">Blank = use the link&apos;s domain.</p></div>
-      <div><label className="label">Order</label><input name="order" type="number" defaultValue={link?.order ?? 0} className="input" /></div>
-    </div>
+    <div><label className="label">Source (optional)</label><input name="source" defaultValue={link?.source ?? ''} className="input" placeholder="Reuters" /><p className="mt-1 text-xs text-[var(--muted)]">Blank = use the link&apos;s domain.</p></div>
     <div className="flex items-end gap-4">
       <div className="flex-1">
         <label className="label">Posted date/time</label>
@@ -38,7 +35,7 @@ export default async function AdminIndustry() {
     <div>
       <h1 className="mb-1 text-2xl font-bold">Industry News</h1>
       <p className="mb-5 max-w-2xl text-sm text-[var(--muted)]">
-        Curated external links shown in the scrollable <strong>Industry News</strong> homepage module. Each row shows the title, the source, when you posted it, and its click count. Lower <strong>Order</strong> numbers appear first; ties fall back to newest posted.
+        Curated external links shown in the scrollable <strong>Industry News</strong> module on the homepage. To add one, paste the article link on the left — it reads the headline, source and date for you — then hit <strong>Add link</strong>. The newest ones show first. Each row shows the headline, its source, when it was added, and how many times it&apos;s been clicked; the trash icon removes it.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
