@@ -311,7 +311,7 @@ export default async function DocsHome() {
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}
                 {card.category
-                  ? <span className="badge" style={{ backgroundColor: card.category.color + '22', color: card.category.color }}>{card.category.name}</span>
+                  ? <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>
                   : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
                 <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
               </article>
@@ -498,7 +498,7 @@ export default async function DocsHome() {
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
                   <ArticleLink slug={a.slug} className="block py-4"
                     data-trk-type="article" data-trk-id={a.id} data-trk-place="latest" data-trk-props={JSON.stringify({ module: 'latest', moduleType: 'list', pos: i, hasImage: false })}>
-                    {a.category && <span className="text-xs font-bold" style={{ color: a.category.color }}>{a.category.name}</span>}
+                    {a.category && <span className="cat-ink text-xs font-bold" style={{ '--c': a.category.color } as React.CSSProperties}>{a.category.name}</span>}
                     <h3 className="mt-1 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight group-hover:text-brand-600">{a.title}</h3>
                     <div className="mt-2 flex items-center gap-3.5 text-xs text-[var(--muted)]">
                       <span>{formatDate(a.publishedAt)}</span>
@@ -689,7 +689,7 @@ function Hero({ lead }: { lead: Card }) {
         <div className="flex flex-col justify-center p-7 sm:p-10">
           <div className="flex items-center gap-2.5">
             <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-200">Headline</span>
-            {lead.category && <span className="text-[13px] font-bold" style={{ color: lead.category.color }}>{lead.category.name}</span>}
+            {lead.category && <span className="cat-ink text-[13px] font-bold" style={{ '--c': lead.category.color } as React.CSSProperties}>{lead.category.name}</span>}
           </div>
           <h1 className="mt-4 text-4xl font-black leading-[1.06] tracking-[-0.03em] group-hover:text-brand-600 sm:text-[52px] xl:text-[58px]">{lead.title}</h1>
           {lead.excerpt && <p className="mt-[18px] max-w-[54ch] text-[17px] text-[var(--muted)]">{lead.excerpt}</p>}

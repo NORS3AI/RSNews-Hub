@@ -342,7 +342,7 @@
   }
 
   /* ---------- builders ---------- */
-  function catBadge(c) { return c ? '<span class="badge" style="background:' + c.color + '22;color:' + c.color + '">' + esc(c.name) + '</span>' : ''; }
+  function catBadge(c) { return c ? '<span class="badge badge-cat" style="--c:' + c.color + '">' + esc(c.name) + '</span>' : ''; }
   function isBreaking(a) { return !!(a && a.breakingUntil && new Date(a.breakingUntil).getTime() > Date.now()); }
   // Primary + extra category badges, plus a ⚡ Breaking badge (from the timer)
   // in place of the "Breaking News" category itself.
@@ -832,7 +832,7 @@
       trending.map(function (a, i) { return '<div class="mini" data-open="' + esc(a.slug) + '"><span class="n">' + (i + 1) + '</span><span class="mt">' + esc(a.title) + '</span><span class="mv">' + ICON.eye + (a.views || 0) + '</span></div>'; }).join('') +
       '</section>' +
       '<section class="module"><div class="module-head"><h2>Categories</h2></div><div class="cats">' +
-      CATEGORIES.map(function (c) { return '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">' + esc(c.name) + '<span class="count">' + (c.count || 0) + '</span></span>'; }).join('') +
+      CATEGORIES.map(function (c) { return '<span class="cat-chip cat-ink" data-cat="' + esc(c.slug) + '" style="--c:' + c.color + '">' + esc(c.name) + '<span class="count">' + (c.count || 0) + '</span></span>'; }).join('') +
       '</div></section>' +
       '<section class="module" style="display:flex;justify-content:center">' + homeAd('rectangle') + '</section>' +
       '</div>';
@@ -866,8 +866,8 @@
     topCats.forEach(function (c, idx) {
       var items = ARTICLES.filter(function (a) { return a.category && a.category.slug === c.slug; }).slice(0, 10);
       if (!items.length) return;
-      h += '<section class="module"><div class="module-head"><h2 style="color:' + c.color + '">In ' + esc(c.name) + '</h2>' +
-        '<span class="cat-chip" data-cat="' + esc(c.slug) + '" style="color:' + c.color + '">See all ' + (c.count || 0) + '</span></div>' +
+      h += '<section class="module"><div class="module-head"><h2 class="cat-ink" style="--c:' + c.color + '">In ' + esc(c.name) + '</h2>' +
+        '<span class="cat-chip cat-ink" data-cat="' + esc(c.slug) + '" style="--c:' + c.color + '">See all ' + (c.count || 0) + '</span></div>' +
         carousel(items, function (a) { return articleBlock(a); }) + '</section>';
       // Sprinkle an ad between the two spotlights
       if (idx === 0) h += '<div class="module" style="display:flex;justify-content:center">' + homeAd('leaderboard') + '</div>';
@@ -929,7 +929,7 @@
       (lead.coverImage ? '<div class="cover"><img src="' + esc(lead.coverImage) + '" alt="" style="height:100%;width:100%;object-fit:cover"></div>' : '<div class="cover"><span class="decor">RS</span></div>') +
       '<div class="content" style="padding:28px">' +
       '<div style="display:flex;align-items:center;gap:10px"><span class="badge" style="background:var(--orange-soft);color:var(--orange)">Headline</span>' +
-      (lead.category ? '<span style="font-size:13px;font-weight:700;color:' + lead.category.color + '">' + esc(lead.category.name) + '</span>' : '') + '</div>' +
+      (lead.category ? '<span class="cat-ink" style="font-size:13px;font-weight:700;--c:' + lead.category.color + '">' + esc(lead.category.name) + '</span>' : '') + '</div>' +
       '<h1>' + esc(lead.title) + '</h1>' + (lead.excerpt ? '<p class="hex">' + esc(lead.excerpt) + '</p>' : '') +
       '<div style="margin-top:18px;color:var(--orange);font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px">Read article ' + ICON.arrow + '</div>' +
       '</div></div></a></section>';
@@ -945,7 +945,7 @@
       h += '<p style="color:var(--muted);margin:0 0 12px;font-size:15px">The last ' + list.length + ' article' + (list.length === 1 ? '' : 's') + ' you opened, most recent first.</p>';
       h += list.map(function (s) { var a = bySlug[s.slug];
         return '<div class="mini" data-open="' + esc(s.slug) + '"><span style="color:var(--muted);flex-shrink:0">' + ICON.clock + '</span>' +
-          '<span class="mt">' + esc(s.title) + (a && a.category ? ' <span style="color:' + a.category.color + ';font-weight:700;font-size:13px">· ' + esc(a.category.name) + '</span>' : '') + '</span>' +
+          '<span class="mt">' + esc(s.title) + (a && a.category ? ' <span class="cat-ink" style="--c:' + a.category.color + ';font-weight:700;font-size:13px">· ' + esc(a.category.name) + '</span>' : '') + '</span>' +
           '<span class="mv">' + esc(timeAgo(s.ts)) + '</span></div>'; }).join('');
     }
     h += '</section></div>';

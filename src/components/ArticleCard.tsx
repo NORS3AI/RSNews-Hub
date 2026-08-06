@@ -33,7 +33,7 @@ export default function ArticleCard({ article, compact = false, trk }: { article
         <div className="flex flex-1 flex-col p-4 sm:p-5">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {article.category && (
-              <span className="badge" style={{ backgroundColor: article.category.color + '22', color: article.category.color }}>
+              <span className="badge cat-badge" style={{ '--c': article.category.color } as React.CSSProperties}>
                 {article.category.name}
               </span>
             )}

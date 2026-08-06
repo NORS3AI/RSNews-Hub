@@ -72,7 +72,7 @@ export default async function ArchivePage() {
                       <span className="font-medium">{a.title}</span>
                       {a.status === 'ARCHIVED' && <span className="ml-2 text-xs text-amber-600">archived</span>}
                     </span>
-                    {a.category && <span className="hidden shrink-0 text-xs sm:inline" style={{ color: a.category.color }}>{a.category.name}</span>}
+                    {a.category && <span className="cat-ink hidden shrink-0 text-xs sm:inline" style={{ '--c': a.category.color } as React.CSSProperties}>{a.category.name}</span>}
                     <span className="shrink-0 text-xs text-[var(--muted)]">{formatDate(a.publishedAt ?? a.createdAt)}</span>
                   </Link>
                 </li>
