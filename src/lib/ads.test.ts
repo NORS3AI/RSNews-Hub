@@ -22,6 +22,17 @@ describe('adIsLive', () => {
     expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-07-01T00:00:00Z', flightEndAt: '2026-10-01T00:00:00Z' }), NOW)).toBe(false); // before window
     expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-01-01T00:00:00Z', flightEndAt: '2026-04-01T00:00:00Z' }), NOW)).toBe(false); // after window (auto-takedown)
   });
+  it('manually-added ads honor an optional self-scheduling window (blank = always on)', () => {
+    // our-brand default: no window → always on when active
+    expect(adIsLive(ad({ id: 'm', brand: 'RSA', active: true }), NOW)).toBe(true);
+    // outside advertiser with a window around NOW → live
+    expect(adIsLive(ad({ id: 'm', brand: 'Out', liveFrom: '2026-06-01T00:00:00Z', liveUntil: '2026-07-01T00:00:00Z' }), NOW)).toBe(true);
+    // before it starts / after it ends → not live
+    expect(adIsLive(ad({ id: 'm', brand: 'Out', liveFrom: '2026-07-01T00:00:00Z' }), NOW)).toBe(false);
+    expect(adIsLive(ad({ id: 'm', brand: 'Out', liveUntil: '2026-06-01T00:00:00Z' }), NOW)).toBe(false);
+    // inactive always beats a valid window
+    expect(adIsLive(ad({ id: 'm', brand: 'Out', active: false, liveFrom: '2026-06-01T00:00:00Z', liveUntil: '2026-07-01T00:00:00Z' }), NOW)).toBe(false);
+  });
 });
 
 describe('pickInArticleAd — paid inventory preference', () => {

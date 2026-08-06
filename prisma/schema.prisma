@@ -229,6 +229,11 @@ model Ad {
   video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
+  // Optional self-scheduling window for a manually-added (non-flighted) ad — lets
+  // a one-off outside advertiser go live / come down on a date without a campaign.
+  // Both null = always-on (house ad, for our own brands). Ignored for flighted ads.
+  liveFrom    DateTime?
+  liveUntil   DateTime?
   // Vendor ads belong to a 3-month flight (paid inventory); house ads have no
   // flight and serve whenever active. A flighted ad is only live inside its
   // flight's scheduled window (auto-takedown is automatic — see lib/ads).

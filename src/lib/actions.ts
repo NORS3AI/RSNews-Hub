@@ -189,8 +189,11 @@ export async function saveAd(formData: FormData) {
   const video = ((formData.get('video') as string) || '').trim();
   const videoPoster = ((formData.get('videoPoster') as string) || '').trim();
   const active = formData.get('active') != null;
+  const parseDate = (v: string) => { const s = (v || '').trim(); if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; };
+  const liveFrom = parseDate(formData.get('liveFrom') as string);
+  const liveUntil = parseDate(formData.get('liveUntil') as string);
   if (!brand || !headline) throw new Error('Brand and headline are required');
-  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active };
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active, liveFrom, liveUntil };
   if (id) await prisma.ad.update({ where: { id }, data });
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');

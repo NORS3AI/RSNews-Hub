@@ -24,6 +24,12 @@ export type AdRow = {
   video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
+  // Optional self-scheduling window for a manually-added (non-flighted) ad, so a
+  // one-off outside advertiser can go live/come down on a date without a full
+  // campaign. Both null = always-on (a house ad for our own brands). Ignored for
+  // flighted ads (the flight is their schedule).
+  liveFrom?: Date | string | null;
+  liveUntil?: Date | string | null;
   // Flight (paid vendor inventory). House ads have no flight and serve while
   // active; a flighted ad is live only when its flight is SCHEDULED and now is
   // inside the window — so it auto-comes-down at the flight's end.
@@ -40,7 +46,12 @@ export function adIsLive(ad: AdRow, now: Date): boolean {
     const t = now.getTime();
     return t >= new Date(ad.flightStartAt).getTime() && t < new Date(ad.flightEndAt).getTime();
   }
-  return ad.active;
+  if (!ad.active) return false;
+  // Non-flighted ad: honor its optional self-scheduling window (blank = always on).
+  const t = now.getTime();
+  if (ad.liveFrom && t < new Date(ad.liveFrom).getTime()) return false;
+  if (ad.liveUntil && t >= new Date(ad.liveUntil).getTime()) return false;
+  return true;
 }
 
 export const DEFAULT_ADS: AdRow[] = [
