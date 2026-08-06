@@ -82,7 +82,7 @@ describe('studio tree model', () => {
 
   it('whitelists settings keys — unknown fields are stripped', () => {
     const t = normalizeTree({ children: [{ type: 'ad', settings: { format: 'leaderboard', evil: '<script>' } }] });
-    expect(t.children[0].settings).toEqual({ format: 'leaderboard' });
+    expect(t.children[0].settings).toEqual({ format: 'leaderboard', vendor: '' });
   });
 
   it('normalizes new block types (image clamps width, ad format falls back)', () => {
@@ -92,7 +92,7 @@ describe('studio tree model', () => {
       { type: 'article-headline', settings: { source: 'trending' } },
     ] });
     expect(t.children[0].settings).toMatchObject({ url: 'https://x/y.png', widthPct: 200, alt: 'hi' }); // clamped to 200
-    expect(t.children[1].settings).toEqual({ format: 'rectangle' }); // unknown → default
+    expect(t.children[1].settings).toEqual({ format: 'rectangle', vendor: '' }); // unknown → default
     expect(t.children[2].settings).toEqual({ mode: 'auto', source: 'trending' });
   });
 
@@ -119,7 +119,7 @@ describe('studio tree model', () => {
     const slot = t.children[0];
     expect(slot.type).toBe('poll');
     expect(slot.fallbacks!.length).toBeLessThanOrEqual(MAX_FALLBACKS);
-    expect(slot.fallbacks![0].settings).toEqual({ format: 'square' });
+    expect(slot.fallbacks![0].settings).toEqual({ format: 'square', vendor: '' });
     expect(slot.fallbacks![1].type).toBe('article-headline');             // bogus was dropped
     expect(slot.fallbacks![1].fallbacks).toBeUndefined();                 // no nesting
     expect(blockChain(slot)[0]).toBe(slot);                                // chain = primary + fallbacks
@@ -149,6 +149,20 @@ describe('studio tree model', () => {
     expect(inSchedule(future, now)).toBe(false);   // hasn't started
     expect(inSchedule(past, now)).toBe(false);      // already ended
     expect(inSchedule(makeBlock('ad', 'd'), now)).toBe(true); // no window = always on
+  });
+
+  it('normalizes an audience gate (requirement + mode); default mode is tease', () => {
+    const t = normalizeTree({ children: [
+      { type: 'poll', settings: { pollId: 'p' }, requirement: 'PackageHub', gateMode: 'swap' },
+      { type: 'ad', settings: {}, requirement: 'premium' },              // mode defaults to tease
+      { type: 'text', settings: { body: 'hi' }, gateMode: 'swap' },      // no requirement → gate dropped
+    ] });
+    expect(t.children[0].requirement).toBe('packagehub');
+    expect(t.children[0].gateMode).toBe('swap');
+    expect(t.children[1].requirement).toBe('premium');
+    expect(t.children[1].gateMode).toBe('tease');
+    expect(t.children[2].requirement).toBeUndefined();
+    expect(t.children[2].gateMode).toBeUndefined();
   });
 
   it('namespaces custom module ids', () => {

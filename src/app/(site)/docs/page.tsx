@@ -4,6 +4,8 @@ import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
+import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
+import { Lock } from '@/components/icons';
 import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
@@ -78,15 +80,25 @@ export default async function DocsHome() {
   // through the image creatives so the real ads show on the home page too.
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
   let homeAdCursor = 0;
-  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string) => {
-    if (!homeImageAds.length) return <AdSlot size={size} slot={slot} />;
-    const ad = homeImageAds[homeAdCursor++ % homeImageAds.length];
+  // `brand` locks the slot to one advertiser (a sponsor spotlight). If that
+  // advertiser has no live creative, returns null so the caller can fall through
+  // rather than showing a random house ad in a slot sold to someone specific.
+  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string, brand?: string): React.ReactNode | null => {
+    const pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
+    if (brand && pool.length === 0) return null;
+    if (!pool.length) return <AdSlot size={size} slot={slot} />;
+    const ad = pool[homeAdCursor++ % pool.length];
     if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" />;
     return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" /></div>;
   };
 
   const user = await getSessionUser();
   const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
+  // The viewer's entitlement attributes, for element audience gates. Null when
+  // signed out (gated elements then tease/hide for everyone unless public).
+  const account: AccountLike | null = user
+    ? await prisma.user.findUnique({ where: { id: user.id }, select: { accountType: true, tier: true, affiliations: true, vendorBrand: true } })
+    : null;
   const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
@@ -224,6 +236,19 @@ export default async function DocsHome() {
       // Outside its schedule window → treat as unavailable so the slot falls
       // through to the next rung (which restores the "previous" content).
       if (!inSchedule(b, nowMs)) return null;
+      // Audience gate: a viewer who doesn't meet the requirement either sees a
+      // locked teaser (tease, drives upgrades) or nothing (swap → fall through).
+      if (b.requirement && !canViewContent(account, b.requirement)) {
+        if (b.gateMode === 'swap') return null;
+        return (
+          <div className="studio-fill grid place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--card-2)] p-6 text-center" style={style}>
+            <Lock width={20} height={20} className="mb-2 text-brand-600" />
+            <p className="text-sm font-bold">{requirementLabel(b.requirement)} only</p>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">Sign in or upgrade to unlock this.</p>
+            <Link href="/docs/subscriptions" className="btn-primary btn-sm mt-3">Unlock</Link>
+          </div>
+        );
+      }
       switch (b.type) {
         case 'heading': {
           const t = String(b.settings.text ?? '');
@@ -233,7 +258,10 @@ export default async function DocsHome() {
           return <div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>;
         case 'ad': {
           const fmt = b.settings.format === 'leaderboard' ? 'leaderboard' : 'rectangle';
-          return <div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{homeAd(fmt, `custom-${row.id}-${i}`)}</div>;
+          const brand = typeof b.settings.vendor === 'string' ? b.settings.vendor.trim() : '';
+          const adNode = homeAd(fmt, `custom-${row.id}-${i}`, brand || undefined);
+          if (!adNode) return null; // vendor-locked slot, advertiser has no live creative → fall through
+          return <div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{adNode}</div>;
         }
         case 'image': {
           const url = String(b.settings.url ?? '');

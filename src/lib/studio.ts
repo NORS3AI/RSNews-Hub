@@ -56,7 +56,7 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   ad: {
     label: 'Ad', group: 'Media',
     description: 'Ad slot — auto-fits the container.',
-    defaults: { format: 'rectangle' },
+    defaults: { format: 'rectangle', vendor: '' },
   },
   image: {
     label: 'Image', group: 'Media',
@@ -116,6 +116,14 @@ export type Block = {
   // with a window, B as its fallback.
   startAt?: string | null;
   endAt?: string | null;
+  // Audience gate. When set (a requirement token like 'premium' | 'member' |
+  // 'packagehub' | 'vendor' | 'staff', or '' = everyone), viewers who don't meet
+  // it either see a locked teaser (gateMode 'tease', the default — good for
+  // conversion) or don't see it at all (gateMode 'swap' → the slot falls through
+  // to the next rung, exactly like a schedule/availability miss). See
+  // lib/entitlements.canViewContent.
+  requirement?: string;
+  gateMode?: 'tease' | 'swap';
   // Priority stack: if this element has no content to show right now (a poll
   // that isn't running, a hand-picked article that's unpublished, an empty
   // image…), the renderer falls through to these in order and shows the first
@@ -220,6 +228,10 @@ function normalizeBlock(input: unknown, index: number, allowFallbacks = true): B
   const label = str(o.label, 60).trim();
   const startAt = isoOrNull(o.startAt);
   const endAt = isoOrNull(o.endAt);
+  // Audience gate: a short lowercase token; '' / absent = everyone. gateMode
+  // only matters when a requirement is set.
+  const requirement = str(o.requirement, 40).trim().toLowerCase();
+  const gateMode: 'tease' | 'swap' = o.gateMode === 'swap' ? 'swap' : 'tease';
   // Fallbacks are a single level deep — a fallback's own `fallbacks` are dropped
   // so a slot can never fan out into an unbounded tree.
   let fallbacks: Block[] | undefined;
@@ -234,6 +246,7 @@ function normalizeBlock(input: unknown, index: number, allowFallbacks = true): B
   return {
     id, type: o.type, rsColor: color(o.rsColor), ...(label ? { label } : {}),
     ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}),
+    ...(requirement ? { requirement, gateMode } : {}),
     settings, ...(fallbacks ? { fallbacks } : {}),
   };
 }
@@ -278,7 +291,9 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
       return { ...articleFill(s) };
     case 'ad': {
       const ok = ['leaderboard', 'video', 'vertical', 'square', 'rectangle'];
-      return { format: ok.includes(String(s.format)) ? String(s.format) : 'rectangle' };
+      // `vendor` (an advertiser/brand key) locks the slot to that advertiser's
+      // creatives only — a sponsor spotlight. '' = any advertiser.
+      return { format: ok.includes(String(s.format)) ? String(s.format) : 'rectangle', vendor: str(s.vendor, 80).trim() };
     }
     case 'image': {
       const w = Number(s.widthPct);

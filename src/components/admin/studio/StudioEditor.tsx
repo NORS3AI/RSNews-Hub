@@ -137,6 +137,8 @@ export default function StudioEditor({
       }
       if ('startAt' in patch) b.startAt = (patch as any).startAt || undefined;
       if ('endAt' in patch) b.endAt = (patch as any).endAt || undefined;
+      if ('requirement' in patch) b.requirement = (patch as any).requirement || undefined;
+      if ('gateMode' in patch) b.gateMode = (patch as any).gateMode;
       return t;
     });
   }
@@ -322,6 +324,7 @@ export default function StudioEditor({
                         rung={rung}
                         onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
                         scheduled={!!(b.startAt || b.endAt)}
+                        gateLabel={b.requirement ? (AUDIENCES.find((a) => a.value === b.requirement)?.label ?? b.requirement) : undefined}
                       >
                         <BlockView block={chain[rung]} />
                       </BlockFrame>
@@ -392,11 +395,11 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate, chain, rung, onRung, scheduled }: {
+function BlockFrame({ selected, over, label, children, onSelect, onDragStart, onDragEnd, onRemove, onDuplicate, chain, rung, onRung, scheduled, gateLabel }: {
   selected: boolean; over: boolean; label: string; children: React.ReactNode;
   onSelect: (e: React.MouseEvent) => void; onDragStart: () => void; onDragEnd: () => void;
   onRemove: (e: React.MouseEvent) => void; onDuplicate: (e: React.MouseEvent) => void;
-  chain?: Block[]; rung?: number; onRung?: (k: number) => void; scheduled?: boolean;
+  chain?: Block[]; rung?: number; onRung?: (k: number) => void; scheduled?: boolean; gateLabel?: string;
 }) {
   const hasFallbacks = !!chain && chain.length > 1;
   return (
@@ -414,9 +417,10 @@ function BlockFrame({ selected, over, label, children, onSelect, onDragStart, on
       <div className="pointer-events-none">{children}</div>
       {/* Permutation stepper + schedule marker. The stepper walks the priority
           stack to preview each fallback state ("if no poll → ad → article"). */}
-      {(hasFallbacks || scheduled) && (
+      {(hasFallbacks || scheduled || gateLabel) && (
         <div className="mt-1 flex flex-wrap items-center gap-1 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-2)] px-1.5 py-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
           {scheduled && <span className="rounded bg-amber-100 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title="This element has a schedule window">⏱ Scheduled</span>}
+          {gateLabel && <span className="rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Audience-gated element">🔒 {gateLabel}</span>}
           {hasFallbacks && <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>}
           {hasFallbacks && chain!.map((r, k) => (
             <button key={k} type="button" onClick={() => onRung?.(k)}
@@ -469,13 +473,15 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
-  const [tab, setTab] = useState<'content' | 'style' | 'fallback' | 'schedule'>('content');
+  const [tab, setTab] = useState<'content' | 'style' | 'fallback' | 'schedule' | 'access'>('content');
   const fbCount = block.fallbacks?.length ?? 0;
   const scheduled = !!(block.startAt || block.endAt);
-  const TABS: { id: 'content' | 'style' | 'fallback' | 'schedule'; label: string }[] = [
+  const gated = !!block.requirement;
+  const TABS: { id: 'content' | 'style' | 'fallback' | 'schedule' | 'access'; label: string }[] = [
     { id: 'content', label: 'Content' }, { id: 'style', label: 'Style' },
     { id: 'fallback', label: fbCount ? `If empty (${fbCount})` : 'If empty' },
     { id: 'schedule', label: scheduled ? 'Schedule •' : 'Schedule' },
+    { id: 'access', label: gated ? 'Access •' : 'Access' },
   ];
   return (
     <InspectorShell title={BLOCKS[block.type].label}>
@@ -503,15 +509,21 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         </>
       )}
       {block.type === 'ad' && (
-        <Field label="Ad format">
-          <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
-            <option value="rectangle">Rectangle (medium)</option>
-            <option value="square">Square (fits a sidebar)</option>
-            <option value="vertical">Vertical (skyscraper)</option>
-            <option value="leaderboard">Leaderboard (wide banner)</option>
-            <option value="video">Video</option>
-          </select>
-        </Field>
+        <>
+          <Field label="Ad format">
+            <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
+              <option value="rectangle">Rectangle (medium)</option>
+              <option value="square">Square (fits a sidebar)</option>
+              <option value="vertical">Vertical (skyscraper)</option>
+              <option value="leaderboard">Leaderboard (wide banner)</option>
+              <option value="video">Video</option>
+            </select>
+          </Field>
+          <Field label="Limit to advertiser (optional)">
+            <input className="input" value={String(s.vendor ?? '')} onChange={(e) => set('vendor', e.target.value)} placeholder="e.g. PackageHub" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Locks this slot to one advertiser&apos;s creatives — a sponsor spotlight. Leave blank to rotate all live ads. If that advertiser has no live ad, the slot falls through to your fallback.</p>
+          </Field>
+        </>
       )}
       {block.type === 'image' && (
         <>
@@ -569,6 +581,10 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 
       <div className={tab === 'schedule' ? '' : 'hidden'}>
         <ScheduleEditor block={block} onPatch={onPatch} />
+      </div>
+
+      <div className={tab === 'access' ? '' : 'hidden'}>
+        <AccessEditor block={block} onPatch={onPatch} />
       </div>
 
       <div className="mt-4 flex gap-2 border-t border-[var(--border)] pt-3">
@@ -724,6 +740,50 @@ function ScheduleEditor({ block, onPatch }: { block: Block; onPatch: (p: any) =>
       </Field>
       <p className={`mt-1 rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-2.5 py-2 text-xs font-medium ${status.tone}`}>{status.text}</p>
       <p className="mt-2 text-[11px] leading-tight text-[var(--muted)]">Times are in your local timezone. Leave a side blank for open-ended (e.g. “from” only = appears then and stays).</p>
+    </div>
+  );
+}
+
+/* ---- Access: who can see this element ---- */
+
+// Requirement tokens the gate understands (mirrors lib/entitlements). Free-form
+// affiliations also work, but these are the common ones surfaced in the UI.
+const AUDIENCES: { value: string; label: string }[] = [
+  { value: '', label: 'Everyone (public)' },
+  { value: 'member', label: 'Signed-in members' },
+  { value: 'premium', label: 'RS Premium' },
+  { value: 'packagehub', label: 'Package Hub' },
+  { value: 'vendor', label: 'Vendors' },
+  { value: 'staff', label: 'Staff' },
+];
+
+function AccessEditor({ block, onPatch }: { block: Block; onPatch: (p: any) => void }) {
+  const req = block.requirement ?? '';
+  const mode = block.gateMode ?? 'tease';
+  return (
+    <div>
+      <p className="mb-3 text-xs leading-relaxed text-[var(--muted)]">
+        Restrict who sees <strong>{BLOCKS[block.type].label}</strong>. Everyone else either sees a locked teaser or nothing at all — your choice.
+      </p>
+      <Field label="Visible to">
+        <select className="input" value={req} onChange={(e) => onPatch({ requirement: e.target.value })}>
+          {AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+        </select>
+      </Field>
+      {req && (
+        <Field label="Everyone else sees…">
+          <div className="space-y-1.5">
+            {([['tease', 'A locked teaser', 'They see it exists, with a prompt to sign in / upgrade. Best for conversion.'],
+               ['swap', 'Nothing (fall through)', 'The slot quietly shows your fallback instead — no lock, no friction.']] as const).map(([v, title, desc]) => (
+              <label key={v} className={`flex cursor-pointer gap-2 rounded-lg border p-2.5 text-sm ${mode === v ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/40' : 'border-[var(--border)]'}`}>
+                <input type="radio" name={`gate-${block.id}`} checked={mode === v} onChange={() => onPatch({ gateMode: v })} className="mt-0.5" />
+                <span><span className="font-semibold">{title}</span><span className="block text-[11px] text-[var(--muted)]">{desc}</span></span>
+              </label>
+            ))}
+          </div>
+        </Field>
+      )}
+      {!req && <p className="text-[11px] leading-tight text-[var(--muted)]">Public — no gate. Pick an audience above to restrict it.</p>}
     </div>
   );
 }
