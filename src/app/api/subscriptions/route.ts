@@ -1,28 +1,49 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { parseJson } from '@/lib/http';
+import {
+  topicMenu, getAccountTopics, setAccountTopics,
+  getAccountEmails, upsertDigestEmail, removeDigestEmail, parseTopics,
+} from '@/lib/subscriptions';
 
-// Toggle a subscription. categoryId null = subscribe to ALL articles.
+// Current subscription state for the popup: the topic menu, the account-wide
+// notification topics, and the digest emails this account has added.
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const [menu, notifyTopics, emails] = await Promise.all([
+    topicMenu(), getAccountTopics(user.id), getAccountEmails(user.id),
+  ]);
+  return NextResponse.json({
+    menu, notifyTopics,
+    emails: emails.map((e) => ({ id: e.id, email: e.email, topics: parseTopics(e.topics) })),
+    accountEmail: user.email,
+  });
+}
+
+const Body = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('notify'), topics: z.array(z.string()).max(50) }),
+  z.object({ action: z.literal('email'), email: z.string().min(3).max(200), topics: z.array(z.string()).max(50) }),
+  z.object({ action: z.literal('removeEmail'), id: z.string().min(1) }),
+]);
+
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Please sign in to subscribe.' }, { status: 401 });
-
-  const parsed = await parseJson(req, z.object({ categoryId: z.string().min(1).nullish() }));
+  const parsed = await parseJson(req, Body);
   if (!parsed.ok) return parsed.res;
-  const catId: string | null = parsed.data.categoryId ?? null;
+  const d = parsed.data;
 
-  // findFirst (not findUnique) because SQLite treats NULL != NULL, so the
-  // compound unique key can't match the "all articles" (null category) row.
-  const existing = await prisma.subscription.findFirst({
-    where: { userId: user.id, categoryId: catId },
-  });
-
-  if (existing) {
-    await prisma.subscription.delete({ where: { id: existing.id } });
-    return NextResponse.json({ ok: true, subscribed: false });
+  if (d.action === 'notify') {
+    await setAccountTopics(user.id, d.topics);
+    return NextResponse.json({ ok: true });
   }
-  await prisma.subscription.create({ data: { userId: user.id, categoryId: catId } });
-  return NextResponse.json({ ok: true, subscribed: true });
+  if (d.action === 'email') {
+    const r = await upsertDigestEmail(user.id, d.email, d.topics);
+    return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: r.error }, { status: 400 });
+  }
+  // removeEmail
+  const r = await removeDigestEmail(user.id, d.id);
+  return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: 'Not found.' }, { status: 404 });
 }

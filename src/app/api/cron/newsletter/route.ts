@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendDigest } from '@/lib/newsletter';
+import { sendDailyDigests } from '@/lib/newsletter';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ async function run(req: Request) {
   const auth = req.headers.get('authorization') || '';
   const given = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('secret') || '';
   if (given !== secret) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  const r = await sendDigest();
+  const r = await sendDailyDigests();
   return NextResponse.json(r);
 }
 export async function POST(req: Request) { return run(req); }

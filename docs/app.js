@@ -41,6 +41,9 @@
     copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
     trash2: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>',
     check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    bell: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+    ext: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
     starLg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--orange)" stroke="none" style="display:inline;vertical-align:-4px"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/></svg>',
     folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>',
     folderPlus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 11v4M10 13h4"/></svg>'
@@ -926,10 +929,8 @@
     /* Subscribe CTA (orange) */
     h += '<section class="module orange"><div style="max-width:560px">' +
       '<h2 style="font-size:24px;font-weight:900;margin:0">Never miss a story</h2>' +
-      '<p style="margin:8px 0 16px;color:rgba(255,255,255,.9);font-size:16px">Get the week\'s best articles delivered to your inbox. No spam, unsubscribe anytime.</p>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-      '<input type="email" placeholder="you@example.com" style="flex:1;min-width:220px;height:46px;border-radius:11px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.14);color:#fff;padding:0 14px;font-size:15px;outline:none">' +
-      '<button class="btn" style="background:#fff;color:var(--orange)">Subscribe</button></div></div></section>';
+      '<p style="margin:8px 0 16px;color:rgba(255,255,255,.9);font-size:16px">Pick your topics — Industry News, Breaking News, whatever you care about — and get them on the hub, in your inbox, or both.</p>' +
+      '<button class="btn" style="background:#fff;color:var(--orange)" data-sub-open="1">' + ICON.bell + ' Subscribe</button></div></section>';
 
     h += '</div>';
     el('main').innerHTML = h;
@@ -1195,9 +1196,103 @@
     if (list.length) ensureQuoteAssets(function () { if (el('main').querySelector('[data-clipview]')) renderClippings(); });
   }
 
+  /* ---------- subscribe + notifications (localStorage preview) ---------- */
+  // The live hub keys notifications to the account and email to each address;
+  // the static preview approximates the notifications half with localStorage so
+  // the flow is the same everywhere.
+  var SUB_KEY = 'rsnews_sub_topics', SUB_SEEN_KEY = 'rsnews_sub_seen';
+  function getTopics() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || '[]'); } catch (e) { return []; } }
+  function setTopics(a) { try { localStorage.setItem(SUB_KEY, JSON.stringify(a)); } catch (e) {} }
+  function getSeen() { try { return +localStorage.getItem(SUB_SEEN_KEY) || 0; } catch (e) { return 0; } }
+  function setSeen(t) { try { localStorage.setItem(SUB_SEEN_KEY, String(t)); } catch (e) {} }
+  function topicName(t) { if (t === 'all') return 'Everything'; if (t === 'industry') return 'Industry News'; var c = CATEGORIES.filter(function (x) { return x.slug === t; })[0]; return c ? c.name : t; }
+  function artMatches(a, topics) {
+    if (topics.indexOf('all') >= 0) return true;
+    if (a.category && topics.indexOf(a.category.slug) >= 0) return true;
+    var ex = a.extraCategories || [];
+    for (var i = 0; i < ex.length; i++) { if (topics.indexOf(ex[i].slug) >= 0) return true; }
+    return false;
+  }
+  function subFeed() {
+    var topics = getTopics(); if (!topics.length) return [];
+    var seen = getSeen(), items = [];
+    if (topics.indexOf('industry') >= 0 || topics.indexOf('all') >= 0) {
+      INDUSTRY.forEach(function (l) { items.push({ type: 'industry', title: l.title, url: l.url, date: +new Date(l.postedAt), meta: (l.author || '') + (l.source ? ' · ' + l.source : '') }); });
+    }
+    ARTICLES.forEach(function (a) { if (artMatches(a, topics)) items.push({ type: 'article', title: a.title, slug: a.slug, date: +new Date(a.publishedAt), cat: a.category }); });
+    items.sort(function (x, y) { return y.date - x.date; });
+    items.forEach(function (it) { it.unread = it.date > seen; });
+    return items.slice(0, 50);
+  }
+  function subUnread() { return subFeed().filter(function (i) { return i.unread; }).length; }
+  function updateBellDot() {
+    var link = document.querySelector('.side-nav [data-notifications]'); if (!link) return;
+    var badge = link.querySelector('.notif-dot'); var n = subUnread();
+    if (!n) { if (badge) badge.remove(); return; }
+    if (!badge) { badge = document.createElement('span'); badge.className = 'notif-dot'; (link.querySelector('svg') || link).insertAdjacentElement('afterend', badge); }
+    badge.textContent = n > 9 ? '9+' : String(n);
+  }
+  function ago(ms) { var s = Math.max(1, (Date.now() - ms) / 1000); if (s < 3600) return Math.floor(s / 60) + 'm ago'; if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 604800) return Math.floor(s / 86400) + 'd ago'; return fmtDate(new Date(ms).toISOString()); }
+  function renderNotifications() {
+    var topics = getTopics(), feed = subFeed();
+    var h = '<div class="content" data-page="notifications"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON.bell + ' Notifications</h2>' +
+      '<button class="btn btn-sm btn-primary" data-sub-open="1">' + ICON.bell + ' Manage subscriptions</button></div>';
+    if (!topics.length) {
+      h += '<div style="text-align:center;padding:36px 16px;color:var(--muted)">' + ICON.bell +
+        '<p style="font-size:18px;font-weight:800;color:var(--fg);margin:10px 0 4px">You\'re not following anything yet</p>' +
+        '<p style="margin:0 auto 16px;max-width:420px">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>' +
+        '<button class="btn btn-primary" data-sub-open="1">Choose topics</button></div>';
+    } else if (!feed.length) {
+      h += '<p style="color:var(--muted);margin:0">Nothing new in your topics yet. We\'ll drop it here the moment there is.</p>';
+    } else {
+      h += '<div class="notif-list">' + feed.map(function (it) {
+        var badge = it.type === 'industry'
+          ? '<span class="badge badge-cat" style="--c:#E97D34">Industry News</span>'
+          : (it.cat ? catBadge(it.cat) : '');
+        var meta = (it.meta ? esc(it.meta) + ' · ' : '') + ago(it.date);
+        var inner = '<span class="notif-dotmark' + (it.unread ? ' on' : '') + '"></span>' +
+          '<span class="notif-body"><span class="notif-title">' + esc(it.title) + (it.type === 'industry' ? ' ' + ICON.ext : '') + '</span>' +
+          '<span class="notif-meta">' + badge + '<span>' + meta + '</span></span></span>';
+        return it.type === 'industry'
+          ? '<a class="notif-row" href="' + esc(it.url) + '" target="_blank" rel="noopener">' + inner + '</a>'
+          : '<a class="notif-row" href="#" data-open="' + esc(it.slug) + '">' + inner + '</a>';
+      }).join('') + '</div>';
+    }
+    h += '</section>';
+    h += '</div>';
+    el('main').innerHTML = h;
+    setSeen(Date.now()); updateBellDot();
+  }
+  function openSubscribe() {
+    var topics = getTopics(); var has = function (t) { return topics.indexOf(t) >= 0; };
+    var grid = CATEGORIES.map(function (c) {
+      return '<label class="sub-opt"><input type="checkbox" data-sub-topic="' + esc(c.slug) + '"' + (has(c.slug) ? ' checked' : '') + '>' +
+        '<span class="sub-dot" style="background:' + c.color + '"></span><span>' + esc(c.name) + '</span></label>';
+    }).join('');
+    var html = '<div class="dlg-card sub-dlg" style="max-width:480px">' +
+      '<div class="dlg-head"><h3>Subscribe</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
+      '<div class="dlg-body"><p style="color:var(--muted);margin:0 0 12px;font-size:14px">Pick the topics you care about — new posts show up in your Notifications.</p>' +
+      '<label class="sub-opt sub-opt-lead"><input type="checkbox" data-sub-topic="industry"' + (has('industry') ? ' checked' : '') + '>' +
+      '<span class="sub-dot" style="background:#E97D34"></span><span style="font-weight:800">Industry News</span><span style="margin-left:auto;font-size:12px;color:var(--muted)">Brandon\'s daily posts</span></label>' +
+      '<div class="sub-grid">' + grid + '</div>' +
+      '<p style="color:var(--muted);margin:12px 0 0;font-size:12.5px">On the live hub you can also email these to yourself or your team.</p>' +
+      '<div class="dlg-actions" style="justify-content:flex-end;margin-top:16px"><button class="btn btn-sm" data-dlg-close="1">Close</button><button class="btn btn-sm btn-primary" data-sub-save="1">Save</button></div>' +
+      '</div></div>';
+    openDialog(html);
+  }
+  function saveSubscribe() {
+    var picked = [];
+    el('dialog-host').querySelectorAll('[data-sub-topic]').forEach(function (cb) { if (cb.checked) picked.push(cb.getAttribute('data-sub-topic')); });
+    setTopics(picked); closeDialog();
+    if (el('main').querySelector('[data-page="notifications"]')) renderNotifications(); else updateBellDot();
+  }
+
   /* ---------- events ---------- */
   document.addEventListener('click', function (e) {
     if (e.target.closest('#collapse-btn')) { toggleCollapse(); return; }
+    var subOpen = e.target.closest('[data-sub-open]'); if (subOpen) { e.preventDefault(); openSubscribe(); return; }
+    var subSave = e.target.closest('[data-sub-save]'); if (subSave) { e.preventDefault(); saveSubscribe(); return; }
+    var notif = e.target.closest('[data-notifications]'); if (notif) { e.preventDefault(); if (notif.classList.contains('side-item')) setActive(notif); renderNotifications(); closeDrawer(); window.scrollTo(0, 0); return; }
     if (e.target.closest('#hamburger')) { el('shell').classList.add('mobileopen'); return; }
     if (e.target.closest('#sidebar-backdrop')) { closeDrawer(); return; }
     if (e.target.closest('#theme-btn')) { toggleTheme(); return; }
@@ -1307,6 +1402,7 @@
   })();
   renderStrip();
   renderHome();
+  updateBellDot();
   var hs = (location.hash || '').replace('#', '');
   if (hs && bySlug[hs]) openModal(hs, false);
 })();

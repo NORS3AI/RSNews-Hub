@@ -20,7 +20,7 @@ import Carousel from '@/components/site/Carousel';
 import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
-import NewsletterSubscribe from '@/components/site/NewsletterSubscribe';
+import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
 import AdminEditChip from '@/components/site/AdminEditChip';
 import InlineColorEditor from '@/components/site/InlineColorEditor';
@@ -662,8 +662,8 @@ export default async function DocsHome() {
       <section className="module module-orange bg-brand-600 text-white">
         <div className="max-w-xl">
           <h2 className="text-2xl font-black">Never miss a story</h2>
-          <p className="mt-2 text-white/90">Get the daily Industry News digest delivered to your inbox — one email a day, only when there&apos;s something new. Unsubscribe anytime.</p>
-          <NewsletterSubscribe />
+          <p className="mt-2 text-white/90">Pick your topics — Industry News, Breaking News, whatever you care about — and get them on the hub, in your inbox, or both. Anyone at your store can add their own email.</p>
+          <div className="mt-4"><SubscribeLauncher label="Subscribe" className="btn bg-white text-brand-700 hover:bg-white/90" /></div>
         </div>
       </section>
     </div>

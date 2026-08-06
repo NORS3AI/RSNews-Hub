@@ -1,117 +1,96 @@
-// Newsletter — open email signups + a once-daily "Industry News" digest.
+// Email digest — one email per address, personalized to the topics that address
+// picked. Because a hub login is shared across a whole store, the digest is keyed
+// to the email (NewsletterSubscriber), not the account: five employees can each
+// get their own headlines. Gathers what's new since the last send and goes out at
+// most once a day; a quiet day for a given subscriber sends them nothing.
 //
-// Anyone can subscribe with just an email (owners, but also managers/employees
-// who aren't the account holder). The digest gathers what's new since the last
-// send and goes out at most once a day; a quiet day sends nothing. Delivery
-// rides on lib/email.ts, which already supports SendGrid (set EMAIL_FROM +
-// SENDGRID_API_KEY) and safely logs when unconfigured.
+// Delivery rides on lib/email.ts (SendGrid or Resend; set EMAIL_FROM + a provider
+// key). When email isn't configured it logs safely instead of sending.
 
 import { prisma } from './db';
 import { siteUrl } from './env';
 import { sendEmail, renderEmail, escapeHtml, isEmailConfigured } from './email';
 import { linkSource } from './industry';
+import { parseTopics, gatherSince, ALL, type TopicKey } from './subscriptions';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const LAST_DIGEST_KEY = 'newsletter:lastDigestAt';
-
-function token(): string {
-  try { return crypto.randomUUID().replace(/-/g, ''); } catch { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
-}
 function base(): string { return (siteUrl || '').replace(/\/$/, ''); }
-
-export async function subscribeEmail(emailRaw: string, source = 'homepage'): Promise<{ ok: boolean; error?: string }> {
-  const email = (emailRaw || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return { ok: false, error: 'Enter a valid email address.' };
-  const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
-  if (existing) {
-    if (!existing.active) await prisma.newsletterSubscriber.update({ where: { email }, data: { active: true, unsubscribedAt: null } });
-    return { ok: true };
-  }
-  await prisma.newsletterSubscriber.create({ data: { email, source, token: token() } });
-  return { ok: true };
-}
-
-export async function unsubscribeByToken(tok: string): Promise<{ ok: boolean; email?: string }> {
-  const sub = await prisma.newsletterSubscriber.findUnique({ where: { token: tok } });
-  if (!sub) return { ok: false };
-  if (sub.active) await prisma.newsletterSubscriber.update({ where: { id: sub.id }, data: { active: false, unsubscribedAt: new Date() } });
-  return { ok: true, email: sub.email };
-}
 
 async function lastDigestAt(): Promise<Date> {
   const row = await prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } });
   if (row?.value) { const d = new Date(row.value); if (!isNaN(d.getTime())) return d; }
   return new Date(Date.now() - 24 * 3600 * 1000); // first run: last 24h
 }
-
-/** What's new since the last digest — the content that would be sent. */
-export async function composeDigest(sinceOverride?: Date) {
-  const since = sinceOverride ?? (await lastDigestAt());
-  const now = new Date();
-  const [industry, articles] = await Promise.all([
-    prisma.industryLink.findMany({ where: { active: true, postedAt: { gt: since, lte: now } }, orderBy: { postedAt: 'desc' }, take: 40 }),
-    prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { gt: since, lte: now } }, orderBy: { publishedAt: 'desc' }, take: 20, select: { title: true, slug: true } }),
-  ]);
-  return { since, now, industry, articles, count: industry.length + articles.length };
+async function setCheckpoint(now: Date): Promise<void> {
+  await prisma.setting.upsert({ where: { key: LAST_DIGEST_KEY }, update: { value: now.toISOString() }, create: { key: LAST_DIGEST_KEY, value: now.toISOString() } });
 }
 
-function digestHtml(d: Awaited<ReturnType<typeof composeDigest>>, unsubUrl: string): string {
+type Gathered = Awaited<ReturnType<typeof gatherSince>>;
+function itemCount(g: Gathered) { return g.industry.length + g.articles.length; }
+
+function digestHtml(g: Gathered, unsubUrl: string): string {
   const b = base();
-  const item = (title: string, href: string, meta: string) =>
+  const row = (title: string, href: string, meta: string) =>
     `<tr><td style="padding:10px 0;border-bottom:1px solid #eee">` +
     `<a href="${escapeHtml(href)}" style="color:#232a36;font-weight:700;font-size:16px;text-decoration:none">${escapeHtml(title)}</a>` +
     (meta ? `<div style="color:#8a8f98;font-size:13px;margin-top:2px">${escapeHtml(meta)}</div>` : '') + `</td></tr>`;
   let body = '';
-  if (d.industry.length) {
+  if (g.industry.length) {
     body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:18px 0 6px">Industry News</h2><table role="presentation" width="100%">`;
-    body += d.industry.map((l) => item(l.title, l.url, `${l.author} · ${linkSource(l.url, l.source)}`)).join('');
+    body += g.industry.map((l) => row(l.title, l.url, `${l.author} · ${linkSource(l.url, l.source)}`)).join('');
     body += `</table>`;
   }
-  if (d.articles.length) {
+  if (g.articles.length) {
     body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:22px 0 6px">New on RSNews Hub</h2><table role="presentation" width="100%">`;
-    body += d.articles.map((a) => item(a.title, `${b}/docs/article/${a.slug}`, '')).join('');
+    body += g.articles.map((a) => row(a.title, `${b}/docs/article/${a.slug}`, a.category?.name || '')).join('');
     body += `</table>`;
   }
-  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this daily Industry News digest from RSNews Hub. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
-  return renderEmail('Today’s Industry News', body);
+  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this RSNews Hub digest for the topics you picked. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
+  return renderEmail('Your RSNews Hub digest', body);
 }
 
-/** Send the digest to all active subscribers. Skips silently if nothing new (unless force). */
-export async function sendDigest(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; subscribers: number; count: number; skipped?: boolean }> {
-  const d = await composeDigest();
-  const subs = await prisma.newsletterSubscriber.findMany({ where: { active: true }, select: { email: true, token: true } });
-  if (!opts.force && d.count === 0) {
-    // Nothing new — record the checkpoint anyway so we don't re-scan the same window.
-    await prisma.setting.upsert({ where: { key: LAST_DIGEST_KEY }, update: { value: d.now.toISOString() }, create: { key: LAST_DIGEST_KEY, value: d.now.toISOString() } });
-    return { sent: 0, failed: 0, subscribers: subs.length, count: 0, skipped: true };
-  }
-  let sent = 0, failed = 0;
+/** Send each active subscriber their own digest for their own topics. Skips a
+ *  subscriber with nothing new; records the checkpoint once at the end. */
+export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; skippedEmpty: number; subscribers: number }> {
+  const since = await lastDigestAt();
+  const now = new Date();
+  const subs = await prisma.newsletterSubscriber.findMany({ where: { active: true }, select: { email: true, token: true, topics: true } });
+
+  let sent = 0, failed = 0, skippedEmpty = 0;
   for (const s of subs) {
+    const keys: TopicKey[] = parseTopics(s.topics);
+    const g = await gatherSince(keys.length ? keys : [ALL], since, now, 40);
+    if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
     const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;
-    const r = await sendEmail({ to: s.email, subject: `Industry News — ${d.count} update${d.count === 1 ? '' : 's'}`, html: digestHtml(d, unsub) });
+    const n = itemCount(g);
+    const r = await sendEmail({ to: s.email, subject: `RSNews Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
     if (r.ok) sent++; else failed++;
   }
-  await prisma.setting.upsert({ where: { key: LAST_DIGEST_KEY }, update: { value: d.now.toISOString() }, create: { key: LAST_DIGEST_KEY, value: d.now.toISOString() } });
-  return { sent, failed, subscribers: subs.length, count: d.count };
+  await setCheckpoint(now);
+  return { sent, failed, skippedEmpty, subscribers: subs.length };
 }
 
-/** Send a one-off sample digest to a single address (last 7 days of content) so
- *  an admin can confirm SendGrid is wired up. Doesn't touch the daily checkpoint. */
+/** One-off sample to a single address (last 7 days, that address's topics if it
+ *  already subscribes, else everything) so an admin can confirm delivery. */
 export async function sendTestTo(emailRaw: string): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   const email = (emailRaw || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return { ok: false, error: 'Enter a valid email address.' };
-  const d = await composeDigest(new Date(Date.now() - 7 * 24 * 3600 * 1000));
-  const unsub = `${base()}/newsletter/unsubscribe?token=test`;
-  const r = await sendEmail({ to: email, subject: `[Test] Industry News — ${d.count} update${d.count === 1 ? '' : 's'}`, html: digestHtml(d, unsub) });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Enter a valid email address.' };
+  const existing = await prisma.newsletterSubscriber.findUnique({ where: { email }, select: { topics: true, token: true } });
+  const keys: TopicKey[] = existing ? parseTopics(existing.topics) : [ALL];
+  const g = await gatherSince(keys.length ? keys : [ALL], new Date(Date.now() - 7 * 24 * 3600 * 1000), new Date(), 40);
+  const unsub = `${base()}/newsletter/unsubscribe?token=${existing?.token || 'test'}`;
+  const r = await sendEmail({ to: email, subject: `[Test] RSNews Hub — ${itemCount(g)} update${itemCount(g) === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
   return { ok: r.ok, skipped: r.skipped, error: r.error };
 }
 
 export async function newsletterStatus() {
-  const [total, active, last, preview] = await Promise.all([
+  const now = new Date();
+  const [total, active, last] = await Promise.all([
     prisma.newsletterSubscriber.count(),
     prisma.newsletterSubscriber.count({ where: { active: true } }),
     prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } }),
-    composeDigest(),
   ]);
-  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: preview.count, emailReady: isEmailConfigured() };
+  const since = last?.value ? new Date(last.value) : new Date(now.getTime() - 24 * 3600 * 1000);
+  const g = await gatherSince([ALL], since, now, 40); // everything new — the max any subscriber could receive
+  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: itemCount(g), emailReady: isEmailConfigured() };
 }

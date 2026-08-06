@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { newsletterStatus } from '@/lib/newsletter';
+import { parseTopics } from '@/lib/subscriptions';
 import NewsletterAdmin from '@/components/admin/NewsletterAdmin';
 
 export const dynamic = 'force-dynamic';
@@ -9,16 +10,19 @@ function fmt(d: Date | null) {
 }
 
 export default async function AdminSubscribers() {
-  const [status, subs] = await Promise.all([
+  const [status, subs, cats] = await Promise.all([
     newsletterStatus(),
-    prisma.newsletterSubscriber.findMany({ orderBy: { createdAt: 'desc' }, take: 500 }),
+    prisma.newsletterSubscriber.findMany({ orderBy: { createdAt: 'desc' }, take: 500, include: { account: { select: { name: true, email: true } } } }),
+    prisma.category.findMany({ select: { slug: true, name: true } }),
   ]);
+  const catName = new Map(cats.map((c) => [c.slug, c.name]));
+  const topicLabel = (t: string) => t === 'all' ? 'Everything' : t === 'industry' ? 'Industry News' : (catName.get(t) || t);
 
   return (
     <div>
       <h1 className="mb-1 text-2xl font-bold">Subscribers</h1>
       <p className="mb-5 max-w-2xl text-sm text-[var(--muted)]">
-        People signed up for the daily <strong>Industry News</strong> digest — one email a day, only when there&apos;s something new. Anyone can subscribe from the homepage with just an email (no account needed), so managers and staff can get it too.
+        Email addresses signed up for a digest, each personalized to the topics they picked — at most one email a day, only when there&apos;s something new for them. A membership account is a whole store, so any employee can add their own inbox from the hub; the account they signed up under is shown below.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -47,8 +51,16 @@ export default async function AdminSubscribers() {
             ) : (
               <ul className="divide-y divide-[var(--border)]">
                 {subs.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <span className="min-w-0 truncate font-medium">{s.email}</span>
+                  <li key={s.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{s.email}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {parseTopics(s.topics).map((t) => (
+                          <span key={t} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-semibold text-[var(--muted)]">{topicLabel(t)}</span>
+                        ))}
+                        {s.account && <span className="text-[11px] text-[var(--muted)]">· added by {s.account.name}</span>}
+                      </div>
+                    </div>
                     <span className="flex shrink-0 items-center gap-3 text-xs text-[var(--muted)]">
                       <span>{fmt(s.createdAt)}</span>
                       {!s.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">unsubscribed</span>}
