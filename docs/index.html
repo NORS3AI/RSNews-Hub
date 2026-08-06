@@ -7,7 +7,7 @@
   <title>RSNews Hub</title>
   <meta name="description" content="News, articles and documentation — read, discover, subscribe.">
   <link rel="icon" href="assets/rsnews-hub-icon-square.png">
-  <link rel="stylesheet" href="styles.css?v=0.95.0">
+  <link rel="stylesheet" href="styles.css?v=0.97.0">
 </head>
 <body>
   <div class="preview-banner">
@@ -30,7 +30,7 @@
         <a href="#" data-clippings="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg><span class="side-label">Clippings</span></a>
         <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5"/></svg><span class="side-label">Categories</span></a>
         <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="4" width="20" height="5" rx="1"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M10 13h4"/></svg><span class="side-label">Archive</span></a>
-        <a href="#" data-home="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="side-label">Subscriptions</span></a>
+        <a href="#" data-notifications="1" class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="side-label">Notifications</span></a>
       </nav>
       <div class="side-foot">
         <button class="side-item" id="theme-btn" aria-label="Toggle theme"><span class="side-label">Theme</span></button>
@@ -72,7 +72,7 @@
           </div>
           <div class="foot-copy" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
             <span>© <span id="yr"></span> RSNews Hub · Static preview</span>
-            <span class="version-badge">v0.95.0</span>
+            <span class="version-badge">v0.97.0</span>
           </div>
         </div>
       </footer>
@@ -84,7 +84,7 @@
   <button id="clip-fab" aria-label="Clip selection" hidden></button>
 
   <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
-  <script src="data.js?v=0.95.0"></script>
-  <script src="app.js?v=0.95.0"></script>
+  <script src="data.js?v=0.97.0"></script>
+  <script src="app.js?v=0.97.0"></script>
 </body>
 </html>

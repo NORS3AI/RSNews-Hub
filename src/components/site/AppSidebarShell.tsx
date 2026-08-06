@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
+import SubscribePopup, { NOTIF_CHANGED } from './SubscribePopup';
 import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
@@ -18,7 +19,7 @@ const NAV = [
   { href: '/docs/clippings', label: 'Clippings', icon: Scissors },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
-  { href: '/docs/subscriptions', label: 'Subscriptions', icon: Bell },
+  { href: '/docs/notifications', label: 'Notifications', icon: Bell },
 ];
 
 // Three themes, cycled Light → Dark → RS (RS = Light palette + textured surfaces).
@@ -60,12 +61,24 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const isStaff = user && (user.role === 'ADMIN' || user.role === 'EDITOR');
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem('rsnews_sidebar') === 'collapsed'); } catch {}
   }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Account-wide notification badge — refetch on load, on navigation (so opening
+  // the inbox clears it), and whenever a subscription change fires the event.
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    const refresh = () => fetch('/api/notifications').then((r) => r.json()).then((d) => { if (alive) setUnread(d.unread || 0); }).catch(() => {});
+    refresh();
+    window.addEventListener(NOTIF_CHANGED, refresh);
+    return () => { alive = false; window.removeEventListener(NOTIF_CHANGED, refresh); };
+  }, [user, pathname]);
 
   function toggleCollapse() {
     setCollapsed((c) => { const n = !c; try { localStorage.setItem('rsnews_sidebar', n ? 'collapsed' : 'expanded'); } catch {} return n; });
@@ -110,7 +123,12 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
                 active(n) ? 'bg-brand-600 text-white' : 'text-[var(--header-fg)]/70 hover:bg-white/10 hover:text-[var(--header-fg)]',
               )}
               title={collapsed ? n.label : undefined}>
-              <n.icon width={21} height={21} className="shrink-0" />
+              <span className="relative shrink-0">
+                <n.icon width={21} height={21} />
+                {n.href === '/docs/notifications' && unread > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 grid min-w-[16px] place-items-center rounded-full bg-brand-600 px-1 text-[10px] font-bold leading-[15px] text-white ring-2 ring-[var(--header)]">{unread > 9 ? '9+' : unread}</span>
+                )}
+              </span>
               {!collapsed && <span>{n.label}</span>}
             </Link>
           ))}
@@ -147,6 +165,9 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
         <main className="flex-1">{children}</main>
         <SiteFooter />
       </div>
+
+      {/* Shared Subscribe popup — opened from anywhere via a window event. */}
+      <SubscribePopup />
     </div>
   );
 }

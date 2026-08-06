@@ -1,31 +1,21 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Bell, Check } from './icons';
+import { Bell } from './icons';
+import { SUBSCRIBE_EVENT } from './site/SubscribePopup';
 
+// Thin launcher for the shared Subscribe popup. Kept for the category/article
+// pages; `topicSlug` pre-checks that topic when the popup opens. (The older
+// per-category toggle props are accepted but ignored so call sites don't break.)
 export default function SubscribeButton({
-  categoryId = null, initialSubscribed, isAuthed, label = 'Subscribe', size = 'sm',
-}: { categoryId?: string | null; initialSubscribed: boolean; isAuthed: boolean; label?: string; size?: 'sm' | 'md' }) {
-  const [subscribed, setSubscribed] = useState(initialSubscribed);
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  async function toggle() {
-    if (!isAuthed) { router.push('/login?next=' + encodeURIComponent(location.pathname)); return; }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/subscriptions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryId }),
-      });
-      const data = await res.json();
-      if (res.ok) setSubscribed(data.subscribed);
-    } finally { setLoading(false); }
-  }
-
+  topicSlug, label = 'Subscribe', size = 'sm',
+}: {
+  topicSlug?: string; label?: string; size?: 'sm' | 'md';
+  categoryId?: string | null; initialSubscribed?: boolean; isAuthed?: boolean;
+}) {
   return (
-    <button onClick={toggle} disabled={loading}
-      className={`${subscribed ? 'btn-outline' : 'btn-primary'} ${size === 'sm' ? 'btn-sm' : ''}`}>
-      {subscribed ? <><Check width={15} height={15} /> Subscribed</> : <><Bell width={15} height={15} /> {label}</>}
+    <button
+      onClick={() => window.dispatchEvent(new CustomEvent(SUBSCRIBE_EVENT, { detail: topicSlug ? { preselect: topicSlug } : {} }))}
+      className={`btn-primary ${size === 'sm' ? 'btn-sm' : ''}`}>
+      <Bell width={15} height={15} /> {label}
     </button>
   );
 }

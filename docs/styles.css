@@ -544,6 +544,28 @@ img { max-width:100%; display:block; }
 .dlg-body { padding:18px; }
 .dlg-actions { display:flex; flex-wrap:wrap; gap:8px; }
 .dlg-note { margin:12px 0 0; font-size:13px; color:var(--muted); }
+
+/* ---- subscribe popup + notifications (static preview) ---- */
+.notif-dot { display:inline-grid; place-items:center; min-width:16px; height:16px; padding:0 4px; margin-left:6px; border-radius:9px; background:var(--orange); color:#fff; font-size:10px; font-weight:800; line-height:1; }
+.shell.collapsed .notif-dot { position:absolute; top:4px; right:8px; margin:0; }
+.side-item { position:relative; }
+.notif-list { display:flex; flex-direction:column; }
+.notif-row { display:flex; align-items:flex-start; gap:12px; padding:14px 6px; border-bottom:1px solid var(--border); color:inherit; text-decoration:none; }
+.notif-row:last-child { border-bottom:0; }
+.notif-row:hover { background:var(--bg-soft); }
+.notif-dotmark { margin-top:7px; width:8px; height:8px; border-radius:50%; background:transparent; flex-shrink:0; }
+.notif-dotmark.on { background:var(--orange); }
+.notif-body { min-width:0; flex:1; }
+.notif-title { display:block; font-weight:700; }
+.notif-title svg { vertical-align:-1px; color:var(--muted); }
+.notif-meta { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:4px; font-size:12.5px; color:var(--muted); }
+.sub-opt { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:14px; font-weight:600; }
+.sub-opt:hover { background:var(--bg-soft); }
+.sub-opt input { width:17px; height:17px; accent-color:var(--orange); }
+.sub-opt-lead { background:var(--bg-soft); margin-bottom:10px; }
+.sub-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.sub-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+@media (max-width:560px){ .sub-grid { grid-template-columns:1fr; } }
 .share-url { display:flex; gap:8px; margin-bottom:14px; }
 .share-url input { flex:1; min-width:0; height:38px; border-radius:10px; border:1px solid var(--border); background:var(--bg-soft); color:var(--fg); padding:0 12px; font-size:13px; }
 .share-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }

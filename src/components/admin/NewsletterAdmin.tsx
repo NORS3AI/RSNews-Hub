@@ -16,8 +16,8 @@ export default function NewsletterAdmin({ emailReady }: { emailReady: boolean })
     try {
       const res = await fetch('/api/admin/newsletter/send', { method: 'POST' });
       const d = await res.json();
-      if (d.skipped) setNote({ ok: true, text: 'Nothing new since the last send — no emails went out.' });
-      else setNote({ ok: true, text: `Sent to ${d.sent} of ${d.subscribers} subscriber${d.subscribers === 1 ? '' : 's'}${d.failed ? ` (${d.failed} failed)` : ''} · ${d.count} item${d.count === 1 ? '' : 's'}.` });
+      if (d.sent === 0 && d.failed === 0) setNote({ ok: true, text: `Nothing new for anyone — no emails went out (${d.skippedEmpty} subscriber${d.skippedEmpty === 1 ? '' : 's'} had no new items).` });
+      else setNote({ ok: true, text: `Sent ${d.sent} personalized digest${d.sent === 1 ? '' : 's'}${d.failed ? ` (${d.failed} failed)` : ''}${d.skippedEmpty ? ` · ${d.skippedEmpty} skipped (nothing new)` : ''}.` });
       router.refresh();
     } catch { setNote({ ok: false, text: 'Send failed — try again.' }); }
     finally { setBusy(''); }

@@ -58,16 +58,13 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
     return <LockedArticle article={article} signedIn={!!user} />;
   }
 
-  const [related, next, subscribed] = await Promise.all([
+  const [related, next] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true, excerpt: true },
     }),
-    user && article.categoryId
-      ? prisma.subscription.findFirst({ where: { userId: user.id, categoryId: article.categoryId } }).then(Boolean)
-      : Promise.resolve(false),
   ]);
 
   const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
@@ -106,8 +103,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} variant="inline" />
           <ShareButton slug={article.slug} title={article.title} />
           {article.category && (
-            <SubscribeButton categoryId={article.categoryId} initialSubscribed={subscribed} isAuthed={!!user}
-              label={`Follow ${article.category.name}`} />
+            <SubscribeButton topicSlug={article.category.slug} label={`Follow ${article.category.name}`} />
           )}
         </div>
 

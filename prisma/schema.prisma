@@ -17,12 +17,22 @@ model Setting {
 
 // Open newsletter signups — anyone (owner, manager or employee) can subscribe
 // with just an email; the daily Industry News digest goes to these addresses.
+// A personal EMAIL digest signup. Identity is the email address, NOT a hub
+// login: a membership account is a whole store (owner + managers + employees all
+// share the one login), so any individual who wants the digest at their own
+// inbox just drops their email here. `topics` is a comma-separated list of what
+// they want — "industry", "all", or category slugs (e.g. "industry,breaking-news
+// ,education"). `accountId` is the store account that added it, so a store can
+// see and manage every email it's put on the list.
 model NewsletterSubscriber {
   id             String    @id @default(cuid())
   email          String    @unique
   active         Boolean   @default(true)
   token          String    @unique // one-click unsubscribe token
   source         String?   // where they signed up (e.g. "homepage")
+  topics         String    @default("industry")
+  accountId      String?
+  account        User?     @relation("AccountEmails", fields: [accountId], references: [id], onDelete: SetNull)
   createdAt      DateTime  @default(now())
   unsubscribedAt DateTime?
 }
@@ -397,11 +407,15 @@ model User {
   // Remembered UI theme (light | dark | rs). Lets the chosen theme follow the
   // member across devices; anonymous visitors fall back to localStorage.
   theme        String?
+  // Last time this (shared, account-wide) login opened the Notifications bell —
+  // anything newer counts as unread for the whole store.
+  notificationsSeenAt DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  articles      Article[]
-  subscriptions Subscription[]
+  articles       Article[]
+  subscriptions  Subscription[]
+  accountEmails  NewsletterSubscriber[] @relation("AccountEmails")
   readingLogs   ReadingLog[]
   quizResponses QuizResponse[]
   pollVotes     PollVote[]
@@ -528,15 +542,20 @@ model Page {
 }
 
 // A subscription is either to a specific category or a global "all articles" feed.
+// Account-wide ON-SITE notification topics. Because a login is shared by a whole
+// store, these are per-account (userId), not per-person, and drive the shared
+// Notifications bell. `kind` distinguishes the non-category topics: 'category'
+// (with categoryId), 'industry' (Brandon's Industry News), or 'all'.
 model Subscription {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       String   @default("category") // 'category' | 'industry' | 'all'
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
-  @@unique([userId, categoryId])
+  @@unique([userId, kind, categoryId])
 }
 
 // Reading history powers the "if you read this, this might interest you" engine.

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { unsubscribeByToken } from '@/lib/newsletter';
+import { unsubscribeByToken } from '@/lib/subscriptions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Unsubscribed' };
