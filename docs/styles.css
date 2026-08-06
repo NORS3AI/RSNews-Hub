@@ -542,21 +542,21 @@ img { max-width:100%; display:block; }
 .clip-cust-btn { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); background:var(--tile-bot); color:var(--muted); font:inherit; font-size:13.5px; font-weight:700; padding:7px 14px; border-radius:11px; cursor:pointer; }
 .clip-cust-btn:hover { color:var(--fg); }
 .clip-cust-dot { width:14px; height:14px; border-radius:50%; border:1px solid rgba(0,0,0,.12); display:inline-block; }
-.clip-cust-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:30; width:222px; background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:0 14px 34px rgba(0,0,0,.2); padding:8px; text-align:left; }
-.clip-cust-title { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); padding:2px 6px 6px; }
-.clip-cust-opt { display:flex; align-items:center; gap:10px; width:100%; border:0; background:transparent; font:inherit; font-size:14px; font-weight:700; color:var(--fg); padding:7px 8px; border-radius:9px; cursor:pointer; }
+.clip-cust-pop { position:absolute; right:0; top:calc(100% + 6px); z-index:30; width:264px; background:var(--card-top); border:1px solid var(--border); border-radius:14px; box-shadow:0 18px 44px rgba(0,0,0,.34); padding:10px; text-align:left; }
+.clip-cust-title { font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); padding:2px 6px 8px; }
+.clip-cust-opt { display:flex; align-items:center; gap:13px; width:100%; border:0; background:transparent; font:inherit; font-size:16px; font-weight:800; color:var(--fg); padding:11px 11px; border-radius:10px; cursor:pointer; }
 .clip-cust-opt:hover { background:var(--tile-bot); }
 .clip-cust-opt.active { background:rgba(233,125,52,.12); color:var(--orange); }
-.clip-cust-sw { display:flex; flex-direction:column; width:24px; height:24px; border-radius:7px; overflow:hidden; border:1px solid rgba(0,0,0,.12); flex:0 0 auto; }
+.clip-cust-sw { display:flex; flex-direction:column; width:34px; height:34px; border-radius:9px; overflow:hidden; border:1px solid rgba(0,0,0,.16); flex:0 0 auto; }
 .clip-cust-sw span:first-child { flex:1; }
-.clip-cust-sw span:last-child { height:6px; }
-.clip-cust-check { margin-left:auto; color:var(--orange); font-size:13px; }
-.clip-cust-note { font-size:11px; line-height:1.35; color:var(--muted); padding:6px 6px 2px; }
+.clip-cust-sw span:last-child { height:12px; }
+.clip-cust-check { margin-left:auto; color:var(--orange); font-size:16px; }
+.clip-cust-note { font-size:12px; line-height:1.4; color:var(--muted); padding:8px 6px 2px; }
 .clip-tap { cursor:zoom-in; }
-/* Masonry (Pinterest-style) images view */
-.clip-img-masonry { column-gap:14px; columns:2; }
-@media (min-width:960px){ .clip-img-masonry{ columns:3; } }
-.clip-img-card { break-inside:avoid; margin-bottom:14px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); box-shadow:var(--shadow-inner); padding:12px; display:flex; flex-direction:column; }
+/* Images view — same row order as Cards so items don't reshuffle between views. */
+.clip-img-masonry { display:grid; gap:14px; grid-template-columns:1fr 1fr; align-items:start; }
+@media (min-width:960px){ .clip-img-masonry{ grid-template-columns:repeat(3,1fr); } }
+.clip-img-card { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); box-shadow:var(--shadow-inner); padding:12px; display:flex; flex-direction:column; }
 .clip-img-card img { width:100%; border-radius:10px; display:block; }
 .clip-zoomable { cursor:zoom-in; }
 

@@ -1044,7 +1044,9 @@
     var list = getClippings();
     var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your RS News Clippings</h2>';
     if (list.length) {
-      var sw = { dark: '#222a33', light: '#f6efe0', rs: '#f7edd8' };
+      // Mini-swatch preview of each quote-image look: [body, footer strip].
+      var sw = { dark: '#2b333d', light: '#f7f0e2', rs: '#f7edd8' };
+      var swBot = { dark: '#141a21', light: '#e8dec9', rs: '#2b333c' };
       h += '<div class="clip-head-tools">' +
         '<div class="clip-customize">' +
           '<button class="clip-cust-btn" data-clip-customize="1"><span class="clip-cust-dot" style="background:' + sw[clipTheme] + '"></span>Customize</button>' +
@@ -1054,7 +1056,7 @@
             ['dark', 'light', 'rs'].map(function (t) {
               var lbl = t === 'rs' ? 'RS' : (t.charAt(0).toUpperCase() + t.slice(1));
               return '<button class="clip-cust-opt' + (clipTheme === t ? ' active' : '') + '" data-clip-theme="' + t + '">' +
-                '<span class="clip-cust-sw"><span style="background:' + sw[t] + '"></span><span style="background:#E97D34"></span></span>' + lbl +
+                '<span class="clip-cust-sw"><span style="background:' + sw[t] + '"></span><span style="background:' + swBot[t] + '"></span></span>' + lbl +
                 (clipTheme === t ? '<span class="clip-cust-check">✓</span>' : '') + '</button>';
             }).join('') +
             '<div class="clip-cust-note">Applies to quote images. Remembered next time.</div>' +
