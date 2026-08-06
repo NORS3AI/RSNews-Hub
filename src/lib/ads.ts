@@ -134,9 +134,13 @@ function seedFrom(s: string): number {
  * - Prefers an ad relevant to the article (its own brand is mentioned).
  * - Otherwise a neutral ad (no keywords and no competitors).
  */
-export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = ''): AdRow | null {
+export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = '', safeText?: string): AdRow | null {
   const hay = normalize(articleText);
-  const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, hay));
+  // Competitor suppression checks the article's TAGS (curated business names) when
+  // provided — precise, no body-text false positives. Relevance still uses the
+  // full text so an ad can be surfaced on-topic. Falls back to `hay` if no tags.
+  const safeHay = safeText != null ? normalize(safeText) : hay;
+  const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, safeHay));
   if (!safe.length) return null;
 
   // Preference order:
@@ -166,9 +170,9 @@ export function adsAreRivals(a: AdRow, b: AdRow): boolean {
 }
 
 /** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
-export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '') {
-  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand);
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '', safeText?: string) {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand, safeText);
   const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
-  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand);
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand, safeText);
   return { top, bottom };
 }

@@ -35,7 +35,11 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     return NextResponse.json({ error: 'Locked', requirement: article.requirement }, { status: 403 });
   }
 
-  const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;
+  const adTagText = article.tags.map((t) => t.tag.name).join(' ');
+  const adContext = `${article.title} ${article.content} ${adTagText}`;
+  // Competitor suppression keys off the article's tags (+ title) — curated
+  // business names — not the whole body (avoids stray-word false positives).
+  const adSafeContext = `${article.title} ${adTagText}`;
   const [related, next, ads, embeds, slotAds] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
@@ -43,7 +47,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true },
     }),
-    pickArticleAds(adContext, 'modal'),
+    pickArticleAds(adContext, 'modal', '', adSafeContext),
     resolveArticleEmbeds(article.content, user?.id),
     loadBrandArticleAds(article.content),
   ]);

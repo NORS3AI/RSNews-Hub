@@ -69,11 +69,15 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
     }),
   ]);
 
-  const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
+  const adTagText = article.tags.map(({ tag }) => tag.name).join(' ');
+  const adContext = `${article.title} ${article.content} ${adTagText}`;
+  // Competitor suppression matches the article's TAGS (+ title) — curated business
+  // names — not the full body, so a stray word can't hide an ad.
+  const adSafeContext = `${article.title} ${adTagText}`;
   // A visiting vendor sees their own brand's ads surfaced first.
   const favorBrand = entitlementsOf(user ?? {}).vendorBrand;
   const [ads, embeds, slotAds] = await Promise.all([
-    pickArticleAds(adContext, 'article', favorBrand),
+    pickArticleAds(adContext, 'article', favorBrand, adSafeContext),
     resolveArticleEmbeds(article.content, user?.id),
     loadBrandArticleAds(article.content),
   ]);

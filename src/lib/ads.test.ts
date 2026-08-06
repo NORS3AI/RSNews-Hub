@@ -22,6 +22,16 @@ describe('adIsLive', () => {
     expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-07-01T00:00:00Z', flightEndAt: '2026-10-01T00:00:00Z' }), NOW)).toBe(false); // before window
     expect(adIsLive(ad({ id: 'f', brand: 'V', flightId: 'fl', flightStatus: 'SCHEDULED', flightStartAt: '2026-01-01T00:00:00Z', flightEndAt: '2026-04-01T00:00:00Z' }), NOW)).toBe(false); // after window (auto-takedown)
   });
+  it('competitor suppression uses the tag/safe text, not the body, when given', () => {
+    const shipRite = ad({ id: 's', brand: 'ShipRite', competitors: 'PostalMate' });
+    const body = 'A general article that happens to name PostalMate in passing.';
+    // No safeText → matches body (legacy behavior): suppressed.
+    expect(pickInArticleAd([shipRite], body, 'x', NOW)).toBeNull();
+    // safeText = tags without the rival → shown (body mention ignored).
+    expect(pickInArticleAd([shipRite], body, 'x', NOW, '', 'Shipping Retail')).toBe(shipRite);
+    // safeText = tags WITH the rival → suppressed.
+    expect(pickInArticleAd([shipRite], body, 'x', NOW, '', 'PostalMate')).toBeNull();
+  });
   it('manually-added ads honor an optional self-scheduling window (blank = always on)', () => {
     // our-brand default: no window → always on when active
     expect(adIsLive(ad({ id: 'm', brand: 'RSA', active: true }), NOW)).toBe(true);

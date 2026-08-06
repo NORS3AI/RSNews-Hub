@@ -49,9 +49,9 @@ export async function loadCompetitorGroups(): Promise<string[][]> {
 
 /** Pick the two in-article ads (top + bottom) for an article's text. When a
  *  vendor is viewing, `favorBrand` (their own brand) is surfaced first. */
-export async function pickArticleAds(context: string, prefix: string, favorBrand = '') {
+export async function pickArticleAds(context: string, prefix: string, favorBrand = '', safeContext?: string) {
   const ads = await loadAds();
-  return pickTwoInArticleAds(ads, context, prefix, new Date(), favorBrand);
+  return pickTwoInArticleAds(ads, context, prefix, new Date(), favorBrand, safeContext);
 }
 
 // An advertiser the composer/module builder can lock a slot to, plus which slot
