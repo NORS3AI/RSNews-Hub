@@ -573,9 +573,10 @@ img { max-width:100%; display:block; }
 .clip-cust-check { margin-left:auto; color:var(--orange); font-size:16px; }
 .clip-cust-note { font-size:12px; line-height:1.4; color:var(--muted); padding:8px 6px 2px; }
 .clip-tap { cursor:zoom-in; }
-/* Images view — same row order as Cards so items don't reshuffle between views. */
-.clip-img-masonry { display:grid; gap:14px; grid-template-columns:1fr 1fr; align-items:start; }
-@media (min-width:960px){ .clip-img-masonry{ grid-template-columns:repeat(3,1fr); } }
+/* Pinterest-style masonry: flex columns packed tight (no row gaps, jagged
+   bottoms). JS distributes items across the columns in reading order. */
+.clip-img-masonry { display:flex; gap:14px; align-items:flex-start; }
+.clip-img-col { display:flex; flex-direction:column; gap:14px; flex:1 1 0; min-width:0; }
 .clip-img-card { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); box-shadow:var(--shadow-inner); padding:12px; display:flex; flex-direction:column; }
 .clip-img-card img { width:100%; border-radius:10px; display:block; }
 .clip-zoomable { cursor:zoom-in; }
