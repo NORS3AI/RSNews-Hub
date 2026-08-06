@@ -21,9 +21,9 @@
   var ICON = {
     star: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/></svg>',
     starFill: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/></svg>',
-    book: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z"/><path d="M12 6.6V20"/></svg>',
-    bookFill: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z"/></svg>',
-    bookSm: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z"/></svg>',
+    book: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
+    bookFill: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
+    bookSm: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
     x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     clockLg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" style="display:inline;vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
@@ -271,7 +271,7 @@
         '<span class="chip-x" data-unread="' + esc(s.id) + '" title="Remove">' + ICON.x + '</span></div>';
     }).join('');
     wrap.innerHTML = '<div class="strip-wrap"><div class="strip"><div class="strip-inner">' +
-      '<span class="strip-label">' + ICON.bookSm + ' To read</span><div class="chips">' + chips + '</div></div></div></div>';
+      '<span class="strip-label">' + ICON.bookSm + ' Pinned</span><div class="chips">' + chips + '</div></div></div></div>';
   }
   function syncButtons() {
     document.querySelectorAll('[data-fav]').forEach(function (b) {
@@ -281,7 +281,7 @@
     });
     document.querySelectorAll('[data-read]').forEach(function (b) {
       var a = bySlug[b.getAttribute('data-read')]; if (!a) return; var on = isRead(a.id); b.classList.toggle('on', on);
-      if (b.getAttribute('data-variant') === 'pill') b.innerHTML = (on ? ICON.bookFill : ICON.book) + (on ? ' To read' : ' Read later');
+      if (b.getAttribute('data-variant') === 'pill') b.innerHTML = (on ? ICON.bookFill : ICON.book) + (on ? ' Pinned' : ' Pin');
       else b.innerHTML = on ? ICON.bookFill : ICON.book;
     });
   }
@@ -922,7 +922,7 @@
       '<div class="modal-top"><div class="t">' + catBadge(a.category) + '<span class="tt">' + esc(a.title) + '</span></div>' +
       '<div style="display:flex;gap:8px;align-items:center">' +
       '<button class="btn btn-sm ' + (isFav(a.id) ? 'btn-primary' : 'btn-outline') + '" data-fav="' + esc(a.slug) + '" data-variant="pill">' + (isFav(a.id) ? ICON.starFill + ' Favorited' : ICON.star + ' Favorite') + '</button>' +
-      '<button class="btn btn-sm ' + (isRead(a.id) ? 'btn-primary' : 'btn-outline') + '" data-read="' + esc(a.slug) + '" data-variant="pill">' + (isRead(a.id) ? ICON.bookFill + ' To read' : ICON.book + ' Read later') + '</button>' +
+      '<button class="btn btn-sm ' + (isRead(a.id) ? 'btn-primary' : 'btn-outline') + '" data-read="' + esc(a.slug) + '" data-variant="pill">' + (isRead(a.id) ? ICON.bookFill + ' Pinned' : ICON.book + ' Pin') + '</button>' +
       '<button class="icon-btn" data-share="' + esc(a.slug) + '" title="Share" aria-label="Share">' + ICON.share + '</button>' +
       '<button class="icon-btn" data-close="1" aria-label="Close">' + ICON.x + '</button></div></div>' +
       '<div class="modal-body"><div class="reader" data-article="' + esc(a.slug) + '">' +

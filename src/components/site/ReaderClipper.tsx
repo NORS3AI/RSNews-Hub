@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
-import { makeQuoteImage, downloadDataUrl, extractClipText } from '@/lib/quoteImage';
+import { makeQuoteImage, preloadQuoteAssets, downloadDataUrl, extractClipText } from '@/lib/quoteImage';
 import { track as trackEv } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Check, X } from '@/components/icons';
 
@@ -23,6 +23,9 @@ export default function ReaderClipper() {
   const [fab, setFab] = useState<{ x: number; y: number; ctx: Ctx } | null>(null);
   const [clip, setClip] = useState<Clip | null>(null);
   const [saved, setSaved] = useState(false);
+
+  // Warm the logo/parchment so a clip made moments later paints them.
+  useEffect(() => { preloadQuoteAssets(); }, []);
 
   const readContext = useCallback((): { rect: DOMRect; ctx: Ctx } | null => {
     const sel = window.getSelection();

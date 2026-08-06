@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
 import { clipShareText } from './ReaderClipper';
-import { makeQuoteImage, downloadDataUrl, downloadImage, type QuoteTheme } from '@/lib/quoteImage';
+import { makeQuoteImage, preloadQuoteAssets, downloadDataUrl, downloadImage, type QuoteTheme } from '@/lib/quoteImage';
 import { track } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
 
@@ -40,8 +40,11 @@ export default function ClippingsList() {
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
 
   // Quote-image look (dark / light / RS), remembered per account on this device.
+  const [, forceRerender] = useState(0);
   useEffect(() => {
     try { const t = localStorage.getItem(CLIP_THEME_KEY); if (t === 'dark' || t === 'light' || t === 'rs') setClipTheme(t); } catch { /* ignore */ }
+    // Once the logo + parchment finish loading, repaint the quote images.
+    preloadQuoteAssets().then(() => forceRerender((n) => n + 1));
   }, []);
   const chooseTheme = (t: QuoteTheme) => {
     setClipTheme(t);

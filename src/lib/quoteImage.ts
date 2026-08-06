@@ -4,30 +4,65 @@
 export type QuoteTheme = 'dark' | 'light' | 'rs';
 export type QuoteOpts = { quote: string; title?: string; author?: string | null; url?: string; slug?: string; theme?: QuoteTheme };
 
-// Per-theme palette for the quote card. `footerBg` (RS only) paints an orange
-// band behind the footer; otherwise a hairline divider is drawn instead.
+// Per-theme palette for the quote card. `footerBg` paints a solid band behind
+// the footer (else a hairline divider). `parchment` fills the body with the RS
+// stamp texture. `logo` picks which logo art reads on that footer.
 type Palette = {
   bg1: string; bg2: string; accent: string; quoteMark: string; quote: string;
   footerText: string; footerSub: string; divider: string;
   logoBg: string; logoText: string; footerBg: string | null;
+  logo: 'light' | 'dark'; parchment?: boolean;
 };
 const PALETTES: Record<QuoteTheme, Palette> = {
   dark: {
     bg1: '#2b333d', bg2: '#141a21', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#f4f1ea',
     footerText: '#ffffff', footerSub: 'rgba(255,255,255,.6)', divider: 'rgba(255,255,255,.16)',
-    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null,
+    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'dark',
   },
   light: {
     bg1: '#fbf7ee', bg2: '#efe6d4', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#2b333c',
     footerText: '#2b333c', footerSub: 'rgba(43,51,60,.55)', divider: 'rgba(43,51,60,.14)',
-    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null,
+    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'light',
   },
   rs: {
-    bg1: '#f7edd8', bg2: '#f2e6cb', accent: '#3d2a19', quoteMark: 'rgba(61,42,25,.45)', quote: '#3d2a19',
-    footerText: '#3d2a19', footerSub: 'rgba(61,42,25,.7)', divider: 'rgba(61,42,25,.2)',
-    logoBg: '#3d2a19', logoText: '#f7edd8', footerBg: '#E97D34',
+    // Cream parchment (with stamps) body; a darker slate footer with cream text.
+    bg1: '#f7edd8', bg2: '#f2e6cb', accent: '#3d2a19', quoteMark: 'rgba(61,42,25,.4)', quote: '#3d2a19',
+    footerText: '#f7edd8', footerSub: 'rgba(247,237,216,.72)', divider: 'rgba(61,42,25,.2)',
+    logoBg: '#f7edd8', logoText: '#2b333c', footerBg: '#2b333c', logo: 'dark', parchment: true,
   },
 };
+
+// Branded assets painted onto the card (loaded lazily, client-only).
+const LOGO_LIGHT = '/brand/rsnews-hub-logo-light.png';
+const LOGO_DARK = '/brand/rsnews-hub-logo-dark.png';
+const PARCHMENT = '/textures/rs-cream.webp';
+
+const imgCache: Record<string, HTMLImageElement> = {};
+function getImg(src: string): HTMLImageElement | null {
+  if (typeof window === 'undefined') return null;
+  let img = imgCache[src];
+  if (!img) { img = new Image(); img.src = src; imgCache[src] = img; }
+  return img;
+}
+function ready(img: HTMLImageElement | null): img is HTMLImageElement {
+  return !!img && img.complete && img.naturalWidth > 0;
+}
+/** Preload the logos + parchment so the next makeQuoteImage() can paint them.
+ *  Resolves when all have loaded or failed (never rejects). */
+export function preloadQuoteAssets(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  return Promise.all([LOGO_LIGHT, LOGO_DARK, PARCHMENT].map((s) => new Promise<void>((res) => {
+    const img = getImg(s);
+    if (!img || (img.complete && img.naturalWidth > 0)) return res();
+    img.onload = () => res(); img.onerror = () => res();
+  }))).then(() => undefined);
+}
+// Draw an image to COVER a box (crop-to-fill), centered.
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const ir = img.naturalWidth / img.naturalHeight, r = w / h;
+  const dw = ir > r ? h * ir : w, dh = ir > r ? h : w / ir;
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -59,9 +94,16 @@ export function makeQuoteImage(o: QuoteOpts): string {
 
   const p = PALETTES[o.theme ?? 'dark'];
 
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, p.bg1); g.addColorStop(1, p.bg2);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // Body: parchment texture (RS) or a theme gradient.
+  const parchment = p.parchment ? getImg(PARCHMENT) : null;
+  if (p.parchment && ready(parchment)) {
+    ctx.fillStyle = p.bg1; ctx.fillRect(0, 0, W, H); // base under any transparency
+    drawCover(ctx, parchment, 0, 0, W, H);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, p.bg1); g.addColorStop(1, p.bg2);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
 
   ctx.fillStyle = p.accent; ctx.fillRect(pad, pad, 96, 12);
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -90,7 +132,7 @@ export function makeQuoteImage(o: QuoteOpts): string {
   wrapped.forEach((ls, i) => { if (i) y += blockGap; for (const ln of ls) { ctx.fillText(ln, pad, y); y += lineH; } });
 
   const by = H - 300;
-  // RS mode: an orange band behind the footer; otherwise a hairline divider.
+  // A solid footer band (RS) or a hairline divider.
   if (p.footerBg) {
     ctx.fillStyle = p.footerBg; ctx.fillRect(0, by, W, H - by);
   } else {
@@ -98,14 +140,26 @@ export function makeQuoteImage(o: QuoteOpts): string {
     ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
   }
 
-  ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
-  ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('RS', pad + 34, by + 34 + 36);
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
-  ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78);
+  // Brand: the real logo art (light/dark to suit the footer), or a drawn RS
+  // mark + wordmark as a fallback while the image is still loading.
+  const logo = getImg(p.logo === 'light' ? LOGO_LIGHT : LOGO_DARK);
+  let urlY: number;
+  if (ready(logo)) {
+    const lh = 82, lw = lh * (logo.naturalWidth / logo.naturalHeight);
+    ctx.drawImage(logo, pad, by + 34, lw, lh);
+    urlY = by + 34 + lh + 8;
+  } else {
+    ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
+    ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('RS', pad + 34, by + 34 + 36);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+    urlY = by + 78; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, urlY);
+    urlY = -1; // already drawn beside the wordmark
+  }
+  if (urlY >= 0) { ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad, urlY); }
 
-  const ty = by + 130;
+  const ty = by + 168;
   ctx.fillStyle = p.footerText; ctx.font = '800 34px ui-sans-serif, Arial';
   const titleLines = wrap(ctx, o.title || '', maxW).slice(0, 2);
   titleLines.forEach((l, i) => ctx.fillText(l, pad, ty + i * 42));
