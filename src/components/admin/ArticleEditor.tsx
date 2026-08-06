@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
 import { uploadImage } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
+import ArticleComposer from './composer/ArticleComposer';
 
 type Cat = { id: string; name: string };
+type Opt = { id: string; title: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
@@ -21,9 +23,7 @@ function toLocalInput(d?: string | Date | null) {
   return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
 }
 
-export default function ArticleEditor({ article, categories }: { article?: Article; categories: Cat[] }) {
-  const [content, setContent] = useState(article?.content ?? '');
-  const [preview, setPreview] = useState(false);
+export default function ArticleEditor({ article, categories, polls = [], quizzes = [] }: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[] }) {
   const [cover, setCover] = useState(article?.coverImage ?? '');
   const [imgError, setImgError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -63,20 +63,9 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
           </div>
 
           <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label className="label mb-0" htmlFor="content">Content (HTML)</label>
-              <button type="button" onClick={() => setPreview((p) => !p)} className="text-xs text-brand-600 hover:underline">
-                {preview ? 'Edit' : 'Preview'}
-              </button>
-            </div>
-            {preview ? (
-              <div className="prose-article card min-h-[300px] p-4" dangerouslySetInnerHTML={{ __html: content }} />
-            ) : (
-              <textarea id="content" name="content" required value={content} onChange={(e) => setContent(e.target.value)}
-                className="input min-h-[340px] font-mono text-sm" placeholder="<p>Write your article here. HTML is supported.</p>" />
-            )}
-            {preview && <textarea name="content" value={content} readOnly hidden />}
-            <p className="mt-1 text-xs text-[var(--muted)]">Supports HTML incl. inline images: &lt;img src=&quot;https://…&quot;&gt;. Also &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;a&gt;, &lt;blockquote&gt;, &lt;code&gt;…</p>
+            <label className="label">Story</label>
+            <ArticleComposer initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} />
+            <p className="mt-1 text-xs text-[var(--muted)]">Write like a doc. Use <strong>Insert</strong> to drop in images, an ad slot, a divider, a poll or quiz, a pull-quote or a button — anywhere in the story.</p>
           </div>
 
           <div>

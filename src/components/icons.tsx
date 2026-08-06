@@ -12,6 +12,19 @@ export const Sun = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="4" />
 export const Moon = (p: P) => (<svg {...base(p)}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>);
 export const Menu = (p: P) => (<svg {...base(p)}><path d="M4 6h16M4 12h16M4 18h16" /></svg>);
 export const X = (p: P) => (<svg {...base(p)}><path d="M18 6 6 18M6 6l12 12" /></svg>);
+// Composer toolbar
+export const Bold = (p: P) => (<svg {...base(p)}><path d="M6 4h7a4 4 0 0 1 0 8H6zM6 12h8a4 4 0 0 1 0 8H6z" /></svg>);
+export const Italic = (p: P) => (<svg {...base(p)}><path d="M19 4h-9M14 20H5M15 4 9 20" /></svg>);
+export const H1 = (p: P) => (<svg {...base(p)} strokeWidth={2}><path d="M4 6v12M12 6v12M4 12h8M17 18v-7l-2 1.5" /></svg>);
+export const H2 = (p: P) => (<svg {...base(p)} strokeWidth={2}><path d="M4 6v12M11 6v12M4 12h7M15 18c0-2 4-3 4-6a2 2 0 0 0-4-.5" /></svg>);
+export const ListBullet = (p: P) => (<svg {...base(p)}><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" /></svg>);
+export const ListOrdered = (p: P) => (<svg {...base(p)}><path d="M10 6h10M10 12h10M10 18h10M4 6h1v4M4 10h2M4 15.5A1.5 1.5 0 1 1 6 17c-1 .8-2 1-2 1h2" /></svg>);
+export const Quote = (p: P) => (<svg {...base(p)}><path d="M6 15a3 3 0 1 1 0-6c0-2 0-3 2-4M16 15a3 3 0 1 1 0-6c0-2 0-3 2-4" /></svg>);
+export const LinkIcon = (p: P) => (<svg {...base(p)}><path d="M9 15l6-6M11 6l1-1a4 4 0 0 1 6 6l-1 1M13 18l-1 1a4 4 0 0 1-6-6l1-1" /></svg>);
+export const ImageIcon = (p: P) => (<svg {...base(p)}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-4-4-9 9" /></svg>);
+export const Minus = (p: P) => (<svg {...base(p)}><path d="M5 12h14" /></svg>);
+export const Rows = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="7" rx="1" /><rect x="3" y="14" width="18" height="6" rx="1" /></svg>);
+export const CursorClick = (p: P) => (<svg {...base(p)}><path d="M9 9l5 12 1.8-5.2L21 14 9 9zM7.2 2.2 8 5M2.2 7.2 5 8M14 4l-1.5 2.5M4 14l2.5-1.5" /></svg>);
 export const ArrowRight = (p: P) => (<svg {...base(p)}><path d="M5 12h14M13 6l6 6-6 6" /></svg>);
 export const ArrowLeft = (p: P) => (<svg {...base(p)}><path d="M19 12H5M11 6l-6 6 6 6" /></svg>);
 export const Clock = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);

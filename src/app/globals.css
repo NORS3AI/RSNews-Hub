@@ -230,6 +230,40 @@ body::before {
 /* Lock body scroll while the article modal is open. */
 body.modal-open { overflow: hidden; }
 
+/* ── Article composer + custom article elements (editor + reader) ── */
+.composer-surface { min-height: 340px; }
+.composer-surface:focus, .composer-surface :focus { outline: none; }
+.composer-surface p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none;
+}
+.composer-surface .ProseMirror-selectednode { border-radius: 12px; box-shadow: 0 0 0 2px #E97D34; }
+
+/* Divider */
+.prose-article hr, .composer-surface hr { border: 0; border-top: 2px solid var(--border); margin: 2rem 0; }
+
+/* Pull-quote */
+.prose-article blockquote.pullquote, .composer-surface blockquote.pullquote {
+  border: 0; border-left: 4px solid #E97D34; padding: .1rem 0 .1rem 1.2rem;
+  font-size: 1.5em; line-height: 1.3; font-weight: 800; font-style: normal; color: var(--fg); margin: 1.6rem 0;
+}
+
+/* CTA button */
+.prose-article a.a-btn, .a-btn {
+  display: inline-block; background: #E97D34; color: #fff !important; text-decoration: none !important;
+  font-weight: 800; padding: .7rem 1.3rem; border-radius: 12px; margin: .4rem 0;
+}
+.prose-article a.a-btn:hover { filter: brightness(1.06); }
+
+/* Spacer + ad slot are block-level in the flow */
+.prose-article [data-spacer], .prose-article [data-ad-slot], .prose-article [data-poll], .prose-article [data-quiz] { display: block; }
+
+/* Author byline card (reader) */
+.author-card { display: flex; align-items: center; gap: 14px; margin: 1.8rem 0; padding: 15px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-soft); }
+.author-card .author-avatar { width: 56px; height: 56px; border-radius: 999px; object-fit: cover; flex-shrink: 0; }
+.author-card .author-name { font-weight: 800; line-height: 1.2; }
+.author-card .author-title { font-size: .9em; color: var(--muted); }
+.author-card .author-bio { margin-top: 3px; font-size: .85em; color: var(--muted); }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
