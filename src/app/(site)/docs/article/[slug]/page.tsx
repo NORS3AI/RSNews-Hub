@@ -86,6 +86,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           <ArrowLeft width={16} height={16} /> All articles
         </Link>
 
+        {/* Reading surface — a cream card so the body is readable on the textured
+            page surround, matching the in-app reader modal. */}
+        <div className="card p-6 sm:p-9 lg:p-10">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
@@ -135,6 +138,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             ))}
           </div>
         )}
+        </div>
 
         {/* Next article */}
         {next && (
