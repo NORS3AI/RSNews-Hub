@@ -3,22 +3,47 @@ import { DEFAULT_ADS, pickTwoInArticleAds, adIsLive, type AdRow } from './ads';
 import { brandKey } from './entitlements';
 
 /** Load the ad inventory (DB) with each ad's flight window/status for live
- *  filtering, falling back to the built-in house defaults. */
+ *  filtering, falling back to the built-in house defaults. Competitor groups
+ *  (admin-defined) are folded into every member ad's competitor terms, so an
+ *  article that names one group member suppresses the others in every slot. */
 export async function loadAds(): Promise<AdRow[]> {
   try {
-    const rows = await prisma.ad.findMany({
-      orderBy: { createdAt: 'asc' },
-      include: { flight: { select: { status: true, startAt: true, endAt: true } } },
-    });
+    const [rows, groups] = await Promise.all([
+      prisma.ad.findMany({
+        orderBy: { createdAt: 'asc' },
+        include: { flight: { select: { status: true, startAt: true, endAt: true } } },
+      }),
+      loadCompetitorGroups(),
+    ]);
     if (!rows.length) return DEFAULT_ADS;
-    return rows.map((r) => ({
-      ...r,
-      flightStatus: r.flight?.status ?? null,
-      flightStartAt: r.flight?.startAt ?? null,
-      flightEndAt: r.flight?.endAt ?? null,
-    }));
+    return rows.map((r) => {
+      const key = brandKey(r.brand);
+      // Brands grouped with this ad's brand become its competitors too.
+      const mates = new Set<string>();
+      for (const g of groups) if (g.includes(key)) g.forEach((k) => { if (k !== key) mates.add(k); });
+      const competitors = [r.competitors, ...mates].filter(Boolean).join(', ');
+      return {
+        ...r,
+        competitors,
+        flightStatus: r.flight?.status ?? null,
+        flightStartAt: r.flight?.startAt ?? null,
+        flightEndAt: r.flight?.endAt ?? null,
+      };
+    });
   } catch {
     return DEFAULT_ADS;
+  }
+}
+
+/** Competitor groups as arrays of normalized brand keys. */
+export async function loadCompetitorGroups(): Promise<string[][]> {
+  try {
+    const rows = await prisma.competitorGroup.findMany({ select: { brands: true } });
+    return rows
+      .map((r) => r.brands.split(',').map((s) => brandKey(s)).filter(Boolean))
+      .filter((g) => g.length > 1);
+  } catch {
+    return [];
   }
 }
 

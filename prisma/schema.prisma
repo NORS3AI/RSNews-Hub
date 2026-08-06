@@ -289,6 +289,17 @@ model Vendor {
   reports      PerformanceReport[]
 }
 
+// A set of advertisers that must never advertise alongside each other. If any
+// member is named in an article, the others are suppressed in every ad slot of
+// that article (see lib/adsServer: their brands are folded into each member ad's
+// competitor terms). `brands` is a comma-separated list of advertiser brand names.
+model CompetitorGroup {
+  id        String   @id @default(cuid())
+  name      String
+  brands    String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // A quarterly ad-performance report for one vendor. Auto-drafted from the ad
 // analytics we already collect (see lib/analytics advertiserReport), then the
 // admin reviews/edits the summary and publishes it — only PUBLISHED reports

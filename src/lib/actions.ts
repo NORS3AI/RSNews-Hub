@@ -559,6 +559,30 @@ export async function saveVendorContact(formData: FormData) {
   revalidatePath('/admin/vendors');
 }
 
+// Competitor groups: advertisers that must never run alongside each other, and
+// whose rivals are suppressed in any article that names one of them.
+export async function saveCompetitorGroup(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('id') as string) || '').trim();
+  const name = ((formData.get('name') as string) || '').trim() || 'Competitor group';
+  const brands = formData.getAll('brands').map((b) => String(b).trim()).filter(Boolean);
+  if (brands.length < 2) throw new Error('A group needs at least two advertisers.');
+  const data = { name, brands: brands.join(', ') };
+  if (id) await prisma.competitorGroup.update({ where: { id }, data });
+  else await prisma.competitorGroup.create({ data });
+  revalidatePath('/admin/vendors');
+  revalidatePath('/docs');
+}
+
+export async function deleteCompetitorGroup(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('id') as string) || '').trim();
+  if (!id) throw new Error('id required');
+  await prisma.competitorGroup.delete({ where: { id } });
+  revalidatePath('/admin/vendors');
+  revalidatePath('/docs');
+}
+
 // Confirm a campaign's payment landed (per JotForm) so its flights can be
 // scheduled. No money moves through the hub — this is a confirmation flag only.
 export async function markAdCampaignPaid(formData: FormData) {
