@@ -1,7 +1,7 @@
 'use client';
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
-import { Megaphone, Rows, BarChart, Check, CursorClick, Trash, Users, Minus } from '@/components/icons';
+import { Megaphone, Rows, BarChart, Check, CursorClick, Trash, Users, Minus, Grip } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 
 // Custom article elements. Each serializes to plain, semantic HTML with a data-
@@ -15,9 +15,15 @@ function Card({ children, onDelete, tone = 'slate', selected }: { children: Reac
   return (
     <NodeViewWrapper className="my-3">
       <div contentEditable={false}
-        className={`group relative overflow-hidden rounded-xl border px-4 py-3 transition ${
+        className={`group relative overflow-hidden rounded-xl border py-3 pl-10 pr-4 transition ${
           tone === 'orange' ? 'border-brand-300 bg-brand-50 dark:border-brand-900 dark:bg-brand-950/30' : 'border-dashed border-[var(--border)] bg-[var(--bg-soft)]'
         } ${selected ? 'ring-2 ring-brand-500' : ''}`}>
+        {/* Drag handle — scopes drag-start to here (no accidental drags) and makes
+            reordering discoverable. The node itself is draggable:true. */}
+        <span data-drag-handle draggable title="Drag to reorder" contentEditable={false}
+          className="absolute left-1.5 top-1/2 grid h-7 w-6 -translate-y-1/2 cursor-grab place-items-center rounded-md text-[var(--muted)] opacity-40 transition hover:bg-[var(--card)] hover:text-[var(--fg)] group-hover:opacity-100 active:cursor-grabbing">
+          <Grip width={14} height={14} />
+        </span>
         <button type="button" onClick={onDelete} title="Remove" contentEditable={false}
           className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-lg text-[var(--muted)] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40">
           <Trash width={15} height={15} />
