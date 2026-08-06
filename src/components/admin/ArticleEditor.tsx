@@ -1,52 +1,31 @@
 'use client';
-import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
-import { uploadImage } from '@/lib/uploadClient';
-import { CONTENT_STATUSES } from '@/lib/constants';
-import ArticleComposer from './composer/ArticleComposer';
+import { ComposerProvider, type Opt } from './composer/context';
+import Palette from './composer/Palette';
+import Canvas from './composer/Canvas';
+import Inspector from './composer/Inspector';
 
 type Cat = { id: string; name: string };
-type Opt = { id: string; title: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
-  status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
-  extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
+  status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
+  tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
 };
 
-function toLocalInput(d?: string | Date | null) {
-  if (!d) return '';
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(dt.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
-}
-
-export default function ArticleEditor({ article, categories, polls = [], quizzes = [] }: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[] }) {
-  const [cover, setCover] = useState(article?.coverImage ?? '');
-  const [imgError, setImgError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const initiallyBreaking = !!(article?.breakingUntil && new Date(article.breakingUntil).getTime() > Date.now());
-  const [breaking, setBreaking] = useState<string>(initiallyBreaking ? 'keep' : '');
-  const extraIds = new Set((article?.extraCategories ?? []).map((c) => c.id));
-
-  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImgError(null);
-    setUploading(true);
-    const res = await uploadImage(file);
-    setUploading(false);
-    if (res.ok) setCover(res.url);
-    else setImgError(res.error);
-    if (fileRef.current) fileRef.current.value = '';
-  }
-
+// The article builder: element palette (left), flowing canvas (center), and a
+// tabbed inspector (right) for Article details vs the selected element — one
+// shared TipTap editor behind all three, via ComposerProvider.
+export default function ArticleEditor({
+  article, categories, polls = [], quizzes = [], ads = [],
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; ads?: Opt[] }) {
   return (
     <form action={saveArticle}>
       {article?.id && <input type="hidden" name="id" value={article.id} />}
+      {/* excerpt is optional + auto-generated; keep it out of the way but submittable */}
+      <input type="hidden" name="excerpt" value={article?.excerpt ?? ''} />
+
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{article ? 'Edit article' : 'New article'}</h1>
         <div className="flex gap-2">
@@ -55,140 +34,25 @@ export default function ArticleEditor({ article, categories, polls = [], quizzes
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          <div>
-            <label className="label" htmlFor="title">Title</label>
-            <input id="title" name="title" required defaultValue={article?.title} className="input text-lg" placeholder="Article title" />
+      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} ads={ads}>
+        <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
+          <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
+            <div className="card p-3">
+              <Palette />
+            </div>
+          </aside>
+
+          <div className="order-1 min-w-0 lg:order-2">
+            <Canvas initialTitle={article?.title} />
           </div>
 
-          <div>
-            <label className="label">Story</label>
-            <ArticleComposer initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} />
-            <p className="mt-1 text-xs text-[var(--muted)]">Write like a doc. Use <strong>Insert</strong> to drop in images, an ad slot, a divider, a poll or quiz, a pull-quote or a button — anywhere in the story.</p>
-          </div>
-
-          <div>
-            <label className="label" htmlFor="excerpt">Excerpt <span className="font-normal text-[var(--muted)]">(optional — auto-generated if blank)</span></label>
-            <textarea id="excerpt" name="excerpt" defaultValue={article?.excerpt ?? ''} className="input min-h-[70px]" placeholder="Short summary used for previews & search." />
-          </div>
+          <aside className="order-3 lg:sticky lg:top-20 lg:self-start">
+            <div className="card p-4">
+              <Inspector article={article} categories={categories} />
+            </div>
+          </aside>
         </div>
-
-        <aside className="space-y-4">
-          <div className="card space-y-4 p-4">
-            <div>
-              <label className="label" htmlFor="status">Status</label>
-              <select id="status" name="status" defaultValue={article?.status ?? 'DRAFT'} className="input">
-                {CONTENT_STATUSES.map((s) => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="categoryId">Primary category</label>
-              <select id="categoryId" name="categoryId" defaultValue={article?.categoryId ?? ''} className="input">
-                <option value="">Uncategorized</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Additional categories</label>
-              <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-lg border border-[var(--border)] p-2.5">
-                {categories.length === 0 && <p className="text-xs text-[var(--muted)]">No categories yet.</p>}
-                {categories.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="extraCategoryIds" value={c.id} defaultChecked={extraIds.has(c.id)} className="h-4 w-4 rounded border-[var(--border)]" />
-                    {c.name}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-[var(--muted)]">A story can be in several categories (e.g. a <strong>Bulletin</strong> that is also <strong>Breaking News</strong>). The primary above drives its main colour.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="breakingHours">Breaking News timer</label>
-              <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
-                {initiallyBreaking && <option value="keep">⚡ Keep current — until {new Date(article!.breakingUntil as string | Date).toLocaleString()}</option>}
-                <option value="">{initiallyBreaking ? 'Turn off breaking' : 'Not breaking'}</option>
-                <option value="24">Breaking for 24 hours</option>
-                <option value="48">Breaking for 48 hours</option>
-                <option value="72">Breaking for 72 hours</option>
-                <option value="custom">Custom…</option>
-              </select>
-              {breaking === 'custom' && (
-                <input type="number" name="breakingCustomHours" min={1} max={720} defaultValue={48} className="input mt-2" placeholder="Hours" />
-              )}
-              <p className="mt-1 text-xs text-[var(--muted)]">Shows a ⚡ Breaking badge that auto-expires after the chosen time. Pair it with the <strong>Breaking News</strong> category above.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="requirement">Access</label>
-              <input id="requirement" name="requirement" list="requirement-opts" defaultValue={article?.requirement ?? ''}
-                className="input" placeholder="public" autoComplete="off" />
-              <datalist id="requirement-opts">
-                <option value="public">Everyone (public)</option>
-                <option value="member">Any signed-in member</option>
-                <option value="premium">RS Premium</option>
-                <option value="packagehub">Package Hub</option>
-                <option value="vendor">Vendors</option>
-                <option value="staff">Staff</option>
-              </datalist>
-              <p className="mt-1 text-xs text-[var(--muted)]">Who can read this. Blank/<code>public</code> = everyone. Or a tier (<code>premium</code>), account type (<code>vendor</code>/<code>staff</code>), or an affiliation key (e.g. <code>packagehub</code>) — free-form, so new groups work without a code change.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="publishedAt">Publish date &amp; time</label>
-              <input id="publishedAt" name="publishedAt" type="datetime-local" defaultValue={toLocalInput(article?.publishedAt)} className="input" />
-              <p className="mt-1 text-xs text-[var(--muted)]">Leave blank to publish now. Set a <strong>past</strong> date to backdate (e.g. old magazine issues), or a <strong>future</strong> date to schedule — the story stays hidden until then. Requires status = Published.</p>
-            </div>
-          </div>
-
-          {/* Homepage placement */}
-          <div className="card space-y-3 p-4">
-            <div className="text-sm font-semibold">Homepage placement</div>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" name="featured" defaultChecked={article?.featured} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
-              <span><span className="font-medium">Featured headline</span><br /><span className="text-xs text-[var(--muted)]">Can appear as the big hero at the top.</span></span>
-            </label>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" name="pinned" defaultChecked={article?.pinned} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
-              <span><span className="font-medium">Pin to top</span><br /><span className="text-xs text-[var(--muted)]">Force above newer stories in the Latest list.</span></span>
-            </label>
-            <p className="text-xs text-[var(--muted)]">Which modules a story appears in (Trending, Recommended, category spotlights…) is driven automatically by views, tags and readers. Reorder the modules themselves under <Link href="/admin/homepage" className="text-brand-600 hover:underline">Homepage layout</Link>.</p>
-          </div>
-
-          {/* Cover image */}
-          <div className="card space-y-3 p-4">
-            <div className="text-sm font-semibold">Cover image</div>
-            {cover ? (
-              <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={cover} alt="" className="aspect-[16/9] w-full rounded-lg border border-[var(--border)] object-cover" />
-                <button type="button" onClick={() => { setCover(''); if (fileRef.current) fileRef.current.value = ''; }}
-                  className="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80">Remove</button>
-              </div>
-            ) : (
-              <div className="grid aspect-[16/9] w-full place-items-center rounded-lg border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">No cover</div>
-            )}
-            <input type="hidden" name="coverImage" value={cover} />
-            <div className="flex gap-2">
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-outline btn-sm flex-1">
-                {uploading ? 'Uploading…' : 'Upload image'}
-              </button>
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
-            <div>
-              <label className="label text-xs" htmlFor="coverUrl">…or paste an image URL</label>
-              <input id="coverUrl" type="url" value={cover.startsWith('data:') ? '' : cover}
-                onChange={(e) => setCover(e.target.value)} className="input" placeholder="https://…" />
-            </div>
-            {imgError && <p className="text-xs text-red-600">{imgError}</p>}
-            <p className="text-xs text-[var(--muted)]">Uploaded images are stored in your asset storage and referenced by URL (max 8MB). You can also paste an image URL.</p>
-          </div>
-
-          {/* Tags */}
-          <div className="card space-y-2 p-4">
-            <label className="label" htmlFor="tags">Tags</label>
-            <input id="tags" name="tags" defaultValue={article?.tags.map((t) => t.tag.name).join(', ')} className="input" placeholder="ai, tutorial, release" />
-            <p className="text-xs text-[var(--muted)]">Comma-separated. New tags are created automatically.</p>
-          </div>
-        </aside>
-      </div>
+      </ComposerProvider>
     </form>
   );
 }
