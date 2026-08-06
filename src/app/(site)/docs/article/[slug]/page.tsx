@@ -85,8 +85,8 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {article.category && (
-            <Link href={`/docs/category/${article.category.slug}`} className="badge"
-              style={{ backgroundColor: article.category.color + '22', color: article.category.color }}>
+            <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
+              style={{ '--c': article.category.color } as React.CSSProperties}>
               {article.category.name}
             </Link>
           )}
@@ -171,7 +171,7 @@ function LockedArticle({ article, signedIn }: { article: { title: string; excerp
       </Link>
       {article.category && (
         <div className="mb-4">
-          <span className="badge" style={{ backgroundColor: article.category.color + '22', color: article.category.color }}>{article.category.name}</span>
+          <span className="badge cat-badge" style={{ '--c': article.category.color } as React.CSSProperties}>{article.category.name}</span>
         </div>
       )}
       <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>

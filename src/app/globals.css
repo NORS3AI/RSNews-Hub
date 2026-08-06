@@ -189,6 +189,12 @@ body::before {
   .tile { @apply rounded-xl border border-[var(--border)] bg-[var(--card-2)]; box-shadow: var(--shadow-card); }
 
   .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  /* Category badge/label — derive a readable colour from the category's colour
+     (set as --c) per theme, so any colour works in light and dark. */
+  .cat-badge { background: color-mix(in srgb, var(--c) 15%, transparent); color: color-mix(in srgb, var(--c) 86%, #000); }
+  .dark .cat-badge { background: color-mix(in srgb, var(--c) 30%, transparent); color: color-mix(in srgb, var(--c) 54%, #fff); }
+  .cat-ink { color: var(--c); }
+  .dark .cat-ink { color: color-mix(in srgb, var(--c) 52%, #fff); }
 
   .prose-article { @apply text-[17px] leading-8 sm:text-[19px] sm:leading-[1.85]; }
   .prose-article h2 { @apply mt-9 mb-3 text-2xl font-bold sm:text-[28px]; }

@@ -52,6 +52,13 @@ img { max-width:100%; display:block; }
 .btn-outline:hover { background:var(--tile-bot); }
 .badge { display:inline-flex; align-items:center; border-radius:999px; padding:3px 11px; font-size:12.5px; font-weight:700; }
 .badge-breaking { background:#c0392b; color:#fff; font-weight:800; letter-spacing:.01em; }
+/* Category badge — derives a readable text/background from the category colour
+   (--c) per theme, so any colour works in light, dark and RS. */
+.badge-cat { background:color-mix(in srgb, var(--c) 15%, transparent); color:color-mix(in srgb, var(--c) 86%, #000); }
+:root.dark .badge-cat { background:color-mix(in srgb, var(--c) 30%, transparent); color:color-mix(in srgb, var(--c) 54%, #fff); }
+/* Category colour used as plain text (eyebrow labels) — lighten in dark mode. */
+.cat-ink { color:var(--c); }
+:root.dark .cat-ink { color:color-mix(in srgb, var(--c) 52%, #fff); }
 /* When a card carries several badges, let them wrap with a little spacing. */
 .ablock .body > div:first-child, .lbody > div:first-child, .modal-top .t { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 

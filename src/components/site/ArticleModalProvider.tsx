@@ -150,7 +150,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
               {/* Sticky top bar */}
               <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-2.5 sm:px-6">
                 <div className="min-w-0 flex items-center gap-2">
-                  {a?.category && <span className="badge shrink-0" style={{ backgroundColor: a.category.color + '22', color: a.category.color }}>{a.category.name}</span>}
+                  {a?.category && <span className="badge cat-badge shrink-0" style={{ '--c': a.category.color } as React.CSSProperties}>{a.category.name}</span>}
                   <span className="truncate text-sm font-medium text-[var(--muted)]">{a?.title ?? 'Loading…'}</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -214,7 +214,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                           {data.related.map((r) => (
                             <button key={r.id} onClick={() => openArticle(r.slug)}
                               className="card card-hover p-4 text-left">
-                              {r.category && <span className="text-xs font-bold" style={{ color: r.category.color }}>{r.category.name}</span>}
+                              {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
                               <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
                             </button>
                           ))}

@@ -26,7 +26,7 @@ export default async function CategoryPage(props: { params: Promise<{ slug: stri
     <div className="container-page py-8 sm:py-10">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: category.color }}>{category.name}</h1>
+          <h1 className="cat-ink text-2xl font-bold" style={{ '--c': category.color } as React.CSSProperties}>{category.name}</h1>
           {category.description && <p className="mt-2 max-w-xl text-[var(--muted)]">{category.description}</p>}
         </div>
         <SubscribeButton categoryId={category.id} initialSubscribed={subscribed} isAuthed={!!user} label="Subscribe" size="md" />
