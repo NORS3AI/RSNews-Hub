@@ -9,6 +9,7 @@ type Cat = { id: string; name: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null; tags: { tag: { name: string } }[];
+  extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
 };
 
@@ -27,6 +28,9 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
   const [imgError, setImgError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const initiallyBreaking = !!(article?.breakingUntil && new Date(article.breakingUntil).getTime() > Date.now());
+  const [breaking, setBreaking] = useState<string>(initiallyBreaking ? 'keep' : '');
+  const extraIds = new Set((article?.extraCategories ?? []).map((c) => c.id));
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,11 +94,39 @@ export default function ArticleEditor({ article, categories }: { article?: Artic
               </select>
             </div>
             <div>
-              <label className="label" htmlFor="categoryId">Category</label>
+              <label className="label" htmlFor="categoryId">Primary category</label>
               <select id="categoryId" name="categoryId" defaultValue={article?.categoryId ?? ''} className="input">
                 <option value="">Uncategorized</option>
                 {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+            </div>
+            <div>
+              <label className="label">Additional categories</label>
+              <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-lg border border-[var(--border)] p-2.5">
+                {categories.length === 0 && <p className="text-xs text-[var(--muted)]">No categories yet.</p>}
+                {categories.map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="extraCategoryIds" value={c.id} defaultChecked={extraIds.has(c.id)} className="h-4 w-4 rounded border-[var(--border)]" />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-[var(--muted)]">A story can be in several categories (e.g. a <strong>Bulletin</strong> that is also <strong>Breaking News</strong>). The primary above drives its main colour.</p>
+            </div>
+            <div>
+              <label className="label" htmlFor="breakingHours">Breaking News timer</label>
+              <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
+                {initiallyBreaking && <option value="keep">⚡ Keep current — until {new Date(article!.breakingUntil as string | Date).toLocaleString()}</option>}
+                <option value="">{initiallyBreaking ? 'Turn off breaking' : 'Not breaking'}</option>
+                <option value="24">Breaking for 24 hours</option>
+                <option value="48">Breaking for 48 hours</option>
+                <option value="72">Breaking for 72 hours</option>
+                <option value="custom">Custom…</option>
+              </select>
+              {breaking === 'custom' && (
+                <input type="number" name="breakingCustomHours" min={1} max={720} defaultValue={48} className="input mt-2" placeholder="Hours" />
+              )}
+              <p className="mt-1 text-xs text-[var(--muted)]">Shows a ⚡ Breaking badge that auto-expires after the chosen time. Pair it with the <strong>Breaking News</strong> category above.</p>
             </div>
             <div>
               <label className="label" htmlFor="requirement">Access</label>

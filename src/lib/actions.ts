@@ -81,6 +81,18 @@ export async function saveArticle(formData: FormData) {
 
   const nowPublished = status === 'PUBLISHED';
 
+  // Additional categories (M2M), minus the primary so it isn't duplicated.
+  const extraCategoryIds = [...new Set((formData.getAll('extraCategoryIds') as string[]).map(String).filter(Boolean))].filter((cid) => cid !== categoryId);
+  // Breaking timer: 'keep' → leave as-is (undefined), '' → clear, else hours from now.
+  const breakingRaw = ((formData.get('breakingHours') as string) || '').trim();
+  let breakingUntil: Date | null | undefined;
+  if (breakingRaw === 'keep') breakingUntil = undefined;
+  else if (breakingRaw === '') breakingUntil = null;
+  else {
+    const hours = breakingRaw === 'custom' ? Number(formData.get('breakingCustomHours')) : Number(breakingRaw);
+    breakingUntil = Number.isFinite(hours) && hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 365) * 3600 * 1000) : null;
+  }
+
   if (id) {
     const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true } });
     if (!existing) throw new Error('Article not found');
@@ -90,6 +102,8 @@ export async function saveArticle(formData: FormData) {
       data: {
         title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null,
+        extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
+        breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
         // Explicit date wins (backdate or schedule); otherwise keep existing or stamp now on publish.
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt),
         tags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
@@ -101,6 +115,8 @@ export async function saveArticle(formData: FormData) {
       data: {
         title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
+        extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
+        breakingUntil: breakingUntil ?? null,
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? new Date() : null),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },

@@ -51,18 +51,20 @@ async function main() {
     },
   });
 
-  // Muted / deep placeholder palette (not pastel) — colours to be revisited.
+  // Deep, cohesive palette that sits with the orange/slate brand — 10 distinct
+  // hues around the wheel, none pastel. Fine-tune any of these in Admin →
+  // Categories (colours are editable per category now).
   const categoryData = [
-    { name: 'Breaking News', color: '#c0392b', description: 'Time-sensitive news; the badge auto-expires.' },
-    { name: 'Blog', color: '#3b6ea5', description: 'Regular blog posts.' },
-    { name: "What's Hot", color: '#d2691e', description: 'Trending and popular right now.' },
-    { name: 'Feature Article', color: '#6d4a8f', description: 'In-depth featured stories.' },
-    { name: 'RS Council Column', color: '#8b2e3c', description: 'Columns from the RS Council.' },
-    { name: 'Column', color: '#2f7a78', description: 'Opinion and recurring columns.' },
-    { name: 'Bulletin', color: '#4a5568', description: 'Short official notices.' },
-    { name: 'Recap', color: '#7a6a3a', description: 'Summaries and recaps.' },
-    { name: 'Upcoming Events', color: '#2f6b4f', description: "What's coming up." },
-    { name: 'Education', color: '#3d5a99', description: 'Learning resources and how-tos.' },
+    { name: 'Breaking News', color: '#d23b2e', description: 'Time-sensitive news; the badge auto-expires.' },
+    { name: "What's Hot", color: '#e07a2f', description: 'Trending and popular right now.' },
+    { name: 'Recap', color: '#b08430', description: 'Summaries and recaps.' },
+    { name: 'Column', color: '#2f8079', description: 'Opinion and recurring columns.' },
+    { name: 'Upcoming Events', color: '#2f7d55', description: "What's coming up." },
+    { name: 'Blog', color: '#3f6fb0', description: 'Regular blog posts.' },
+    { name: 'Education', color: '#5a53a8', description: 'Learning resources and how-tos.' },
+    { name: 'Feature Article', color: '#8a4f97', description: 'In-depth featured stories.' },
+    { name: 'RS Council Column', color: '#9b2d3a', description: 'Columns from the RS Council.' },
+    { name: 'Bulletin', color: '#5b6675', description: 'Short official notices.' },
   ];
   const categories: Record<string, string> = {};
   for (const c of categoryData) {
