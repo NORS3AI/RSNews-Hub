@@ -3,9 +3,17 @@ import { useEffect, useState } from 'react';
 import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
 import { clipShareText } from './ReaderClipper';
-import { makeQuoteImage, downloadDataUrl, downloadImage } from '@/lib/quoteImage';
+import { makeQuoteImage, preloadQuoteAssets, downloadDataUrl, downloadImage, type QuoteTheme } from '@/lib/quoteImage';
 import { track } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
+
+const CLIP_THEME_KEY = 'rsnews_cliptheme_v1';
+// Swatches for the Customize picker — [background, footer/accent].
+const THEMES: { key: QuoteTheme; label: string; swatch: [string, string] }[] = [
+  { key: 'dark', label: 'Dark', swatch: ['#222a33', '#E97D34'] },
+  { key: 'light', label: 'Light', swatch: ['#f6efe0', '#E97D34'] },
+  { key: 'rs', label: 'RS', swatch: ['#f7edd8', '#E97D34'] },
+];
 
 const clipEv = (action: string, c: Clipping) => track({ type: 'clip', subjectType: 'clip', subjectId: c.id, pageType: 'clippings', props: { action, kind: c.kind ?? (c.image ? 'comic' : 'quote'), slug: c.slug } });
 
@@ -27,7 +35,22 @@ export default function ClippingsList() {
   const { clippings, removeClipping, ready } = useSaved();
   const { openArticle } = useArticleModal();
   const [view, setView] = useState<'cards' | 'images'>('cards');
+  const [clipTheme, setClipTheme] = useState<QuoteTheme>('dark');
+  const [customize, setCustomize] = useState(false);
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
+
+  // Quote-image look (dark / light / RS), remembered per account on this device.
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    try { const t = localStorage.getItem(CLIP_THEME_KEY); if (t === 'dark' || t === 'light' || t === 'rs') setClipTheme(t); } catch { /* ignore */ }
+    // Once the logo + parchment finish loading, repaint the quote images.
+    preloadQuoteAssets().then(() => forceRerender((n) => n + 1));
+  }, []);
+  const chooseTheme = (t: QuoteTheme) => {
+    setClipTheme(t);
+    try { localStorage.setItem(CLIP_THEME_KEY, t); } catch { /* ignore */ }
+    track({ type: 'clip', subjectType: 'clip', pageType: 'clippings', props: { action: 'theme', theme: t } });
+  };
   const openZoom = (z: { src: string; alt: string }, c: Clipping) => { clipEv('expand', c); setZoom(z); };
   const setViewTracked = (v: 'cards' | 'images') => { track({ type: 'clip', subjectType: 'clip', pageType: 'clippings', props: { action: 'view', view: v } }); setView(v); };
 
@@ -44,7 +67,7 @@ export default function ClippingsList() {
   }
   function imageFor(c: Clipping) {
     if (isComic(c)) return c.image as string;
-    return makeQuoteImage({ quote: c.quote ?? '', title: c.title, author: c.author, url: urlFor(c.slug), slug: c.slug });
+    return makeQuoteImage({ quote: c.quote ?? '', title: c.title, author: c.author, url: urlFor(c.slug), slug: c.slug, theme: clipTheme });
   }
 
   function Actions({ c }: { c: Clipping }) {
@@ -69,15 +92,45 @@ export default function ClippingsList() {
   return (
     <div className="module">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-xl font-bold"><Scissors className="text-brand-600" width={20} height={20} /> Your clippings</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold"><Scissors className="text-brand-600" width={20} height={20} /> Your RS News Clippings</h1>
         {ready && clippings.length > 0 && (
-          <div className="inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
-            {(['cards', 'images'] as const).map((v) => (
-              <button key={v} onClick={() => setViewTracked(v)}
-                className={`rounded-lg px-3.5 py-1.5 text-sm font-bold capitalize ${view === v ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
-                {v}
+          <div className="flex items-center gap-2">
+            {/* Customize the look of quote clippings (dark / light / RS). */}
+            <div className="relative">
+              <button onClick={() => setCustomize((o) => !o)} aria-expanded={customize}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] px-3 py-1.5 text-sm font-bold text-[var(--muted)] hover:text-[var(--fg)]">
+                <span className="h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: THEMES.find((t) => t.key === clipTheme)!.swatch[0] }} />
+                Customize
               </button>
-            ))}
+              {customize && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setCustomize(false)} />
+                  <div className="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 text-left shadow-lg">
+                    <div className="px-1 pb-1.5 text-[11px] font-black uppercase tracking-wide text-[var(--muted)]">Quote clipping style</div>
+                    {THEMES.map((t) => (
+                      <button key={t.key} onClick={() => chooseTheme(t.key)}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm font-semibold ${clipTheme === t.key ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40' : 'hover:bg-[var(--card-2)]'}`}>
+                        <span className="flex h-6 w-6 shrink-0 flex-col overflow-hidden rounded-md border border-black/10">
+                          <span className="flex-1" style={{ background: t.swatch[0] }} />
+                          <span className="h-1.5" style={{ background: t.swatch[1] }} />
+                        </span>
+                        {t.label}
+                        {clipTheme === t.key && <span className="ml-auto text-xs text-brand-600">✓</span>}
+                      </button>
+                    ))}
+                    <p className="px-1 pt-1.5 text-[11px] leading-tight text-[var(--muted)]">Applies to quote images from articles. Remembered for next time.</p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
+              {(['cards', 'images'] as const).map((v) => (
+                <button key={v} onClick={() => setViewTracked(v)}
+                  className={`rounded-lg px-3.5 py-1.5 text-sm font-bold capitalize ${view === v ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -105,22 +158,24 @@ export default function ClippingsList() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {clippings.map((c) => (
             <div key={c.id} className="card flex flex-col p-4">
+              {/* Tapping the card body opens the same enlarged overlay as the
+                  images view (the actions row below stays separate). */}
               {isComic(c) ? (
-                <div className="flex items-center gap-3">
+                <button onClick={() => openZoom({ src: c.image as string, alt: c.title }, c)} className="flex cursor-zoom-in items-center gap-3 text-left">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={c.image as string} alt={c.title} onClick={() => openZoom({ src: c.image as string, alt: c.title }, c)} className="h-16 w-16 shrink-0 cursor-zoom-in rounded-lg object-cover" />
-                  <div>
-                    <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Comic</span>
-                    <div className="mt-1 font-bold leading-snug">{c.title}</div>
-                  </div>
-                </div>
+                  <img src={c.image as string} alt={c.title} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                  <span>
+                    <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Comic</span>
+                    <span className="mt-1 block font-bold leading-snug">{c.title}</span>
+                  </span>
+                </button>
               ) : (
-                <>
+                <button onClick={() => openZoom({ src: imageFor(c), alt: 'Quote image' }, c)} className="cursor-zoom-in text-left">
                   <blockquote className="whitespace-pre-line text-[15px] font-semibold leading-snug">“{c.quote}”</blockquote>
                   <div className="mt-2 text-xs text-[var(--muted)]">
                     <span className="font-bold text-[var(--fg)]">{c.title}</span>{c.author ? ` — ${c.author}` : ''}
                   </div>
-                </>
+                </button>
               )}
               <Actions c={c} />
             </div>

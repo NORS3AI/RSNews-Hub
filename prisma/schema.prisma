@@ -15,6 +15,23 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// A custom homepage module built in the Module Studio. `tree` is a JSON string
+// of the composition tree (see src/lib/studio.ts). Referenced from the homepage
+// layout by the namespaced id `custom:<id>`. `published` gates whether it may
+// appear on the public homepage.
+model CustomModule {
+  id        String    @id @default(cuid())
+  name      String
+  shape     String    @default("column")
+  tree      String    @default("")
+  published Boolean   @default(false)
+  // Optional invisible expiry: when set (from the tree's expireDays at publish),
+  // a sweep pulls the module off the homepage after this time and logs it.
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 // "Backroom Humor" comics. The most recent active comic appears on the
 // homepage; the rest live in the comics archive. active=false = archived.
 model Comic {
@@ -34,10 +51,25 @@ model Poll {
   id        String       @id @default(cuid())
   question  String
   active    Boolean      @default(true)
+  // 'council' = the single hand-run reader poll shown in the council aside.
+  // 'module'  = a poll built inside a Module Studio module (has its own timer;
+  // excluded from the "one active council poll" rule).
+  kind      String       @default("council")
   createdAt DateTime     @default(now())
   closesAt  DateTime?
   options   PollOption[]
   votes     PollVote[]
+}
+
+// Lightweight admin activity log. Currently records automated lifecycle events
+// (e.g. a module poll's timer expiring) so admins have a trail of what happened.
+model AdminLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  kind      String   // e.g. poll_closed
+  message   String
+
+  @@index([createdAt])
 }
 
 // One row per account that votes, enforcing a single vote per poll per user.
@@ -349,6 +381,9 @@ model User {
   vendorBrand  String?       // for vendors: the ad brand they own (favored ads + dashboard)
   storeType    String?       // e.g. franchise | independent | chain (member facet)
   region       String?       // e.g. Northeast | Midwest | South | West
+  // Remembered UI theme (light | dark | rs). Lets the chosen theme follow the
+  // member across devices; anonymous visitors fall back to localStorage.
+  theme        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 

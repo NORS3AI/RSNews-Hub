@@ -79,6 +79,11 @@ export async function removeToRead(userId: string, articleId: string) {
   return getSaved(userId);
 }
 
+export async function clearToRead(userId: string) {
+  await prisma.savedItem.deleteMany({ where: { userId, kind: 'toread' } });
+  return getSaved(userId);
+}
+
 export async function addClipping(userId: string, c: Clipping) {
   await prisma.clipping.upsert({
     where: { userId_clientId: { userId, clientId: c.id } },

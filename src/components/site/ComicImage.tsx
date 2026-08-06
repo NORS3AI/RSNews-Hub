@@ -10,9 +10,11 @@ import { X, Download, Scissors, Check } from '@/components/icons';
  * offers Download and Save-to-clippings. Esc / click-outside / X closes it.
  */
 export default function ComicImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const { addClipping } = useSaved();
+  const { addClipping, clippings } = useSaved();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Already clipped? Don't let the same comic pile up in the clippings.
+  const already = clippings.some((c) => (c.kind === 'comic' || !!c.image) && c.image === src);
 
   useEffect(() => {
     if (!open) return;
@@ -26,7 +28,7 @@ export default function ComicImage({ src, alt, className }: { src: string; alt: 
   const fileName = `backroom-humor-${(alt || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.jpg`;
 
   function save() {
-    if (saved) return;
+    if (saved || already) return;
     addClipping({ kind: 'comic', title: alt, image: src });
     track({ type: 'clip', subjectType: 'clip', pageType: 'home', props: { action: 'save', kind: 'comic', source: 'comic' } });
     setSaved(true);
@@ -49,8 +51,10 @@ export default function ComicImage({ src, alt, className }: { src: string; alt: 
               <button onClick={() => downloadImage(src, fileName)} className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3.5 py-2 text-sm font-bold text-white hover:bg-white/25">
                 <Download width={16} height={16} /> Download image
               </button>
-              <button onClick={save} disabled={saved} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-70">
-                {saved ? <><Check width={16} height={16} /> Saved to clippings</> : <><Scissors width={16} height={16} /> Save to clippings</>}
+              <button onClick={save} disabled={saved || already} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-70">
+                {already ? <><Check width={16} height={16} /> You&apos;ve already got that</>
+                  : saved ? <><Check width={16} height={16} /> Saved to clippings</>
+                  : <><Scissors width={16} height={16} /> Save to clippings</>}
               </button>
             </div>
           </div>

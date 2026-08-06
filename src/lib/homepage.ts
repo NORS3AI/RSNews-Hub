@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { isCustomModuleId } from './studio';
 
 export type ModuleId =
   | 'recommended'
@@ -15,7 +16,13 @@ export type ModuleId =
 // A module may carry an optional `source` (only meaningful for modules whose
 // catalog entry declares `sources`), letting an admin choose which pool of
 // articles it pulls from without changing the layout order.
-export type HomeModule = { id: ModuleId; enabled: boolean; locked?: boolean; source?: string };
+// `id` is a catalog ModuleId OR a namespaced custom-module id (`custom:<id>`),
+// so builder-made modules share the same ordered/lockable layout list.
+export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string };
+
+function isKnownId(id: string): boolean {
+  return id in MODULE_CATALOG || isCustomModuleId(id);
+}
 
 export type ModuleSource = { value: string; label: string };
 type ModuleDef = { label: string; description: string; sources?: ModuleSource[]; defaultSource?: string };
@@ -58,29 +65,85 @@ export const DEFAULT_LAYOUT: HomeModule[] = [
 // Resolve a module's effective source, honoring the saved value but falling
 // back to the catalog default (and ignoring values no longer offered).
 export function moduleSource(m: HomeModule): string | undefined {
-  const def = MODULE_CATALOG[m.id];
-  if (!def.sources) return undefined;
+  const def = MODULE_CATALOG[m.id as ModuleId];
+  if (!def || !def.sources) return undefined;
   const ok = m.source && def.sources.some((s) => s.value === m.source);
   return ok ? m.source : def.defaultSource ?? def.sources[0]?.value;
 }
 
+// The public homepage renders the LIVE layout; admins edit the DRAFT layout and
+// publish it with "Go Live". When no draft exists, the draft mirrors live.
 const KEY = 'homepage_layout';
+const DRAFT_KEY = 'homepage_layout_draft';
 
+// Parse + reconcile a stored layout with the catalog: drop unknown ids, append
+// any newly-added catalog modules not yet present. Shared by live + draft reads.
+function reconcile(value: string): HomeModule[] {
+  const parsed = JSON.parse(value) as HomeModule[];
+  const known = parsed
+    .filter((m) => isKnownId(m.id))
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+  const present = new Set(known.map((m) => m.id));
+  for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked });
+  return known.length ? known : DEFAULT_LAYOUT;
+}
+
+function cleanLayout(layout: HomeModule[]) {
+  return layout
+    .filter((m) => isKnownId(m.id))
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+}
+
+// LIVE layout — what the public homepage renders.
 export async function getHomeLayout(): Promise<HomeModule[]> {
   const row = await prisma.setting.findUnique({ where: { key: KEY } });
   if (!row) return DEFAULT_LAYOUT;
   try {
-    const parsed = JSON.parse(row.value) as HomeModule[];
-    // Validate + reconcile with the catalog: drop unknown ids, append any
-    // newly-added modules that aren't in the saved layout yet.
-    const known = parsed
-      .filter((m) => m.id in MODULE_CATALOG)
-      .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
-    const present = new Set(known.map((m) => m.id));
-    for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked });
-    return known.length ? known : DEFAULT_LAYOUT;
+    return reconcile(row.value);
   } catch {
     return DEFAULT_LAYOUT;
+  }
+}
+
+// DRAFT layout — what admins edit. Falls back to the live layout when there is
+// no draft yet (i.e. no pending changes).
+export async function getDraftLayout(): Promise<HomeModule[]> {
+  const row = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (row) {
+    try { return reconcile(row.value); } catch { /* fall through to live */ }
+  }
+  return getHomeLayout();
+}
+
+export async function saveDraftLayout(layout: HomeModule[]): Promise<void> {
+  const value = JSON.stringify(cleanLayout(layout));
+  await prisma.setting.upsert({ where: { key: DRAFT_KEY }, update: { value }, create: { key: DRAFT_KEY, value } });
+}
+
+// Go Live: promote the draft to the live layout, then clear the draft.
+export async function publishDraftLayout(): Promise<void> {
+  const draft = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (!draft) return; // nothing pending
+  await prisma.setting.upsert({ where: { key: KEY }, update: { value: draft.value }, create: { key: KEY, value: draft.value } });
+  await prisma.setting.deleteMany({ where: { key: DRAFT_KEY } });
+}
+
+export async function discardDraftLayout(): Promise<void> {
+  await prisma.setting.deleteMany({ where: { key: DRAFT_KEY } });
+}
+
+// True when a draft exists AND differs from live (i.e. there are pending changes
+// worth a "Go Live"). A draft equal to live is treated as no change.
+export async function hasDraftChanges(): Promise<boolean> {
+  const [draftRow, liveLayout] = await Promise.all([
+    prisma.setting.findUnique({ where: { key: DRAFT_KEY } }),
+    getHomeLayout(),
+  ]);
+  if (!draftRow) return false;
+  try {
+    return JSON.stringify(cleanLayout(reconcile(draftRow.value))) !== JSON.stringify(cleanLayout(liveLayout));
+  } catch {
+    return false;
   }
 }
 
@@ -100,9 +163,7 @@ export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeM
 }
 
 export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
-  const clean = layout
-    .filter((m) => m.id in MODULE_CATALOG)
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+  const clean = cleanLayout(layout);
   await prisma.setting.upsert({
     where: { key: KEY },
     update: { value: JSON.stringify(clean) },

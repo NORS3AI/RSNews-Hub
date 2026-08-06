@@ -3,6 +3,11 @@ import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
+import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
+import { Lock } from '@/components/icons';
+import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
+import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -16,6 +21,8 @@ import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import PollCard from '@/components/site/PollCard';
+import AdminEditChip from '@/components/site/AdminEditChip';
+import InlineColorEditor from '@/components/site/InlineColorEditor';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -40,7 +47,7 @@ export default async function DocsHome() {
   ]);
 
   const activePoll = await prisma.poll.findFirst({
-    where: { active: true },
+    where: { active: true, kind: 'council' },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
@@ -73,14 +80,25 @@ export default async function DocsHome() {
   // through the image creatives so the real ads show on the home page too.
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
   let homeAdCursor = 0;
-  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string) => {
-    if (!homeImageAds.length) return <AdSlot size={size} slot={slot} />;
-    const ad = homeImageAds[homeAdCursor++ % homeImageAds.length];
+  // `brand` locks the slot to one advertiser (a sponsor spotlight). If that
+  // advertiser has no live creative, returns null so the caller can fall through
+  // rather than showing a random house ad in a slot sold to someone specific.
+  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string, brand?: string): React.ReactNode | null => {
+    const pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
+    if (brand && pool.length === 0) return null;
+    if (!pool.length) return <AdSlot size={size} slot={slot} />;
+    const ad = pool[homeAdCursor++ % pool.length];
     if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" />;
     return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" /></div>;
   };
 
   const user = await getSessionUser();
+  const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
+  // The viewer's entitlement attributes, for element audience gates. Null when
+  // signed out (gated elements then tease/hide for everyone unless public).
+  const account: AccountLike | null = user
+    ? await prisma.user.findUnique({ where: { id: user.id }, select: { accountType: true, tier: true, affiliations: true, vendorBrand: true } })
+    : null;
   const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
@@ -95,6 +113,70 @@ export default async function DocsHome() {
   ]);
   const loggedIn = !!user;
 
+  // Published custom modules (built in the Module Studio) referenced in the
+  // layout. Only published ones ever reach the public homepage.
+  const customIds = layout.filter((m) => m.enabled && isCustomModuleId(m.id)).map((m) => m.id.slice('custom:'.length));
+  const customRows = customIds.length
+    ? await prisma.customModule.findMany({ where: { id: { in: customIds }, published: true } })
+    : [];
+  const customById = new Map(customRows.map((r) => [`custom:${r.id}`, r]));
+
+  // Poll lifecycle: close any module polls whose timer elapsed (hides them +
+  // logs), then load the still-open ones referenced by these modules so they
+  // render live and votable.
+  await sweepExpiredModulePolls();
+  await sweepExpiredModules();
+  // Scans below flatten each block into its full priority stack (block +
+  // fallbacks) so a poll/article/quiz that only appears as a *fallback* still
+  // has its live content pre-fetched and can fill its slot when promoted.
+  const allBlocks = customRows.flatMap((r) => parseTree(r.tree).children.flatMap(blockChain));
+  const modulePollIds = allBlocks
+    .filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string);
+  const modulePolls = modulePollIds.length
+    ? await prisma.poll.findMany({ where: { id: { in: modulePollIds } }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
+    : [];
+  const modulePollById = new Map(modulePolls.map((p) => [p.id, p]));
+  const myModuleVotes = user && modulePollIds.length
+    ? await prisma.pollVote.findMany({ where: { userId: user.id, pollId: { in: modulePollIds } }, select: { pollId: true, optionId: true } })
+    : [];
+  const myModuleVoteByPoll = new Map(myModuleVotes.map((v) => [v.pollId, v.optionId]));
+
+  // Resolve the non-pool article sourcing modes used by custom-module article
+  // blocks: hand-picked ids, by-tag, and by-year (throwbacks).
+  const artBlocks = allBlocks.filter((b) => b.type.startsWith('article'));
+  const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
+  const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
+  const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
+
+  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: 'PUBLISHED' }, select: cardSelect }) : [];
+  const pickById = new Map(pickRows.map((a) => [a.id, toCard(a)]));
+  const byTag = new Map<string, Card[]>();
+  await Promise.all(tags.map(async (t) => {
+    const rows = await prisma.article.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } },
+      orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
+    });
+    byTag.set(t, rows.map(toCard));
+  }));
+  const byYear = new Map<number, Card[]>();
+  await Promise.all(years.map(async (y) => {
+    const rows = await prisma.article.findMany({
+      where: { status: 'PUBLISHED', publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } },
+      orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
+    });
+    byYear.set(y, rows.map(toCard));
+  }));
+
+  // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
+  const quizIds = [...new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)))];
+  const pickedQuizzes = quizIds.length
+    ? await prisma.quiz.findMany({ where: { id: { in: quizIds } }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
+    : [];
+  const quizById = new Map(pickedQuizzes.map((q) => [q.id, q]));
+  const myQuizDone = user && quizIds.length
+    ? new Set((await prisma.quizResponse.findMany({ where: { userId: user.id, quizId: { in: quizIds } }, select: { quizId: true } })).map((r) => r.quizId))
+    : new Set<string>();
+
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
@@ -107,6 +189,171 @@ export default async function DocsHome() {
     if (source === 'latest') return latest;
     if (source === 'trending') return trending as unknown as Card[];
     return featured.length ? featured : all.slice(0, 5); // 'featured'
+  };
+
+  // Render a published custom module (Module Studio) with REAL content. Article
+  // blocks auto-fill from their source pool, de-duped within the module (a
+  // future refinement can let admins hand-pick specific articles). Poll blocks
+  // are skipped on the live site until the Phase 5 timer/archive lifecycle is
+  // wired to real Poll records.
+  // Global de-dup across the WHOLE homepage: a poll / quiz / article shows at
+  // most once, so a piece placed in a dedicated module can't also reappear in a
+  // generic "latest" slot (e.g. a Package Hub poll pinned in its own element AND
+  // the council aside). Explicitly-pinned poll/quiz ids win over the generic
+  // aside — the aside yields them to the module that named them; among modules,
+  // first in layout order wins and a duplicate falls through its fallback chain.
+  const pinnedPollIds = new Set(allBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
+  const pinnedQuizIds = new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
+  const shownArticleIds = new Set<string>();
+  const shownPollIds = new Set<string>();
+  const shownQuizIds = new Set<string>();
+
+  const renderCustomModule = (row: { id: string; name: string; tree: string }, layoutId: string) => {
+    const tree = parseTree(row.tree);
+    const used = shownArticleIds; // page-global so articles don't repeat across modules
+    const firstUnused = (pool: Card[]): Card | null => {
+      for (const c of pool) if (!used.has(c.id)) { used.add(c.id); return c; }
+      return null;
+    };
+    // Resolve an article block's story by its sourcing mode.
+    const resolveArticle = (b: Block): Card | null => {
+      const mode = b.settings.mode ?? 'auto';
+      if (mode === 'pick') {
+        const a = pickById.get(String(b.settings.articleId ?? ''));
+        if (a) used.add(a.id); // a hand-picked story always shows, even if repeated
+        return a ?? null;
+      }
+      if (mode === 'tag') return firstUnused(byTag.get(String(b.settings.tag ?? '').trim().toLowerCase()) ?? []);
+      if (mode === 'year') return firstUnused(byYear.get(Number(b.settings.year)) ?? []);
+      return firstUnused(featurePool(String(b.settings.source ?? 'latest')));
+    };
+    // Render ONE rung of a slot's priority stack — the block's live content, or
+    // null when it has nothing to show (poll not running, picked article
+    // unpublished, empty image…). Returning null is the signal to try the next
+    // fallback. `style` is the slot's background so the look holds across rungs.
+    const nowMs = Date.now();
+    const renderRung = (b: Block, i: number, style: React.CSSProperties | undefined): React.ReactNode | null => {
+      // Outside its schedule window → treat as unavailable so the slot falls
+      // through to the next rung (which restores the "previous" content).
+      if (!inSchedule(b, nowMs)) return null;
+      // Audience gate: a viewer who doesn't meet the requirement either sees a
+      // locked teaser (tease, drives upgrades) or nothing (swap → fall through).
+      if (b.requirement && !canViewContent(account, b.requirement)) {
+        if (b.gateMode === 'swap') return null;
+        return (
+          <div className="studio-fill grid place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--card-2)] p-6 text-center" style={style}>
+            <Lock width={20} height={20} className="mb-2 text-brand-600" />
+            <p className="text-sm font-bold">{requirementLabel(b.requirement)} only</p>
+            <p className="mt-0.5 text-xs text-[var(--muted)]">Sign in or upgrade to unlock this.</p>
+            <Link href="/docs/subscriptions" className="btn-primary btn-sm mt-3">Unlock</Link>
+          </div>
+        );
+      }
+      switch (b.type) {
+        case 'heading': {
+          const t = String(b.settings.text ?? '');
+          return b.settings.level === 3 ? <h3 className="text-lg font-bold tracking-tight">{t}</h3> : <h2 className="text-xl font-black tracking-tight">{t}</h2>;
+        }
+        case 'text':
+          return <div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>;
+        case 'ad': {
+          const fmt = b.settings.format === 'leaderboard' ? 'leaderboard' : 'rectangle';
+          const brand = typeof b.settings.vendor === 'string' ? b.settings.vendor.trim() : '';
+          const adNode = homeAd(fmt, `custom-${row.id}-${i}`, brand || undefined);
+          if (!adNode) return null; // vendor-locked slot, advertiser has no live creative → fall through
+          return <div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{adNode}</div>;
+        }
+        case 'image': {
+          const url = String(b.settings.url ?? '');
+          if (!url) return null;
+          const w = Number(b.settings.widthPct) || 100;
+          const radius = b.settings.radius !== false;
+          // eslint-disable-next-line @next/next/no-img-element
+          return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+        }
+        case 'quiz': {
+          const qid = b.settings.quizId ? String(b.settings.quizId) : '';
+          const quiz = qid ? quizById.get(qid) : activeQuiz;
+          if (!quiz) return null;
+          // Once its timer ends, the quiz disappears from the homepage.
+          if (quiz.closesAt && new Date(quiz.closesAt) < new Date()) return null;
+          if (shownQuizIds.has(quiz.id)) return null; // already shown → fall through
+          shownQuizIds.add(quiz.id);
+          const done = qid ? myQuizDone.has(qid) : !!priorQuizResponse;
+          return (
+            <div className="studio-fill" style={style}>
+              <QuizCard quiz={{ id: quiz.id, title: quiz.title, closesAt: quiz.closesAt, questions: quiz.questions }} loggedIn={loggedIn} initialDone={done} />
+            </div>
+          );
+        }
+        case 'article':
+        case 'article-image':
+        case 'article-headline': {
+          const card = resolveArticle(b);
+          if (!card) return null;
+          if (b.type === 'article-headline') {
+            return (
+              <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+                {/* A tag so a headline-only element still reads as an article
+                    (its category chip, or a plain "Article" fallback). */}
+                {card.category
+                  ? <span className="badge" style={{ backgroundColor: card.category.color + '22', color: card.category.color }}>{card.category.name}</span>
+                  : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
+                <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
+              </article>
+            );
+          }
+          return (
+            <div className="studio-fill" style={style}>
+              <ArticleCard article={card} compact={b.type === 'article'} trk={{ place: layoutId, props: { module: layoutId, moduleType: 'custom', pos: i } }} />
+            </div>
+          );
+        }
+        case 'poll': {
+          const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
+          const p = pid ? modulePollById.get(pid) : null;
+          if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
+          if (shownPollIds.has(p.id)) return null; // already shown elsewhere → fall through
+          shownPollIds.add(p.id);
+          return (
+            <div className="studio-fill" style={style}>
+              <PollCard poll={{ id: p.id, question: p.question, closesAt: p.closesAt, options: p.options }} loggedIn={loggedIn} votedOptionId={myModuleVoteByPoll.get(p.id) ?? null} chart={b.settings.chart === 'pie' ? 'pie' : 'bar'} />
+            </div>
+          );
+        }
+        default:
+          return null; // any future block types
+      }
+    };
+    // Each slot walks its priority stack and shows the first rung that can fill —
+    // so a slot is only ever *replaced*, never left empty (as long as its last
+    // rung is an un-emptiable type like an ad or an auto/latest article).
+    const kids = tree.children.map((slot: Block, i: number) => {
+      const style = rsStyle(slot.rsColor);
+      for (const rung of blockChain(slot)) {
+        const node = renderRung(rung, i, rung.rsColor ? rsStyle(rung.rsColor) : style);
+        if (node) return (
+          <div key={slot.id} className={childWidthClass(tree.shape)}>
+            <Eyebrow label={rung.label ?? slot.label} />{node}
+          </div>
+        );
+      }
+      return null;
+    }).filter(Boolean);
+    if (kids.length === 0) return null;
+    // A single poll/quiz already carries its own header, so don't repeat the
+    // module name above it (avoids the title == poll-question duplication).
+    // A lone poll/quiz carries its own header, so we skip the module title. But
+    // if it has fallbacks it might resolve to an article instead, so only treat
+    // it as self-headed when there's no chance of a fallback taking the slot.
+    const solo = tree.children.length === 1 ? tree.children[0] : null;
+    const soloSelfHeader = !!solo && !solo.fallbacks?.length && (solo.type === 'poll' || solo.type === 'quiz');
+    return (
+      <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
+        {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}
+        <div className={shapeInnerClass(tree.shape)}>{kids}</div>
+      </section>
+    );
   };
 
   const renderModule = (m: HomeModule) => {
@@ -159,14 +406,21 @@ export default async function DocsHome() {
         const indEl = hasIndustry
           ? <IndustryNews links={industry.map((l) => ({ id: l.id, title: l.title, url: l.url, source: l.source, views: l.views, postedAt: l.postedAt }))} />
           : null;
-        const pollEl = activePoll
-          ? <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} loggedIn={loggedIn} votedOptionId={priorPollVote?.optionId ?? null} />
-          : null;
-        const quizEl = activeQuiz
-          ? <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />
-          : null;
+        // Yield to a module that pinned this poll/quiz, and never repeat one a
+        // module already rendered (global de-dup).
+        let pollEl: React.ReactNode = null;
+        if (activePoll && !pinnedPollIds.has(activePoll.id) && !shownPollIds.has(activePoll.id)) {
+          shownPollIds.add(activePoll.id);
+          pollEl = <PollCard poll={{ id: activePoll.id, question: activePoll.question, closesAt: activePoll.closesAt, options: activePoll.options }} loggedIn={loggedIn} votedOptionId={priorPollVote?.optionId ?? null} />;
+        }
+        let quizEl: React.ReactNode = null;
+        if (activeQuiz && !pinnedQuizIds.has(activeQuiz.id) && !shownQuizIds.has(activeQuiz.id)) {
+          shownQuizIds.add(activeQuiz.id);
+          quizEl = <QuizCard quiz={{ id: activeQuiz.id, title: activeQuiz.title, closesAt: activeQuiz.closesAt, questions: activeQuiz.questions }} loggedIn={loggedIn} initialDone={!!priorQuizResponse} />;
+        }
         // Poll + Pop Quiz stack together in the narrower right-hand column.
         const asideEl = (pollEl || quizEl) ? <div className="flex flex-col gap-6">{pollEl}{quizEl}</div> : null;
+        if (!indEl && !asideEl) return null; // everything here was deduped away
         if (indEl && asideEl) {
           return <div key={id} className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">{indEl}{asideEl}</div>;
         }
@@ -254,6 +508,10 @@ export default async function DocsHome() {
           </div>
         );
       default:
+        if (isCustomModuleId(id)) {
+          const row = customById.get(id);
+          return row ? renderCustomModule(row, id) : null;
+        }
         return null;
     }
   };
@@ -303,7 +561,24 @@ export default async function DocsHome() {
       )}
 
       {/* ===== Admin-arranged modules ===== */}
-      {layout.filter((m) => m.enabled).map((m) => renderModule(m))}
+      {layout.filter((m) => m.enabled).map((m) => {
+        const el = renderModule(m);
+        if (!el) return null;
+        if (!isAdmin) return el;
+        // Admins get an in-place "Edit" chip on every module: custom modules open
+        // in the Studio; catalog modules open the homepage layout manager.
+        const isCustom = isCustomModuleId(m.id);
+        const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
+        const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
+        const customRow = isCustom ? customById.get(m.id) : null;
+        return (
+          <div key={`m-${m.id}`} className="group relative">
+            {el}
+            {customRow && <InlineColorEditor moduleId={customRow.id} name={customRow.name} initialTree={parseTree(customRow.tree)} />}
+            <AdminEditChip href={href} title={title} />
+          </div>
+        );
+      })}
 
       {/* ===== More content + interspersed ads ===== */}
       <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>

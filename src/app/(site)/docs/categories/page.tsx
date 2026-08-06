@@ -18,7 +18,7 @@ export default async function CategoriesPage() {
           <Link key={c.id} href={`/docs/category/${c.slug}`} className="card group p-5 transition-shadow hover:shadow-md">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold group-hover:text-brand-600" style={{ color: c.color }}>{c.name}</h2>
-              <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">{c._count.articles}</span>
+              <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">{c._count.articles}</span>
             </div>
             {c.description && <p className="mt-2 text-sm text-[var(--muted)]">{c.description}</p>}
           </Link>

@@ -3,10 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from './db';
-import { requireAdmin, hashPassword, getCurrentUser } from './auth';
+import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
@@ -15,6 +15,8 @@ import { generateReportDraft, updateReportSummary, publishReport, unpublishRepor
 import { markCampaignPaid, parseAmountToCents } from './payments';
 import { updateVendorContact } from './vendors';
 import { EMAIL_TEMPLATES } from './emailTemplates';
+import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
+import { materializeModulePolls } from './studioPolls';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -221,23 +223,27 @@ export async function deleteIndustryLink(id: string) {
 
 /* -------------------------------- Polls ---------------------------------- */
 
-export async function createPoll(formData: FormData) {
+// Returns the new poll's id/name so the client can offer to place it on the
+// homepage (the auto-plug dialog). Returns {ok:false,error} instead of throwing
+// on validation so the client form can show the message inline.
+export async function createPoll(formData: FormData): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
   await ensureStaff();
   const question = ((formData.get('question') as string) || '').trim();
   const optionsRaw = ((formData.get('options') as string) || '').trim();
   const active = formData.get('active') != null;
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const options = optionsRaw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 8);
-  if (!question || options.length < 2) throw new Error('A question and at least 2 options are required');
+  if (!question || options.length < 2) return { ok: false, error: 'A question and at least 2 options are required' };
   const closes = closesRaw ? new Date(closesRaw) : null;
-  // Only one poll active at a time — deactivate the others when publishing a new one.
-  if (active) await prisma.poll.updateMany({ where: { active: true }, data: { active: false } });
-  await prisma.poll.create({
-    data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
+  // Polls are a library now — multiple can be active at once (each poll element
+  // picks one). The council aside simply shows the most recent active poll.
+  const poll = await prisma.poll.create({
+    data: { question, active, kind: 'council', closesAt: closes && !isNaN(closes.getTime()) ? closes : null,
       options: { create: options.map((label, i) => ({ label, order: i })) } },
   });
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
+  return { ok: true, id: poll.id, name: question };
 }
 
 export async function updatePoll(formData: FormData) {
@@ -248,7 +254,6 @@ export async function updatePoll(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const closes = closesRaw ? new Date(closesRaw) : null;
   if (!question) throw new Error('Question is required');
-  if (active) await prisma.poll.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
   await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
@@ -263,7 +268,7 @@ export async function deletePoll(id: string) {
 
 /* -------------------------------- Pop Quiz -------------------------------- */
 
-export async function createQuiz(formData: FormData) {
+export async function createQuiz(formData: FormData): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
   await ensureStaff();
   const title = ((formData.get('title') as string) || '').trim();
   const body = ((formData.get('questions') as string) || '').trim();
@@ -271,13 +276,13 @@ export async function createQuiz(formData: FormData) {
   const hoursRaw = ((formData.get('hours') as string) || '').trim();
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const questions = parseQuizBlocks(body);
-  if (!title || questions.length < 1) throw new Error('A title and at least one question (each with 2+ options) are required');
+  if (!title || questions.length < 1) return { ok: false, error: 'A title and at least one question (each with 2+ options) are required' };
 
   // Timer: an explicit close time wins; otherwise now + N hours (default 48).
   const closesAt = resolveClosesAt({ explicit: closesRaw ? new Date(closesRaw) : null, hours: hoursRaw ? Number(hoursRaw) : null });
 
   if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
-  await prisma.quiz.create({
+  const quiz = await prisma.quiz.create({
     data: {
       title, active, closesAt,
       questions: {
@@ -290,6 +295,7 @@ export async function createQuiz(formData: FormData) {
   });
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');
+  return { ok: true, id: quiz.id, name: title };
 }
 
 export async function updateQuiz(formData: FormData) {
@@ -599,66 +605,243 @@ export async function rebuildAnalyticsRollups() {
 
 /* ---------------------------- Homepage layout ---------------------------- */
 
+// All homepage arrangement edits below modify the DRAFT layout only; the public
+// homepage is unchanged until an admin calls publishHomeLayout ("Go Live").
 export async function moveHomeModule(id: string, direction: 'up' | 'down') {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const i = layout.findIndex((m) => m.id === id);
   if (i === -1 || layout[i].locked) return;
   const j = direction === 'up' ? i - 1 : i + 1;
   if (j < 0 || j >= layout.length || layout[j].locked) return;
   [layout[i], layout[j]] = [layout[j], layout[i]];
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 // Persist a drag-and-drop order (locks are enforced server-side).
 export async function reorderHomeModules(orderedIds: string[]) {
   await ensureStaff();
-  const layout = await getHomeLayout();
-  await saveHomeLayout(applyReorder(layout, orderedIds));
+  const layout = await getDraftLayout();
+  await saveDraftLayout(applyReorder(layout, orderedIds));
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function toggleHomeModule(id: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   if (!m || m.locked) return; // locked modules can't be hidden
   m.enabled = !m.enabled;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function toggleHomeLock(id: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   if (!m) return;
   m.locked = !m.locked;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function setHomeModuleSource(id: string, source: string) {
   await ensureStaff();
-  const layout = await getHomeLayout();
+  const layout = await getDraftLayout();
   const m = layout.find((x) => x.id === id);
   const def = MODULE_CATALOG[id as ModuleId];
   if (!m || !def?.sources) return;
   if (!def.sources.some((s) => s.value === source)) return; // reject unknown source
   m.source = source;
-  await saveHomeLayout(layout);
+  await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
-  revalidatePath('/docs');
 }
 
 export async function resetHomeLayout() {
   await ensureStaff();
-  await saveHomeLayout(DEFAULT_LAYOUT);
+  await saveDraftLayout(DEFAULT_LAYOUT);
   revalidatePath('/admin/homepage');
+}
+
+// Go Live: promote the draft arrangement to the public homepage.
+export async function publishHomeLayout() {
+  await ensureStaff();
+  await publishDraftLayout();
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+// Throw away pending draft changes and snap back to what's currently live.
+export async function discardHomeDraft() {
+  await ensureStaff();
+  await discardDraftLayout();
+  revalidatePath('/admin/homepage');
+}
+
+// Persist the signed-in member's chosen UI theme so it follows them across
+// devices. No-ops for anonymous visitors (they rely on localStorage). Accepts
+// only the three known themes; anything else is ignored.
+export async function setUserTheme(theme: string) {
+  const user = await getSessionUser();
+  if (!user) return; // anonymous — localStorage handles persistence
+  if (theme !== 'light' && theme !== 'dark' && theme !== 'rs') return;
+  await prisma.user.update({ where: { id: user.id }, data: { theme } });
+}
+
+/* --------------------------- Module Studio ------------------------------- */
+// Custom homepage modules built in the Studio. Trees are always normalized on
+// write (see lib/studio) so nothing unsafe is ever persisted.
+
+export async function createCustomModule(name: string, shape: string): Promise<string> {
+  await ensureStaff();
+  const clean = (name || '').trim().slice(0, 80) || 'Untitled module';
+  const s: Shape = isShape(shape) ? shape : 'column';
+  const mod = await prisma.customModule.create({
+    data: { name: clean, shape: s, tree: serializeTree(emptyTree(s)), published: false },
+  });
+  revalidatePath('/admin/studio');
+  return mod.id;
+}
+
+export async function saveCustomModuleTree(id: string, treeJson: string): Promise<void> {
+  await ensureStaff();
+  const tree = parseTree(treeJson); // parse + normalize (never throws)
+  await prisma.customModule.update({
+    where: { id },
+    data: { tree: serializeTree(tree), shape: tree.shape },
+  });
+  revalidatePath('/admin/studio');
+  revalidatePath(`/admin/studio/${id}`);
+  revalidatePath('/docs');
+}
+
+export async function renameCustomModule(id: string, name: string): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.update({ where: { id }, data: { name: (name || '').trim().slice(0, 80) || 'Untitled module' } });
+  revalidatePath('/admin/studio');
+}
+
+export async function setCustomModulePublished(id: string, published: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.update({ where: { id }, data: { published: !!published } });
+  // On publish, STAGE the module into the draft homepage (appended, enabled) if
+  // it isn't placed yet — it won't appear publicly until the admin hits Go Live.
+  // Unpublishing leaves its slot in place but gated off (published=false), so it
+  // simply doesn't render live.
+  if (published) {
+    const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
+    if (mod) {
+      const tree = parseTree(mod.tree);
+      // Materialize any inline poll blocks (legacy) into real Poll records.
+      const changed = await materializeModulePolls(tree);
+      if (changed) await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
+      // Anchor the invisible expiry timer (if any) from now.
+      const expiresAt = tree.expireDays && tree.expireDays > 0 ? new Date(Date.now() + tree.expireDays * 86400000) : null;
+      await prisma.customModule.update({ where: { id }, data: { expiresAt } });
+    }
+    const layoutId = `custom:${id}`;
+    const layout = await getDraftLayout();
+    if (!layout.some((m) => m.id === layoutId)) {
+      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
+    }
+  } else {
+    await prisma.customModule.update({ where: { id }, data: { expiresAt: null } });
+  }
+  revalidatePath('/admin/studio');
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+export async function deleteCustomModule(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.customModule.delete({ where: { id } });
+  // Drop it from BOTH the live and draft layouts so no dangling reference remains.
+  const layoutId = `custom:${id}`;
+  const [live, draft] = await Promise.all([getHomeLayout(), getDraftLayout()]);
+  const prunedLive = live.filter((m) => m.id !== layoutId);
+  if (prunedLive.length !== live.length) await saveHomeLayout(prunedLive);
+  const prunedDraft = draft.filter((m) => m.id !== layoutId);
+  if (prunedDraft.length !== draft.length) await saveDraftLayout(prunedDraft);
+  revalidatePath('/admin/studio');
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+/* --------------------------- Appearance ---------------------------------- */
+
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const RS_BG_KEY = 'rs_bg_color';
+
+// Admin-set RS-Mode page background. Empty string clears it (back to the default
+// textured surround). Only affects RS Mode; Light/Dark are unchanged.
+export async function setRsBackground(color: string): Promise<void> {
+  await ensureStaff();
+  const raw = (color || '').trim();
+  if (raw && !HEX_RE.test(raw)) throw new Error('Invalid color');
+  if (!raw) await prisma.setting.deleteMany({ where: { key: RS_BG_KEY } });
+  else await prisma.setting.upsert({ where: { key: RS_BG_KEY }, update: { value: raw }, create: { key: RS_BG_KEY, value: raw } });
+  revalidatePath('/admin/homepage');
+  revalidatePath('/docs');
+}
+
+/* ------------------- Quick post to homepage (poll/quiz) ------------------ */
+// One-click: wrap a poll or quiz in its own single-element custom module,
+// publish it, and stage it on the homepage — no trip to the Module Studio.
+export async function addElementToHomepage(kind: 'poll' | 'quiz', refId: string, name: string, shape: string, rsColor: string | null): Promise<void> {
+  await ensureStaff();
+  if (!refId) throw new Error('Missing id');
+  const s: Shape = isShape(shape) ? shape : 'card';
+  const child = kind === 'poll'
+    ? { id: 'b0', type: 'poll', settings: { pollId: refId, chart: 'bar' } }
+    : { id: 'b0', type: 'quiz', settings: { quizId: refId, timerHours: 0 } };
+  const tree = parseTree(JSON.stringify({ shape: s, rsColor, children: [child] }));
+  const mod = await prisma.customModule.create({
+    data: { name: (name || (kind === 'poll' ? 'Poll' : 'Quiz')).slice(0, 80), shape: tree.shape, tree: serializeTree(tree), published: true },
+  });
+  const layout = await getDraftLayout();
+  await saveDraftLayout([...layout, { id: `custom:${mod.id}`, enabled: true, locked: false }]);
+  revalidatePath('/admin/homepage');
+  revalidatePath('/admin/studio');
+  revalidatePath('/admin/polls');
+  revalidatePath('/admin/quizzes');
+}
+
+export type PlugSlot = { moduleId: string; moduleName: string; blockId: string; filled: boolean };
+
+/** Find published modules that already have a poll/quiz element — spots this new
+ *  poll/quiz could be pinned into. One slot per module (the first top-level one);
+ *  `filled` flags a slot that already points at something (pinning replaces it). */
+export async function findPollQuizSlots(kind: 'poll' | 'quiz'): Promise<PlugSlot[]> {
+  await ensureStaff();
+  const mods = await prisma.customModule.findMany({ where: { published: true }, select: { id: true, name: true, tree: true }, orderBy: { updatedAt: 'desc' } });
+  const slots: PlugSlot[] = [];
+  for (const m of mods) {
+    const block = parseTree(m.tree).children.find((b) => b.type === kind);
+    if (block) {
+      const filled = kind === 'poll' ? !!block.settings.pollId : !!block.settings.quizId;
+      slots.push({ moduleId: m.id, moduleName: m.name, blockId: block.id, filled });
+    }
+  }
+  return slots;
+}
+
+/** Pin a specific poll/quiz into an existing element (writes its id into that
+ *  block's settings). The module keeps everything else — this only fills the slot. */
+export async function pinToSlot(kind: 'poll' | 'quiz', refId: string, moduleId: string, blockId: string): Promise<void> {
+  await ensureStaff();
+  if (!refId) throw new Error('Missing id');
+  const mod = await prisma.customModule.findUnique({ where: { id: moduleId }, select: { tree: true } });
+  if (!mod) throw new Error('Module not found');
+  const tree = parseTree(mod.tree);
+  const block = tree.children.find((b) => b.id === blockId && b.type === kind);
+  if (!block) throw new Error('That slot no longer exists');
+  block.settings = kind === 'poll'
+    ? { ...block.settings, pollId: refId }
+    : { ...block.settings, quizId: refId };
+  await prisma.customModule.update({ where: { id: moduleId }, data: { tree: serializeTree(tree) } });
+  revalidatePath('/admin/studio');
+  revalidatePath(`/admin/studio/${moduleId}`);
   revalidatePath('/docs');
 }

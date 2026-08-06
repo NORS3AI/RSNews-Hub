@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Sun, Moon, Stamp } from './icons';
+import { track } from '@/lib/analytics/track';
+import { setUserTheme } from '@/lib/actions';
 
 // Three themes, cycled in order. RS Mode = Light palette + textured surfaces.
 type Theme = 'light' | 'dark' | 'rs';
@@ -20,7 +22,17 @@ export default function ThemeToggle() {
   useEffect(() => {
     setMounted(true);
     const el = document.documentElement;
-    setTheme(el.classList.contains('dark') ? 'dark' : el.classList.contains('rs') ? 'rs' : 'light');
+    const current: Theme = el.classList.contains('dark') ? 'dark' : el.classList.contains('rs') ? 'rs' : 'light';
+    setTheme(current);
+    // Emit the effective theme once per session so usage is measured even for
+    // visitors who never touch the toggle. Guarded so a re-render/route change
+    // doesn't double-count within the same browsing session.
+    try {
+      if (!sessionStorage.getItem('rsnews_theme_seen')) {
+        sessionStorage.setItem('rsnews_theme_seen', '1');
+        track({ type: 'theme', props: { theme: current, reason: 'active' } });
+      }
+    } catch { /* private mode — skip */ }
   }, []);
 
   function cycle() {
@@ -28,6 +40,10 @@ export default function ThemeToggle() {
     setTheme(next);
     apply(next);
     try { localStorage.setItem('theme', next); } catch {}
+    // Remember on the account (no-op when anonymous) so it follows the member
+    // across devices, and record the deliberate switch for analytics.
+    setUserTheme(next).catch(() => {});
+    track({ type: 'theme', props: { theme: next, reason: 'switch' } });
   }
 
   if (!mounted) return <div className="h-9 w-9" aria-hidden />;

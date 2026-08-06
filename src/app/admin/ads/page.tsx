@@ -62,7 +62,7 @@ export default async function AdminAds() {
                 <span className="flex items-center gap-2 font-medium">
                   <span className="h-3 w-3 rounded-full" style={{ backgroundColor: ad.accent }} />
                   {ad.brand}
-                  {!ad.active && <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">paused</span>}
+                  {!ad.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">paused</span>}
                 </span>
                 <span className="max-w-[45%] truncate text-xs text-[var(--muted)]">{ad.competitors ? `vs ${ad.competitors}` : 'no competitors set'}</span>
               </summary>

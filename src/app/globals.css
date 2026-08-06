@@ -89,6 +89,54 @@
 .rs .card:nth-of-type(6n+5), .rs .module:nth-of-type(6n+5) { background-position: 50% 96%; }
 .rs .card:nth-of-type(6n),   .rs .module:nth-of-type(6n)   { background-position: 62% 42%; }
 
+/* ---- Module Studio ----
+   Per-element color overrides are RS-Mode ONLY. Each block/container always
+   carries its chosen color as the inline custom property `--studio-rs`, but only
+   RS-mode CSS reads it — so Light/Dark keep their standard surfaces untouched. */
+/* Reset the texture var at every studio-fill so a parent's texture never
+   inherits into a child (a solid-tinted element inside a textured module must
+   NOT inherit the module's texture — it would tint every child the same). */
+.studio-fill { --studio-rs-img: none; }
+.rs .studio-fill[style*='--studio-rs'] {
+  background-image: var(--studio-rs-img, none) !important;
+  background-color: var(--studio-rs);
+  background-size: cover;
+  background-position: center;
+}
+/* Texture backgrounds carry a readable dark-brown text in RS Mode. */
+.rs .studio-fill[style*='studio-rs-img'],
+.rs .studio-fill[style*='studio-rs-img'] :is(h1, h2, h3, h4, p, span, a, time, li, .studio-eyebrow) { color: #3d2a19; }
+/* Solid tints carry a luminance-matched ink (--studio-fg): cream on dark tints,
+   dark-brown on light tints. The custom property cascades to the nearest tinted
+   ancestor, so a tinted element inside a tinted module keeps its own ink. */
+.rs .studio-fill[style*='--studio-rs']:not([style*='studio-rs-img']),
+.rs .studio-fill[style*='--studio-rs']:not([style*='studio-rs-img']) :is(h1, h2, h3, h4, h5, p, span, a, time, li, .studio-eyebrow) { color: var(--studio-fg, #3d2a19); }
+/* On the live homepage an article/poll/quiz keeps its own opaque .card surface;
+   when it sits in a per-element tint (the immediate wrapper carries --studio-rs),
+   make that inner card transparent so the tint — and its ink — show through. */
+.rs .studio-fill[style*='--studio-rs'] > .card { background: transparent !important; box-shadow: none !important; }
+/* Round the per-element tint to the same radius as the card it backs, and clip,
+   so the solid color never pokes past the card's rounded corners. Scoped off the
+   module container, which keeps its own larger radius. */
+.rs .studio-fill:not(.module)[style*='--studio-rs'] { border-radius: 0.75rem; overflow: hidden; }
+/* Ads default to the orange corrugated texture in RS Mode (unless overridden). */
+.rs .studio-ad:not([style*='--studio-rs']) {
+  background-image: linear-gradient(#E97D34, #E97D34), url('/textures/rs-orange.webp');
+  background-size: cover;
+  color: #f7edd8;
+}
+/* Horizontal band that scrolls when it overflows, like the article carousels. */
+.studio-row { scrollbar-width: thin; }
+.studio-row::-webkit-scrollbar { height: 8px; }
+.studio-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
+/* Sidebar shape: a skinny column whose text scales down to fit — with a hard
+   floor so it never becomes unreadable. */
+.studio-sidebar :is(h2, h3, h4) { font-size: clamp(0.95rem, 3.2vw, 1.15rem) !important; line-height: 1.2; }
+.studio-sidebar p, .studio-sidebar .text-sm { font-size: clamp(0.78rem, 2.6vw, 0.9rem); }
+/* Article-headline block: fills its row and shrinks to fit, never below floor. */
+.studio-fit { font-size: clamp(1.05rem, 2.4vw, 1.7rem); line-height: 1.12; }
+
 html { -webkit-text-size-adjust: 100%; }
 body {
   color: var(--fg);
@@ -123,10 +171,13 @@ body::before {
   .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
   .btn-sm { @apply px-3 py-1.5 text-xs; }
 
+  /* Form fields sit on a light surface (--card-2) with --fg text, so their text
+     is legible in every theme — never dark-on-dark. select options inherit too. */
   .input {
-    @apply w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--fg)]
+    @apply w-full rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-3 py-2 text-sm text-[var(--fg)]
     placeholder:text-[var(--muted)] focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
   }
+  .input option { @apply bg-[var(--card)] text-[var(--fg)]; }
   .label { @apply mb-1.5 block text-sm font-medium text-[var(--fg)]; }
 
   /* Modular cards — cream surface with a dark drop shadow. */

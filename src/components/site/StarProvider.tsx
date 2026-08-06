@@ -21,6 +21,7 @@ type Ctx = {
   toggleFavorite: (s: SavedItem) => void;
   toggleToRead: (s: SavedItem) => void;
   removeToRead: (id: string) => void;
+  clearToRead: () => void;
   recordHistory: (s: SavedItem) => void;
   clearHistory: () => void;
   addClipping: (c: Omit<Clipping, 'id' | 'ts'>) => void;
@@ -129,6 +130,11 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
     pushOp({ op: 'removeToRead', id });
   }, [toRead, persist, pushOp]);
 
+  const clearToRead = useCallback(() => {
+    persist(READ_KEY, [], setToRead);
+    pushOp({ op: 'clearToRead' });
+  }, [persist, pushOp]);
+
   // History: most-recent first, de-duplicated, capped. Local-only (see note above).
   const recordHistory = useCallback((s: SavedItem) => {
     setHistory((prev) => {
@@ -153,7 +159,7 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
   }, [pushOp]);
 
   return (
-    <Ctx.Provider value={{ favorites, toRead, history, clippings, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, recordHistory, clearHistory, addClipping, removeClipping, ready }}>
+    <Ctx.Provider value={{ favorites, toRead, history, clippings, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, clearToRead, recordHistory, clearHistory, addClipping, removeClipping, ready }}>
       {children}
     </Ctx.Provider>
   );

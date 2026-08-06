@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/db';
 import { createPoll, updatePoll, deletePoll } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
+import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
+import AutoPlugForm from '@/components/admin/AutoPlugForm';
+import StatusChip from '@/components/admin/StatusChip';
+import { timedStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +17,9 @@ function toLocalInput(d?: Date | string | null) {
 }
 
 export default async function AdminPolls() {
+  // Council polls only — module polls are managed inside the Module Studio.
   const polls = await prisma.poll.findMany({
+    where: { kind: 'council' },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' } } },
   });
@@ -26,7 +32,7 @@ export default async function AdminPolls() {
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <form action={createPoll} className="card h-fit space-y-3 p-5 lg:col-span-1">
+        <AutoPlugForm kind="poll" action={createPoll} className="card h-fit space-y-3 p-5 lg:col-span-1">
           <h2 className="font-semibold">New poll</h2>
           <div><label className="label">Question</label><input name="question" required className="input" placeholder="What should we cover next?" /></div>
           <div>
@@ -36,12 +42,11 @@ export default async function AdminPolls() {
           <div><label className="label">Closes (optional)</label><input name="closesAt" type="datetime-local" className="input" /></div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active (show on homepage)</label>
           <button className="btn-primary w-full">Publish poll</button>
-        </form>
+        </AutoPlugForm>
 
         <div className="space-y-3 lg:col-span-2">
           {polls.map((poll) => {
             const total = poll.options.reduce((n, o) => n + o.votes, 0);
-            const closed = !!poll.closesAt && poll.closesAt < new Date();
             return (
               <details key={poll.id} className="card p-4" open={poll.active}>
                 <summary className="flex cursor-pointer items-center justify-between gap-3">
@@ -50,9 +55,7 @@ export default async function AdminPolls() {
                     <span className="mt-0.5 text-xs text-[var(--muted)]">{total} vote{total === 1 ? '' : 's'} · {poll.options.length} options</span>
                   </span>
                   <span className="shrink-0">
-                    {poll.active ? <span className="badge bg-green-100 text-green-700">Active</span>
-                      : closed ? <span className="badge bg-amber-100 text-amber-700">Closed</span>
-                      : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Archived</span>}
+                    <StatusChip status={timedStatus(poll, Date.now())} />
                   </span>
                 </summary>
 
@@ -84,6 +87,9 @@ export default async function AdminPolls() {
                     <ActionButtons actions={[{ label: 'Delete', run: deletePoll.bind(null, poll.id), danger: true, confirm: 'Delete this poll and all its votes?' }]} />
                   </div>
                 </form>
+                <div className="mt-3 flex justify-end border-t border-[var(--border)] pt-3">
+                  <AddToHomepageButton kind="poll" id={poll.id} name={poll.question} />
+                </div>
               </details>
             );
           })}

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const statusChip: Record<string, string> = {
   ACTIVE: 'bg-green-100 text-green-700',
-  COMPLETED: 'bg-[var(--bg-soft)] text-[var(--muted)]',
+  COMPLETED: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
   CANCELLED: 'bg-red-100 text-red-700',
   DRAFT: 'bg-amber-100 text-amber-700',
 };

@@ -35,7 +35,7 @@ export default async function AdminEmailTemplates() {
                 <h2 className="font-bold">{def.label}</h2>
                 <p className="text-sm text-[var(--muted)]">{def.description}</p>
               </div>
-              <span className={`badge ${custom ? 'bg-green-100 text-green-700' : 'bg-[var(--bg-soft)] text-[var(--muted)]'}`}>{custom ? 'Customized' : 'Default'}</span>
+              <span className={`badge ${custom ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>{custom ? 'Customized' : 'Default'}</span>
             </div>
 
             <form action={saveEmailTemplate} className="mt-4 space-y-3">

@@ -43,7 +43,7 @@ export default async function AdminComics() {
               <div className="px-1 pt-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold">{c.title}</span>
-                  {c.active ? <span className="badge bg-green-100 text-green-700">On homepage</span> : <span className="badge bg-[var(--bg-soft)] text-[var(--muted)]">Archived</span>}
+                  {c.active ? <span className="badge bg-green-100 text-green-700">On homepage</span> : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Archived</span>}
                 </div>
                 <div className="mt-0.5 text-xs text-[var(--muted)]">{postedLabel(c.postedAt)}</div>
                 <details className="mt-3">

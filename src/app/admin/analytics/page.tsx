@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { loadEvents, totalEventCount, loadUserInfo } from '@/lib/analytics/query';
-import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, ctr } from '@/lib/analytics/metrics';
+import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, aggregateThemes, ctr } from '@/lib/analytics/metrics';
 import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
 import { rebuildAnalyticsRollups } from '@/lib/actions';
@@ -54,6 +54,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const eng = aggregateEngagement(events, artSplit);
   const reading = aggregateReading(events);
   const clips = aggregateClips(events);
+  const themes = aggregateThemes(events);
   const userInfo = await loadUserInfo(events, new Date());
   const audience = aggregateAudience(events, audSplit, userInfo);
   const video = aggregateVideo(events, vidSplit);
@@ -216,6 +217,27 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
               <Tile label="Expands" value={nf(clips.expands)} />
               <Tile label="Deletes" value={nf(clips.deletes)} />
             </div>
+          </section>
+
+          {/* ---------- Theme usage ---------- */}
+          <section>
+            <SectionTitle>Theme — which mode people browse in</SectionTitle>
+            {themes.totalUsers > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Tile label="Light" value={`${nf(themes.rows[0].users)}`} hint={pctStr(themes.rows[0].pct)} />
+                  <Tile label="Dark" value={`${nf(themes.rows[1].users)}`} hint={pctStr(themes.rows[1].pct)} />
+                  <Tile label="RS Mode" value={`${nf(themes.rows[2].users)}`} hint={pctStr(themes.rows[2].pct)} />
+                  <Tile label="Theme switches" value={nf(themes.switches)} hint="deliberate toggles" />
+                </div>
+                <div className="mt-3">
+                  <BarList title={`Share of ${nf(themes.totalUsers)} visitors`} rows={themes.rows.map((r) => ({ key: r.label, count: Math.round(r.pct * 100) }))} suffix="%" max={100} />
+                </div>
+                <p className="mt-1.5 text-xs text-[var(--muted)]">Each visitor is counted once, by their most recent theme in this window. Signed-in members are keyed by account; anonymous readers by their browser.</p>
+              </>
+            ) : (
+              <div className="card p-5 text-sm text-[var(--muted)]">No theme signals yet for this window. They&apos;re recorded as people load the site and when they switch modes.</div>
+            )}
           </section>
 
           {capped && <p className="text-xs text-amber-600">Showing a capped sample of events for this window — totals may understate a very high-traffic period.</p>}
