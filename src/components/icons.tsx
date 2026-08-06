@@ -17,6 +17,8 @@ export const ArrowLeft = (p: P) => (<svg {...base(p)}><path d="M19 12H5M11 6l-6 
 export const Clock = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 export const Calendar = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>);
 export const Pin = (p: P) => (<svg {...base(p)}><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z" /></svg>);
+export const ExpandLR = (p: P) => (<svg {...base(p)}><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" /></svg>);
+export const CollapseLR = (p: P) => (<svg {...base(p)}><path d="M4 12h16M4 8l4 4-4 4M20 8l-4 4 4 4" /></svg>);
 export const Eye = (p: P) => (<svg {...base(p)}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>);
 export const Bell = (p: P) => (<svg {...base(p)}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>);
 export const Archive = (p: P) => (<svg {...base(p)}><rect x="2" y="4" width="20" height="5" rx="1" /><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M10 13h4" /></svg>);

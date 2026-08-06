@@ -1,12 +1,12 @@
 'use client';
 import { useSaved, type SavedItem } from './StarProvider';
-import { Star, StarFilled, Book, BookFilled } from '@/components/icons';
+import { Star, StarFilled, Pin } from '@/components/icons';
 import { classNames } from '@/lib/utils';
 
 /**
  * Two save actions for an article:
- *  - Star  = add to Favorites
- *  - Book  = save to "To read" (this is what pins to the top strip)
+ *  - Star = add to Favorites
+ *  - Pin  = save to "Pinned" (this is what pins to the top strip)
  *
  * variant "floating" = round icon buttons (used on cards);
  * variant "inline"   = labelled pill buttons (used in the reader).
@@ -30,8 +30,8 @@ export default function SaveButtons({
         </button>
         <button onClick={stop(() => toggleToRead(item))} aria-pressed={read}
           className={classNames('btn-sm', read ? 'btn-primary' : 'btn-outline')}>
-          {read ? <BookFilled width={15} height={15} /> : <Book width={15} height={15} />}
-          {read ? 'To read' : 'Read later'}
+          <Pin width={15} height={15} />
+          {read ? 'Pinned' : 'Pin'}
         </button>
       </div>
     );
@@ -50,9 +50,9 @@ export default function SaveButtons({
         {fav ? <StarFilled width={17} height={17} /> : <Star width={17} height={17} />}
       </button>
       <button onClick={stop(() => toggleToRead(item))} aria-pressed={read}
-        title={read ? 'Saved to read (pinned to the top)' : 'Save to read later'} aria-label="Read later"
+        title={read ? 'Pinned to top' : 'Pin to top'} aria-label="Pin"
         className={classNames(round, read && on)}>
-        {read ? <BookFilled width={17} height={17} /> : <Book width={17} height={17} />}
+        <Pin width={17} height={17} />
       </button>
     </div>
   );

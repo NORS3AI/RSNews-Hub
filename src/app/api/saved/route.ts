@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { captureError } from '@/lib/logger';
 import {
-  getSaved, toggleFavorite, toggleToRead, removeToRead, addClipping, removeClipping, mergeLocal,
+  getSaved, toggleFavorite, toggleToRead, removeToRead, clearToRead, addClipping, removeClipping, mergeLocal,
   normalizeSavedItem, normalizeClipping, type SavedBundle,
 } from '@/lib/saved';
 
@@ -44,6 +44,8 @@ export async function POST(req: Request) {
       }
       case 'removeToRead':
         return NextResponse.json(await removeToRead(user.id, String(body.id || '')));
+      case 'clearToRead':
+        return NextResponse.json(await clearToRead(user.id));
       case 'addClipping': {
         const clip = normalizeClipping(body.clipping);
         if (!clip) return NextResponse.json({ error: 'bad clipping' }, { status: 400 });
