@@ -24,6 +24,9 @@
     book: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
     bookFill: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
     bookSm: '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
+    pinMd: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
+    expandLR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>',
+    collapseLR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12h16M4 8l4 4-4 4M20 8l-4 4 4 4"/></svg>',
     x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     clockLg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" style="display:inline;vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
@@ -89,6 +92,7 @@
   function toggleFav(slug) { toggleIn(FAV_KEY, slug); syncButtons(); }
   function toggleRead(slug) { toggleIn(READ_KEY, slug); renderStrip(); syncButtons(); }
   function removeRead(id) { write(READ_KEY, read(READ_KEY).filter(function (s) { return s.id !== id; })); renderStrip(); syncButtons(); }
+  function clearRead() { write(READ_KEY, []); renderStrip(); syncButtons(); }
   function getHistory() { return read(HIST_KEY); }
   function recordHistory(a) { if (!a) return; var l = read(HIST_KEY).filter(function (s) { return s.id !== a.id; });
     l.unshift({ id: a.id, title: a.title, slug: a.slug, ts: Date.now() }); if (l.length > HIST_MAX) l = l.slice(0, HIST_MAX); write(HIST_KEY, l); }
@@ -289,17 +293,23 @@
   }
   function closeDialog() { el('dialog-host').innerHTML = ''; dialogData = null; }
 
+  var stripExpanded = false, stripConfirmClear = false;
   function renderStrip() {
     var wrap = el('strip'); if (!wrap) return;
     var list = read(READ_KEY);
-    if (!list.length) { wrap.innerHTML = ''; return; }
+    if (!list.length) { stripConfirmClear = false; wrap.innerHTML = ''; return; }
     var chips = list.map(function (s) {
-      return '<div class="chip"><span data-open="' + esc(s.slug) + '" style="display:flex;align-items:center;gap:6px;min-width:0">' +
-        '<span style="color:var(--orange);flex-shrink:0">' + ICON.bookSm + '</span><span class="chip-title">' + esc(s.title) + '</span></span>' +
-        '<span class="chip-x" data-unread="' + esc(s.id) + '" title="Remove">' + ICON.x + '</span></div>';
+      return '<div class="chip"><span data-open="' + esc(s.slug) + '" style="display:flex;align-items:center;gap:7px;min-width:0">' +
+        '<span style="color:var(--orange);flex-shrink:0;display:flex">' + ICON.pinMd + '</span><span class="chip-title">' + esc(s.title) + '</span></span>' +
+        '<span class="chip-x" data-unread="' + esc(s.id) + '" title="Unpin">' + ICON.x + '</span></div>';
     }).join('');
-    wrap.innerHTML = '<div class="strip-wrap"><div class="strip"><div class="strip-inner">' +
-      '<span class="strip-label">' + ICON.bookSm + ' Pinned</span><div class="chips">' + chips + '</div></div></div></div>';
+    var clear = stripConfirmClear
+      ? '<span class="strip-clear-confirm">Clear all? <button class="scy" data-strip-clear-yes="1">Yes</button><button class="scn" data-strip-clear-no="1">No</button></span>'
+      : '<button class="strip-clear" data-strip-clear="1" title="Clear all pinned">Clear all</button>';
+    wrap.innerHTML = '<div class="strip-wrap"><div class="strip' + (stripExpanded ? ' expanded' : '') + '"><div class="strip-inner">' +
+      '<button class="strip-icon-btn" data-strip-expand="1" title="' + (stripExpanded ? 'Collapse' : 'Expand — show all titles') + '">' + (stripExpanded ? ICON.collapseLR : ICON.expandLR) + '</button>' +
+      '<span class="strip-label">' + ICON.pinMd + ' Pinned</span><div class="chips">' + chips + '</div>' +
+      '<div class="strip-clear-wrap">' + clear + '</div></div></div></div>';
   }
   function syncButtons() {
     document.querySelectorAll('[data-fav]').forEach(function (b) {
@@ -1143,6 +1153,10 @@
       return; }
     var comicZoom = e.target.closest('.comic-frame img, .comic-card img'); if (comicZoom) { e.preventDefault(); openComicLightbox(comicZoom.getAttribute('src'), comicZoom.getAttribute('alt')); return; }
     var delClip = e.target.closest('[data-del-clip]'); if (delClip) { e.preventDefault(); removeClipping(delClip.getAttribute('data-del-clip')); renderClippings(); return; }
+    var sExp = e.target.closest('[data-strip-expand]'); if (sExp) { e.preventDefault(); stripExpanded = !stripExpanded; renderStrip(); return; }
+    var sClr = e.target.closest('[data-strip-clear]'); if (sClr) { e.preventDefault(); stripConfirmClear = true; renderStrip(); return; }
+    var sYes = e.target.closest('[data-strip-clear-yes]'); if (sYes) { e.preventDefault(); stripConfirmClear = false; clearRead(); return; }
+    var sNo = e.target.closest('[data-strip-clear-no]'); if (sNo) { e.preventDefault(); stripConfirmClear = false; renderStrip(); return; }
     var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
     if (!t) return;
     if (t.hasAttribute('data-clippings')) { e.preventDefault(); setActive(t); renderClippings(); closeDrawer(); window.scrollTo(0, 0); return; }

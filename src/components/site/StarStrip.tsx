@@ -38,7 +38,7 @@ export default function StarStrip() {
             <div key={s.id}
               className={`group/chip flex shrink-0 items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--card)] py-1 pl-1.5 pr-1 shadow-sm transition-[max-width] duration-200 ease-out ${expanded ? 'max-w-[280px]' : 'max-w-[44px] hover:max-w-[280px]'}`}>
               <button onClick={() => openArticle(s.slug)} className="flex min-w-0 items-center gap-1.5" title={s.title}>
-                <Pin width={12} height={12} className="shrink-0 text-brand-500" />
+                <Pin width={17} height={17} strokeWidth={2.4} className="shrink-0 text-brand-600" />
                 <span className={`truncate text-xs font-medium text-[var(--fg)] transition-opacity duration-150 ${expanded ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
                   {s.title}
                 </span>
