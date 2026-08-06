@@ -38,6 +38,14 @@ export default function ClippingsList() {
   const [clipTheme, setClipTheme] = useState<QuoteTheme>('dark');
   const [customize, setCustomize] = useState(false);
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
+  // Column count for the Images masonry, responsive to viewport width.
+  const [ncol, setNcol] = useState(3);
+  useEffect(() => {
+    const calc = () => setNcol(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
 
   // Quote-image look (dark / light / RS), remembered per account on this device.
   const [, forceRerender] = useState(0);
@@ -142,16 +150,21 @@ export default function ClippingsList() {
           No clippings yet. Highlight a passage in an article to save it as a quote image, or open a comic and tap <strong>Save to clippings</strong>.
         </p>
       ) : view === 'images' ? (
-        // Same row order as Cards (a grid, not column-masonry) so switching
-        // views never reshuffles where a given clip sits.
-        <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {clippings.map((c) => (
-            <div key={c.id} className="card flex flex-col p-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy"
-                onClick={() => openZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' }, c)}
-                className="w-full cursor-zoom-in rounded-lg" />
-              <Actions c={c} />
+        // Pinterest-style masonry: pack items into tight flex columns in
+        // reading order (round-robin) — no row gaps, jagged bottoms — while a
+        // clip keeps its spot when toggling Cards <-> Images.
+        <div className="flex items-start gap-4">
+          {Array.from({ length: ncol }, (_, ci) => clippings.filter((_c, i) => i % ncol === ci)).map((col, ci) => (
+            <div key={ci} className="flex min-w-0 flex-1 flex-col gap-4">
+              {col.map((c) => (
+                <div key={c.id} className="card flex flex-col p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy"
+                    onClick={() => openZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' }, c)}
+                    className="w-full cursor-zoom-in rounded-lg" />
+                  <Actions c={c} />
+                </div>
+              ))}
             </div>
           ))}
         </div>

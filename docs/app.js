@@ -1137,10 +1137,18 @@
     if (!list.length) {
       h += '<p style="color:var(--muted);margin:0;font-size:16px">No clippings yet. Open an article, <b>highlight</b> a passage, then click <b>Clip</b> to turn it into a shareable quote image you can download.</p>';
     } else if (clipView === 'images') {
-      // Masonry (Pinterest-style): images keep their natural height and tile.
-      h += '<div class="clip-img-masonry">' + list.map(function (c) {
-        var img = clipImageFor(c);
-        return '<div class="clip-img-card"><img class="clip-zoomable" data-clip-zoom="' + esc(c.id) + '" src="' + esc(img) + '" alt="' + esc(isComicClip(c) ? (c.title || 'Comic') : 'Quote image') + '" loading="lazy">' + clipActions(c) + '</div>';
+      // Pinterest-style masonry: tight columns (no row gaps, jagged bottoms).
+      // We hand-pack into columns in READING ORDER (item 1,2,3 across the top
+      // row, then wrap) so switching Cards<->Images never reshuffles a clip,
+      // while each column still stacks at natural height like Pinterest.
+      var ncol = window.innerWidth >= 960 ? 3 : (window.innerWidth >= 620 ? 2 : 1);
+      var cols = []; for (var ci = 0; ci < ncol; ci++) cols.push([]);
+      list.forEach(function (c, i) { cols[i % ncol].push(c); });
+      h += '<div class="clip-img-masonry">' + cols.map(function (col) {
+        return '<div class="clip-img-col">' + col.map(function (c) {
+          var img = clipImageFor(c);
+          return '<div class="clip-img-card"><img class="clip-zoomable" data-clip-zoom="' + esc(c.id) + '" src="' + esc(img) + '" alt="' + esc(isComicClip(c) ? (c.title || 'Comic') : 'Quote image') + '" loading="lazy">' + clipActions(c) + '</div>';
+        }).join('') + '</div>';
       }).join('') + '</div>';
     } else {
       h += '<div class="clip-grid clip-grid-3">' + list.map(function (c) {
