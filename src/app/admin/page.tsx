@@ -2,10 +2,12 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { FileText, Users, Layers, Eye, Plus } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
+import { getJobHealth } from '@/lib/jobHealth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboard() {
+  const jobs = await getJobHealth();
   const [published, drafts, trashed, users, categories, totalViews, recent, topArticles] = await Promise.all([
     prisma.article.count({ where: { status: 'PUBLISHED' } }),
     prisma.article.count({ where: { status: 'DRAFT' } }),
@@ -47,6 +49,39 @@ export default async function AdminDashboard() {
           </Link>
         ))}
       </div>
+
+      {/* Scheduled-job health — a stalled or never-configured cron is silent, so surface it. */}
+      {(() => {
+        const problems = jobs.filter((j) => j.neverRun || j.stale);
+        return (
+          <section className={`card mb-8 p-5 ${problems.length ? 'border-amber-300 dark:border-amber-800' : ''}`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="font-semibold">Scheduled jobs</h2>
+              {problems.length > 0
+                ? <span className="badge bg-amber-100 text-amber-800">{problems.length} need{problems.length === 1 ? 's' : ''} attention</span>
+                : <span className="badge bg-green-100 text-green-700">All healthy</span>}
+            </div>
+            {problems.length > 0 && (
+              <p className="mb-3 text-sm text-[var(--muted)]">A job that never runs fails silently (flights don&apos;t end, emails/newsletter don&apos;t send). Point an external scheduler at each endpoint below (auth: <code>Authorization: Bearer $CRON_SECRET</code>).</p>
+            )}
+            <ul className="divide-y divide-[var(--border)]">
+              {jobs.map((j) => (
+                <li key={j.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">{j.label} <code className="ml-1 text-[11px] font-normal text-[var(--muted)]">{j.endpoint}</code></div>
+                    <div className="text-xs text-[var(--muted)]">{j.detail}</div>
+                  </div>
+                  {j.neverRun
+                    ? <span className="badge bg-red-100 text-red-700">Never run</span>
+                    : j.stale
+                      ? <span className="badge bg-amber-100 text-amber-800">Stale · last {formatDate(j.lastRunAt!)}</span>
+                      : <span className="badge bg-green-100 text-green-700">Ran {formatDate(j.lastRunAt!)}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-5">

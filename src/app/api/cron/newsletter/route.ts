@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { sendDailyDigests } from '@/lib/newsletter';
+import { recordJobRun } from '@/lib/jobHealth';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,7 @@ async function run(req: Request) {
   const given = auth.replace(/^Bearer\s+/i, '') || url.searchParams.get('secret') || '';
   if (!safeEqual(given, secret)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   const r = await sendDailyDigests();
+  await recordJobRun('newsletter', r);
   return NextResponse.json(r);
 }
 export async function POST(req: Request) { return run(req); }

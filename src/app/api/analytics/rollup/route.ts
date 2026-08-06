@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'crypto';
 import { requireAdmin } from '@/lib/auth';
 import { rollupDays, recentDayKeys, pruneOldEvents, retentionDays } from '@/lib/analytics/rollup';
+import { recordJobRun } from '@/lib/jobHealth';
 import { captureError, log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
     const keys = recentDayKeys(new Date(), days);
     await rollupDays(keys);
     const { pruned, cutoff } = await pruneOldEvents(new Date());
+    await recordJobRun('analytics-rollup', { days, rolledUp: keys.length, pruned });
     log.info('analytics rollup complete', { days, rolledUp: keys.length, pruned, retentionDays: retentionDays() });
     return NextResponse.json({ ok: true, rolledUp: keys, pruned, cutoff, retentionDays: retentionDays() });
   } catch (e) {
