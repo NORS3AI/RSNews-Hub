@@ -1,10 +1,27 @@
 'use client';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
 import { ComposerProvider, type Opt, type Advertiser } from './composer/context';
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
+
+// Warn before leaving with unsaved edits: mark dirty on any edit in the form
+// (typing, field changes), clear it on submit, and gate a tab close / reload on it.
+function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
+  const dirty = useRef(false);
+  useEffect(() => {
+    const form = formRef.current;
+    const mark = () => { dirty.current = true; };
+    const clear = () => { dirty.current = false; };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { if (dirty.current) { e.preventDefault(); e.returnValue = ''; } };
+    form?.addEventListener('input', mark);
+    form?.addEventListener('submit', clear);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => { form?.removeEventListener('input', mark); form?.removeEventListener('submit', clear); window.removeEventListener('beforeunload', onBeforeUnload); };
+  }, [formRef]);
+}
 
 type Cat = { id: string; name: string; color?: string };
 type Article = {
@@ -20,8 +37,10 @@ type Article = {
 export default function ArticleEditor({
   article, categories, polls = [], quizzes = [], advertisers = [], authorName = 'You',
 }: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; authorName?: string }) {
+  const formRef = useRef<HTMLFormElement>(null);
+  useUnsavedGuard(formRef);
   return (
-    <form action={saveArticle}>
+    <form ref={formRef} action={saveArticle}>
       {article?.id && <input type="hidden" name="id" value={article.id} />}
       {/* excerpt is optional + auto-generated; keep it out of the way but submittable */}
       <input type="hidden" name="excerpt" value={article?.excerpt ?? ''} />
