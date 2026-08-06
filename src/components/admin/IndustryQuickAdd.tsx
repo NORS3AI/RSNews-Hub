@@ -13,7 +13,6 @@ export default function IndustryQuickAdd() {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [source, setSource] = useState('');
-  const [postedAt, setPostedAt] = useState(''); // ISO
   const [note, setNote] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
   const lastRead = useRef('');
 
@@ -29,11 +28,10 @@ export default function IndustryQuickAdd() {
       const m = data.meta;
       setTitle(m.title || '');
       setSource(m.source || '');
-      setPostedAt(m.publishedAt || '');
+      // Note: we deliberately ignore the article's own publish date — the posted
+      // date on the hub is "now", when it's added here.
       if (!m.title) { setNote({ kind: 'err', text: "Couldn't read the headline — just type it below." }); return; }
-      const dateLabel = m.publishedAt ? new Date(m.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-      const bits = [m.source, dateLabel].filter(Boolean);
-      setNote({ kind: 'ok', text: bits.length ? `Got it — ${bits.join(' · ')}` : 'Got the headline' });
+      setNote({ kind: 'ok', text: m.source ? `Got it — ${m.source}` : 'Got the headline' });
     } catch {
       setNote({ kind: 'err', text: "Couldn't read that link — just type the headline below." });
     }
@@ -64,10 +62,9 @@ export default function IndustryQuickAdd() {
         <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="Fills in automatically — or type it" />
       </div>
 
-      {/* Automatic + hidden: source falls back to the link's domain, the date to
-          the article's date (or now), newest first, and new links are shown. */}
+      {/* Automatic + hidden: source falls back to the link's domain, the posted
+          date is now (when he adds it), newest first, and new links are shown. */}
       <input type="hidden" name="source" value={source} />
-      <input type="hidden" name="postedAt" value={postedAt} />
       <input type="hidden" name="order" value="0" />
       <input type="hidden" name="active" value="1" />
 
