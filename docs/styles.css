@@ -123,6 +123,18 @@ img { max-width:100%; display:block; }
 .chip:hover .chip-title { opacity:1; }
 .chip .chip-x { display:none; color:var(--muted); border-radius:4px; padding:1px; }
 .chip:hover .chip-x { display:inline-flex; }
+/* Expanded state — every title visible at once, row scrolls if many. */
+.strip.expanded .chip { max-width:320px; }
+.strip.expanded .chip .chip-title { opacity:1; }
+.strip.expanded .chip .chip-x { display:inline-flex; }
+.strip-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted); cursor:pointer; }
+.strip-icon-btn:hover { color:var(--orange); }
+.strip-clear-wrap { flex-shrink:0; margin-left:auto; padding-left:4px; }
+.strip-clear { border:1px solid var(--border); background:transparent; color:var(--muted); font:inherit; font-size:12.5px; font-weight:700; padding:6px 11px; border-radius:8px; cursor:pointer; white-space:nowrap; }
+.strip-clear:hover { color:#d9463a; border-color:#e6b4ad; }
+.strip-clear-confirm { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--muted); white-space:nowrap; }
+.strip-clear-confirm .scy { background:#d9463a; color:#fff; border:0; border-radius:7px; padding:6px 11px; font:inherit; font-weight:700; cursor:pointer; }
+.strip-clear-confirm .scn { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:7px; padding:6px 11px; font:inherit; font-weight:700; cursor:pointer; }
 
 /* ===== Modules ===== */
 .module { border:1px solid var(--border); border-radius:20px; background:linear-gradient(180deg,var(--card-top),var(--card-bot));
