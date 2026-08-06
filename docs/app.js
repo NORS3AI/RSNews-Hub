@@ -181,14 +181,37 @@
     }
     return out;
   }
+  // Quote-image theming (mirrors the app): dark / light / RS.
+  var CLIPTHEME_KEY = 'rsnews_cliptheme_v1';
+  var clipTheme = (function () { try { var t = localStorage.getItem(CLIPTHEME_KEY); return (t === 'light' || t === 'rs' || t === 'dark') ? t : 'dark'; } catch (e) { return 'dark'; } })();
+  var QUOTE_PALETTES = {
+    dark:  { bg1: '#2b333d', bg2: '#141a21', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#f4f1ea', footerText: '#ffffff', footerSub: 'rgba(255,255,255,.6)', divider: 'rgba(255,255,255,.16)', logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'dark', parchment: false },
+    light: { bg1: '#fbf7ee', bg2: '#efe6d4', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#2b333c', footerText: '#2b333c', footerSub: 'rgba(43,51,60,.55)', divider: 'rgba(43,51,60,.14)', logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'light', parchment: false },
+    rs:    { bg1: '#f7edd8', bg2: '#f2e6cb', accent: '#3d2a19', quoteMark: 'rgba(61,42,25,.4)', quote: '#3d2a19', footerText: '#f7edd8', footerSub: 'rgba(247,237,216,.72)', divider: 'rgba(61,42,25,.2)', logoBg: '#f7edd8', logoText: '#2b333c', footerBg: '#2b333c', logo: 'dark', parchment: true }
+  };
+  var Q_LOGO_LIGHT = 'brand/rsnews-hub-logo-light.png', Q_LOGO_DARK = 'brand/rsnews-hub-logo-dark.png', Q_PARCHMENT = 'textures/rs-cream.webp';
+  var QIMG = {};
+  function qimg(src) { var i = QIMG[src]; if (!i) { i = new Image(); i.src = src; QIMG[src] = i; } return i; }
+  function qready(i) { return !!(i && i.complete && i.naturalWidth > 0); }
+  function drawCover(ctx, img, x, y, w, h) { var ir = img.naturalWidth / img.naturalHeight, r = w / h; var dw = ir > r ? h * ir : w, dh = ir > r ? h : w / ir; ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh); }
+  var quoteAssetsReady = false;
+  function preloadQuoteAssets(cb) {
+    var srcs = [Q_LOGO_LIGHT, Q_LOGO_DARK, Q_PARCHMENT], n = srcs.length, done = 0;
+    function tick() { if (++done >= n) { quoteAssetsReady = true; if (cb) cb(); } }
+    srcs.forEach(function (s) { var i = qimg(s); if (qready(i)) { tick(); return; } i.onload = tick; i.onerror = tick; });
+  }
+  // Repaint the clippings once (when the logo/parchment finish loading).
+  function ensureQuoteAssets(cb) { if (quoteAssetsReady) return; preloadQuoteAssets(cb); }
   function makeQuoteImage(o) {
     var W = 1080, H = 1080, pad = 96, canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H; var ctx = canvas.getContext('2d');
-    var g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#2b333d'); g.addColorStop(1, '#141a21');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#E97D34'; ctx.fillRect(pad, pad, 96, 12);
+    var p = QUOTE_PALETTES[o.theme || 'dark'] || QUOTE_PALETTES.dark;
+    var parch = p.parchment ? qimg(Q_PARCHMENT) : null;
+    if (p.parchment && qready(parch)) { ctx.fillStyle = p.bg1; ctx.fillRect(0, 0, W, H); drawCover(ctx, parch, 0, 0, W, H); }
+    else { var g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, p.bg1); g.addColorStop(1, p.bg2); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+    ctx.fillStyle = p.accent; ctx.fillRect(pad, pad, 96, 12);
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(233,125,52,.92)'; ctx.font = '900 200px Georgia, serif';
+    ctx.fillStyle = p.quoteMark; ctx.font = '900 200px Georgia, serif';
     ctx.fillText('“', pad - 12, pad - 8);
     var blocks = clampBlocks((o.quote || '').split('\n').map(function (s) { return s.replace(/\s+/g, ' ').trim(); }).filter(Boolean), 340);
     if (!blocks.length) blocks = [''];
@@ -202,20 +225,25 @@
       var total = wrapped.reduce(function (sum, ls, i) { return sum + ls.length * lineH + (i ? blockGap : 0); }, 0);
       if (total <= avail) break; size -= 3;
     }
-    ctx.fillStyle = '#f4f1ea'; ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
+    ctx.fillStyle = p.quote; ctx.font = '700 ' + size + 'px ui-sans-serif, system-ui, Arial, sans-serif';
     var y = quoteTop; wrapped.forEach(function (ls, i) { if (i) y += blockGap; ls.forEach(function (ln) { ctx.fillText(ln, pad, y); y += lineH; }); });
     var by = H - 300;
-    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
-    ctx.fillStyle = '#E97D34'; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('RS', pad + 34, by + 34 + 36); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#fff'; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78);
-    var ty = by + 130; ctx.fillStyle = '#f4f1ea'; ctx.font = '800 34px ui-sans-serif, Arial';
+    if (p.footerBg) { ctx.fillStyle = p.footerBg; ctx.fillRect(0, by, W, H - by); }
+    else { ctx.strokeStyle = p.divider; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke(); }
+    var logo = qimg(p.logo === 'light' ? Q_LOGO_LIGHT : Q_LOGO_DARK), urlY;
+    if (qready(logo)) { var lh = 82, lw = lh * (logo.naturalWidth / logo.naturalHeight); ctx.drawImage(logo, pad, by + 34, lw, lh); urlY = by + 34 + lh + 8; }
+    else {
+      ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
+      ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('RS', pad + 34, by + 34 + 36); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+      ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78); urlY = -1;
+    }
+    if (urlY >= 0) { ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad, urlY); }
+    var ty = by + 168; ctx.fillStyle = p.footerText; ctx.font = '800 34px ui-sans-serif, Arial';
     var titleLines = wrapText(ctx, o.title || '', maxW).slice(0, 2);
     titleLines.forEach(function (l, i) { ctx.fillText(l, pad, ty + i * 42); });
-    if (o.author) { ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 27px ui-sans-serif, Arial';
+    if (o.author) { ctx.fillStyle = p.footerSub; ctx.font = '500 27px ui-sans-serif, Arial';
       ctx.fillText('— ' + o.author, pad, ty + titleLines.length * 42 + 8); }
     return canvas.toDataURL('image/png');
   }
@@ -239,7 +267,7 @@
     var a = bySlug[slug] || {};
     text = (text || '').split('\n').map(function (s) { return s.replace(/[ \t]+/g, ' ').trim(); }).filter(Boolean).join('\n');
     if (text.replace(/\s/g, '').length < 4) { toast('Select some text first'); return; }
-    var o = { quote: text, title: a.title || '', author: a.author || '', url: (location.host + location.pathname + '#' + (slug || '')), slug: slug };
+    var o = { quote: text, title: a.title || '', author: a.author || '', url: (location.host + location.pathname + '#' + (slug || '')), slug: slug, theme: clipTheme };
     var img = makeQuoteImage(o);
     var html = '<div class="dlg-card" style="max-width:560px">' +
       '<div class="dlg-head"><h3>News clipping</h3><button class="icon-btn" data-dlg-close="1">' + ICON.x + '</button></div>' +
@@ -973,9 +1001,10 @@
 
   /* ---------- clippings view ---------- */
   var clipView = 'cards';
+  var clipCustOpen = false;
   function isComicClip(c) { return c.kind === 'comic' || !!c.image; }
   function clipImageFor(c) {
-    return isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug });
+    return isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug, theme: clipTheme });
   }
   // Icon-only action whose label slides out on hover (keeps the 3-col cards tidy).
   function clipIcon(attr, val, icon, label, danger) {
@@ -1003,11 +1032,28 @@
   }
   function renderClippings() {
     var list = getClippings();
-    var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your clippings</h2>';
+    var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your RS News Clippings</h2>';
     if (list.length) {
-      h += '<div class="clip-view-toggle">' +
+      var sw = { dark: '#222a33', light: '#f6efe0', rs: '#f7edd8' };
+      h += '<div class="clip-head-tools">' +
+        '<div class="clip-customize">' +
+          '<button class="clip-cust-btn" data-clip-customize="1"><span class="clip-cust-dot" style="background:' + sw[clipTheme] + '"></span>Customize</button>' +
+          (clipCustOpen ? (
+            '<div class="clip-cust-pop">' +
+            '<div class="clip-cust-title">Quote clipping style</div>' +
+            ['dark', 'light', 'rs'].map(function (t) {
+              var lbl = t === 'rs' ? 'RS' : (t.charAt(0).toUpperCase() + t.slice(1));
+              return '<button class="clip-cust-opt' + (clipTheme === t ? ' active' : '') + '" data-clip-theme="' + t + '">' +
+                '<span class="clip-cust-sw"><span style="background:' + sw[t] + '"></span><span style="background:#E97D34"></span></span>' + lbl +
+                (clipTheme === t ? '<span class="clip-cust-check">✓</span>' : '') + '</button>';
+            }).join('') +
+            '<div class="clip-cust-note">Applies to quote images. Remembered next time.</div>' +
+            '</div>'
+          ) : '') +
+        '</div>' +
+        '<div class="clip-view-toggle">' +
         '<button class="' + (clipView === 'cards' ? 'active' : '') + '" data-clipview="cards">Cards</button>' +
-        '<button class="' + (clipView === 'images' ? 'active' : '') + '" data-clipview="images">Images</button></div>';
+        '<button class="' + (clipView === 'images' ? 'active' : '') + '" data-clipview="images">Images</button></div></div>';
     }
     h += '</div>';
     if (!list.length) {
@@ -1021,20 +1067,22 @@
     } else {
       h += '<div class="clip-grid clip-grid-3">' + list.map(function (c) {
         if (isComicClip(c)) {
-          return '<div class="clip-card clip-card-comic"><div class="clip-comic-row">' +
+          return '<div class="clip-card clip-card-comic"><div class="clip-comic-row clip-tap" data-clip-zoom="' + esc(c.id) + '">' +
             '<img class="clip-comic-thumb" src="' + esc(c.image) + '" alt="' + esc(c.title || 'Comic') + '" loading="lazy">' +
             '<div><span class="clip-comic-badge">Comic</span>' +
             '<div class="clip-comic-title">' + esc(c.title || 'Backroom Humor') + '</div></div></div>' +
             clipActions(c) + '</div>';
         }
         var q = c.quote.length > 200 ? c.quote.slice(0, 197) + '…' : c.quote;
-        return '<div class="clip-card"><div class="clip-quote">&ldquo;' + esc(q) + '&rdquo;</div>' +
-          '<div class="clip-meta">' + esc(c.title || '') + (c.author ? ' &middot; ' + esc(c.author) : '') + '</div>' +
+        return '<div class="clip-card"><div class="clip-tap" data-clip-zoom="' + esc(c.id) + '"><div class="clip-quote">&ldquo;' + esc(q) + '&rdquo;</div>' +
+          '<div class="clip-meta">' + esc(c.title || '') + (c.author ? ' &middot; ' + esc(c.author) : '') + '</div></div>' +
           clipActions(c) + '</div>';
       }).join('') + '</div>';
     }
     h += '</section></div>';
     el('main').innerHTML = h; window.scrollTo(0, 0);
+    // Once logo + parchment load, repaint so the quote images show them.
+    if (list.length) ensureQuoteAssets(function () { if (el('main').querySelector('[data-clipview]')) renderClippings(); });
   }
 
   /* ---------- events ---------- */
@@ -1064,11 +1112,14 @@
     if (e.target.closest('[data-clip-copy]')) { e.preventDefault(); if (dialogData && navigator.clipboard) navigator.clipboard.writeText(clipShareText(dialogData.o)); toast('Quote copied'); return; }
     var dlClip = e.target.closest('[data-download-clip]'); if (dlClip) { e.preventDefault(); var dc = getClippings().filter(function (x) { return x.id === dlClip.getAttribute('data-download-clip'); })[0];
       if (dc && isComicClip(dc)) { downloadImage(dc.image, comicFileName(dc.title)); }
-      else if (dc) { downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); }
+      else if (dc) { downloadDataUrl(makeQuoteImage({ quote: dc.quote, title: dc.title, author: dc.author, url: location.host + location.pathname + '#' + (dc.slug || ''), slug: dc.slug, theme: clipTheme }), 'rsnews-clip-' + (dc.slug || 'quote') + '.png'); }
       toast('Image downloaded'); return; }
     var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
+    var custBtn = e.target.closest('[data-clip-customize]'); if (custBtn) { e.preventDefault(); clipCustOpen = !clipCustOpen; renderClippings(); return; }
+    var themeBtn = e.target.closest('[data-clip-theme]'); if (themeBtn) { e.preventDefault(); clipTheme = themeBtn.getAttribute('data-clip-theme'); try { localStorage.setItem(CLIPTHEME_KEY, clipTheme); } catch (x) {} clipCustOpen = false; renderClippings(); return; }
+    if (clipCustOpen && !e.target.closest('.clip-customize')) { clipCustOpen = false; if (el('main').querySelector('[data-clipview]')) renderClippings(); /* fall through */ }
     var clipZoom = e.target.closest('[data-clip-zoom]'); if (clipZoom) { e.preventDefault(); var zc = getClippings().filter(function (x) { return x.id === clipZoom.getAttribute('data-clip-zoom'); })[0]; if (zc) openZoomLightbox(clipImageFor(zc), zc.title || 'Clip'); return; }
     if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }
@@ -1083,7 +1134,9 @@
     if (e.target.closest('[data-lb-close]')) { e.preventDefault(); closeComicLightbox(); return; }
     if (e.target.closest('[data-comic-dl]')) { e.preventDefault(); if (lightboxComic) downloadImage(lightboxComic.src, comicFileName(lightboxComic.title)); toast('Image downloaded'); return; }
     var comicSave = e.target.closest('[data-comic-save]'); if (comicSave) { e.preventDefault();
-      if (lightboxComic && !comicSave.disabled) {
+      if (!comicSave.disabled && lightboxComic) {
+        var dup = getClippings().some(function (x) { return (x.kind === 'comic' || x.image) && x.image === lightboxComic.src; });
+        if (dup) { comicSave.disabled = true; comicSave.innerHTML = ICON.check + ' You’ve already got that'; toast('Already in Clippings'); return; }
         saveClipping({ id: 'c' + Date.now(), kind: 'comic', title: lightboxComic.title, image: lightboxComic.src, ts: Date.now() });
         comicSave.disabled = true; comicSave.innerHTML = ICON.check + ' Saved to clippings'; toast('Saved to Clippings');
       }
