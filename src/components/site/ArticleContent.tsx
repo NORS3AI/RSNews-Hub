@@ -1,30 +1,56 @@
 'use client';
 import parse, { Element } from 'html-react-parser';
+import type { AdRow } from '@/lib/ads';
+import InArticleAd from '@/components/InArticleAd';
+import PollCard, { type PollData } from '@/components/site/PollCard';
+import QuizCard, { type QuizData } from '@/components/site/QuizCard';
 import { BrandMark } from '@/components/BrandLogo';
 import { Megaphone, BarChart } from '@/components/icons';
 
 export type EmbedOpt = { id: string; title: string };
+export type LivePoll = { data: PollData; votedOptionId: string | null };
+export type LiveQuiz = { data: QuizData; done: boolean };
 
-// Renders composed article HTML into the real reader look, swapping the element
-// placeholders (author card, ad slot, poll/quiz) for their rendered form. Plain
+// Renders composed article HTML into the real reader look, expanding the element
+// placeholders (author card, ad slot, poll/quiz) into their rendered form. Plain
 // text/headings/lists/quotes/images/dividers/buttons/spacers pass straight
-// through and are styled by the .prose-article CSS — so the clipping tool still
-// sees ordinary selectable text exactly as before.
+// through and are styled by .prose-article — so the clipping tool still sees
+// ordinary selectable text. Returns a fragment; the caller supplies the
+// .prose-article / [data-reader] wrapper.
+//
+// On the live reader, pass `pollData`/`quizData` (+ `loggedIn`) to render real,
+// votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
+// a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], adFor,
-}: { html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; adFor?: (adId: string, label: string) => React.ReactNode }) {
+  html, polls = [], quizzes = [], ads = [], pollData = [], quizData = [], loggedIn = false,
+}: {
+  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[];
+  pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
+}) {
+  let adIdx = 0;
   const content = parse(html || '', {
     replace: (node) => {
       if (!(node instanceof Element) || !node.attribs) return;
       const a = node.attribs;
       if ('data-author' in a) return <AuthorCard a={a} />;
-      if ('data-ad-slot' in a) return adFor ? <>{adFor(a['data-ad-id'] || '', a['data-ad-label'] || '')}</> : <AdPlaceholder label={a['data-ad-label']} />;
-      if ('data-poll' in a) return <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} />;
-      if ('data-quiz' in a) return <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} />;
+      if ('data-ad-slot' in a) {
+        if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size="in-article" /></div>; }
+        return <AdPlaceholder label={a['data-ad-label']} />;
+      }
+      if ('data-poll' in a) {
+        const live = pollData.find((p) => p.data.id === a['data-poll']);
+        if (live) return <div className="my-6"><PollCard poll={live.data} loggedIn={loggedIn} votedOptionId={live.votedOptionId} /></div>;
+        return <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} />;
+      }
+      if ('data-quiz' in a) {
+        const live = quizData.find((q) => q.data.id === a['data-quiz']);
+        if (live) return <div className="my-6"><QuizCard quiz={live.data} loggedIn={loggedIn} initialDone={live.done} /></div>;
+        return <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} />;
+      }
       return undefined;
     },
   });
-  return <div className="prose-article">{content}</div>;
+  return <>{content}</>;
 }
 
 function AuthorCard({ a }: { a: Record<string, string> }) {

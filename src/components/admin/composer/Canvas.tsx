@@ -144,7 +144,7 @@ export default function Canvas({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={preview.cover} alt="" className="mt-7 aspect-[16/9] w-full rounded-xl object-cover" />
                 )}
-                <div className="mt-7"><ArticleContent html={html} polls={polls} quizzes={quizzes} /></div>
+                <div className="prose-article mt-7" data-reader><ArticleContent html={html} polls={polls} quizzes={quizzes} /></div>
               </div>
             </div>
           </div>
