@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SearchBar from '@/components/SearchBar';
@@ -62,6 +62,7 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const unreadReq = useRef(0);
   const isStaff = user && (user.role === 'ADMIN' || user.role === 'EDITOR');
 
   useEffect(() => {
@@ -74,7 +75,13 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
   useEffect(() => {
     if (!user) return;
     let alive = true;
-    const refresh = () => fetch('/api/notifications').then((r) => r.json()).then((d) => { if (alive) setUnread(d.unread || 0); }).catch(() => {});
+    // Tag each request; only the newest response is allowed to set state, so a
+    // slow earlier fetch (e.g. the pre-mark-seen one on navigation) can't clobber
+    // the fresh count and re-light a badge the user just cleared.
+    const refresh = () => {
+      const id = ++unreadReq.current;
+      fetch('/api/notifications').then((r) => r.json()).then((d) => { if (alive && id === unreadReq.current) setUnread(d.unread || 0); }).catch(() => {});
+    };
     refresh();
     window.addEventListener(NOTIF_CHANGED, refresh);
     return () => { alive = false; window.removeEventListener(NOTIF_CHANGED, refresh); };

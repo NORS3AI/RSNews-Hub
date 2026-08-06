@@ -11,7 +11,7 @@ import { prisma } from './db';
 import { siteUrl } from './env';
 import { sendEmail, renderEmail, escapeHtml, isEmailConfigured } from './email';
 import { linkSource } from './industry';
-import { parseTopics, gatherSince, ALL, type TopicKey } from './subscriptions';
+import { parseTopics, gatherSince, ALL, INDUSTRY, type TopicKey } from './subscriptions';
 
 const LAST_DIGEST_KEY = 'newsletter:lastDigestAt';
 function base(): string { return (siteUrl || '').replace(/\/$/, ''); }
@@ -58,13 +58,18 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
 
   let sent = 0, failed = 0, skippedEmpty = 0;
   for (const s of subs) {
-    const keys: TopicKey[] = parseTopics(s.topics);
-    const g = await gatherSince(keys.length ? keys : [ALL], since, now, 40);
-    if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
-    const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;
-    const n = itemCount(g);
-    const r = await sendEmail({ to: s.email, subject: `RSNews Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
-    if (r.ok) sent++; else failed++;
+    // Isolate each send: one subscriber's failure (thrown or returned) must not
+    // abort the batch, or a mid-loop throw would skip the checkpoint and re-send
+    // to everyone already emailed on the next run.
+    try {
+      const keys: TopicKey[] = parseTopics(s.topics);
+      const g = await gatherSince(keys.length ? keys : [INDUSTRY], since, now, 40);
+      if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
+      const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;
+      const n = itemCount(g);
+      const r = await sendEmail({ to: s.email, subject: `RSNews Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
+      if (r.ok) sent++; else failed++;
+    } catch { failed++; }
   }
   await setCheckpoint(now);
   return { sent, failed, skippedEmpty, subscribers: subs.length };

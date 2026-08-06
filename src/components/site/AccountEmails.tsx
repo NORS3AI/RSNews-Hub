@@ -18,7 +18,7 @@ export default function AccountEmails() {
     const res = await fetch('/api/subscriptions');
     if (!res.ok) { setLoaded(true); return; }
     const d = await res.json();
-    setEmails(d.emails); setCats(d.menu.categories); setLoaded(true);
+    setEmails(d.emails ?? []); setCats(d.menu?.categories ?? []); setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -30,9 +30,14 @@ export default function AccountEmails() {
 
   const topicLabel = (t: string) => t === 'all' ? 'Everything' : t === 'industry' ? 'Industry News' : (cats.find((c) => c.key === t)?.name || t);
 
+  const [removing, setRemoving] = useState(false);
   async function remove(id: string) {
-    await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeEmail', id }) });
-    setConfirmDel(null); load();
+    if (removing) return;
+    setRemoving(true);
+    try {
+      await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeEmail', id }) });
+      setConfirmDel(null); await load();
+    } finally { setRemoving(false); }
   }
   const openAdd = () => window.dispatchEvent(new CustomEvent(SUBSCRIBE_EVENT, { detail: {} }));
   const customize = (em: EmailRow) => window.dispatchEvent(new CustomEvent(SUBSCRIBE_EVENT, { detail: { email: em.email, topics: em.topics } }));
