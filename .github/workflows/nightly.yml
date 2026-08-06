@@ -3,7 +3,10 @@ name: Nightly maintenance
 # Runs the hub's nightly jobs against your deployed instance:
 #   • /api/ads/maintenance — end elapsed flights, complete campaigns, send vendor
 #     reminder emails (fresh-ads + renewal).
+#   • /api/cron/newsletter — send the daily Industry News digest to subscribers.
 #   • /api/analytics/rollup — roll raw events into daily aggregates + prune.
+# The admin dashboard's "Scheduled jobs" tile shows each one's last run so you can
+# confirm this is actually firing.
 #
 # Setup: add two repository secrets (Settings → Secrets → Actions):
 #   PROD_URL     e.g. https://hub.rsnews.example   (no trailing slash)
@@ -22,13 +25,13 @@ jobs:
   nightly:
     runs-on: ubuntu-latest
     steps:
-      - name: Hit maintenance + rollup endpoints
+      - name: Hit the scheduled-job endpoints
         env:
           PROD_URL: ${{ secrets.PROD_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$PROD_URL" ]; then echo "PROD_URL not set — skipping (configure repo secrets to enable)."; exit 0; fi
-          for path in api/ads/maintenance api/analytics/rollup; do
+          for path in api/ads/maintenance api/cron/newsletter api/analytics/rollup; do
             echo "POST $PROD_URL/$path"
             code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "$PROD_URL/$path" \
               -H "Authorization: Bearer $CRON_SECRET")
