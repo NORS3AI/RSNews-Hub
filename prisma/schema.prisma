@@ -441,7 +441,8 @@ model Category {
   color       String    @default("#316bff")
   createdAt   DateTime  @default(now())
 
-  articles      Article[]
+  articles      Article[]      @relation("PrimaryCategory")
+  extraArticles Article[]      @relation("ExtraCategories")
   subscriptions Subscription[]
 }
 
@@ -474,8 +475,14 @@ model Article {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Primary category drives the main badge/colour/sorting. extraCategories are
+  // additional categories an article also belongs to (e.g. a Blog post that is
+  // also Breaking News). breakingUntil, when in the future, shows the Breaking
+  // badge and auto-expires once it passes.
   categoryId  String?
-  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  category    Category? @relation("PrimaryCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  extraCategories Category[] @relation("ExtraCategories")
+  breakingUntil DateTime?
 
   authorId    String?
   author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)

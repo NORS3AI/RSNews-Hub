@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -18,6 +18,12 @@ function newId(): string {
 
 type DragState = { kind: 'palette'; type: BlockType; preset?: Record<string, unknown> } | { kind: 'move'; index: number } | null;
 
+// Categories are shared with the deeply-nested inspector fields (category
+// source + heading "See all" link) without threading props through every level.
+export type CatOption = { name: string; slug: string };
+const CategoriesContext = createContext<CatOption[]>([]);
+const useCategories = () => useContext(CategoriesContext);
+
 // Ad sizes shown directly in the palette so you drop the right shape for the
 // slot (e.g. Square fits a sidebar; Leaderboard is a wide banner).
 const AD_VARIANTS: { label: string; format: string }[] = [
@@ -29,8 +35,8 @@ const AD_VARIANTS: { label: string; format: string }[] = [
 ];
 
 export default function StudioEditor({
-  id, name: initialName, published, initialTree,
-}: { id: string; name: string; published: boolean; initialTree: ModuleTree }) {
+  id, name: initialName, published, initialTree, categories = [],
+}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[] }) {
   const router = useRouter();
   const [tree, setTree] = useState<ModuleTree>(initialTree);
   const [name, setName] = useState(initialName);
@@ -178,6 +184,7 @@ export default function StudioEditor({
   }
 
   return (
+    <CategoriesContext.Provider value={categories}>
     <div className="mx-auto max-w-6xl">
       {/* Top bar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -381,6 +388,7 @@ export default function StudioEditor({
         </div>
       )}
     </div>
+    </CategoriesContext.Provider>
   );
 }
 
@@ -563,6 +571,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
               <option value={3}>Small (H3)</option>
             </select>
           </Field>
+          <HeadingSeeAllFields s={s} set={set} />
         </>
       )}
       {block.type === 'text' && (
@@ -595,13 +604,36 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
   );
 }
 
+// Heading "See all →" link: point the header at a category's archive.
+function HeadingSeeAllFields({ s, set }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+  const categories = useCategories();
+  const cat = String(s.seeAllCat ?? '');
+  return (
+    <>
+      <Field label="“See all” link">
+        <select className="input" value={cat} onChange={(e) => set('seeAllCat', e.target.value)}>
+          <option value="">None</option>
+          {categories.map((c) => <option key={c.slug} value={c.slug}>Archive: {c.name}</option>)}
+        </select>
+      </Field>
+      {cat && (
+        <Field label="Link text (optional)">
+          <input className="input" value={String(s.seeAllText ?? '')} onChange={(e) => set('seeAllText', e.target.value)} placeholder="See all" />
+        </Field>
+      )}
+    </>
+  );
+}
+
 function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
   const mode = String(s.mode ?? 'auto');
+  const categories = useCategories();
   return (
     <>
       <Field label="Fill with">
         <select className="input" value={mode} onChange={(e) => set('mode', e.target.value)}>
           <option value="auto">Auto — from a pool</option>
+          <option value="category">By category</option>
           <option value="tag">By tag / keyword</option>
           <option value="year">By year (throwback)</option>
           <option value="pick">Pick a specific article</option>
@@ -613,6 +645,14 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
             <option value="featured">Featured</option>
             <option value="latest">Latest</option>
             <option value="trending">Trending</option>
+          </select>
+        </Field>
+      )}
+      {mode === 'category' && (
+        <Field label="Category">
+          <select className="input" value={String(s.categorySlug ?? '')} onChange={(e) => set('categorySlug', e.target.value)}>
+            <option value="">Choose a category…</option>
+            {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
           </select>
         </Field>
       )}

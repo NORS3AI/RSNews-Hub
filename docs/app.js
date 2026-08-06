@@ -343,6 +343,16 @@
 
   /* ---------- builders ---------- */
   function catBadge(c) { return c ? '<span class="badge" style="background:' + c.color + '22;color:' + c.color + '">' + esc(c.name) + '</span>' : ''; }
+  function isBreaking(a) { return !!(a && a.breakingUntil && new Date(a.breakingUntil).getTime() > Date.now()); }
+  // Primary + extra category badges, plus a ⚡ Breaking badge (from the timer)
+  // in place of the "Breaking News" category itself.
+  function catBadges(a) {
+    if (!a) return '';
+    var seen = {}, out = isBreaking(a) ? '<span class="badge badge-breaking">⚡ Breaking</span>' : '';
+    function add(c) { if (!c || c.slug === 'breaking-news' || seen[c.slug]) return; seen[c.slug] = 1; out += catBadge(c); }
+    add(a.category); (a.extraCategories || []).forEach(add);
+    return out;
+  }
   function acts(slug, cls) { cls = cls || 'iconbtn';
     return '<button class="' + cls + '" data-fav="' + esc(slug) + '" title="Favorite" aria-label="Favorite">' + ICON.star + '</button>' +
       '<button class="' + cls + '" data-read="' + esc(slug) + '" title="Read later (pins to top)" aria-label="Read later">' + ICON.book + '</button>'; }
@@ -355,14 +365,14 @@
     var top = a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" loading="lazy" style="aspect-ratio:16/9;width:100%;object-fit:cover">'
       : '<div class="ablock-ph"><span class="accent" style="background:' + accent + '"></span>RS</div>';
     return '<article class="ablock' + (opts.sm ? ' sm' : '') + '"><div class="acts">' + acts(a.slug) + '</div>' + top +
-      '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadge(a.category) + '</div>' +
+      '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadges(a) + '</div>' +
       '<h3>' + esc(a.title) + '</h3>' +
       '<div class="meta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span><span>' + ICON.eye + (a.views || 0) + '</span></div>' +
       '</a></article>';
   }
   function latestRow(a) {
     return '<div class="lrow" data-open="' + esc(a.slug) + '"><div class="acts">' + acts(a.slug) + '</div>' +
-      '<div class="lbody"><div>' + catBadge(a.category) + '</div><h3>' + esc(a.title) + '</h3>' +
+      '<div class="lbody"><div>' + catBadges(a) + '</div><h3>' + esc(a.title) + '</h3>' +
       '<div class="lmeta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span><span>' + ICON.eye + (a.views || 0) + '</span></div></div></div>';
   }
   function orangeItem(a) {
@@ -745,7 +755,7 @@
   }
   /* ---------- RS Council column ---------- */
   function councilModule() {
-    var cols = ARTICLES.filter(function (a) { return a.category && a.category.slug === 'rs-council'; })
+    var cols = ARTICLES.filter(function (a) { return a.category && a.category.slug === 'rs-council-column'; })
       .sort(function (p, q) { return new Date(q.publishedAt) - new Date(p.publishedAt); }).slice(0, 12);
     if (!cols.length) return '';
     return '<section class="module council-col">' +
@@ -954,7 +964,7 @@
     var opts = '<option value="">Unfiled</option>' + getFavFolders().map(function (f) {
       return '<option value="' + esc(f.id) + '"' + (cur === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
     return '<article class="ablock"><div class="acts">' + acts(a.slug) + '</div>' + top +
-      '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadge(a.category) + '</div>' +
+      '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadges(a) + '</div>' +
       '<h3>' + esc(a.title) + '</h3>' +
       '<div class="meta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span></div></a>' +
       '<div class="fav-folder-bar">' + ICON.folder + '<select class="fav-folder-sel" data-fav-setfolder="' + esc(a.id) + '" aria-label="Move to folder">' + opts + '</select></div>' +
@@ -1023,7 +1033,7 @@
     var adPair = pickTwoAds(adCtx);
     el('modal-host').innerHTML =
       '<div class="modal"><div class="modal-backdrop" data-close="1"></div><div class="modal-panel"><div class="modal-card">' +
-      '<div class="modal-top"><div class="t">' + catBadge(a.category) + '<span class="tt">' + esc(a.title) + '</span></div>' +
+      '<div class="modal-top"><div class="t">' + catBadges(a) + '<span class="tt">' + esc(a.title) + '</span></div>' +
       '<div style="display:flex;gap:8px;align-items:center">' +
       '<button class="btn btn-sm ' + (isFav(a.id) ? 'btn-primary' : 'btn-outline') + '" data-fav="' + esc(a.slug) + '" data-variant="pill">' + (isFav(a.id) ? ICON.starFill + ' Favorited' : ICON.star + ' Favorite') + '</button>' +
       '<button class="btn btn-sm ' + (isRead(a.id) ? 'btn-primary' : 'btn-outline') + '" data-read="' + esc(a.slug) + '" data-variant="pill">' + (isRead(a.id) ? ICON.bookFill + ' Pinned' : ICON.book + ' Pin') + '</button>' +

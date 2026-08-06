@@ -93,9 +93,19 @@ function blockInner(block: Block) {
     case 'heading': {
       const level = s.level === 3 ? 3 : 2;
       const text = String(s.text ?? 'Section title');
-      return level === 3
+      const seeAllCat = String(s.seeAllCat ?? '').trim();
+      const seeAllText = String(s.seeAllText ?? '').trim() || 'See all';
+      const H = level === 3
         ? <h3 className="text-lg font-bold tracking-tight">{text}</h3>
         : <h2 className="text-xl font-black tracking-tight">{text}</h2>;
+      // Optional "See all →" link (top-right) to a category's archive.
+      if (!seeAllCat) return H;
+      return (
+        <div className="flex items-center justify-between gap-3">
+          {H}
+          <a href={`/docs/category/${seeAllCat}`} className="shrink-0 whitespace-nowrap text-sm font-semibold text-brand-600 hover:underline">{seeAllText} →</a>
+        </div>
+      );
     }
     case 'text':
       return <div className="prose-article text-[15px] leading-relaxed">{String(s.body ?? '')}</div>;

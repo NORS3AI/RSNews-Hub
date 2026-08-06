@@ -19,6 +19,7 @@ async function main() {
     orderBy: { publishedAt: 'desc' },
     include: {
       category: { select: { name: true, slug: true, color: true } },
+      extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true } },
       tags: { select: { tag: { select: { name: true, slug: true } } } },
     },
@@ -79,6 +80,9 @@ async function main() {
       publishedAt: a.publishedAt,
       author: a.author?.name ?? null,
       category: a.category,
+      extraCategories: a.extraCategories,
+      // ISO expiry for the Breaking badge; the static snapshot compares to now.
+      breakingUntil: a.breakingUntil ? a.breakingUntil.toISOString() : null,
       tags: a.tags.map((t) => t.tag),
     })),
     categories: categories.map((c) => ({ name: c.name, slug: c.slug, color: c.color, count: c._count.articles })),

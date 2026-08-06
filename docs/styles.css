@@ -51,6 +51,9 @@ img { max-width:100%; display:block; }
 .btn-outline { background:var(--card-top); border-color:var(--border); color:var(--fg); }
 .btn-outline:hover { background:var(--tile-bot); }
 .badge { display:inline-flex; align-items:center; border-radius:999px; padding:3px 11px; font-size:12.5px; font-weight:700; }
+.badge-breaking { background:#c0392b; color:#fff; font-weight:800; letter-spacing:.01em; }
+/* When a card carries several badges, let them wrap with a little spacing. */
+.ablock .body > div:first-child, .lbody > div:first-child, .modal-top .t { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 
 /* ===== Shell + sidebar ===== */
 .shell { display:flex; min-height:100vh; }
