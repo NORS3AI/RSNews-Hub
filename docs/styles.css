@@ -672,7 +672,9 @@ img { max-width:100%; display:block; }
    `background-blend-mode:color`), an aged vintage-mailer on cream surfaces with
    the framing shuffled per card so a different stamp shows each time. Shapes are
    unchanged (background clipped to the existing radius). Mirrors the Node app. */
-.rs { --rs-cream-wash:0.42; --fg:#3d2a19; }   /* body text = dark brown, not black */
+.rs { --rs-cream-wash:0.42; --fg:#3d2a19;   /* body text = dark brown, not black */
+  /* RS mode keeps the dark sidebar/menu bar (light-mode's light rail doesn't fit it). */
+  --header:#22262e; --header-fg:#eef1f6; --header-muted:rgba(238,241,246,.62); --header-hover:rgba(255,255,255,.1); }
 
 /* Page surround: RS Mode keeps the default gray textured surround (unchanged). */
 
