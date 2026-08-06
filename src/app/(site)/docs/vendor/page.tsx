@@ -5,7 +5,10 @@ import { entitlementsOf, isVendor, brandKey } from '@/lib/entitlements';
 import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { listPublishedReports, parseSnapshot } from '@/lib/reports';
+import { loadAds } from '@/lib/adsServer';
+import { adIsLive } from '@/lib/ads';
 import ReportView from '@/components/ReportView';
+import VendorAdShowcase from '@/components/site/VendorAdShowcase';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +49,12 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const past = mine.filter((c) => c.status === 'COMPLETED' || c.status === 'CANCELLED');
   const reports = vendorId ? await listPublishedReports(vendorId) : [];
 
+  // This vendor's own live creatives (for the "your ads in the Hub" preview) and
+  // the earliest live-flight start (their go-live date for the banner).
+  const myAds = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && adIsLive(a, now));
+  const liveFlights = current.flatMap((c) => c.flights).filter((f) => f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt);
+  const liveSince = liveFlights.length ? liveFlights.map((f) => f.startAt).sort((a, b) => a.getTime() - b.getTime())[0] : null;
+
   return (
     <Shell>
       <div className="card p-5 sm:p-6">
@@ -65,7 +74,18 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
       {tab === 'current' && (
         current.length === 0
           ? <Notice title="No live campaigns" body="When a campaign of yours is active, its flights and countdowns show here." />
-          : <div className="space-y-4">{current.map((c) => <CampaignCard key={c.id} c={c} now={now} live />)}</div>
+          : (
+            <div className="space-y-4">
+              {liveSince && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30">
+                  <p className="font-bold text-green-800 dark:text-green-200">🎉 Your ads are live on RS News Hub</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">Live since {formatDate(liveSince)} · published by the RS News team. Preview below shows exactly how they appear to readers.</p>
+                </div>
+              )}
+              {myAds.length > 0 && <VendorAdShowcase ads={myAds} brand={ent.vendorBrand || user.name || 'your brand'} />}
+              {current.map((c) => <CampaignCard key={c.id} c={c} now={now} live />)}
+            </div>
+          )
       )}
       {tab === 'history' && (
         past.length === 0
