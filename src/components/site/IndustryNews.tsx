@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ExternalLink, Eye, Newspaper, X } from '@/components/icons';
 import { linkSource, shortSource, postedLabel } from '@/lib/industry';
 
-export type IndustryItem = { id: string; title: string; url: string; source: string | null; views: number; postedAt: string | Date };
+export type IndustryItem = { id: string; title: string; url: string; source: string | null; author?: string | null; views: number; postedAt: string | Date };
 
 const MODAL_LIMIT = 50;
 
@@ -17,6 +17,7 @@ function CardRow({ l }: { l: IndustryItem }) {
       <span className="min-w-0 flex-1">
         <span className="block text-lg font-extrabold leading-snug tracking-tight text-white group-hover:underline">{l.title}</span>
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/80">
+          {l.author && <span className="font-bold">{l.author}</span>}
           <span className="font-bold">{shortSource(linkSource(l.url, l.source))}</span>
           <span>{postedLabel(l.postedAt)}</span>
           <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>
@@ -45,6 +46,7 @@ function ModalRow({ l, root }: { l: IndustryItem; root: React.RefObject<HTMLElem
       <span className="min-w-0 flex-1">
         <span className="block text-xl font-extrabold leading-snug tracking-tight text-[var(--fg)] group-hover:text-brand-600 sm:text-2xl">{l.title}</span>
         <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
+          {l.author && <span className="font-bold text-[var(--fg)]/80">{l.author}</span>}
           <span className="font-bold text-[var(--fg)]/80">{linkSource(l.url, l.source)}</span>
           <span>{postedLabel(l.postedAt)}</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{l.views}</span>
