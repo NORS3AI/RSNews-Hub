@@ -755,3 +755,17 @@ img { max-width:100%; display:block; }
 .rs .module:nth-of-type(6n+4), .rs .card:nth-of-type(6n+4) { background-position:11% 90%; }
 .rs .module:nth-of-type(6n+5), .rs .card:nth-of-type(6n+5) { background-position:50% 96%; }
 .rs .module:nth-of-type(6n),   .rs .card:nth-of-type(6n)   { background-position:62% 42%; }
+
+/* RS theme only: bubble-wrap texture behind the Pop Quiz (a "pop" quiz). Placed
+   after the RS card texture (and higher specificity) so it replaces the stamp
+   wash on this one card. A cream veil keeps the dark title + orange badge
+   readable — raise the veil alphas to show less wrap, and change background-size
+   to scale the bubbles up (bigger = less busy) or down. */
+:root.rs .module.quiz-card {
+  background-image:
+    linear-gradient(180deg, rgba(247,237,216,.58), rgba(247,237,216,.72)),
+    url("assets/bubblewrap.jpg") !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
