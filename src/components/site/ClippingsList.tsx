@@ -8,11 +8,11 @@ import { track } from '@/lib/analytics/track';
 import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
 
 const CLIP_THEME_KEY = 'rsnews_cliptheme_v1';
-// Swatches for the Customize picker — [background, footer/accent].
+// Mini-swatch preview of each quote-image look — [body, footer strip].
 const THEMES: { key: QuoteTheme; label: string; swatch: [string, string] }[] = [
-  { key: 'dark', label: 'Dark', swatch: ['#222a33', '#E97D34'] },
-  { key: 'light', label: 'Light', swatch: ['#f6efe0', '#E97D34'] },
-  { key: 'rs', label: 'RS', swatch: ['#f7edd8', '#E97D34'] },
+  { key: 'dark', label: 'Dark', swatch: ['#2b333d', '#141a21'] },
+  { key: 'light', label: 'Light', swatch: ['#f7f0e2', '#e8dec9'] },
+  { key: 'rs', label: 'RS', swatch: ['#f7edd8', '#2b333c'] },
 ];
 
 const clipEv = (action: string, c: Clipping) => track({ type: 'clip', subjectType: 'clip', subjectId: c.id, pageType: 'clippings', props: { action, kind: c.kind ?? (c.image ? 'comic' : 'quote'), slug: c.slug } });
@@ -105,20 +105,20 @@ export default function ClippingsList() {
               {customize && (
                 <>
                   <div className="fixed inset-0 z-20" onClick={() => setCustomize(false)} />
-                  <div className="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 text-left shadow-lg">
-                    <div className="px-1 pb-1.5 text-[11px] font-black uppercase tracking-wide text-[var(--muted)]">Quote clipping style</div>
+                  <div className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5 text-left shadow-2xl">
+                    <div className="px-1.5 pb-2 text-xs font-black uppercase tracking-wide text-[var(--muted)]">Quote clipping style</div>
                     {THEMES.map((t) => (
                       <button key={t.key} onClick={() => chooseTheme(t.key)}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm font-semibold ${clipTheme === t.key ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40' : 'hover:bg-[var(--card-2)]'}`}>
-                        <span className="flex h-6 w-6 shrink-0 flex-col overflow-hidden rounded-md border border-black/10">
+                        className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-base font-bold ${clipTheme === t.key ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/40' : 'hover:bg-[var(--card-2)]'}`}>
+                        <span className="flex h-8 w-8 shrink-0 flex-col overflow-hidden rounded-lg border border-black/15">
                           <span className="flex-1" style={{ background: t.swatch[0] }} />
-                          <span className="h-1.5" style={{ background: t.swatch[1] }} />
+                          <span className="h-3" style={{ background: t.swatch[1] }} />
                         </span>
                         {t.label}
-                        {clipTheme === t.key && <span className="ml-auto text-xs text-brand-600">✓</span>}
+                        {clipTheme === t.key && <span className="ml-auto text-sm text-brand-600">✓</span>}
                       </button>
                     ))}
-                    <p className="px-1 pt-1.5 text-[11px] leading-tight text-[var(--muted)]">Applies to quote images from articles. Remembered for next time.</p>
+                    <p className="px-1.5 pt-2 text-xs leading-snug text-[var(--muted)]">Applies to quote images from articles. Remembered for next time.</p>
                   </div>
                 </>
               )}
@@ -142,10 +142,11 @@ export default function ClippingsList() {
           No clippings yet. Highlight a passage in an article to save it as a quote image, or open a comic and tap <strong>Save to clippings</strong>.
         </p>
       ) : view === 'images' ? (
-        // Masonry (Pinterest-style): items keep their natural height and tile.
-        <div className="columns-2 gap-4 sm:columns-3">
+        // Same row order as Cards (a grid, not column-masonry) so switching
+        // views never reshuffles where a given clip sits.
+        <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {clippings.map((c) => (
-            <div key={c.id} className="card mb-4 flex break-inside-avoid flex-col p-3">
+            <div key={c.id} className="card flex flex-col p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageFor(c)} alt={isComic(c) ? c.title : 'Quote image'} loading="lazy"
                 onClick={() => openZoom({ src: imageFor(c), alt: isComic(c) ? c.title : 'Quote image' }, c)}
