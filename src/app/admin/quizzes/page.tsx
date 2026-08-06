@@ -3,6 +3,8 @@ import { createQuiz, updateQuiz, deleteQuiz } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 import AutoPlugForm from '@/components/admin/AutoPlugForm';
+import StatusChip from '@/components/admin/StatusChip';
+import { timedStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,9 +59,7 @@ export default async function AdminQuizzes() {
                     <span className="mt-0.5 text-xs text-[var(--muted)]">{quiz.submissions} submission{quiz.submissions === 1 ? '' : 's'} · {quiz.questions.length} question{quiz.questions.length === 1 ? '' : 's'} · closes {quiz.closesAt.toLocaleString()}</span>
                   </span>
                   <span className="shrink-0">
-                    {live ? <span className="badge bg-green-100 text-green-700">Live</span>
-                      : closed ? <span className="badge bg-amber-100 text-amber-700">Closed</span>
-                      : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Archived</span>}
+                    <StatusChip status={timedStatus(quiz, Date.now())} />
                   </span>
                 </summary>
 

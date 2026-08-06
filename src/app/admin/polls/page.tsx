@@ -3,6 +3,8 @@ import { createPoll, updatePoll, deletePoll } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 import AutoPlugForm from '@/components/admin/AutoPlugForm';
+import StatusChip from '@/components/admin/StatusChip';
+import { timedStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,7 +47,6 @@ export default async function AdminPolls() {
         <div className="space-y-3 lg:col-span-2">
           {polls.map((poll) => {
             const total = poll.options.reduce((n, o) => n + o.votes, 0);
-            const closed = !!poll.closesAt && poll.closesAt < new Date();
             return (
               <details key={poll.id} className="card p-4" open={poll.active}>
                 <summary className="flex cursor-pointer items-center justify-between gap-3">
@@ -54,9 +55,7 @@ export default async function AdminPolls() {
                     <span className="mt-0.5 text-xs text-[var(--muted)]">{total} vote{total === 1 ? '' : 's'} · {poll.options.length} options</span>
                   </span>
                   <span className="shrink-0">
-                    {poll.active ? <span className="badge bg-green-100 text-green-700">Active</span>
-                      : closed ? <span className="badge bg-amber-100 text-amber-700">Closed</span>
-                      : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Archived</span>}
+                    <StatusChip status={timedStatus(poll, Date.now())} />
                   </span>
                 </summary>
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, ChevronDown, ChevronRight } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight } from './icons';
 import { BrandMark } from './BrandLogo';
 
 type NavLink = { href: string; label: string; icon: typeof Grid; exact?: boolean; adminOnly?: boolean };
@@ -15,6 +15,7 @@ const groups: NavGroup[] = [
   { title: null, links: [
     { href: '/admin', label: 'Dashboard', icon: Grid, exact: true },
     { href: '/admin/analytics', label: 'Analytics', icon: Eye },
+    { href: '/admin/activity', label: 'Recent activity', icon: Clock },
   ] },
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },

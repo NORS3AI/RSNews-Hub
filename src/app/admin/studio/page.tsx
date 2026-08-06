@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { parseTree } from '@/lib/studio';
+import { moduleStatus } from '@/lib/contentStatus';
 import StudioList from '@/components/admin/studio/StudioList';
 
 export const dynamic = 'force-dynamic';
@@ -9,11 +10,13 @@ export default async function StudioPage() {
     prisma.customModule.findMany({ orderBy: { updatedAt: 'desc' } }),
     prisma.adminLog.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
   ]);
+  const now = Date.now();
   const modules = rows.map((r) => ({
     id: r.id,
     name: r.name,
     shape: r.shape,
     published: r.published,
+    status: moduleStatus(r, now),
     blocks: parseTree(r.tree).children.length,
     updatedAt: r.updatedAt.toISOString(),
   }));

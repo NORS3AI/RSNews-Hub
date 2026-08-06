@@ -4,9 +4,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SHAPES, type Shape } from '@/lib/studio';
 import { createCustomModule, setCustomModulePublished, deleteCustomModule } from '@/lib/actions';
+import StatusChip from '@/components/admin/StatusChip';
+import type { LifeStatus } from '@/lib/contentStatus';
 import { Plus, Edit, Trash, Check, Eye, Grid } from '@/components/icons';
 
-type Mod = { id: string; name: string; shape: string; published: boolean; blocks: number; updatedAt: string };
+type Mod = { id: string; name: string; shape: string; published: boolean; status: LifeStatus; blocks: number; updatedAt: string };
 
 export default function StudioList({ modules }: { modules: Mod[] }) {
   const router = useRouter();
@@ -55,9 +57,7 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 font-medium">
                   {m.name}
-                  {m.published
-                    ? <span className="badge bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
-                    : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Saved for later</span>}
+                  <StatusChip status={m.status} />
                 </div>
                 <div className="text-sm text-[var(--muted)]">{SHAPES[m.shape as Shape]?.label ?? m.shape} · {m.blocks} element{m.blocks === 1 ? '' : 's'}</div>
               </div>
