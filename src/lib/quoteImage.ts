@@ -1,7 +1,33 @@
 // Client-only: paints a branded quote card onto a canvas and returns a PNG
 // data URL. Used by the news-clippings feature.
 
-export type QuoteOpts = { quote: string; title?: string; author?: string | null; url?: string; slug?: string };
+export type QuoteTheme = 'dark' | 'light' | 'rs';
+export type QuoteOpts = { quote: string; title?: string; author?: string | null; url?: string; slug?: string; theme?: QuoteTheme };
+
+// Per-theme palette for the quote card. `footerBg` (RS only) paints an orange
+// band behind the footer; otherwise a hairline divider is drawn instead.
+type Palette = {
+  bg1: string; bg2: string; accent: string; quoteMark: string; quote: string;
+  footerText: string; footerSub: string; divider: string;
+  logoBg: string; logoText: string; footerBg: string | null;
+};
+const PALETTES: Record<QuoteTheme, Palette> = {
+  dark: {
+    bg1: '#2b333d', bg2: '#141a21', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#f4f1ea',
+    footerText: '#ffffff', footerSub: 'rgba(255,255,255,.6)', divider: 'rgba(255,255,255,.16)',
+    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null,
+  },
+  light: {
+    bg1: '#fbf7ee', bg2: '#efe6d4', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#2b333c',
+    footerText: '#2b333c', footerSub: 'rgba(43,51,60,.55)', divider: 'rgba(43,51,60,.14)',
+    logoBg: '#E97D34', logoText: '#ffffff', footerBg: null,
+  },
+  rs: {
+    bg1: '#f7edd8', bg2: '#f2e6cb', accent: '#3d2a19', quoteMark: 'rgba(61,42,25,.45)', quote: '#3d2a19',
+    footerText: '#3d2a19', footerSub: 'rgba(61,42,25,.7)', divider: 'rgba(61,42,25,.2)',
+    logoBg: '#3d2a19', logoText: '#f7edd8', footerBg: '#E97D34',
+  },
+};
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -31,13 +57,15 @@ export function makeQuoteImage(o: QuoteOpts): string {
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
+  const p = PALETTES[o.theme ?? 'dark'];
+
   const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, '#2b333d'); g.addColorStop(1, '#141a21');
+  g.addColorStop(0, p.bg1); g.addColorStop(1, p.bg2);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = '#E97D34'; ctx.fillRect(pad, pad, 96, 12);
+  ctx.fillStyle = p.accent; ctx.fillRect(pad, pad, 96, 12);
   ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(233,125,52,.92)'; ctx.font = '900 200px Georgia, serif';
+  ctx.fillStyle = p.quoteMark; ctx.font = '900 200px Georgia, serif';
   ctx.fillText('“', pad - 12, pad - 8);
 
   // Preserve block breaks (a heading vs the paragraph below it) captured in the
@@ -57,27 +85,32 @@ export function makeQuoteImage(o: QuoteOpts): string {
     if (total <= avail) break;
     size -= 3;
   }
-  ctx.fillStyle = '#f4f1ea'; ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
+  ctx.fillStyle = p.quote; ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
   let y = quoteTop;
   wrapped.forEach((ls, i) => { if (i) y += blockGap; for (const ln of ls) { ctx.fillText(ln, pad, y); y += lineH; } });
 
   const by = H - 300;
-  ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
+  // RS mode: an orange band behind the footer; otherwise a hairline divider.
+  if (p.footerBg) {
+    ctx.fillStyle = p.footerBg; ctx.fillRect(0, by, W, H - by);
+  } else {
+    ctx.strokeStyle = p.divider; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(pad, by); ctx.lineTo(W - pad, by); ctx.stroke();
+  }
 
-  ctx.fillStyle = '#E97D34'; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
+  ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('RS', pad + 34, by + 34 + 36);
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillStyle = '#fff'; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
-  ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78);
+  ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+  ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78);
 
   const ty = by + 130;
-  ctx.fillStyle = '#f4f1ea'; ctx.font = '800 34px ui-sans-serif, Arial';
+  ctx.fillStyle = p.footerText; ctx.font = '800 34px ui-sans-serif, Arial';
   const titleLines = wrap(ctx, o.title || '', maxW).slice(0, 2);
   titleLines.forEach((l, i) => ctx.fillText(l, pad, ty + i * 42));
   if (o.author) {
-    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '500 27px ui-sans-serif, Arial';
+    ctx.fillStyle = p.footerSub; ctx.font = '500 27px ui-sans-serif, Arial';
     ctx.fillText('— ' + o.author, pad, ty + titleLines.length * 42 + 8);
   }
   return canvas.toDataURL('image/png');
