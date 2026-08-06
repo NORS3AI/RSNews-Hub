@@ -1103,9 +1103,48 @@
   /* ---------- clippings view ---------- */
   var clipView = 'cards';
   var clipCustOpen = false;
+  // Cache generated quote images by clip+theme so re-renders reuse the exact same
+  // data URL (no regeneration, no flash). Cleared once when the logo/parchment
+  // assets finish loading so the first paint picks them up.
+  var quoteCache = {};
   function isComicClip(c) { return c.kind === 'comic' || !!c.image; }
   function clipImageFor(c) {
-    return isComicClip(c) ? c.image : makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug, theme: clipTheme });
+    if (isComicClip(c)) return c.image;
+    var key = c.id + '|' + clipTheme;
+    if (quoteCache[key]) return quoteCache[key];
+    var img = makeQuoteImage({ quote: c.quote, title: c.title, author: c.author, url: location.host + location.pathname + '#' + (c.slug || ''), slug: c.slug, theme: clipTheme });
+    quoteCache[key] = img;
+    return img;
+  }
+  // Just the Customize control (button + open popup) — swapped in place so
+  // opening/closing it never rebuilds the clippings list.
+  function clipCustomizeHtml() {
+    var sw = { dark: '#2b333d', light: '#f7f0e2', rs: '#f7edd8' };
+    var swBot = { dark: '#141a21', light: '#e8dec9', rs: '#2b333c' };
+    return '<button class="clip-cust-btn" data-clip-customize="1"><span class="clip-cust-dot" style="background:' + sw[clipTheme] + '"></span>Customize</button>' +
+      (clipCustOpen ? (
+        '<div class="clip-cust-pop">' +
+        '<div class="clip-cust-title">Quote clipping style</div>' +
+        ['dark', 'light', 'rs'].map(function (t) {
+          var lbl = t === 'rs' ? 'RS' : (t.charAt(0).toUpperCase() + t.slice(1));
+          return '<button class="clip-cust-opt' + (clipTheme === t ? ' active' : '') + '" data-clip-theme="' + t + '">' +
+            '<span class="clip-cust-sw"><span style="background:' + sw[t] + '"></span><span style="background:' + swBot[t] + '"></span></span>' + lbl +
+            (clipTheme === t ? '<span class="clip-cust-check">✓</span>' : '') + '</button>';
+        }).join('') +
+        '<div class="clip-cust-note">Applies to quote images. Remembered next time.</div>' +
+        '</div>'
+      ) : '');
+  }
+  function refreshClipCustomize() { var elc = el('main').querySelector('.clip-customize'); if (elc) elc.innerHTML = clipCustomizeHtml(); }
+  // Repaint only the quote <img> sources in place (no DOM teardown) after a theme
+  // change — comics and everything else stay exactly where they are.
+  function updateClipImages() {
+    el('main').querySelectorAll('img[data-clip-zoom]').forEach(function (img) {
+      var id = img.getAttribute('data-clip-zoom');
+      var c = getClippings().filter(function (x) { return x.id === id; })[0];
+      if (!c || isComicClip(c)) return;
+      var next = clipImageFor(c); if (img.getAttribute('src') !== next) img.src = next;
+    });
   }
   // Icon-only action whose label slides out on hover (keeps the 3-col cards tidy).
   function clipIcon(attr, val, icon, label, danger) {
@@ -1135,25 +1174,8 @@
     var list = getClippings();
     var h = '<div class="content"><section class="module"><div class="module-head"><h2>Your RS News Clippings</h2>';
     if (list.length) {
-      // Mini-swatch preview of each quote-image look: [body, footer strip].
-      var sw = { dark: '#2b333d', light: '#f7f0e2', rs: '#f7edd8' };
-      var swBot = { dark: '#141a21', light: '#e8dec9', rs: '#2b333c' };
       h += '<div class="clip-head-tools">' +
-        '<div class="clip-customize">' +
-          '<button class="clip-cust-btn" data-clip-customize="1"><span class="clip-cust-dot" style="background:' + sw[clipTheme] + '"></span>Customize</button>' +
-          (clipCustOpen ? (
-            '<div class="clip-cust-pop">' +
-            '<div class="clip-cust-title">Quote clipping style</div>' +
-            ['dark', 'light', 'rs'].map(function (t) {
-              var lbl = t === 'rs' ? 'RS' : (t.charAt(0).toUpperCase() + t.slice(1));
-              return '<button class="clip-cust-opt' + (clipTheme === t ? ' active' : '') + '" data-clip-theme="' + t + '">' +
-                '<span class="clip-cust-sw"><span style="background:' + sw[t] + '"></span><span style="background:' + swBot[t] + '"></span></span>' + lbl +
-                (clipTheme === t ? '<span class="clip-cust-check">✓</span>' : '') + '</button>';
-            }).join('') +
-            '<div class="clip-cust-note">Applies to quote images. Remembered next time.</div>' +
-            '</div>'
-          ) : '') +
-        '</div>' +
+        '<div class="clip-customize">' + clipCustomizeHtml() + '</div>' +
         '<div class="clip-view-toggle">' +
         '<button class="' + (clipView === 'cards' ? 'active' : '') + '" data-clipview="cards">Cards</button>' +
         '<button class="' + (clipView === 'images' ? 'active' : '') + '" data-clipview="images">Images</button></div></div>';
@@ -1192,8 +1214,9 @@
     }
     h += '</section></div>';
     el('main').innerHTML = h; window.scrollTo(0, 0);
-    // Once logo + parchment load, repaint so the quote images show them.
-    if (list.length) ensureQuoteAssets(function () { if (el('main').querySelector('[data-clipview]')) renderClippings(); });
+    // Once logo + parchment load, drop the (asset-less) cache and repaint the
+    // quote images in place so they pick up the artwork — no full re-render.
+    if (list.length) ensureQuoteAssets(function () { quoteCache = {}; if (el('main').querySelector('[data-clipview]')) updateClipImages(); });
   }
 
   /* ---------- subscribe + notifications (localStorage preview) ---------- */
@@ -1322,9 +1345,12 @@
     var copyClip = e.target.closest('[data-copy-clip]'); if (copyClip) { e.preventDefault(); var cc = getClippings().filter(function (x) { return x.id === copyClip.getAttribute('data-copy-clip'); })[0];
       if (cc && navigator.clipboard) navigator.clipboard.writeText(clipShareText(cc)); toast('Quote copied'); return; }
     var clipViewBtn = e.target.closest('[data-clipview]'); if (clipViewBtn) { e.preventDefault(); clipView = clipViewBtn.getAttribute('data-clipview'); renderClippings(); return; }
-    var custBtn = e.target.closest('[data-clip-customize]'); if (custBtn) { e.preventDefault(); clipCustOpen = !clipCustOpen; renderClippings(); return; }
-    var themeBtn = e.target.closest('[data-clip-theme]'); if (themeBtn) { e.preventDefault(); clipTheme = themeBtn.getAttribute('data-clip-theme'); try { localStorage.setItem(CLIPTHEME_KEY, clipTheme); } catch (x) {} clipCustOpen = false; renderClippings(); return; }
-    if (clipCustOpen && !e.target.closest('.clip-customize')) { clipCustOpen = false; if (el('main').querySelector('[data-clipview]')) renderClippings(); /* fall through */ }
+    // Open/close the Customize popup — swap only that control, never the list.
+    var custBtn = e.target.closest('[data-clip-customize]'); if (custBtn) { e.preventDefault(); clipCustOpen = !clipCustOpen; refreshClipCustomize(); return; }
+    // Pick a theme — repaint the quote images in place, no page rebuild, no flash.
+    var themeBtn = e.target.closest('[data-clip-theme]'); if (themeBtn) { e.preventDefault(); clipTheme = themeBtn.getAttribute('data-clip-theme'); try { localStorage.setItem(CLIPTHEME_KEY, clipTheme); } catch (x) {} clipCustOpen = false; refreshClipCustomize(); updateClipImages(); return; }
+    // Click outside the open popup — just close it (only if we're on the page).
+    if (clipCustOpen && el('main').querySelector('.clip-customize') && !e.target.closest('.clip-customize')) { clipCustOpen = false; refreshClipCustomize(); }
     var clipZoom = e.target.closest('[data-clip-zoom]'); if (clipZoom) { e.preventDefault(); var zc = getClippings().filter(function (x) { return x.id === clipZoom.getAttribute('data-clip-zoom'); })[0]; if (zc) openZoomLightbox(clipImageFor(zc), zc.title || 'Clip'); return; }
     if (e.target.closest('[data-industry-open]')) { e.preventDefault(); openIndustryDialog(); return; }
     if (e.target.closest('[data-industry-archive]')) { e.preventDefault(); renderIndustryArchive(); return; }

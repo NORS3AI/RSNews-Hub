@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
 import { clipShareText } from './ReaderClipper';
@@ -48,11 +48,11 @@ export default function ClippingsList() {
   }, []);
 
   // Quote-image look (dark / light / RS), remembered per account on this device.
-  const [, forceRerender] = useState(0);
+  const [assetsTick, setAssetsTick] = useState(0);
   useEffect(() => {
     try { const t = localStorage.getItem(CLIP_THEME_KEY); if (t === 'dark' || t === 'light' || t === 'rs') setClipTheme(t); } catch { /* ignore */ }
     // Once the logo + parchment finish loading, repaint the quote images.
-    preloadQuoteAssets().then(() => forceRerender((n) => n + 1));
+    preloadQuoteAssets().then(() => setAssetsTick((n) => n + 1));
   }, []);
   const chooseTheme = (t: QuoteTheme) => {
     setClipTheme(t);
@@ -73,9 +73,20 @@ export default function ClippingsList() {
   function urlFor(slug?: string) {
     return typeof window !== 'undefined' ? `${window.location.host}/docs/article/${slug ?? ''}` : `/docs/article/${slug ?? ''}`;
   }
+  // Generate each quote image once per (clip, theme) and cache the data URL, so
+  // re-renders that don't change the theme (opening/closing Customize, hovering,
+  // etc.) reuse the exact same src — the images never regenerate or flash.
+  const quoteImages = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of clippings) {
+      if (!isComic(c)) m.set(c.id, makeQuoteImage({ quote: c.quote ?? '', title: c.title, author: c.author, url: urlFor(c.slug), slug: c.slug, theme: clipTheme }));
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clippings, clipTheme, assetsTick]);
   function imageFor(c: Clipping) {
     if (isComic(c)) return c.image as string;
-    return makeQuoteImage({ quote: c.quote ?? '', title: c.title, author: c.author, url: urlFor(c.slug), slug: c.slug, theme: clipTheme });
+    return quoteImages.get(c.id) ?? '';
   }
 
   function Actions({ c }: { c: Clipping }) {
