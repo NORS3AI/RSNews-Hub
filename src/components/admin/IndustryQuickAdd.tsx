@@ -1,81 +1,75 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { saveIndustryLink } from '@/lib/actions';
 
-function toLocalInput(iso: string | null) {
-  if (!iso) return '';
-  const dt = new Date(iso);
-  if (isNaN(dt.getTime())) return '';
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
-}
-
 /**
- * Smart Industry News entry: paste ONE link, hit "Fetch details", and the
- * headline, source and date fill themselves in from the page's meta tags.
- * Everything stays editable, and it still saves through the normal action.
+ * Dead-simple Industry News entry: paste ONE link, it reads the article and
+ * fills in the headline (plus source + date behind the scenes), you confirm,
+ * Add. No order/date/active knobs — those default sensibly and can still be
+ * tweaked by opening a saved row. If a site can't be read, just type the
+ * headline; source falls back to the domain and the date to now.
  */
 export default function IndustryQuickAdd() {
   const [url, setUrl] = useState('');
   const [title, setTitle] = useState('');
   const [source, setSource] = useState('');
-  const [postedAt, setPostedAt] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [postedAt, setPostedAt] = useState(''); // ISO
+  const [note, setNote] = useState<{ kind: 'ok' | 'err' | 'info'; text: string } | null>(null);
+  const lastRead = useRef('');
 
-  async function fetchMeta() {
-    if (!url.trim()) { setNote({ kind: 'err', text: 'Paste a link first.' }); return; }
-    setBusy(true); setNote(null);
+  async function readLink(value: string) {
+    const u = value.trim();
+    if (!u || !/^https?:\/\//i.test(u) || u === lastRead.current) return;
+    lastRead.current = u;
+    setNote({ kind: 'info', text: 'Reading the article…' });
     try {
-      const res = await fetch(`/api/admin/industry/metadata?url=${encodeURIComponent(url.trim())}`);
+      const res = await fetch(`/api/admin/industry/metadata?url=${encodeURIComponent(u)}`);
       const data = await res.json();
       if (data.error) { setNote({ kind: 'err', text: data.error }); return; }
       const m = data.meta;
-      if (m.title) setTitle(m.title);
-      if (m.source) setSource(m.source);
-      if (m.publishedAt) setPostedAt(toLocalInput(m.publishedAt));
-      setNote({ kind: 'ok', text: m.title ? `Pulled the headline${m.source ? ` from ${m.source}` : ''}. Review and add.` : 'Opened the page but found no headline — fill it in below.' });
+      setTitle(m.title || '');
+      setSource(m.source || '');
+      setPostedAt(m.publishedAt || '');
+      if (!m.title) { setNote({ kind: 'err', text: "Couldn't read the headline — just type it below." }); return; }
+      const dateLabel = m.publishedAt ? new Date(m.publishedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      const bits = [m.source, dateLabel].filter(Boolean);
+      setNote({ kind: 'ok', text: bits.length ? `Got it — ${bits.join(' · ')}` : 'Got the headline' });
     } catch {
-      setNote({ kind: 'err', text: "Couldn't fetch that link. Fill the fields in by hand." });
-    } finally {
-      setBusy(false);
+      setNote({ kind: 'err', text: "Couldn't read that link — just type the headline below." });
     }
   }
 
   return (
-    <form action={saveIndustryLink} className="card h-fit space-y-3 p-5 lg:col-span-1">
+    <form action={saveIndustryLink} className="card h-fit space-y-4 p-5 lg:col-span-1">
       <div>
         <h2 className="font-semibold">Add a link</h2>
-        <p className="mt-0.5 text-xs text-[var(--muted)]">Paste the article link and let it fill the rest in.</p>
+        <p className="mt-0.5 text-xs text-[var(--muted)]">Paste the article link — it reads the rest for you.</p>
       </div>
 
       <div>
         <label className="label">Article link</label>
-        <div className="flex gap-2">
-          <input name="url" required value={url} onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); fetchMeta(); } }}
-            className="input flex-1" placeholder="https://reuters.com/…" autoComplete="off" />
-          <button type="button" onClick={fetchMeta} disabled={busy} className="btn-outline btn-sm shrink-0 whitespace-nowrap">
-            {busy ? 'Fetching…' : 'Fetch details'}
-          </button>
-        </div>
+        <input name="url" required value={url} autoComplete="off" placeholder="Paste a link…"
+          onChange={(e) => setUrl(e.target.value)}
+          onBlur={(e) => readLink(e.target.value)}
+          onPaste={(e) => { const v = e.clipboardData.getData('text'); setTimeout(() => readLink(v), 0); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); readLink(url); } }}
+          className="input" />
         {note && (
-          <p className={`mt-1.5 text-xs ${note.kind === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{note.text}</p>
+          <p className={`mt-1.5 text-xs ${note.kind === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : note.kind === 'err' ? 'text-red-600 dark:text-red-400' : 'text-[var(--muted)]'}`}>{note.text}</p>
         )}
       </div>
 
-      <div><label className="label">Headline</label><input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="Fed signals rate cut as inflation cools" /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Source</label><input name="source" value={source} onChange={(e) => setSource(e.target.value)} className="input" placeholder="Reuters" /><p className="mt-1 text-xs text-[var(--muted)]">Blank = the link&apos;s domain.</p></div>
-        <div><label className="label">Order</label><input name="order" type="number" defaultValue={0} className="input" /></div>
+      <div>
+        <label className="label">Headline</label>
+        <input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className="input" placeholder="Fills in automatically — or type it" />
       </div>
-      <div className="flex items-end gap-4">
-        <div className="flex-1">
-          <label className="label">Posted date/time</label>
-          <input name="postedAt" type="datetime-local" value={postedAt} onChange={(e) => setPostedAt(e.target.value)} className="input" />
-        </div>
-        <label className="mb-2.5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active</label>
-      </div>
+
+      {/* Automatic + hidden: source falls back to the link's domain, the date to
+          the article's date (or now), newest first, and new links are shown. */}
+      <input type="hidden" name="source" value={source} />
+      <input type="hidden" name="postedAt" value={postedAt} />
+      <input type="hidden" name="order" value="0" />
+      <input type="hidden" name="active" value="1" />
 
       <button className="btn-primary w-full">Add link</button>
     </form>
