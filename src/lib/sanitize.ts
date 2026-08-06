@@ -17,7 +17,7 @@ import sanitizeHtml from 'sanitize-html';
 // executable markup — every value is rendered as escaped text, a CSS hook, or an
 // image src (which never executes JS), so none of them is an XSS surface.
 const COMPOSER_DIV_ATTRS = [
-  'data-ad-slot', 'data-ad-id', 'data-ad-label',
+  'data-ad-slot', 'data-ad-brand', 'data-ad-size', 'data-ad-label',
   'data-spacer', 'data-size',
   'data-poll', 'data-quiz', 'data-label',
   'data-author', 'data-name', 'data-title', 'data-avatar', 'data-bio', 'data-inhouse',

@@ -42,11 +42,12 @@ describe('sanitizeArticleHtml', () => {
 });
 
 describe('sanitizeArticleHtml — article composer elements survive a save', () => {
-  it('keeps the ad-slot marker + its ids/label', () => {
-    const out = sanitizeArticleHtml('<div data-ad-slot="" data-ad-id="abc" data-ad-label="Coffee"></div>');
+  it('keeps the ad-slot marker + its advertiser lock (brand + size)', () => {
+    const out = sanitizeArticleHtml('<div data-ad-slot="" data-ad-brand="brewcrate" data-ad-size="rectangle" data-ad-label="BrewCrate"></div>');
     expect(out).toContain('data-ad-slot');
-    expect(out).toContain('data-ad-id="abc"');
-    expect(out).toContain('data-ad-label="Coffee"');
+    expect(out).toContain('data-ad-brand="brewcrate"');
+    expect(out).toContain('data-ad-size="rectangle"');
+    expect(out).toContain('data-ad-label="BrewCrate"');
   });
 
   it('keeps the blank-space marker + size (height comes from CSS, not inline style)', () => {
