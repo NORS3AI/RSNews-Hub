@@ -144,12 +144,15 @@ export async function saveCategory(formData: FormData) {
   else await prisma.category.create({ data: { name, slug, description: description || null, color } });
   revalidatePath('/admin/categories');
   revalidatePath('/docs/categories');
+  revalidatePath('/docs');
 }
 
 export async function deleteCategory(id: string) {
   await ensureStaff();
   await prisma.category.delete({ where: { id } });
   revalidatePath('/admin/categories');
+  revalidatePath('/docs/categories');
+  revalidatePath('/docs');
 }
 
 /* ----------------------------- Ad management ----------------------------- */
