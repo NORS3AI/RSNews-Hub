@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { saveIndustryLink, deleteIndustryLink } from '@/lib/actions';
-import { ActionButtons } from '@/components/admin/RowActions';
 import IndustryQuickAdd from '@/components/admin/IndustryQuickAdd';
+import InlineDelete from '@/components/admin/InlineDelete';
 import { linkSource, postedLabel } from '@/lib/industry';
 import { Eye } from '@/components/icons';
 
@@ -46,27 +46,29 @@ export default async function AdminIndustry() {
 
         <div className="space-y-3 lg:col-span-2">
           {links.map((l) => (
-            <details key={l.id} className="card p-4">
-              <summary className="flex cursor-pointer items-center justify-between gap-3">
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold">{l.title}</span>
-                  <span className="mt-0.5 flex items-center gap-3 text-xs text-[var(--muted)]">
-                    <span className="font-bold">{linkSource(l.url, l.source)}</span>
-                    <span>{postedLabel(l.postedAt)}</span>
-                    <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>
-                    {!l.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">hidden</span>}
-                  </span>
-                </span>
-              </summary>
-              <form action={saveIndustryLink} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
-                <input type="hidden" name="id" value={l.id} />
-                <Fields link={l} />
-                <div className="flex items-center justify-between">
-                  <button className="btn-primary btn-sm">Save</button>
-                  <ActionButtons actions={[{ label: 'Delete', run: deleteIndustryLink.bind(null, l.id), danger: true, confirm: 'Delete this link?' }]} />
-                </div>
-              </form>
-            </details>
+            <div key={l.id} className="card p-4">
+              <div className="flex items-start justify-between gap-2">
+                <details className="min-w-0 flex-1">
+                  <summary className="flex cursor-pointer items-center gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{l.title}</span>
+                      <span className="mt-0.5 flex items-center gap-3 text-xs text-[var(--muted)]">
+                        <span className="font-bold">{linkSource(l.url, l.source)}</span>
+                        <span>{postedLabel(l.postedAt)}</span>
+                        <span className="flex items-center gap-1"><Eye width={12} height={12} />{l.views}</span>
+                        {!l.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">hidden</span>}
+                      </span>
+                    </span>
+                  </summary>
+                  <form action={saveIndustryLink} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
+                    <input type="hidden" name="id" value={l.id} />
+                    <Fields link={l} />
+                    <button className="btn-primary btn-sm">Save changes</button>
+                  </form>
+                </details>
+                <InlineDelete action={deleteIndustryLink.bind(null, l.id)} />
+              </div>
+            </div>
           ))}
           {links.length === 0 && <p className="text-[var(--muted)]">No links yet. Add the first industry-news link on the left.</p>}
         </div>
