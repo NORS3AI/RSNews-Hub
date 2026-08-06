@@ -28,6 +28,15 @@
   --shadow-card: 0 3px 8px rgba(0,0,0,.55), 0 30px 60px rgba(0,0,0,.72);
   --shadow-hover: 0 6px 16px rgba(0,0,0,.6), 0 48px 88px rgba(0,0,0,.82);
 }
+/* Explicit light palette (mirrors :root) so a subtree can force Light even when
+   an ancestor is .dark — used by the article Preview's theme switch. */
+.light {
+  --bg: #2b333c; --bg-soft: #333d47; --fg: #241d13; --muted: #6f6553;
+  --border: #e6dcc9; --card: #fdfaf4; --card-2: #f2ece0; --header: #22262e; --header-fg: #eef1f6;
+  --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
+  --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
+  --rs-cream-wash: 1;
+}
 
 /* ── RS Mode ───────────────────────────────────────────────────────────────
    A third theme (Light → Dark → RS). Keeps the Light palette — dark ink text,
