@@ -82,10 +82,12 @@ export default async function DocsHome() {
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
   let homeAdCursor = 0;
   // `brand` locks the slot to one advertiser (a sponsor spotlight). If that
-  // advertiser has no live creative, returns null so the caller can fall through
-  // rather than showing a random house ad in a slot sold to someone specific.
+  // advertiser has no live creative, we fall back to an RS house ad (our own —
+  // never another advertiser, so a sold slot can never show a competitor); only
+  // if we have no house image ad either does it fall through (null).
   const homeAd = (size: 'leaderboard' | 'rectangle', slot: string, brand?: string): React.ReactNode | null => {
-    const pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
+    let pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
+    if (brand && pool.length === 0) pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
     if (brand && pool.length === 0) return null;
     if (!pool.length) return <AdSlot size={size} slot={slot} />;
     const ad = pool[homeAdCursor++ % pool.length];

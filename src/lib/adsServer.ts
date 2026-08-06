@@ -97,14 +97,18 @@ export async function loadBrandArticleAds(html: string): Promise<Record<string, 
   if (!wanted.size) return {};
   const now = new Date();
   const live = (await loadAds()).filter((a) => adIsLive(a, now));
+  // A slot sold to one advertiser must never fall back to another advertiser (a
+  // possible competitor). If the chosen advertiser has nothing live, we serve an
+  // RS house ad (our own — never a vendor flight) instead.
+  const house = live.filter((a) => !a.flightId);
   const map: Record<string, AdRow> = {};
   for (const [key, { brand, size }] of wanted) {
-    const brandLive = live.filter((a) => brandKey(a.brand) === brand);
-    if (!brandLive.length) continue; // advertiser has nothing live → slot falls back to Auto
-    // Prefer a creative that actually fits the chosen shape; otherwise still show
-    // this advertiser (a text ad renders fine in any slot) rather than abandon the lock.
     const fits = (a: AdRow) => size === 'rectangle' ? (!!a.imageRect || !!a.video) : !!a.imageWide;
-    map[key] = brandLive.find(fits) || brandLive[0];
+    const brandLive = live.filter((a) => brandKey(a.brand) === brand);
+    // Prefer a creative that fits the shape; else the advertiser's other creative
+    // (a text ad renders anywhere); else an RS house ad; else Auto (omit).
+    const chosen = brandLive.find(fits) || brandLive[0] || house.find(fits) || house[0];
+    if (chosen) map[key] = chosen;
   }
   return map;
 }
