@@ -22,9 +22,9 @@ export type LiveQuiz = { data: QuizData; done: boolean };
 // votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
 // a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], ads = [], pollData = [], quizData = [], loggedIn = false,
+  html, polls = [], quizzes = [], ads = [], adById = {}, pollData = [], quizData = [], loggedIn = false,
 }: {
-  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[];
+  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adById?: Record<string, AdRow>;
   pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
 }) {
   let adIdx = 0;
@@ -34,6 +34,10 @@ export default function ArticleContent({
       const a = node.attribs;
       if ('data-author' in a) return <AuthorCard a={a} />;
       if ('data-ad-slot' in a) {
+        // A slot pinned to a specific ad (composer "pick a specific ad") shows
+        // that ad; otherwise it auto-rotates the article's best-match ads.
+        const pinned = a['data-ad-id'] ? adById[a['data-ad-id']] : undefined;
+        if (pinned) return <div className="my-6"><InArticleAd ad={pinned} slot="article-inline" size="in-article" /></div>;
         if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size="in-article" /></div>; }
         return <AdPlaceholder label={a['data-ad-label']} />;
       }

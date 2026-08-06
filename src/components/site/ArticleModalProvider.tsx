@@ -18,7 +18,7 @@ type ModalArticle = {
   tags: { name: string; slug: string }[];
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; loggedIn?: boolean };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; pinnedAds?: Record<string, AdRow>; loggedIn?: boolean };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -185,7 +185,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
-                        pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} />
+                        adById={data?.pinnedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} />
                     </article>
 
                     {a.tags.length > 0 && (

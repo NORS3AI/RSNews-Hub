@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
 import { getRelatedArticles } from '@/lib/recommend';
-import { pickArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadPinnedArticleAds } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 
 export const dynamic = 'force-dynamic';
@@ -36,7 +36,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   }
 
   const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;
-  const [related, next, ads, embeds] = await Promise.all([
+  const [related, next, ads, embeds, pinnedAds] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
@@ -45,6 +45,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     }),
     pickArticleAds(adContext, 'modal'),
     resolveArticleEmbeds(article.content, user?.id),
+    loadPinnedArticleAds(article.content),
   ]);
 
   return NextResponse.json({
@@ -66,6 +67,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     next,
     ads,
     embeds,
+    pinnedAds,
     loggedIn: !!user,
   });
 }
