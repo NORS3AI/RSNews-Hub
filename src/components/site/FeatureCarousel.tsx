@@ -49,7 +49,7 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
               <span className="mt-1 h-0.5 w-9" style={{ background: accent }} />
             </div>
           )}
-          <h2 className="max-w-xl font-serif text-3xl font-bold leading-[1.12] tracking-tight sm:text-4xl lg:text-[42px]">
+          <h2 className="max-w-xl text-3xl font-extrabold leading-[1.12] tracking-tight sm:text-4xl lg:text-[42px]">
             <button onClick={() => open(a.slug)} className="text-left hover:opacity-90">{a.title}</button>
           </h2>
           <button onClick={() => open(a.slug)} className="mt-7 w-fit text-sm font-bold text-white underline decoration-2 underline-offset-4 hover:opacity-80">

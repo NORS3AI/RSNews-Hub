@@ -40,7 +40,10 @@
     download: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
     copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
     trash2: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6"/></svg>',
-    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    starLg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="var(--orange)" stroke="none" style="display:inline;vertical-align:-4px"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>',
+    folderPlus: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 11v4M10 13h4"/></svg>'
   };
 
   /* ---------- theme ---------- */
@@ -93,6 +96,20 @@
   function toggleRead(slug) { toggleIn(READ_KEY, slug); renderStrip(); syncButtons(); }
   function removeRead(id) { write(READ_KEY, read(READ_KEY).filter(function (s) { return s.id !== id; })); renderStrip(); syncButtons(); }
   function clearRead() { write(READ_KEY, []); renderStrip(); syncButtons(); }
+  /* ---------- favorite folders ---------- */
+  var FAVFOLDERS_KEY = 'rsnews_favfolders_v1';
+  var favView = 'all';      // 'all' | 'unfiled' | folderId
+  var favNewOpen = false;   // is the "new folder" input showing
+  function getFavFolders() { return read(FAVFOLDERS_KEY); }
+  function addFavFolder(name) { name = (name || '').trim(); if (!name) return null;
+    var l = getFavFolders(); var id = 'f' + Date.now() + Math.floor(Math.random() * 1000);
+    l.push({ id: id, name: name.slice(0, 32) }); write(FAVFOLDERS_KEY, l); return id; }
+  function renameFavFolder(id, name) { name = (name || '').trim(); if (!name) return;
+    var l = getFavFolders(); l.forEach(function (f) { if (f.id === id) f.name = name.slice(0, 32); }); write(FAVFOLDERS_KEY, l); }
+  function removeFavFolder(id) { write(FAVFOLDERS_KEY, getFavFolders().filter(function (f) { return f.id !== id; }));
+    var favs = read(FAV_KEY); favs.forEach(function (x) { if (x.folder === id) delete x.folder; }); write(FAV_KEY, favs); }
+  function setFavFolder(artId, folderId) { var favs = read(FAV_KEY);
+    favs.forEach(function (x) { if (x.id === artId) { if (folderId) x.folder = folderId; else delete x.folder; } }); write(FAV_KEY, favs); }
   function getHistory() { return read(HIST_KEY); }
   function recordHistory(a) { if (!a) return; var l = read(HIST_KEY).filter(function (s) { return s.id !== a.id; });
     l.unshift({ id: a.id, title: a.title, slug: a.slug, ts: Date.now() }); if (l.length > HIST_MAX) l = l.slice(0, HIST_MAX); write(HIST_KEY, l); }
@@ -925,6 +942,55 @@
     el('main').innerHTML = h; window.scrollTo(0, 0);
   }
 
+  /* ---------- favorites ---------- */
+  function favChip(id, name, count) {
+    return '<button class="fav-chip' + (favView === id ? ' active' : '') + '" data-favfolder="' + esc(id) + '">' +
+      esc(name) + '<span class="fav-chip-n">' + count + '</span></button>';
+  }
+  function favCard(a, cur) {
+    var accent = a.category ? a.category.color : 'var(--orange)';
+    var top = a.coverImage ? '<img src="' + esc(a.coverImage) + '" alt="" loading="lazy" style="aspect-ratio:16/9;width:100%;object-fit:cover">'
+      : '<div class="ablock-ph"><span class="accent" style="background:' + accent + '"></span>RS</div>';
+    var opts = '<option value="">Unfiled</option>' + getFavFolders().map(function (f) {
+      return '<option value="' + esc(f.id) + '"' + (cur === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
+    return '<article class="ablock"><div class="acts">' + acts(a.slug) + '</div>' + top +
+      '<a href="#' + esc(a.slug) + '" data-open="' + esc(a.slug) + '" class="body"><div>' + catBadge(a.category) + '</div>' +
+      '<h3>' + esc(a.title) + '</h3>' +
+      '<div class="meta"><span>' + fmtDate(a.publishedAt) + '</span><span>' + ICON.clock + (a.readMinutes || 1) + ' min</span></div></a>' +
+      '<div class="fav-folder-bar">' + ICON.folder + '<select class="fav-folder-sel" data-fav-setfolder="' + esc(a.id) + '" aria-label="Move to folder">' + opts + '</select></div>' +
+      '</article>';
+  }
+  function renderFavorites() {
+    var favs = read(FAV_KEY), folders = getFavFolders();
+    if (favView !== 'all' && favView !== 'unfiled' && !folders.some(function (f) { return f.id === favView; })) favView = 'all';
+    var h = '<div class="content"><section class="module" data-page="favorites"><div class="module-head"><h2>' + ICON.starLg + ' Your favorites</h2></div>';
+    if (!favs.length) {
+      h += '<p style="color:var(--muted);margin:0;font-size:16px">No favorites yet. Tap the ' + ICON.star + ' on any article to save it here — then group them into folders like <b>Training</b>, <b>Front&nbsp;counter</b> or <b>Marketing</b>.</p></section></div>';
+      el('main').innerHTML = h; window.scrollTo(0, 0); return;
+    }
+    var unfiled = favs.filter(function (x) { return !x.folder; }).length;
+    var shown = favs.filter(function (x) { return favView === 'all' ? true : favView === 'unfiled' ? !x.folder : x.folder === favView; });
+    // Folder chips + new-folder control
+    h += '<div class="fav-folders">' + favChip('all', 'All', favs.length) +
+      (folders.length ? favChip('unfiled', 'Unfiled', unfiled) : '') +
+      folders.map(function (f) { return favChip(f.id, f.name, favs.filter(function (x) { return x.folder === f.id; }).length); }).join('') +
+      (favNewOpen
+        ? '<span class="fav-newfolder"><input type="text" class="fav-newfolder-input" placeholder="Folder name" maxlength="32" data-fav-newfolder-input="1"><button class="fav-newfolder-add" data-fav-newfolder-add="1">Add</button><button class="fav-newfolder-cancel" data-fav-newfolder-cancel="1" aria-label="Cancel">' + ICON.x + '</button></span>'
+        : '<button class="fav-newfolder-btn" data-fav-newfolder="1">' + ICON.folderPlus + ' New folder</button>') +
+      '</div>';
+    // Rename / delete for the selected folder
+    if (favView !== 'all' && favView !== 'unfiled') {
+      var cf = folders.filter(function (f) { return f.id === favView; })[0];
+      if (cf) h += '<div class="fav-folder-actions"><span>Showing <b>' + esc(cf.name) + '</b></span>' +
+        '<button data-fav-renamefolder="' + esc(cf.id) + '">Rename</button>' +
+        '<button data-fav-delfolder="' + esc(cf.id) + '">Delete folder</button></div>';
+    }
+    if (!shown.length) h += '<p style="color:var(--muted);margin:14px 0 0;font-size:15px">Nothing filed here yet. Use the folder menu on any favorite to move it in.</p>';
+    else h += '<div class="grid g3" style="margin-top:16px">' + shown.map(function (s) { var a = bySlug[s.slug]; return a ? favCard(a, s.folder || '') : ''; }).join('') + '</div>';
+    h += '</section></div>';
+    el('main').innerHTML = h; syncButtons(); window.scrollTo(0, 0);
+  }
+
   /* ---------- search ---------- */
   function searchArticles(q) { q = q.trim().toLowerCase(); if (!q) return [];
     var terms = q.split(/\s+/).slice(0, 6);
@@ -1159,10 +1225,17 @@
     var sClr = e.target.closest('[data-strip-clear]'); if (sClr) { e.preventDefault(); stripConfirmClear = true; renderStrip(); return; }
     var sYes = e.target.closest('[data-strip-clear-yes]'); if (sYes) { e.preventDefault(); stripConfirmClear = false; clearRead(); return; }
     var sNo = e.target.closest('[data-strip-clear-no]'); if (sNo) { e.preventDefault(); stripConfirmClear = false; renderStrip(); return; }
-    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-clearhistory]');
+    var fFolder = e.target.closest('[data-favfolder]'); if (fFolder) { e.preventDefault(); favView = fFolder.getAttribute('data-favfolder'); favNewOpen = false; renderFavorites(); return; }
+    var fNew = e.target.closest('[data-fav-newfolder]'); if (fNew) { e.preventDefault(); favNewOpen = true; renderFavorites(); var ni = el('main').querySelector('[data-fav-newfolder-input]'); if (ni) ni.focus(); return; }
+    var fAdd = e.target.closest('[data-fav-newfolder-add]'); if (fAdd) { e.preventDefault(); var ai = el('main').querySelector('[data-fav-newfolder-input]'); var nid = addFavFolder(ai ? ai.value : ''); favNewOpen = false; if (nid) favView = nid; renderFavorites(); return; }
+    var fCancel = e.target.closest('[data-fav-newfolder-cancel]'); if (fCancel) { e.preventDefault(); favNewOpen = false; renderFavorites(); return; }
+    var fRen = e.target.closest('[data-fav-renamefolder]'); if (fRen) { e.preventDefault(); var rn = prompt('Rename folder'); if (rn) renameFavFolder(fRen.getAttribute('data-fav-renamefolder'), rn); renderFavorites(); return; }
+    var fDel = e.target.closest('[data-fav-delfolder]'); if (fDel) { e.preventDefault(); if (confirm('Delete this folder? The favorites inside it move back to Unfiled — the articles stay favorited.')) { removeFavFolder(fDel.getAttribute('data-fav-delfolder')); favView = 'all'; } renderFavorites(); return; }
+    var t = e.target.closest('[data-open],[data-close],[data-fav],[data-read],[data-unread],[data-cat],[data-topic],[data-home],[data-history],[data-clippings],[data-favorites],[data-clearhistory]');
     if (!t) return;
     if (t.hasAttribute('data-clippings')) { e.preventDefault(); setActive(t); renderClippings(); closeDrawer(); window.scrollTo(0, 0); return; }
-    if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); toggleFav(t.getAttribute('data-fav')); return; }
+    if (t.hasAttribute('data-favorites')) { e.preventDefault(); setActive(t); favView = 'all'; favNewOpen = false; renderFavorites(); closeDrawer(); window.scrollTo(0, 0); return; }
+    if (t.hasAttribute('data-fav')) { e.preventDefault(); e.stopPropagation(); var onFavPage = !!el('main').querySelector('[data-page="favorites"]'); toggleFav(t.getAttribute('data-fav')); if (onFavPage) renderFavorites(); return; }
     if (t.hasAttribute('data-read')) { e.preventDefault(); e.stopPropagation(); toggleRead(t.getAttribute('data-read')); return; }
     if (t.hasAttribute('data-unread')) { e.preventDefault(); e.stopPropagation(); removeRead(t.getAttribute('data-unread')); return; }
     if (t.hasAttribute('data-open')) { e.preventDefault(); openModal(t.getAttribute('data-open')); return; }
@@ -1179,6 +1252,9 @@
     if (q.trim().length < 2) { var b = i.parentNode.querySelector('.suggest'); if (b) b.remove(); return; } renderSuggest(i, searchArticles(q)); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-search]')) { e.preventDefault(); var q = e.target.value.trim(); var b = e.target.parentNode.querySelector('.suggest'); if (b) b.remove(); if (q) runSearch(q); } });
   document.addEventListener('click', function (e) { if (!e.target.closest('.search')) document.querySelectorAll('.suggest').forEach(function (b) { b.remove(); }); });
+  // Move a favorite into a folder (native select) + add folder on Enter.
+  document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('[data-fav-setfolder]')) { setFavFolder(e.target.getAttribute('data-fav-setfolder'), e.target.value); renderFavorites(); } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-fav-newfolder-input]')) { e.preventDefault(); var nid = addFavFolder(e.target.value); favNewOpen = false; if (nid) favView = nid; renderFavorites(); } });
 
   /* ---------- init ---------- */
   initTheme();
