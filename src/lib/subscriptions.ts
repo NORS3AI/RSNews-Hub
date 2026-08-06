@@ -94,16 +94,22 @@ export async function getAccountTopics(userId: string): Promise<TopicKey[]> {
 
 /** Replace the account's followed notification topics with `keys`. */
 export async function setAccountTopics(userId: string, keys: TopicKey[]): Promise<void> {
-  const want = new Set(keys);
-  const cats = want.size ? await prisma.category.findMany({ where: { slug: { in: keys } }, select: { id: true, slug: true } }) : [];
-  const bySlug = new Map(cats.map((c) => [c.slug, c.id]));
+  const want = new Set(keys); // dedups the incoming keys up front
+  const catSlugs = Array.from(want).filter((k) => k !== ALL && k !== INDUSTRY);
+  const cats = catSlugs.length ? await prisma.category.findMany({ where: { slug: { in: catSlugs } }, select: { id: true, slug: true } }) : [];
 
-  await prisma.subscription.deleteMany({ where: { userId } });
   const data: { userId: string; kind: string; categoryId: string | null }[] = [];
   if (want.has(ALL)) data.push({ userId, kind: 'all', categoryId: null });
   if (want.has(INDUSTRY)) data.push({ userId, kind: 'industry', categoryId: null });
-  for (const k of keys) { const id = bySlug.get(k); if (id) data.push({ userId, kind: 'category', categoryId: id }); }
-  if (data.length) await prisma.subscription.createMany({ data });
+  // Iterate the DB rows (one per slug) so a repeated slug can't create two rows
+  // and trip the @@unique([userId,kind,categoryId]) constraint.
+  for (const c of cats) data.push({ userId, kind: 'category', categoryId: c.id });
+
+  // Atomic: never leave the account with its topics deleted if the insert fails.
+  await prisma.$transaction([
+    prisma.subscription.deleteMany({ where: { userId } }),
+    ...(data.length ? [prisma.subscription.createMany({ data })] : []),
+  ]);
 }
 
 export type FeedItem = {
@@ -114,7 +120,7 @@ export type FeedItem = {
 
 /** The shared account bell: recent items in followed topics, newest first, each
  *  flagged unread if it landed after the account last opened Notifications. */
-export async function notificationFeed(userId: string, limit = 40): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
+export async function notificationFeed(userId: string, limit = 50): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
   const [keys, user] = await Promise.all([
     getAccountTopics(userId),
     prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true } }),
@@ -123,10 +129,12 @@ export async function notificationFeed(userId: string, limit = 40): Promise<{ it
 
   const now = new Date();
   const since = new Date(now.getTime() - 60 * 24 * 3600 * 1000); // last 60 days of activity
-  const { industry, articles } = await gatherSince(keys, since, now, limit);
+  // Gather generously so the unread count reflects everything recent, not just
+  // what fits the display slice (each source is capped, so pull extra).
+  const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100));
   const seenAt = user?.notificationsSeenAt ?? new Date(0);
 
-  const items: FeedItem[] = [
+  const all: FeedItem[] = [
     ...industry.map((l): FeedItem => ({
       type: 'industry', title: l.title, href: l.url, date: l.postedAt,
       meta: `${l.author} · ${linkSource(l.url, l.source)}`, unread: l.postedAt > seenAt,
@@ -135,14 +143,16 @@ export async function notificationFeed(userId: string, limit = 40): Promise<{ it
       type: 'article', title: a.title, href: `/docs/article/${a.slug}`, date: a.publishedAt ?? now,
       categoryName: a.category?.name, categoryColor: a.category?.color, unread: (a.publishedAt ?? now) > seenAt,
     })),
-  ].sort((x, y) => y.date.getTime() - x.date.getTime()).slice(0, limit);
+  ].sort((x, y) => y.date.getTime() - x.date.getTime());
 
-  return { items, unread: items.filter((i) => i.unread).length, hasTopics: true };
+  // Count unread across the full recent set (pre-slice) so the badge isn't
+  // capped by the display limit.
+  return { items: all.slice(0, limit), unread: all.filter((i) => i.unread).length, hasTopics: true };
 }
 
 /** Count only — cheap enough for the sidebar badge on every page. */
 export async function unreadCount(userId: string): Promise<number> {
-  const { unread } = await notificationFeed(userId, 40);
+  const { unread } = await notificationFeed(userId);
   return unread;
 }
 
@@ -168,7 +178,13 @@ export async function upsertDigestEmail(userId: string, emailRaw: string, keys: 
   const topics = serializeTopics(keys.length ? keys : [INDUSTRY]);
   const existing = await prisma.newsletterSubscriber.findUnique({ where: { email } });
   if (existing) {
-    await prisma.newsletterSubscriber.update({ where: { email }, data: { topics, active: true, unsubscribedAt: null, accountId: existing.accountId ?? userId } });
+    // Don't let one store touch an address another store owns — no reactivating
+    // it, no rewriting its topics. Only the owning account (or an unclaimed row)
+    // can be edited here.
+    if (existing.accountId && existing.accountId !== userId) {
+      return { ok: false, error: 'That email is already managed by another store account.' };
+    }
+    await prisma.newsletterSubscriber.update({ where: { email }, data: { topics, active: true, unsubscribedAt: null, accountId: userId } });
   } else {
     await prisma.newsletterSubscriber.create({ data: { email, topics, accountId: userId, source: 'hub', token: token() } });
   }

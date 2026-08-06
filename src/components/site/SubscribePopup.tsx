@@ -57,9 +57,13 @@ export default function SubscribePopup() {
           const base: string[] = d.notifyTopics?.length ? d.notifyTopics : ['industry'];
           if (detail.preselect) base.push(detail.preselect);
           setChecked(new Set(base));
-          setNotifyOn(true);
+          // Reflect existing state: ON only if the account already has notification
+          // topics, or the user explicitly clicked a "Subscribe" button (preselect).
+          // This stops a "just add an email" visit from creating/altering the
+          // shared, account-wide bell by accident.
+          setNotifyOn((d.notifyTopics?.length ?? 0) > 0 || !!detail.preselect);
         }
-      });
+      }).catch(() => setNote({ ok: false, text: 'Could not load — check your connection and try again.' }));
     }
     window.addEventListener(SUBSCRIBE_EVENT, onOpen);
     return () => window.removeEventListener(SUBSCRIBE_EVENT, onOpen);
@@ -92,8 +96,13 @@ export default function SubscribePopup() {
     if (!notifyOn && !(emailOn && emailAddr.trim())) { setNote({ ok: false, text: 'Pick a delivery: on-site notifications, email, or both.' }); return; }
     setBusy(true); setNote(null);
     try {
-      // Account-wide notifications: set (or clear) the shared bell topics.
-      await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'notify', topics: notifyOn ? topics : [] }) });
+      // Account-wide notifications: only WRITE when the toggle is on, so turning
+      // it off (or opening just to add an email) never wipes the shared bell for
+      // the whole store. To clear notifications, uncheck all topics with the
+      // toggle on and save — that's the one explicit path to an empty set.
+      if (notifyOn) {
+        await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'notify', topics }) });
+      }
       // Personal email digest for this address.
       let emailErr = '';
       if (emailOn && emailAddr.trim()) {
@@ -109,9 +118,14 @@ export default function SubscribePopup() {
   }
 
   async function removeEmail(id: string) {
-    await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeEmail', id }) });
-    setConfirmDel(null);
-    const d = await load(); if (d) setEmails(d.emails);
+    if (busy) return;
+    setBusy(true);
+    try {
+      await fetch('/api/subscriptions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeEmail', id }) });
+      setConfirmDel(null);
+      const d = await load(); if (d) setEmails(d.emails);
+      window.dispatchEvent(new Event(NOTIF_CHANGED)); // keep the page's list + sidebar in sync
+    } finally { setBusy(false); }
   }
 
   if (!open) return null;
@@ -119,7 +133,7 @@ export default function SubscribePopup() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/50 p-4 py-[6vh] backdrop-blur-sm" onClick={() => setOpen(false)}>
-      <div className="card w-full max-w-lg p-0" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Subscribe" className="card w-full max-w-lg p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
           <h2 className="text-lg font-black">{mode === 'editEmail' ? 'Customize this email' : 'Subscribe'}</h2>
           <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface-2)]" aria-label="Close"><X width={18} height={18} /></button>

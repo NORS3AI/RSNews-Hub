@@ -16,6 +16,7 @@ export default function NewsletterAdmin({ emailReady }: { emailReady: boolean })
     try {
       const res = await fetch('/api/admin/newsletter/send', { method: 'POST' });
       const d = await res.json();
+      if (!res.ok) { setNote({ ok: false, text: d.error || 'Send failed — try again.' }); return; }
       if (d.sent === 0 && d.failed === 0) setNote({ ok: true, text: `Nothing new for anyone — no emails went out (${d.skippedEmpty} subscriber${d.skippedEmpty === 1 ? '' : 's'} had no new items).` });
       else setNote({ ok: true, text: `Sent ${d.sent} personalized digest${d.sent === 1 ? '' : 's'}${d.failed ? ` (${d.failed} failed)` : ''}${d.skippedEmpty ? ` · ${d.skippedEmpty} skipped (nothing new)` : ''}.` });
       router.refresh();

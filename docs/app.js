@@ -345,7 +345,7 @@
   }
 
   /* ---------- builders ---------- */
-  function catBadge(c) { return c ? '<span class="badge badge-cat" style="--c:' + c.color + '">' + esc(c.name) + '</span>' : ''; }
+  function catBadge(c) { return c ? '<span class="badge badge-cat" style="--c:' + esc(c.color) + '">' + esc(c.name) + '</span>' : ''; }
   function isBreaking(a) { return !!(a && a.breakingUntil && new Date(a.breakingUntil).getTime() > Date.now()); }
   // Primary + extra category badges, plus a ⚡ Breaking badge (from the timer)
   // in place of the "Breaking News" category itself.
@@ -1228,7 +1228,9 @@
   function setTopics(a) { try { localStorage.setItem(SUB_KEY, JSON.stringify(a)); } catch (e) {} }
   function getSeen() { try { return +localStorage.getItem(SUB_SEEN_KEY) || 0; } catch (e) { return 0; } }
   function setSeen(t) { try { localStorage.setItem(SUB_SEEN_KEY, String(t)); } catch (e) {} }
-  function topicName(t) { if (t === 'all') return 'Everything'; if (t === 'industry') return 'Industry News'; var c = CATEGORIES.filter(function (x) { return x.slug === t; })[0]; return c ? c.name : t; }
+  // Only allow http(s) links to render as clickable (defense against a stray
+  // javascript: URL sneaking in through curated data).
+  function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : '#'; }
   function artMatches(a, topics) {
     if (topics.indexOf('all') >= 0) return true;
     if (a.category && topics.indexOf(a.category.slug) >= 0) return true;
@@ -1255,7 +1257,7 @@
     if (!badge) { badge = document.createElement('span'); badge.className = 'notif-dot'; (link.querySelector('svg') || link).insertAdjacentElement('afterend', badge); }
     badge.textContent = n > 9 ? '9+' : String(n);
   }
-  function ago(ms) { var s = Math.max(1, (Date.now() - ms) / 1000); if (s < 3600) return Math.floor(s / 60) + 'm ago'; if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 604800) return Math.floor(s / 86400) + 'd ago'; return fmtDate(new Date(ms).toISOString()); }
+  function ago(ms) { if (!ms || isNaN(ms)) return ''; var s = Math.max(1, (Date.now() - ms) / 1000); if (s < 3600) return Math.floor(s / 60) + 'm ago'; if (s < 86400) return Math.floor(s / 3600) + 'h ago'; if (s < 604800) return Math.floor(s / 86400) + 'd ago'; return fmtDate(new Date(ms).toISOString()); }
   function renderNotifications() {
     var topics = getTopics(), feed = subFeed();
     var h = '<div class="content" data-page="notifications"><section class="module"><div class="module-head"><h2 class="ind-h2">' + ICON.bell + ' Notifications</h2>' +
@@ -1277,7 +1279,7 @@
           '<span class="notif-body"><span class="notif-title">' + esc(it.title) + (it.type === 'industry' ? ' ' + ICON.ext : '') + '</span>' +
           '<span class="notif-meta">' + badge + '<span>' + meta + '</span></span></span>';
         return it.type === 'industry'
-          ? '<a class="notif-row" href="' + esc(it.url) + '" target="_blank" rel="noopener">' + inner + '</a>'
+          ? '<a class="notif-row" href="' + esc(safeUrl(it.url)) + '" target="_blank" rel="noopener">' + inner + '</a>'
           : '<a class="notif-row" href="#" data-open="' + esc(it.slug) + '">' + inner + '</a>';
       }).join('') + '</div>';
     }
