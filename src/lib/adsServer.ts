@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { DEFAULT_ADS, pickTwoInArticleAds, adIsLive, type AdRow } from './ads';
+import { brandKey } from './entitlements';
 
 /** Load the ad inventory (DB) with each ad's flight window/status for live
  *  filtering, falling back to the built-in house defaults. */
@@ -28,18 +29,57 @@ export async function pickArticleAds(context: string, prefix: string, favorBrand
   return pickTwoInArticleAds(ads, context, prefix, new Date(), favorBrand);
 }
 
-// Ad slots the composer pins to a specific ad serialize as data-ad-id="<id>".
-const PINNED_AD_ID_RE = /data-ad-id="([^"]+)"/g;
+// An advertiser the composer/module builder can lock a slot to, plus which slot
+// shapes it currently has a live creative for. `key` is the normalized brand
+// (data-ad-brand stores this), so the client can match without re-normalizing.
+export type AdvertiserOption = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
 
-/** Resolve the ads an article's body pins by id (composer "pick a specific ad"),
- *  as an id→ad map. Only currently-live ads are returned; an unknown, paused, or
- *  out-of-flight id is omitted so that slot falls back to an auto-picked ad. */
-export async function loadPinnedArticleAds(html: string): Promise<Record<string, AdRow>> {
-  const ids = new Set<string>();
-  for (const m of (html || '').matchAll(PINNED_AD_ID_RE)) if (m[1]) ids.add(m[1]);
-  if (!ids.size) return {};
+/** List every advertiser with at least one live creative, and which slot shapes
+ *  each can currently fill. Feeds the ad-slot advertiser picker + its
+ *  "no live creative in that size" popup. */
+export async function listAdvertisers(): Promise<AdvertiserOption[]> {
   const now = new Date();
+  const byKey = new Map<string, AdvertiserOption>();
+  for (const a of await loadAds()) {
+    if (!adIsLive(a, now)) continue;
+    const key = brandKey(a.brand);
+    const cur = byKey.get(key) ?? { key, brand: a.brand, wide: false, rect: false, video: false };
+    if (a.imageWide) cur.wide = true;
+    if (a.imageRect) cur.rect = true;
+    if (a.video) cur.video = true;
+    byKey.set(key, cur);
+  }
+  return [...byKey.values()].sort((x, y) => x.brand.localeCompare(y.brand));
+}
+
+// Ad slots locked to an advertiser serialize as <div data-ad-slot
+// data-ad-brand="<brandKey>" data-ad-size="wide|rectangle">.
+const AD_SLOT_RE = /<div\b[^>]*\bdata-ad-slot\b[^>]*>/g;
+const attr = (tag: string, name: string) => tag.match(new RegExp(`${name}="([^"]*)"`))?.[1] || '';
+
+/** Resolve the advertiser-locked ad slots in an article body to a live creative
+ *  each, keyed by "<brandKey>::<size>". Picks a live ad of that advertiser that
+ *  actually has the requested shape; an advertiser with nothing live in that
+ *  size is omitted so the slot falls back to the Auto smart-cycle. */
+export async function loadBrandArticleAds(html: string): Promise<Record<string, AdRow>> {
+  const wanted = new Map<string, { brand: string; size: string }>();
+  for (const m of (html || '').matchAll(AD_SLOT_RE)) {
+    const brand = attr(m[0], 'data-ad-brand');
+    if (!brand) continue; // Auto slot — resolved contextually at render time
+    const size = attr(m[0], 'data-ad-size') || 'wide';
+    wanted.set(`${brand}::${size}`, { brand, size });
+  }
+  if (!wanted.size) return {};
+  const now = new Date();
+  const live = (await loadAds()).filter((a) => adIsLive(a, now));
   const map: Record<string, AdRow> = {};
-  for (const ad of await loadAds()) if (ids.has(ad.id) && adIsLive(ad, now)) map[ad.id] = ad;
+  for (const [key, { brand, size }] of wanted) {
+    const brandLive = live.filter((a) => brandKey(a.brand) === brand);
+    if (!brandLive.length) continue; // advertiser has nothing live → slot falls back to Auto
+    // Prefer a creative that actually fits the chosen shape; otherwise still show
+    // this advertiser (a text ad renders fine in any slot) rather than abandon the lock.
+    const fits = (a: AdRow) => size === 'rectangle' ? (!!a.imageRect || !!a.video) : !!a.imageWide;
+    map[key] = brandLive.find(fits) || brandLive[0];
+  }
   return map;
 }

@@ -11,7 +11,7 @@ import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
 import InArticleAd from '@/components/InArticleAd';
 import ArticleContent from '@/components/site/ArticleContent';
-import { pickArticleAds, loadPinnedArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
@@ -72,10 +72,10 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   const adContext = `${article.title} ${article.content} ${article.tags.map(({ tag }) => tag.name).join(' ')}`;
   // A visiting vendor sees their own brand's ads surfaced first.
   const favorBrand = entitlementsOf(user ?? {}).vendorBrand;
-  const [ads, embeds, pinnedAds] = await Promise.all([
+  const [ads, embeds, slotAds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand),
     resolveArticleEmbeds(article.content, user?.id),
-    loadPinnedArticleAds(article.content),
+    loadBrandArticleAds(article.content),
   ]);
   const inlineAds = [ads.top, ads.bottom].filter(Boolean) as NonNullable<typeof ads.top>[];
 
@@ -125,7 +125,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <div className="my-6"><InArticleAd ad={ads.top} slot="article-top" size="in-article" /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''}>
-          <ArticleContent html={article.content} ads={inlineAds} adById={pinnedAds} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
+          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
         </article>
 
         <div className="my-8 flex justify-center"><InArticleAd ad={ads.bottom} slot="article-bottom" size="rectangle" /></div>

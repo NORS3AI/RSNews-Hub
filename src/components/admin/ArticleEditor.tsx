@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { saveArticle } from '@/lib/actions';
-import { ComposerProvider, type Opt } from './composer/context';
+import { ComposerProvider, type Opt, type Advertiser } from './composer/context';
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
@@ -18,8 +18,8 @@ type Article = {
 // tabbed inspector (right) for Article details vs the selected element — one
 // shared TipTap editor behind all three, via ComposerProvider.
 export default function ArticleEditor({
-  article, categories, polls = [], quizzes = [], ads = [], authorName = 'You',
-}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; ads?: Opt[]; authorName?: string }) {
+  article, categories, polls = [], quizzes = [], advertisers = [], authorName = 'You',
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; authorName?: string }) {
   return (
     <form action={saveArticle}>
       {article?.id && <input type="hidden" name="id" value={article.id} />}
@@ -34,7 +34,7 @@ export default function ArticleEditor({
         </div>
       </div>
 
-      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} ads={ads}>
+      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers}>
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
           <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
             <div className="card p-3">

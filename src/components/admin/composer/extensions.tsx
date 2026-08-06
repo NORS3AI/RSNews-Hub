@@ -33,16 +33,25 @@ const Tag = ({ icon, text }: { icon: React.ReactNode; text: string }) => (
 const hint = <span className="text-[var(--muted)]">— set it in the Element panel →</span>;
 
 /* ── Ad slot ─────────────────────────────────────────────────────────────── */
+const AD_SIZE_LABEL: Record<string, string> = { wide: 'Wide banner', rectangle: 'Rectangle' };
 export const AdSlot = Node.create({
   name: 'adSlot', group: 'block', atom: true, selectable: true, draggable: true,
-  addAttributes() { return { adId: { default: '' }, adLabel: { default: '' } }; },
-  parseHTML() { return [{ tag: 'div[data-ad-slot]', getAttrs: (el) => ({ adId: (el as HTMLElement).getAttribute('data-ad-id') || '', adLabel: (el as HTMLElement).getAttribute('data-ad-label') || '' }) }]; },
-  renderHTML({ node }) { return ['div', { 'data-ad-slot': '', 'data-ad-id': node.attrs.adId || '', 'data-ad-label': node.attrs.adLabel || '' }]; },
+  // brand = advertiser lock (normalized brand key; empty = Auto smart-cycle);
+  // size = slot shape; adLabel = advertiser display name for the editor card.
+  addAttributes() { return { brand: { default: '' }, size: { default: 'wide' }, adLabel: { default: '' } }; },
+  parseHTML() {
+    return [{ tag: 'div[data-ad-slot]', getAttrs: (el) => ({
+      brand: (el as HTMLElement).getAttribute('data-ad-brand') || '',
+      size: (el as HTMLElement).getAttribute('data-ad-size') || 'wide',
+      adLabel: (el as HTMLElement).getAttribute('data-ad-label') || '',
+    }) }];
+  },
+  renderHTML({ node }) { return ['div', { 'data-ad-slot': '', 'data-ad-brand': node.attrs.brand || '', 'data-ad-size': node.attrs.size || 'wide', 'data-ad-label': node.attrs.adLabel || '' }]; },
   addNodeView() {
     return ReactNodeViewRenderer((p: any) => (
       <Card onDelete={p.deleteNode} tone="orange" selected={p.selected}>
-        <Tag icon={<Megaphone width={14} height={14} className="text-brand-600" />} text="Ad slot" />
-        <p className="mt-1 text-sm text-[var(--fg)]">{p.node.attrs.adLabel ? <>Showing: <strong>{p.node.attrs.adLabel}</strong></> : <>Auto — best match from your campaigns &amp; house ads.</>}</p>
+        <Tag icon={<Megaphone width={14} height={14} className="text-brand-600" />} text={`Ad slot · ${AD_SIZE_LABEL[p.node.attrs.size] || 'Wide banner'}`} />
+        <p className="mt-1 text-sm text-[var(--fg)]">{p.node.attrs.brand ? <>Advertiser: <strong>{p.node.attrs.adLabel || p.node.attrs.brand}</strong></> : <>Auto — best match, competitor-safe.</>}</p>
       </Card>
     ));
   },

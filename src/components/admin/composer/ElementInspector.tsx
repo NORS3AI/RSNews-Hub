@@ -23,10 +23,27 @@ export default function ElementInspector() {
   );
 }
 
+const AD_SIZES = [{ v: 'wide', label: 'Wide banner' }, { v: 'rectangle', label: 'Rectangle' }] as const;
+type Adv = { wide: boolean; rect: boolean; video: boolean };
+const advHasSize = (adv: Adv | undefined, size: string) =>
+  !adv ? false : size === 'rectangle' ? (adv.rect || adv.video) : adv.wide;
+const advHasAnyImage = (adv: Adv | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
+
 function Fields({ sel }: { sel: NonNullable<Selected> }) {
-  const { updateSelected, deleteSelected, polls, quizzes, ads } = useComposer();
+  const { updateSelected, deleteSelected, polls, quizzes, advertisers } = useComposer();
   const a = sel.attrs as Record<string, any>;
   const [busy, setBusy] = useState(false);
+  // Popup shown when the chosen advertiser has no live creative in the chosen size.
+  const [sizeGap, setSizeGap] = useState<{ brand: string; size: string } | null>(null);
+
+  // Warn only when the advertiser HAS image creatives but not the chosen shape.
+  // A text-only advertiser fits any slot, so it never triggers the popup.
+  function checkFit(brandKey: string, size: string) {
+    if (!brandKey) { setSizeGap(null); return; }
+    const adv = advertisers.find((x) => x.key === brandKey);
+    const gap = advHasAnyImage(adv) && !advHasSize(adv, size);
+    setSizeGap(gap ? { brand: brandKey, size } : null);
+  }
 
   async function pickAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]; if (!f) return; setBusy(true);
@@ -37,17 +54,49 @@ function Fields({ sel }: { sel: NonNullable<Selected> }) {
 
   let body: React.ReactNode = null;
   if (sel.type === 'adSlot') {
+    const size = a.size || 'wide';
+    const gapAdv = sizeGap ? advertisers.find((x) => x.key === sizeGap.brand) : undefined;
+    const otherSizes = AD_SIZES.filter((s) => s.v !== (sizeGap?.size ?? '') && advHasSize(gapAdv, s.v));
     body = (
-      <div>
-        <label className="label">Which ad?</label>
-        <select className="input" defaultValue={a.adId || ''} onChange={(e) => {
-          const id = e.target.value; const label = ads.find((x) => x.id === id)?.title || '';
-          updateSelected({ adId: id, adLabel: label });
-        }}>
-          <option value="">Auto — best match</option>
-          {ads.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
-        </select>
-        <p className="mt-1 text-xs text-[var(--muted)]">Leave on Auto to let the ad engine choose, or pin a specific ad here.</p>
+      <div className="space-y-3">
+        <div>
+          <label className="label">Size</label>
+          <div className="flex gap-1.5">
+            {AD_SIZES.map((s) => (
+              <button key={s.v} type="button" onClick={() => { updateSelected({ size: s.v }); checkFit(a.brand || '', s.v); }}
+                className={`flex-1 rounded-lg border px-2 py-1.5 text-sm font-bold ${size === s.v ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950/30' : 'border-[var(--border)] text-[var(--muted)]'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="label">Advertiser</label>
+          <select className="input" value={a.brand || ''} onChange={(e) => {
+            const key = e.target.value; const label = advertisers.find((x) => x.key === key)?.brand || '';
+            updateSelected({ brand: key, adLabel: label }); checkFit(key, size);
+          }}>
+            <option value="">Auto — smart cycle (contextual + competitor-safe)</option>
+            {advertisers.map((x) => <option key={x.key} value={x.key}>{x.brand}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">Auto rotates the best-match ad and hides an advertiser&apos;s rivals. Or lock this slot to one advertiser.</p>
+        </div>
+
+        {sizeGap && gapAdv && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+            <p className="font-semibold text-amber-800 dark:text-amber-200">{gapAdv.brand} has no live {size === 'rectangle' ? 'rectangle' : 'wide banner'} on file.</p>
+            <div className="mt-2 flex flex-col gap-1.5">
+              {otherSizes.map((s) => (
+                <button key={s.v} type="button" onClick={() => { updateSelected({ size: s.v }); setSizeGap(null); }}
+                  className="btn-outline btn-sm justify-start">Switch size to {s.label} (they have it)</button>
+              ))}
+              <button type="button" onClick={() => { updateSelected({ brand: '', adLabel: '' }); setSizeGap(null); }}
+                className="btn-outline btn-sm justify-start">Use Auto instead</button>
+              <button type="button" onClick={() => setSizeGap(null)}
+                className="text-left text-xs text-[var(--muted)] hover:text-[var(--fg)]">Keep it — nothing current on file, a best-match ad shows here instead</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   } else if (sel.type === 'spacer') {

@@ -9,13 +9,14 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { AdSlot, Spacer, PollEmbed, QuizEmbed, CtaButton, PullQuote, Author, CUSTOM_TYPES } from './extensions';
 
 export type Opt = { id: string; title: string };
+export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
 export type Selected = { type: string; attrs: Record<string, unknown>; pos: number } | null;
 
 type Ctx = {
   editor: Editor | null;
   html: string;
   selected: Selected;
-  polls: Opt[]; quizzes: Opt[]; ads: Opt[];
+  polls: Opt[]; quizzes: Opt[]; advertisers: Advertiser[];
   insertBlock: (type: string, attrs?: Record<string, unknown>) => void;
   updateSelected: (attrs: Record<string, unknown>) => void;
   deleteSelected: () => void;
@@ -24,8 +25,8 @@ const C = createContext<Ctx | null>(null);
 export const useComposer = () => { const v = useContext(C); if (!v) throw new Error('useComposer outside provider'); return v; };
 
 export function ComposerProvider({
-  name = 'content', initialHTML = '', polls = [], quizzes = [], ads = [], children,
-}: { name?: string; initialHTML?: string; polls?: Opt[]; quizzes?: Opt[]; ads?: Opt[]; children: ReactNode }) {
+  name = 'content', initialHTML = '', polls = [], quizzes = [], advertisers = [], children,
+}: { name?: string; initialHTML?: string; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; children: ReactNode }) {
   const [html, setHtml] = useState(initialHTML);
   const [selected, setSelected] = useState<Selected>(null);
 
@@ -67,7 +68,7 @@ export function ComposerProvider({
   const deleteSelected = useCallback(() => { if (editor) editor.chain().focus().deleteSelection().run(); }, [editor]);
 
   return (
-    <C.Provider value={{ editor, html, selected, polls, quizzes, ads, insertBlock, updateSelected, deleteSelected }}>
+    <C.Provider value={{ editor, html, selected, polls, quizzes, advertisers, insertBlock, updateSelected, deleteSelected }}>
       {children}
       <textarea name={name} value={html} readOnly hidden />
     </C.Provider>
