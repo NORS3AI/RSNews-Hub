@@ -265,6 +265,12 @@ body.modal-open { overflow: hidden; }
 
 /* Spacer + ad slot are block-level in the flow */
 .prose-article [data-spacer], .prose-article [data-ad-slot], .prose-article [data-poll], .prose-article [data-quiz] { display: block; }
+/* Blank-space height comes from data-size (not inline style, which the article
+   sanitizer strips) — must match SPACER_SIZES in composer/extensions.tsx. */
+.prose-article [data-spacer] { height: 36px; }
+.prose-article [data-spacer][data-size="sm"] { height: 18px; }
+.prose-article [data-spacer][data-size="md"] { height: 36px; }
+.prose-article [data-spacer][data-size="lg"] { height: 64px; }
 
 /* Author byline card (reader) */
 .author-card { display: flex; align-items: center; gap: 14px; margin: 1.8rem 0; padding: 15px 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-2); }
