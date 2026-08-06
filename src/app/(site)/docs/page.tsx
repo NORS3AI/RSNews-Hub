@@ -65,7 +65,7 @@ export default async function DocsHome() {
   // appear here (requirement === ''); gated ones stay on their own page behind the
   // access gate and still show in listings with a lock badge.
   const councilArticles = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council' }, requirement: '' },
+    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council-column' }, requirement: '' },
     orderBy: { publishedAt: 'desc' },
     take: 12,
     select: { id: true, title: true, slug: true, content: true, publishedAt: true, author: { select: { name: true } } },
@@ -147,6 +147,7 @@ export default async function DocsHome() {
   const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
   const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
+  const cats = [...new Set(artBlocks.filter((b) => b.settings.mode === 'category' && b.settings.categorySlug).map((b) => String(b.settings.categorySlug).trim().toLowerCase()))];
 
   const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: 'PUBLISHED' }, select: cardSelect }) : [];
   const pickById = new Map(pickRows.map((a) => [a.id, toCard(a)]));
@@ -165,6 +166,18 @@ export default async function DocsHome() {
       orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
     });
     byYear.set(y, rows.map(toCard));
+  }));
+  // Category source → newest published in that category (primary OR extra).
+  const byCat = new Map<string, Card[]>();
+  await Promise.all(cats.map(async (slug) => {
+    const rows = await prisma.article.findMany({
+      where: {
+        status: 'PUBLISHED', publishedAt: { lte: new Date() },
+        OR: [{ category: { slug } }, { extraCategories: { some: { slug } } }],
+      },
+      orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
+    });
+    byCat.set(slug, rows.map(toCard));
   }));
 
   // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
@@ -225,6 +238,7 @@ export default async function DocsHome() {
       }
       if (mode === 'tag') return firstUnused(byTag.get(String(b.settings.tag ?? '').trim().toLowerCase()) ?? []);
       if (mode === 'year') return firstUnused(byYear.get(Number(b.settings.year)) ?? []);
+      if (mode === 'category') return firstUnused(byCat.get(String(b.settings.categorySlug ?? '').trim().toLowerCase()) ?? []);
       return firstUnused(featurePool(String(b.settings.source ?? 'latest')));
     };
     // Render ONE rung of a slot's priority stack — the block's live content, or

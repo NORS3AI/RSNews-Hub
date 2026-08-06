@@ -318,7 +318,12 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
       return { pollId: str(s.pollId, 40), chart: s.chart === 'pie' ? 'pie' : 'bar' };
     case 'heading': {
       const level = Number(s.level);
-      return { text: str(s.text, 120) || 'Section title', level: level === 2 || level === 3 ? level : 2 };
+      // seeAllCat: a category slug — when set, the header shows a "See all →"
+      // link (top-right) pointing at that category's archive. '' = no link.
+      return {
+        text: str(s.text, 120) || 'Section title', level: level === 2 || level === 3 ? level : 2,
+        seeAllCat: str(s.seeAllCat, 60).trim(), seeAllText: str(s.seeAllText, 40).trim(),
+      };
     }
     case 'text':
       return { body: str(s.body, 4000) };
@@ -337,9 +342,11 @@ function articleSource(v: unknown): string {
 //   tag  → auto-fill from articles carrying a tag/keyword
 //   year → auto-fill from a given year (throwbacks)
 //   pick → a specific hand-picked article
-export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick';
+export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick' | 'category';
 function articleFill(s: Record<string, unknown>): BlockSettings {
-  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' ? s.mode : 'auto';
+  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' || s.mode === 'category' ? s.mode : 'auto';
+  // category → newest published articles in a chosen category (primary or extra).
+  if (mode === 'category') return { mode, categorySlug: str(s.categorySlug, 60) };
   if (mode === 'tag') return { mode, tag: str(s.tag, 60), source: articleSource(s.source) };
   if (mode === 'year') {
     const y = Number(s.year);
