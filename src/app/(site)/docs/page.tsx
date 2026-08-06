@@ -20,6 +20,7 @@ import Carousel from '@/components/site/Carousel';
 import { ArrowRight, Eye, Clock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
+import NewsletterSubscribe from '@/components/site/NewsletterSubscribe';
 import PollCard from '@/components/site/PollCard';
 import AdminEditChip from '@/components/site/AdminEditChip';
 import InlineColorEditor from '@/components/site/InlineColorEditor';
@@ -661,12 +662,8 @@ export default async function DocsHome() {
       <section className="module module-orange bg-brand-600 text-white">
         <div className="max-w-xl">
           <h2 className="text-2xl font-black">Never miss a story</h2>
-          <p className="mt-2 text-white/90">Get the week&apos;s best articles delivered to your inbox. No spam, unsubscribe anytime.</p>
-          <form action="/docs/subscriptions" className="mt-4 flex flex-wrap gap-2.5">
-            <input type="email" placeholder="you@example.com" aria-label="Email"
-              className="h-[46px] min-w-[220px] flex-1 rounded-xl border border-white/40 bg-white/15 px-3.5 text-white placeholder:text-white/60 outline-none" />
-            <button className="btn bg-white text-brand-700 hover:bg-white/90">Subscribe</button>
-          </form>
+          <p className="mt-2 text-white/90">Get the daily Industry News digest delivered to your inbox — one email a day, only when there&apos;s something new. Unsubscribe anytime.</p>
+          <NewsletterSubscribe />
         </div>
       </section>
     </div>

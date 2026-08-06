@@ -42,6 +42,7 @@ const groups: NavGroup[] = [
   ] },
   { title: 'System', links: [
     { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
+    { href: '/admin/subscribers', label: 'Subscribers', icon: Mail },
     { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
   ] },
 ];

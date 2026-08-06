@@ -15,6 +15,18 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Open newsletter signups — anyone (owner, manager or employee) can subscribe
+// with just an email; the daily Industry News digest goes to these addresses.
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  active         Boolean   @default(true)
+  token          String    @unique // one-click unsubscribe token
+  source         String?   // where they signed up (e.g. "homepage")
+  createdAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+}
+
 // A custom homepage module built in the Module Studio. `tree` is a JSON string
 // of the composition tree (see src/lib/studio.ts). Referenced from the homepage
 // layout by the namespaced id `custom:<id>`. `published` gates whether it may
