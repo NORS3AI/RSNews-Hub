@@ -9,6 +9,7 @@ export const JOBS = [
   { key: 'newsletter', label: 'Daily newsletter', detail: 'Sends the daily Industry News digest to subscribers.', endpoint: 'POST /api/cron/newsletter', staleHours: 36 },
   { key: 'analytics-rollup', label: 'Analytics rollup', detail: 'Aggregates raw events into the reporting tables.', endpoint: 'POST /api/analytics/rollup', staleHours: 36 },
   { key: 'article-audio', label: 'Article audio', detail: 'Generates "Listen to article" MP3s for pending articles (ElevenLabs).', endpoint: 'POST /api/cron/audio', staleHours: 36 },
+  { key: 'integrations-check', label: 'Integration monitor', detail: 'Checks external connections and emails admins when one goes down or recovers.', endpoint: 'POST /api/cron/integrations', staleHours: 36 },
 ] as const;
 
 const settingKey = (key: string) => `job:${key}:lastRun`;

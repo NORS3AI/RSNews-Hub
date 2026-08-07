@@ -5,6 +5,9 @@ name: Nightly maintenance
 #     reminder emails (fresh-ads + renewal).
 #   • /api/cron/newsletter — send the daily Industry News digest to subscribers.
 #   • /api/analytics/rollup — roll raw events into daily aggregates + prune.
+#   • /api/cron/audio — generate "Listen to article" MP3s for pending articles.
+#   • /api/cron/integrations — health-check external connections; email admins on
+#     any that go down or recover.
 # The admin dashboard's "Scheduled jobs" tile shows each one's last run so you can
 # confirm this is actually firing.
 #
@@ -31,7 +34,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$PROD_URL" ]; then echo "PROD_URL not set — skipping (configure repo secrets to enable)."; exit 0; fi
-          for path in api/ads/maintenance api/cron/newsletter api/analytics/rollup api/cron/audio; do
+          for path in api/ads/maintenance api/cron/newsletter api/analytics/rollup api/cron/audio api/cron/integrations; do
             echo "POST $PROD_URL/$path"
             code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "$PROD_URL/$path" \
               -H "Authorization: Bearer $CRON_SECRET")

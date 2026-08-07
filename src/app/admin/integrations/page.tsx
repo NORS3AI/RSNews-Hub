@@ -1,6 +1,14 @@
 import { checkIntegrations, type IntegrationStatus } from '@/lib/integrations';
+import { getMonitorState } from '@/lib/integrationsMonitor';
 
 export const dynamic = 'force-dynamic';
+
+function ago(d: Date): string {
+  const h = Math.floor((Date.now() - d.getTime()) / 3_600_000);
+  if (h < 1) return 'under an hour ago';
+  if (h < 48) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
 
 const DOT: Record<IntegrationStatus, string> = {
   ok: 'bg-green-500', down: 'bg-red-500', unconfigured: 'bg-slate-300 dark:bg-slate-600', inbound: 'bg-blue-500',
@@ -13,7 +21,7 @@ const BADGE: Record<IntegrationStatus, { text: string; cls: string }> = {
 };
 
 export default async function AdminIntegrations() {
-  const results = await checkIntegrations();
+  const [results, monitor] = await Promise.all([checkIntegrations(), getMonitorState()]);
   const down = results.filter((r) => r.status === 'down').length;
 
   return (
@@ -48,6 +56,14 @@ export default async function AdminIntegrations() {
           </div>
         ))}
       </div>
+
+      {/* Phase 2: the unattended monitor. A scheduled job re-runs these checks and
+          emails admins on any change into/out of "down". This line shows it's alive. */}
+      <p className="mt-5 text-xs text-[var(--muted)]">
+        {monitor.at
+          ? <>Automated monitor last ran <strong>{ago(monitor.at)}</strong> — it emails an admin when a connection goes down or recovers.</>
+          : <>Automated monitor hasn’t run yet. Schedule <code className="rounded bg-[var(--panel)] px-1">POST /api/cron/integrations</code> (see the dashboard’s scheduled-jobs tile) to get email alerts when a connection goes down.</>}
+      </p>
     </div>
   );
 }
