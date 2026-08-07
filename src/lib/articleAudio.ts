@@ -12,10 +12,14 @@ import { captureError, log } from './logger';
 // key is added, and no Listen button ever appears).
 
 type Eligible = { status: string; requirement: string };
-// Only published, ungated articles get audio — a gated article's MP3 would sit
-// at a public URL, which must not leak restricted content.
+// Every published article gets audio. The whole hub is members-only, and audio
+// sits at the same kind of storage URL as an article's images do — so it's no
+// more exposed than the cover image already is. (If a specific entitlement tier
+// ever needs its audio truly locked to the app's auth, serve it through an
+// auth-checked route instead of a direct URL; the `requirement` is available here
+// for that.)
 export function audioEligible(a: Eligible): boolean {
-  return a.status === 'PUBLISHED' && (!a.requirement || a.requirement === 'public');
+  return a.status === 'PUBLISHED';
 }
 
 /** Reconcile an article's audio state after a save. Marks it PENDING when its
