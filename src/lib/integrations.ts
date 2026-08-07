@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { storageMode } from './storage';
+import { isErrorForwarderSet } from './logger';
 
 // Health of the hub's external connections, for the admin Integrations panel.
 // Each check reports one of:
@@ -72,9 +73,13 @@ async function checkDatabase(): Promise<IntegrationResult> {
 
 function checkSentry(): IntegrationResult {
   const base = { key: 'sentry', label: 'Sentry', detail: 'Error tracking (optional; errors also go to logs).' };
-  return process.env.SENTRY_DSN
-    ? { ...base, status: 'ok', message: 'DSN configured.' }
-    : { ...base, status: 'unconfigured', message: 'Not set up — errors go to logs only.' };
+  // Honest check: a DSN env var alone does nothing. Errors only reach Sentry when
+  // the SDK is installed AND an error forwarder is registered (see
+  // logger.setErrorForwarder). Report "ok" only when that forwarder is live —
+  // never off a stray env var.
+  if (isErrorForwarderSet()) return { ...base, status: 'ok', message: 'Wired — errors are being forwarded.' };
+  if (process.env.SENTRY_DSN) return { ...base, status: 'unconfigured', message: 'DSN set, but the SDK isn’t wired up — errors go to logs only.' };
+  return { ...base, status: 'unconfigured', message: 'Not set up — errors go to logs only.' };
 }
 
 /** Run every integration check (in parallel) for the admin panel. */

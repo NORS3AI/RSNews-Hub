@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
@@ -292,7 +293,29 @@ export async function updatePoll(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const closes = closesRaw ? new Date(closesRaw) : null;
   if (!question) throw new Error('Question is required');
-  await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
+
+  // Non-destructive option editing. Each submitted row carries its existing
+  // option id (or blank for a new one). Editing a label keeps the same row, so
+  // its votes are preserved; new rows are created; a row that was removed is
+  // deleted ONLY when it has zero votes — we never silently drop a real tally.
+  const ids = formData.getAll('optId').map(String);
+  const labels = formData.getAll('optLabel').map((v) => String(v).trim());
+  const rows = labels.map((label, i) => ({ id: ids[i] || '', label })).filter((r) => r.label).slice(0, 8);
+  if (rows.length < 2) throw new Error('A poll needs at least 2 options');
+
+  const existing = await prisma.pollOption.findMany({ where: { pollId: id }, select: { id: true, votes: true } });
+  const keptIds = new Set(rows.filter((r) => r.id).map((r) => r.id));
+
+  const ops: Prisma.PrismaPromise<unknown>[] = [
+    prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } }),
+  ];
+  rows.forEach((r, i) => {
+    if (r.id) ops.push(prisma.pollOption.update({ where: { id: r.id }, data: { label: r.label.slice(0, 200), order: i } }));
+    else ops.push(prisma.pollOption.create({ data: { pollId: id, label: r.label.slice(0, 200), order: i } }));
+  });
+  existing.filter((o) => !keptIds.has(o.id) && o.votes === 0).forEach((o) => ops.push(prisma.pollOption.delete({ where: { id: o.id } })));
+  await prisma.$transaction(ops);
+
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
 }
@@ -336,6 +359,9 @@ export async function createQuiz(formData: FormData): Promise<{ ok: boolean; id?
   return { ok: true, id: quiz.id, name: title };
 }
 
+type EditQuizOption = { id: string; label: string; correct: boolean };
+type EditQuizQuestion = { id: string; prompt: string; options: EditQuizOption[] };
+
 export async function updateQuiz(formData: FormData) {
   await ensureStaff();
   const id = (formData.get('id') as string) || '';
@@ -344,11 +370,65 @@ export async function updateQuiz(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   if (!title) throw new Error('Title is required');
   const closes = closesRaw ? new Date(closesRaw) : null;
+
+  // Structured, non-destructive edit. The client sends the full question/option
+  // tree as JSON; existing rows keep their id so their response counts survive.
+  // New rows have a blank id (created); rows dropped in the editor are deleted
+  // only when they have zero responses — a real tally is never discarded.
+  let raw: unknown = [];
+  try { raw = JSON.parse((formData.get('payload') as string) || '[]'); } catch { raw = []; }
+  const questions: EditQuizQuestion[] = (Array.isArray(raw) ? raw : []).map((q) => {
+    const qq = q as Record<string, unknown>;
+    return {
+      id: typeof qq.id === 'string' ? qq.id : '',
+      prompt: String(qq.prompt || '').trim(),
+      options: (Array.isArray(qq.options) ? qq.options : []).map((o) => {
+        const oo = o as Record<string, unknown>;
+        return { id: typeof oo.id === 'string' ? oo.id : '', label: String(oo.label || '').trim(), correct: !!oo.correct };
+      }).filter((o) => o.label).slice(0, 8),
+    };
+  }).filter((q) => q.prompt && q.options.length >= 2).slice(0, 20);
+  if (questions.length < 1) throw new Error('A quiz needs at least one question with 2+ options');
+
   if (active) await prisma.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
-  await prisma.quiz.update({
-    where: { id },
-    data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) },
+
+  const existing = await prisma.quizQuestion.findMany({
+    where: { quizId: id },
+    include: { options: { select: { id: true, count: true } } },
   });
+  const keptQ = new Set(questions.filter((q) => q.id).map((q) => q.id));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.quiz.update({ where: { id }, data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) } });
+
+    for (let qi = 0; qi < questions.length; qi++) {
+      const q = questions[qi];
+      if (q.id) {
+        await tx.quizQuestion.update({ where: { id: q.id }, data: { prompt: q.prompt.slice(0, 300), order: qi } });
+        const existQ = existing.find((e) => e.id === q.id);
+        const keptO = new Set(q.options.filter((o) => o.id).map((o) => o.id));
+        for (let oi = 0; oi < q.options.length; oi++) {
+          const o = q.options[oi];
+          if (o.id) await tx.quizOption.update({ where: { id: o.id }, data: { label: o.label.slice(0, 200), correct: o.correct, order: oi } });
+          else await tx.quizOption.create({ data: { questionId: q.id, label: o.label.slice(0, 200), correct: o.correct, order: oi } });
+        }
+        for (const eo of existQ?.options ?? []) {
+          if (!keptO.has(eo.id) && eo.count === 0) await tx.quizOption.delete({ where: { id: eo.id } });
+        }
+      } else {
+        await tx.quizQuestion.create({
+          data: { quizId: id, prompt: q.prompt.slice(0, 300), order: qi,
+            options: { create: q.options.map((o, oi) => ({ label: o.label.slice(0, 200), correct: o.correct, order: oi })) } },
+        });
+      }
+    }
+    // Drop questions removed in the editor — only when they hold no responses.
+    for (const eq of existing) {
+      const answered = eq.options.some((o) => o.count > 0);
+      if (!keptQ.has(eq.id) && !answered) await tx.quizQuestion.delete({ where: { id: eq.id } });
+    }
+  });
+
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');
 }

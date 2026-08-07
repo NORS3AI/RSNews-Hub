@@ -7,7 +7,8 @@ import { Pin, X, ExpandLR, CollapseLR, ChevronRight } from '@/components/icons';
 /**
  * The pinned strip at the very top shows the reader's "Pinned" list (saved via
  * the pin button). Collapsed, each item is a compact square (just the pin icon in
- * an orange-bordered box) that expands on hover to reveal the title; the Expand
+ * an orange-bordered box) that expands on hover — or a first tap on touch — to
+ * reveal the title; the Expand
  * toggle (far left) opens every title at once. When the titles overflow the row,
  * left/right arrows appear so a mouse user can page through them (touch users can
  * just swipe). Clear all (far right) empties it — behind a Yes/No confirm.
@@ -17,6 +18,12 @@ export default function StarStrip() {
   const { openArticle } = useArticleModal();
   const [expanded, setExpanded] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  // On touch devices there's no hover, so a collapsed chip could never show its
+  // title. Detect hover support; where it's absent, the first tap reveals the
+  // title (and unpin) and a second tap opens the article.
+  const [canHover, setCanHover] = useState(true);
+  const [tapped, setTapped] = useState<string | null>(null);
+  useEffect(() => { setCanHover(window.matchMedia?.('(hover: hover)').matches ?? true); }, []);
 
   // Arrow paging: track how far the row can scroll in each direction so a mouse
   // user (no swipe) can always reach titles that overflow to the right.
@@ -68,21 +75,30 @@ export default function StarStrip() {
         {overflowing && arrow(-1, canL)}
 
         <div ref={scrollRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-none">
-          {toRead.map((s) => (
+          {toRead.map((s) => {
+            const open = expanded || tapped === s.id;
+            return (
             <div key={s.id}
-              className={`group/chip flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-brand-500 bg-[var(--card)] transition-[max-width] duration-200 ease-out ${expanded ? 'max-w-[280px]' : 'max-w-[34px] hover:max-w-[280px]'}`}>
-              <button onClick={() => openArticle(s.slug)} className="flex h-full min-w-0 items-center gap-1.5 pl-2 pr-1" title={s.title}>
+              className={`group/chip flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-brand-500 bg-[var(--card)] transition-[max-width] duration-200 ease-out ${open ? 'max-w-[280px]' : 'max-w-[34px] hover:max-w-[280px]'}`}>
+              <button
+                onClick={(e) => {
+                  // Touch + collapsed + not yet revealed → reveal instead of opening.
+                  if (!canHover && !open) { e.preventDefault(); setTapped(s.id); return; }
+                  openArticle(s.slug);
+                }}
+                className="flex h-full min-w-0 items-center gap-1.5 pl-2 pr-1" title={s.title}>
                 <Pin width={16} height={16} strokeWidth={2.4} className="shrink-0 text-brand-600" />
-                <span className={`truncate text-xs font-medium text-[var(--fg)] transition-opacity duration-150 ${expanded ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
+                <span className={`truncate text-xs font-medium text-[var(--fg)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
                   {s.title}
                 </span>
               </button>
               <button onClick={() => removeToRead(s.id)} aria-label="Unpin"
-                className={`mr-1 shrink-0 rounded p-0.5 text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--fg)] ${expanded ? 'block' : 'hidden group-hover/chip:block'}`}>
+                className={`mr-1 shrink-0 rounded p-0.5 text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-[var(--fg)] ${open ? 'block' : 'hidden group-hover/chip:block'}`}>
                 <X width={12} height={12} />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Right arrow — the one that matters on desktop when titles run off-screen. */}

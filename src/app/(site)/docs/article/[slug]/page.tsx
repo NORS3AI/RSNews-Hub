@@ -16,7 +16,7 @@ import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { isBreaking } from '@/components/ArticleBadges';
-import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
+import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +60,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // Access gate (e.g. Package Hub–only content). Enforced here, server-side,
   // before any content is read or a view is tracked.
   if (!canViewContent(user, article.requirement)) {
-    return <LockedArticle article={article} signedIn={!!user} />;
+    return <LockedArticle article={article} />;
   }
 
   const [related, next] = await Promise.all([
@@ -186,7 +186,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
 // Access-gated article: the title/excerpt are shown as a teaser, but the content
 // is withheld and no read is tracked. `requirement` labels who it's for.
-function LockedArticle({ article, signedIn }: { article: { title: string; excerpt: string | null; requirement: string; category: { name: string; slug: string; color: string } | null }; signedIn: boolean }) {
+function LockedArticle({ article }: { article: { title: string; excerpt: string | null; requirement: string; category: { name: string; slug: string; color: string } | null } }) {
   const who = requirementLabel(article.requirement);
   return (
     <div className="container-reader py-8 sm:py-12">
@@ -201,14 +201,12 @@ function LockedArticle({ article, signedIn }: { article: { title: string; excerp
       <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
       {article.excerpt && <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>}
 
-      <div className="card mt-8 p-8 text-center">
-        <p className="text-base font-semibold">This article is for {who}.</p>
-        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-          {signedIn
-            ? `Your account doesn’t include ${who} access. If you think this is a mistake, contact RS News.`
-            : `Sign in on the main RS News site with a ${who} account to read it.`}
-        </p>
-        {!signedIn && <Link href="/login?next=/docs" className="btn-primary btn-sm mt-4 inline-flex">Sign in</Link>}
+      {/* Locked notice: state the membership it's behind, and nothing more — no
+          upsell, no redirect. */}
+      <div className="card mt-8 flex flex-col items-center p-8 text-center">
+        <Lock width={26} height={26} className="text-[var(--muted)]" />
+        <p className="mt-3 text-base font-semibold">This article is locked</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">Available to {who}{who.toLowerCase().endsWith('s') ? '' : ' members'}.</p>
       </div>
     </div>
   );

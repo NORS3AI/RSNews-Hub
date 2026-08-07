@@ -4,6 +4,7 @@ import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 import AutoPlugForm from '@/components/admin/AutoPlugForm';
 import StatusChip from '@/components/admin/StatusChip';
+import PollOptionsEditor from '@/components/admin/PollOptionsEditor';
 import { timedStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
@@ -77,11 +78,11 @@ export default async function AdminPolls() {
                 <form action={updatePoll} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                   <input type="hidden" name="id" value={poll.id} />
                   <div><label className="label">Question</label><input name="question" required defaultValue={poll.question} className="input" /></div>
+                  <PollOptionsEditor options={poll.options.map((o) => ({ id: o.id, label: o.label, votes: o.votes }))} />
                   <div className="flex items-end gap-4">
                     <div className="flex-1"><label className="label">Closes</label><input name="closesAt" type="datetime-local" defaultValue={toLocalInput(poll.closesAt)} className="input" /></div>
                     <label className="mb-2.5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={poll.active} className="h-4 w-4" /> Active</label>
                   </div>
-                  <p className="text-xs text-[var(--muted)]">Options and their votes can&apos;t be edited after publishing — create a new poll for next month.</p>
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
                     <ActionButtons actions={[{ label: 'Delete', run: deletePoll.bind(null, poll.id), danger: true, confirm: 'Delete this poll and all its votes?' }]} />

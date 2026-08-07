@@ -4,6 +4,7 @@ import { ActionButtons } from '@/components/admin/RowActions';
 import AddToHomepageButton from '@/components/admin/AddToHomepageButton';
 import AutoPlugForm from '@/components/admin/AutoPlugForm';
 import StatusChip from '@/components/admin/StatusChip';
+import QuizEditor from '@/components/admin/QuizEditor';
 import { timedStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
@@ -91,11 +92,11 @@ export default async function AdminQuizzes() {
                 <form action={updateQuiz} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                   <input type="hidden" name="id" value={quiz.id} />
                   <div><label className="label">Title</label><input name="title" required defaultValue={quiz.title} className="input" /></div>
+                  <QuizEditor questions={quiz.questions.map((q) => ({ id: q.id, prompt: q.prompt, options: q.options.map((o) => ({ id: o.id, label: o.label, correct: o.correct, count: o.count })) }))} />
                   <div className="flex items-end gap-4">
                     <div className="flex-1"><label className="label">Closes</label><input name="closesAt" type="datetime-local" defaultValue={toLocalInput(quiz.closesAt)} className="input" /></div>
                     <label className="mb-2.5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={quiz.active} className="h-4 w-4" /> Active</label>
                   </div>
-                  <p className="text-xs text-[var(--muted)]">Questions and options can&apos;t be edited after publishing — create a new quiz instead.</p>
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
                     <ActionButtons actions={[{ label: 'Delete', run: deleteQuiz.bind(null, quiz.id), danger: true, confirm: 'Delete this quiz and all its responses?' }]} />
