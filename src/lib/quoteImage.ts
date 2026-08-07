@@ -9,6 +9,7 @@ export type QuoteOpts = { quote: string; title?: string; author?: string | null;
 // stamp texture. `logo` picks which logo art reads on that footer.
 type Palette = {
   bg1: string; bg2: string; accent: string; quoteMark: string; quote: string;
+  bodySub: string; // muted text ON the body (for the "excerpted" note under the quote)
   footerText: string; footerSub: string; divider: string;
   logoBg: string; logoText: string; footerBg: string | null;
   logo: 'light' | 'dark'; parchment?: boolean;
@@ -16,21 +17,27 @@ type Palette = {
 const PALETTES: Record<QuoteTheme, Palette> = {
   dark: {
     bg1: '#2b333d', bg2: '#141a21', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#f4f1ea',
+    bodySub: 'rgba(244,241,234,.62)',
     footerText: '#ffffff', footerSub: 'rgba(255,255,255,.6)', divider: 'rgba(255,255,255,.16)',
     logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'dark',
   },
   light: {
     bg1: '#fbf7ee', bg2: '#efe6d4', accent: '#E97D34', quoteMark: 'rgba(233,125,52,.92)', quote: '#2b333c',
+    bodySub: 'rgba(43,51,60,.6)',
     footerText: '#2b333c', footerSub: 'rgba(43,51,60,.55)', divider: 'rgba(43,51,60,.14)',
     logoBg: '#E97D34', logoText: '#ffffff', footerBg: null, logo: 'light',
   },
   rs: {
     // Cream parchment (with stamps) body; a darker slate footer with cream text.
     bg1: '#f7edd8', bg2: '#f2e6cb', accent: '#3d2a19', quoteMark: 'rgba(61,42,25,.4)', quote: '#3d2a19',
+    bodySub: 'rgba(61,42,25,.66)',
     footerText: '#f7edd8', footerSub: 'rgba(247,237,216,.72)', divider: 'rgba(61,42,25,.2)',
     logoBg: '#f7edd8', logoText: '#2b333c', footerBg: '#2b333c', logo: 'dark', parchment: true,
   },
 };
+
+// Small italic note under the quote — makes clear a clip is an excerpt.
+const EXCERPT_NOTE = 'Excerpted from a longer article. Read the full article for complete context. · RS News Hub';
 
 // Branded assets painted onto the card (loaded lazily, client-only).
 const LOGO_LIGHT = '/brand/rsnews-hub-logo-light.png';
@@ -117,7 +124,9 @@ export function makeQuoteImage(o: QuoteOpts): string {
   const disp = blocks.map((b, i) => (i === 0 ? '“' + b : b) + (i === blocks.length - 1 ? '”' : ''));
 
   const maxW = W - pad * 2;
-  const quoteTop = pad + 210, avail = (H - 330) - quoteTop;
+  // Reserve room below the quote for the italic "excerpted" note (gap + up to 2 lines).
+  const NOTE_RESERVE = 110;
+  const quoteTop = pad + 210, avail = (H - 330) - quoteTop - NOTE_RESERVE;
   let size = 62, wrapped: string[][] = [], lineH = 0, blockGap = 0;
   while (size >= 26) {
     ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
@@ -130,6 +139,12 @@ export function makeQuoteImage(o: QuoteOpts): string {
   ctx.fillStyle = p.quote; ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
   let y = quoteTop;
   wrapped.forEach((ls, i) => { if (i) y += blockGap; for (const ln of ls) { ctx.fillText(ln, pad, y); y += lineH; } });
+
+  // "Excerpted…" note — small italic, muted, directly beneath the quote.
+  ctx.fillStyle = p.bodySub;
+  ctx.font = 'italic 500 27px ui-sans-serif, system-ui, Arial, sans-serif';
+  let ny = y + 22;
+  for (const ln of wrap(ctx, EXCERPT_NOTE, maxW).slice(0, 2)) { ctx.fillText(ln, pad, ny); ny += 34; }
 
   const by = H - 300;
   // A solid footer band (RS) or a hairline divider.
