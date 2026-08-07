@@ -19,7 +19,11 @@ export default async function EditArticle(props: { params: Promise<{ id: string 
   if (!article) notFound();
   return (
     <>
-      <ArticleEditor article={article as any} categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
+      {/* Key on updatedAt so a Restore (which redirects back here with a newer
+          timestamp) remounts the editor and re-seeds it with the restored body —
+          App Router otherwise preserves the TipTap client state across the redirect. */}
+      <ArticleEditor key={`${article.id}:${new Date((article as any).updatedAt).getTime()}`}
+        article={article as any} categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
         advertisers={advertisers} authorName={(article as any).author?.name || 'You'} />
       <ArticleRevisions revisions={revisions.map((r) => ({ id: r.id, title: r.title, createdAt: r.createdAt, authorName: r.author?.name ?? null }))} />
     </>

@@ -19,7 +19,9 @@ export type PaymentLike = { status: string; amountCents: number };
  * a payment gate. Set ADS_REQUIRE_PAYMENT=true to re-enable the confirmation gate.
  */
 export function paymentRequired(): boolean {
-  return process.env.ADS_REQUIRE_PAYMENT === 'true';
+  // Accept common truthy spellings so an operator re-enabling the gate can't
+  // accidentally leave it off (fail-open) with ADS_REQUIRE_PAYMENT=1/yes/on.
+  return /^(1|true|yes|on)$/i.test((process.env.ADS_REQUIRE_PAYMENT || '').trim());
 }
 
 /** Is this campaign settled? True if any of its payments is PAID. */

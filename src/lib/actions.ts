@@ -171,8 +171,12 @@ export async function autosaveArticle(formData: FormData): Promise<{ ok: boolean
     const coverImage = ((formData.get('coverImage') as string) || '').trim();
     const excerptInput = ((formData.get('excerpt') as string) || '').trim();
 
-    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true, status: true } });
     if (!existing) return { ok: false, at: now };
+    // Never autosave over a PUBLISHED article — there's a single live `content`
+    // column and the public page reads it fresh, so a background write would push
+    // half-typed text to readers. Published edits go through a deliberate Save.
+    if (existing.status === 'PUBLISHED') return { ok: false, at: now };
     await prisma.article.update({
       where: { id },
       data: {
@@ -382,13 +386,16 @@ export async function updatePoll(formData: FormData) {
   if (rows.length < 2) throw new Error('A poll needs at least 2 options');
 
   const existing = await prisma.pollOption.findMany({ where: { pollId: id }, select: { id: true, votes: true } });
-  const keptIds = new Set(rows.filter((r) => r.id).map((r) => r.id));
+  // Only ids that actually belong to THIS poll may be updated — a client id that
+  // isn't ours is treated as a new option, never used to write another poll's row.
+  const ownIds = new Set(existing.map((o) => o.id));
+  const keptIds = new Set(rows.filter((r) => r.id && ownIds.has(r.id)).map((r) => r.id));
 
   const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } }),
   ];
   rows.forEach((r, i) => {
-    if (r.id) ops.push(prisma.pollOption.update({ where: { id: r.id }, data: { label: r.label.slice(0, 200), order: i } }));
+    if (r.id && ownIds.has(r.id)) ops.push(prisma.pollOption.update({ where: { id: r.id }, data: { label: r.label.slice(0, 200), order: i } }));
     else ops.push(prisma.pollOption.create({ data: { pollId: id, label: r.label.slice(0, 200), order: i } }));
   });
   existing.filter((o) => !keptIds.has(o.id) && o.votes === 0).forEach((o) => ops.push(prisma.pollOption.delete({ where: { id: o.id } })));
@@ -468,29 +475,34 @@ export async function updateQuiz(formData: FormData) {
   }).filter((q) => q.prompt && q.options.length >= 2).slice(0, 20);
   if (questions.length < 1) throw new Error('A quiz needs at least one question with 2+ options');
 
-  if (active) await prisma.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
-
   const existing = await prisma.quizQuestion.findMany({
     where: { quizId: id },
     include: { options: { select: { id: true, count: true } } },
   });
-  const keptQ = new Set(questions.filter((q) => q.id).map((q) => q.id));
+  // Map each of THIS quiz's question ids → its own option ids. Only ids in here
+  // may be updated/deleted; any other client-supplied id is treated as new, so a
+  // crafted request can never rewrite another quiz's questions or answers.
+  const ownQ = new Map(existing.map((e) => [e.id, new Set(e.options.map((o) => o.id))]));
+  const keptQ = new Set(questions.filter((q) => q.id && ownQ.has(q.id)).map((q) => q.id));
 
   await prisma.$transaction(async (tx) => {
+    // Retire other active quizzes inside the tx, so a failure can't leave zero active.
+    if (active) await tx.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
     await tx.quiz.update({ where: { id }, data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) } });
 
     for (let qi = 0; qi < questions.length; qi++) {
       const q = questions[qi];
-      if (q.id) {
+      const ownO = q.id ? ownQ.get(q.id) : undefined;
+      if (q.id && ownO) {
         await tx.quizQuestion.update({ where: { id: q.id }, data: { prompt: q.prompt.slice(0, 300), order: qi } });
-        const existQ = existing.find((e) => e.id === q.id);
-        const keptO = new Set(q.options.filter((o) => o.id).map((o) => o.id));
+        const keptO = new Set(q.options.filter((o) => o.id && ownO.has(o.id)).map((o) => o.id));
         for (let oi = 0; oi < q.options.length; oi++) {
           const o = q.options[oi];
-          if (o.id) await tx.quizOption.update({ where: { id: o.id }, data: { label: o.label.slice(0, 200), correct: o.correct, order: oi } });
+          if (o.id && ownO.has(o.id)) await tx.quizOption.update({ where: { id: o.id }, data: { label: o.label.slice(0, 200), correct: o.correct, order: oi } });
           else await tx.quizOption.create({ data: { questionId: q.id, label: o.label.slice(0, 200), correct: o.correct, order: oi } });
         }
-        for (const eo of existQ?.options ?? []) {
+        const existOpts = existing.find((e) => e.id === q.id)?.options ?? [];
+        for (const eo of existOpts) {
           if (!keptO.has(eo.id) && eo.count === 0) await tx.quizOption.delete({ where: { id: eo.id } });
         }
       } else {

@@ -100,8 +100,8 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
         if (!data?.signedIn) return; // anonymous → stay local-only
         serverBacked.current = true;
         const localFav = load<SavedItem[]>(FAV_KEY), localRead = load<SavedItem[]>(READ_KEY), localClip = load<Clipping[]>(CLIP_KEY), localFold = load<FavFolder[]>(FOLD_KEY);
-        const serverEmpty = !data.favorites.length && !data.toRead.length && !data.clippings.length;
-        const haveLocal = localFav.length || localRead.length || localClip.length;
+        const serverEmpty = !data.favorites.length && !data.toRead.length && !data.clippings.length && !(data.folders?.length);
+        const haveLocal = localFav.length || localRead.length || localClip.length || localFold.length;
         if (serverEmpty && haveLocal) {
           fetch('/api/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'merge', local: { favorites: localFav, toRead: localRead, clippings: localClip, folders: localFold } }) })
             .then((r) => (r.ok ? r.json() : null)).then((b) => b && applyBundle(b)).catch(() => {});
@@ -158,8 +158,12 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
   const addFavFolder = useCallback((name: string) => {
     const clean = name.trim().slice(0, 32);
     if (!clean || favFolders.length >= FOLDER_MAX) return;
-    persistFolders([...favFolders, { id: localFolderId(), name: clean }]);
-    pushOp({ op: 'addFavFolder', name: clean });
+    // Signed in: let the server mint the id and adopt the returned bundle, so a
+    // client-local id is never exposed in the UI (and then rejected) before the
+    // create round-trip lands — filing an item into a brand-new folder can't be
+    // silently dropped. Anonymous: optimistic local insert (there is no server).
+    if (serverBacked.current) pushOp({ op: 'addFavFolder', name: clean });
+    else persistFolders([...favFolders, { id: localFolderId(), name: clean }]);
   }, [favFolders, persistFolders, pushOp]);
 
   const renameFavFolder = useCallback((id: string, name: string) => {

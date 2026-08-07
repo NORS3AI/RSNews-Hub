@@ -160,16 +160,20 @@ export async function mergeLocal(userId: string, local: Partial<SavedBundle>) {
   const localFolders = (Array.isArray(local.folders) ? local.folders.slice(0, FOLDER_MAX) : [])
     .map((f) => ({ id: s((f as FavFolder)?.id, 64).trim(), name: s((f as FavFolder)?.name, FOLDER_NAME_MAX).trim() }))
     .filter((f) => f.id && f.name);
-  const idMap = new Map<string, string>();
-  for (const f of localFolders) {
-    const created = await prisma.favoriteFolder.create({ data: { userId, name: f.name }, select: { id: true } });
-    idMap.set(f.id, created.id);
-  }
-
-  await prisma.$transaction([
-    ...favs.map((i) => prisma.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'favorite', articleId: i.id } }, update: {}, create: { userId, kind: 'favorite', articleId: i.id, title: i.title, slug: i.slug, folderId: (i.folder && idMap.get(i.folder)) || null } })),
-    ...reads.map((i) => prisma.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'toread', articleId: i.id } }, update: {}, create: { userId, kind: 'toread', articleId: i.id, title: i.title, slug: i.slug } })),
-    ...clips.map((c) => prisma.clipping.upsert({ where: { userId_clientId: { userId, clientId: c.id } }, update: {}, create: { userId, clientId: c.id, kind: c.kind ?? 'quote', title: c.title, quote: c.quote ?? null, author: c.author ?? null, slug: c.slug ?? null, image: c.image ?? null } })),
-  ]);
+  // One atomic transaction: create the folders (mapping local id → new id), then
+  // upsert the items filed into them. Folders can't be left orphaned by a partial
+  // failure, and a retry won't duplicate them.
+  await prisma.$transaction(async (tx) => {
+    const idMap = new Map<string, string>();
+    for (const f of localFolders) {
+      const created = await tx.favoriteFolder.create({ data: { userId, name: f.name }, select: { id: true } });
+      idMap.set(f.id, created.id);
+    }
+    await Promise.all([
+      ...favs.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'favorite', articleId: i.id } }, update: {}, create: { userId, kind: 'favorite', articleId: i.id, title: i.title, slug: i.slug, folderId: (i.folder && idMap.get(i.folder)) || null } })),
+      ...reads.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'toread', articleId: i.id } }, update: {}, create: { userId, kind: 'toread', articleId: i.id, title: i.title, slug: i.slug } })),
+      ...clips.map((c) => tx.clipping.upsert({ where: { userId_clientId: { userId, clientId: c.id } }, update: {}, create: { userId, clientId: c.id, kind: c.kind ?? 'quote', title: c.title, quote: c.quote ?? null, author: c.author ?? null, slug: c.slug ?? null, image: c.image ?? null } })),
+    ]);
+  });
   return getSaved(userId);
 }

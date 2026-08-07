@@ -49,7 +49,7 @@ export default function ArticleEditor({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{article ? 'Edit article' : 'New article'}</h1>
         <div className="flex items-center gap-3">
-          {article?.id && <AutoSave formRef={formRef} />}
+          {article?.id && article.status !== 'PUBLISHED' && <AutoSave formRef={formRef} />}
           <Link href="/admin/articles" className="btn-outline btn-sm">Cancel</Link>
           <button type="submit" className="btn-primary btn-sm">Save</button>
         </div>
