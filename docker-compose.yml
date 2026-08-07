@@ -1,0 +1,51 @@
+# Self-contained stack: PostgreSQL + the app + a one-off seed.
+# Local dev:   docker compose up --build
+# DB only:     docker compose up db     (then run the app with `npm run dev`)
+#
+# A hosting platform (Coolify/Dokploy/Railway/Render/etc.) can point at this file
+# or just at the Dockerfile — the app service is the deployable unit.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: rsnews
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:pass@db:5432/rsnews"
+      NODE_ENV: production
+      # Uncomment to enable the browser-based admin recovery page (/admin-setup):
+      # ADMIN_SETUP_TOKEN: "change-me-to-a-secret"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./uploads:/app/public/uploads
+
+  # One-off: create the admin + demo content. Run with:
+  #   docker compose run --rm seed
+  seed:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://postgres:pass@db:5432/rsnews"
+      SEED_ADMIN_EMAIL: "admin@rsnews.local"
+      SEED_ADMIN_PASSWORD: "change-me"
+    command: ["sh", "-c", "npx prisma db push --skip-generate && npm run db:seed"]
+    profiles: ["seed"]
