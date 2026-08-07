@@ -49,6 +49,8 @@ export const Logout = (p: P) => (<svg {...base(p)}><path d="M9 21H5a2 2 0 0 1-2-
 export const Sparkles = (p: P) => (<svg {...base(p)}><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z" /></svg>);
 export const Ban = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>);
 export const Pause = (p: P) => (<svg {...base(p)}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>);
+export const Play = (p: P) => (<svg {...base(p)} fill="currentColor" stroke="none"><path d="M7 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 7 5.5Z" /></svg>);
+export const Headphones = (p: P) => (<svg {...base(p)}><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><rect x="2.5" y="14" width="4" height="6" rx="1.5" /><rect x="17.5" y="14" width="4" height="6" rx="1.5" /></svg>);
 export const Star = (p: P) => (<svg {...base(p)}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" /></svg>);
 export const StarFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor', stroke: 'currentColor' })}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" strokeWidth="1" strokeLinejoin="round" /></svg>);
 export const Book = (p: P) => (<svg {...base(p)}><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z" /><path d="M12 6.6V20" /></svg>);

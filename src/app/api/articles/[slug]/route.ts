@@ -66,6 +66,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       author: article.author,
       category: article.category,
       tags: article.tags.map((t) => t.tag),
+      audioUrl: article.audioStatus === 'READY' ? article.audioUrl : null,
     },
     related: related.map((r) => ({ id: r.id, title: r.title, slug: r.slug, category: r.category })),
     next,

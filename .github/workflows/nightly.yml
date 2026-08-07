@@ -31,7 +31,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$PROD_URL" ]; then echo "PROD_URL not set — skipping (configure repo secrets to enable)."; exit 0; fi
-          for path in api/ads/maintenance api/cron/newsletter api/analytics/rollup; do
+          for path in api/ads/maintenance api/cron/newsletter api/analytics/rollup api/cron/audio; do
             echo "POST $PROD_URL/$path"
             code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "$PROD_URL/$path" \
               -H "Authorization: Bearer $CRON_SECRET")

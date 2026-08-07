@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { prisma } from './db';
+import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
@@ -93,6 +95,7 @@ export async function saveArticle(formData: FormData) {
     breakingUntil = Number.isFinite(hours) && hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 365) * 3600 * 1000) : null;
   }
 
+  let savedId = id;
   if (id) {
     const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true } });
     if (!existing) throw new Error('Article not found');
@@ -111,7 +114,7 @@ export async function saveArticle(formData: FormData) {
     });
   } else {
     const slug = await uniqueSlug(title, 'article');
-    await prisma.article.create({
+    const created = await prisma.article.create({
       data: {
         title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
@@ -121,6 +124,18 @@ export async function saveArticle(formData: FormData) {
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
     });
+    savedId = created.id;
+  }
+
+  // "Listen to article" audio: flag it for (re)generation if the spoken text
+  // changed, then synthesize in the background so the save isn't blocked. No-ops
+  // safely when ElevenLabs isn't configured.
+  if (savedId) {
+    try {
+      await reconcileArticleAudio(savedId);
+      const audioId = savedId;
+      after(() => generateArticleAudio(audioId).catch(() => {}));
+    } catch { /* never let audio break a save */ }
   }
 
   revalidatePath('/admin/articles');

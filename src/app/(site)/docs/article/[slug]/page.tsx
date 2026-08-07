@@ -9,6 +9,7 @@ import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
+import ListenButton from '@/components/site/ListenButton';
 import InArticleAd from '@/components/InArticleAd';
 import ArticleContent from '@/components/site/ArticleContent';
 import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
@@ -114,6 +115,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
+          {article.audioStatus === 'READY' && article.audioUrl && <ListenButton src={article.audioUrl} />}
           <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} variant="inline" />
           <ShareButton slug={article.slug} title={article.title} />
           {article.category && (

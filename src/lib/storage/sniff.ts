@@ -62,9 +62,17 @@ export function assetKey(bytes: Buffer, ext: string): string {
   return `images/${hash.slice(0, 2)}/${hash}.${ext}`;
 }
 
-// A stored local key must match this exactly — the serve route uses it to reject
-// path traversal and anything that isn't one of our own content-addressed keys.
+/** Content-addressed key for a generated article-audio MP3 (TTS). */
+export function audioKey(bytes: Buffer): string {
+  return `audio/${createHash('sha256').update(bytes).digest('hex')}.mp3`;
+}
+
+// A stored local key must match one of these exactly — the serve route uses them
+// to reject path traversal and anything that isn't one of our content-addressed
+// objects (images, or generated article-audio MP3s).
 export const KEY_RE = /^images\/[0-9a-f]{2}\/[0-9a-f]{64}\.[a-z0-9]+$/;
+export const AUDIO_KEY_RE = /^audio\/[0-9a-f]{64}\.mp3$/;
+export const isServableKey = (key: string): boolean => KEY_RE.test(key) || AUDIO_KEY_RE.test(key);
 
 /** MIME type for serving, derived from a key's extension. */
 export function contentTypeForKey(key: string): string {
@@ -77,6 +85,7 @@ export function contentTypeForKey(key: string): string {
     case 'svg': return 'image/svg+xml';
     case 'mp4': return 'video/mp4';
     case 'webm': return 'video/webm';
+    case 'mp3': return 'audio/mpeg';
     default: return 'application/octet-stream';
   }
 }

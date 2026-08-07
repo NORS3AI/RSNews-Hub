@@ -195,12 +195,34 @@ a provider key are set):
 curl -X POST https://YOURSITE/api/cron/newsletter -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-> **Scheduled-jobs checklist.** These three endpoints must be hit daily or their
+> **Scheduled-jobs checklist.** These endpoints must be hit daily or their
 > features silently stop (flights never end, reminder/renewal + "ads live" emails
-> never send, the newsletter never goes out, analytics stop rolling up):
-> `POST /api/ads/maintenance`, `POST /api/cron/newsletter`, `POST /api/analytics/rollup`.
+> never send, the newsletter never goes out, analytics stop rolling up, article
+> audio never generates):
+> `POST /api/ads/maintenance`, `POST /api/cron/newsletter`, `POST /api/analytics/rollup`, `POST /api/cron/audio`.
 > The admin dashboard's **"Scheduled jobs"** tile shows each one's last run
 > (Never-run / Stale / healthy) so you can confirm the scheduler is actually firing.
+
+## "Listen to article" audio (ElevenLabs) — optional
+
+Published articles can carry a text-to-speech MP3 (a **Listen** button in the
+reader). It stays completely dormant until configured, so it's safe to leave off.
+
+To turn it on, set:
+
+| Var | Notes |
+|---|---|
+| `ELEVENLABS_API_KEY` | Your ElevenLabs account key. |
+| `ELEVENLABS_VOICE_ID` | The voice to narrate with (pick one in your ElevenLabs account). |
+| `ELEVENLABS_MODEL_ID` | Optional; defaults to the cost-efficient `eleven_turbo_v2_5`. |
+
+Also requires **persistent storage** (`S3_*`) — the MP3s must survive redeploys,
+like image uploads. With a key set, audio generates in the background right after
+an article is published (and re-generates only when the article's spoken text
+changes); the `POST /api/cron/audio` job is the safety net that catches anything
+pending. Without a key, no audio is made and the Listen button never appears —
+nothing breaks. Only **published, ungated** articles get audio (a gated article's
+MP3 would sit at a public URL).
 
 **Don't want to configure a host scheduler?** A ready-made GitHub Action —
 `.github/workflows/nightly.yml` — hits all three endpoints on a daily schedule.

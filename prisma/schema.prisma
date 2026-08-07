@@ -517,6 +517,13 @@ model Article {
   pinned      Boolean   @default(false)
   views       Int       @default(0)
   readMinutes Int       @default(1)
+  // "Listen to article" TTS audio (ElevenLabs → S3). audioHash fingerprints the
+  // spoken text the current MP3 was made from, so we only regenerate on a real
+  // content change. Status: NONE (no audio) | PENDING (queued) | READY | FAILED.
+  audioUrl       String?
+  audioStatus    String    @default("NONE")
+  audioHash      String?
+  audioUpdatedAt DateTime?
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

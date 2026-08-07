@@ -7,6 +7,7 @@ import type { AdRow } from '@/lib/ads';
 import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/ArticleContent';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
+import ListenButton from './ListenButton';
 import { useSaved } from './StarProvider';
 import { track } from '@/lib/analytics/track';
 
@@ -16,6 +17,7 @@ type ModalArticle = {
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
   tags: { name: string; slug: string }[];
+  audioUrl?: string | null;
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
 type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; loggedIn?: boolean };
@@ -174,6 +176,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
                     </div>
+                    {a.audioUrl && <div className="mt-4"><ListenButton src={a.audioUrl} /></div>}
 
                     {a.coverImage && (
                       // eslint-disable-next-line @next/next/no-img-element

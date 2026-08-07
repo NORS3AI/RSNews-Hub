@@ -8,6 +8,7 @@ export const JOBS = [
   { key: 'ads-maintenance', label: 'Ad maintenance', detail: 'Ends elapsed flights, completes campaigns, sends fresh-ads + renewal emails.', endpoint: 'POST /api/ads/maintenance', staleHours: 36 },
   { key: 'newsletter', label: 'Daily newsletter', detail: 'Sends the daily Industry News digest to subscribers.', endpoint: 'POST /api/cron/newsletter', staleHours: 36 },
   { key: 'analytics-rollup', label: 'Analytics rollup', detail: 'Aggregates raw events into the reporting tables.', endpoint: 'POST /api/analytics/rollup', staleHours: 36 },
+  { key: 'article-audio', label: 'Article audio', detail: 'Generates "Listen to article" MP3s for pending articles (ElevenLabs).', endpoint: 'POST /api/cron/audio', staleHours: 36 },
 ] as const;
 
 const settingKey = (key: string) => `job:${key}:lastRun`;

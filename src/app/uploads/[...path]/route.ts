@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { uploadDir, KEY_RE, contentTypeForKey } from '@/lib/storage';
+import { uploadDir, isServableKey, contentTypeForKey } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 export async function GET(_req: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   const key = (params.path || []).join('/');
-  if (!KEY_RE.test(key)) return new NextResponse('Not found', { status: 404 });
+  if (!isServableKey(key)) return new NextResponse('Not found', { status: 404 });
 
   try {
     const bytes = await readFile(join(uploadDir(), key));
