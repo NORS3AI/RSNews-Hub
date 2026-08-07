@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
+import ArticleBadges from '@/components/ArticleBadges';
 import InArticleAd from '@/components/InArticleAd';
 import type { AdRow } from '@/lib/ads';
 import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/ArticleContent';
@@ -16,6 +17,8 @@ type ModalArticle = {
   status: string; readMinutes: number; views: number; publishedAt: string | null;
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
+  extraCategories?: { name: string; slug: string; color: string }[];
+  breakingUntil?: string | null;
   tags: { name: string; slug: string }[];
   audioUrl?: string | null;
 };
@@ -168,6 +171,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                 {loading && !a && <ModalSkeleton />}
                 {a && (
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">

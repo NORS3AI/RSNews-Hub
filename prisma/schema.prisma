@@ -439,6 +439,7 @@ model User {
   quizResponses QuizResponse[]
   pollVotes     PollVote[]
   savedItems    SavedItem[]
+  favFolders    FavoriteFolder[]
   clippings     Clipping[]
   notes         String?
 }
@@ -455,10 +456,28 @@ model SavedItem {
   articleId String
   title     String
   slug      String
+  // Optional favorite folder (only meaningful for kind='favorite'). Nulled when
+  // the folder is deleted so the item falls back to "Unfiled".
+  folderId  String?
+  folder    FavoriteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@unique([userId, kind, articleId])
   @@index([userId, kind])
+  @@index([folderId])
+}
+
+// Member-defined folders for grouping favorites (e.g. "Training", "Front
+// counter", "Marketing"). Per account; deleting one just unfiles its favorites.
+model FavoriteFolder {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime    @default(now())
+  items     SavedItem[]
+
+  @@index([userId])
 }
 
 // Per-account news clippings (highlighted quotes + saved comic images).

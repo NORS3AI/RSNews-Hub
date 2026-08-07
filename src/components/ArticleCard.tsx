@@ -1,7 +1,7 @@
 import { Clock, Eye } from './icons';
 import { formatDate } from '@/lib/utils';
-import { requirementLabel } from '@/lib/entitlements';
 import type { ArticleCard as Card } from '@/lib/recommend';
+import ArticleBadges from './ArticleBadges';
 import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
 
@@ -31,16 +31,13 @@ export default function ArticleCard({ article, compact = false, trk }: { article
           )
         )}
         <div className="flex flex-1 flex-col p-4 sm:p-5">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            {article.category && (
-              <span className="badge cat-badge" style={{ '--c': article.category.color } as React.CSSProperties}>
-                {article.category.name}
-              </span>
-            )}
-            {article.requirement && (
-              <span className="badge bg-amber-100 text-amber-800">🔒 {requirementLabel(article.requirement)}</span>
-            )}
-          </div>
+          <ArticleBadges
+            className="mb-2"
+            category={article.category}
+            extraCategories={article.extraCategories}
+            breakingUntil={article.breakingUntil}
+            requirement={article.requirement}
+          />
           {/* Title is never truncated — the card grows to fit it. */}
           <h3 className={`pr-[76px] font-extrabold leading-tight tracking-tight text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-lg' : 'text-[22px]'}`}>
             {article.title}

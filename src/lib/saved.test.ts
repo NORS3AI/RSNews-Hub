@@ -3,8 +3,11 @@ import { normalizeSavedItem, normalizeClipping } from './saved';
 
 describe('normalizeSavedItem', () => {
   it('accepts a valid item and defaults a missing title', () => {
-    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello' });
-    expect(normalizeSavedItem({ id: 'a1' })).toEqual({ id: 'a1', title: 'Untitled', slug: '' });
+    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: null });
+    expect(normalizeSavedItem({ id: 'a1' })).toEqual({ id: 'a1', title: 'Untitled', slug: '', folder: null });
+  });
+  it('carries a folder id when provided', () => {
+    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1' });
   });
   it('rejects items without an id', () => {
     expect(normalizeSavedItem({ title: 'x' })).toBeNull();

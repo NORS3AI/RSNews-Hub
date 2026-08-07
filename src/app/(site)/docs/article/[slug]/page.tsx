@@ -15,6 +15,7 @@ import ArticleContent from '@/components/site/ArticleContent';
 import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
+import { isBreaking } from '@/components/ArticleBadges';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ async function getArticle(slug: string) {
     where: { slug },
     include: {
       category: true,
+      extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true, bio: true } },
       tags: { select: { tag: true } },
     },
@@ -96,12 +98,19 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             page surround, matching the in-app reader modal. */}
         <div className="card p-6 sm:p-9 lg:p-10">
         <div className="mb-4 flex flex-wrap items-center gap-2">
+          {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
               style={{ '--c': article.category.color } as React.CSSProperties}>
               {article.category.name}
             </Link>
           )}
+          {article.extraCategories.map((c) => (
+            <Link key={c.slug} href={`/docs/category/${c.slug}`} className="badge cat-badge"
+              style={{ '--c': c.color } as React.CSSProperties}>
+              {c.name}
+            </Link>
+          ))}
           {article.status === 'ARCHIVED' && <span className="badge bg-amber-100 text-amber-700">Archived</span>}
         </div>
 

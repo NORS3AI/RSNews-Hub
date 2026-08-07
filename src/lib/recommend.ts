@@ -10,6 +10,8 @@ export type ArticleCard = {
   views: number;
   readMinutes: number;
   category: { name: string; slug: string; color: string } | null;
+  extraCategories: { name: string; slug: string; color: string }[];
+  breakingUntil: Date | null;
   tags: { name: string; slug: string }[];
   requirement?: string;
 };
@@ -24,7 +26,9 @@ const cardSelect = {
   views: true,
   readMinutes: true,
   requirement: true,
+  breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
+  extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;
 

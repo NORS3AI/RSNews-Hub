@@ -15,6 +15,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     where: { slug: params.slug },
     include: {
       category: { select: { name: true, slug: true, color: true } },
+      extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true } },
       tags: { select: { tag: { select: { name: true, slug: true } } } },
     },
@@ -65,6 +66,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       publishedAt: article.publishedAt,
       author: article.author,
       category: article.category,
+      extraCategories: article.extraCategories,
+      breakingUntil: article.breakingUntil,
       tags: article.tags.map((t) => t.tag),
       audioUrl: article.audioStatus === 'READY' ? article.audioUrl : null,
     },

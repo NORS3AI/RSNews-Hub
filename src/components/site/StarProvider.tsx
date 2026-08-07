@@ -1,8 +1,9 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-export type SavedItem = { id: string; title: string; slug: string };
-export type HistoryItem = SavedItem & { ts: number };
+export type SavedItem = { id: string; title: string; slug: string; folder?: string | null };
+export type FavFolder = { id: string; name: string };
+export type HistoryItem = { id: string; title: string; slug: string; ts: number };
 // A clipping is either a highlighted quote (turned into a quote image) or a
 // saved comic image. `kind` distinguishes them; quote fields are empty for comics.
 export type Clipping = {
@@ -14,6 +15,7 @@ export type Clipping = {
 type Ctx = {
   favorites: SavedItem[];
   toRead: SavedItem[];
+  favFolders: FavFolder[];
   history: HistoryItem[];
   clippings: Clipping[];
   isFavorite: (id: string) => boolean;
@@ -22,6 +24,10 @@ type Ctx = {
   toggleToRead: (s: SavedItem) => void;
   removeToRead: (id: string) => void;
   clearToRead: () => void;
+  addFavFolder: (name: string) => void;
+  renameFavFolder: (id: string, name: string) => void;
+  removeFavFolder: (id: string) => void;
+  setFavFolder: (articleId: string, folderId: string | null) => void;
   recordHistory: (s: SavedItem) => void;
   clearHistory: () => void;
   addClipping: (c: Omit<Clipping, 'id' | 'ts'>) => void;
@@ -32,9 +38,16 @@ type Ctx = {
 const Ctx = createContext<Ctx | null>(null);
 const FAV_KEY = 'rsnews_favorites_v1';
 const READ_KEY = 'rsnews_toread_v1';
+const FOLD_KEY = 'rsnews_favfolders_v1';
 const HIST_KEY = 'rsnews_history_v1';
 const CLIP_KEY = 'rsnews_clippings_v1';
 const HIST_MAX = 50;
+const FOLDER_MAX = 40;
+
+// A local (pre-login) folder id. Signed-in members get server cuids instead; the
+// merge on first sign-in remaps these to server ids.
+let folderSeq = 0;
+function localFolderId() { folderSeq += 1; return 'f' + Date.now().toString(36) + folderSeq.toString(36); }
 
 function load<T = SavedItem[]>(key: string): T {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return [] as unknown as T; }
@@ -48,16 +61,18 @@ function save(key: string, v: unknown) { try { localStorage.setItem(key, JSON.st
 export function StarProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<SavedItem[]>([]);
   const [toRead, setToRead] = useState<SavedItem[]>([]);
+  const [favFolders, setFavFolders] = useState<FavFolder[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [clippings, setClippings] = useState<Clipping[]>([]);
   const [ready, setReady] = useState(false);
   const serverBacked = useRef(false);
 
   // Apply an authoritative server bundle to state + local cache.
-  const applyBundle = useCallback((b: { favorites?: SavedItem[]; toRead?: SavedItem[]; clippings?: Clipping[] }) => {
+  const applyBundle = useCallback((b: { favorites?: SavedItem[]; toRead?: SavedItem[]; clippings?: Clipping[]; folders?: FavFolder[] }) => {
     if (b.favorites) { setFavorites(b.favorites); save(FAV_KEY, b.favorites); }
     if (b.toRead) { setToRead(b.toRead); save(READ_KEY, b.toRead); }
     if (b.clippings) { setClippings(b.clippings); save(CLIP_KEY, b.clippings); }
+    if (b.folders) { setFavFolders(b.folders); save(FOLD_KEY, b.folders); }
   }, []);
 
   // Push a mutation to the server (when signed in) and adopt the returned bundle.
@@ -73,6 +88,7 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
     // 1) Local-first: show cached items instantly.
     setFavorites(load(FAV_KEY));
     setToRead(load(READ_KEY));
+    setFavFolders(load<FavFolder[]>(FOLD_KEY));
     setHistory(load<HistoryItem[]>(HIST_KEY));
     setClippings(load<Clipping[]>(CLIP_KEY));
     setReady(true);
@@ -83,11 +99,11 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
       .then((data) => {
         if (!data?.signedIn) return; // anonymous → stay local-only
         serverBacked.current = true;
-        const localFav = load<SavedItem[]>(FAV_KEY), localRead = load<SavedItem[]>(READ_KEY), localClip = load<Clipping[]>(CLIP_KEY);
+        const localFav = load<SavedItem[]>(FAV_KEY), localRead = load<SavedItem[]>(READ_KEY), localClip = load<Clipping[]>(CLIP_KEY), localFold = load<FavFolder[]>(FOLD_KEY);
         const serverEmpty = !data.favorites.length && !data.toRead.length && !data.clippings.length;
         const haveLocal = localFav.length || localRead.length || localClip.length;
         if (serverEmpty && haveLocal) {
-          fetch('/api/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'merge', local: { favorites: localFav, toRead: localRead, clippings: localClip } }) })
+          fetch('/api/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op: 'merge', local: { favorites: localFav, toRead: localRead, clippings: localClip, folders: localFold } }) })
             .then((r) => (r.ok ? r.json() : null)).then((b) => b && applyBundle(b)).catch(() => {});
         } else {
           applyBundle(data); // server is the source of truth
@@ -98,6 +114,7 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
     const onStorage = (e: StorageEvent) => {
       if (e.key === FAV_KEY) setFavorites(load(FAV_KEY));
       if (e.key === READ_KEY) setToRead(load(READ_KEY));
+      if (e.key === FOLD_KEY) setFavFolders(load<FavFolder[]>(FOLD_KEY));
       if (e.key === HIST_KEY) setHistory(load<HistoryItem[]>(HIST_KEY));
       if (e.key === CLIP_KEY) setClippings(load<Clipping[]>(CLIP_KEY));
     };
@@ -135,6 +152,35 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
     pushOp({ op: 'clearToRead' });
   }, [persist, pushOp]);
 
+  // ---- favorite folders (optimistic-local, then adopt the server bundle when signed in) ----
+  const persistFolders = useCallback((next: FavFolder[]) => { setFavFolders(next); save(FOLD_KEY, next); }, []);
+
+  const addFavFolder = useCallback((name: string) => {
+    const clean = name.trim().slice(0, 32);
+    if (!clean || favFolders.length >= FOLDER_MAX) return;
+    persistFolders([...favFolders, { id: localFolderId(), name: clean }]);
+    pushOp({ op: 'addFavFolder', name: clean });
+  }, [favFolders, persistFolders, pushOp]);
+
+  const renameFavFolder = useCallback((id: string, name: string) => {
+    const clean = name.trim().slice(0, 32);
+    if (!clean) return;
+    persistFolders(favFolders.map((f) => (f.id === id ? { ...f, name: clean } : f)));
+    pushOp({ op: 'renameFavFolder', id, name: clean });
+  }, [favFolders, persistFolders, pushOp]);
+
+  const removeFavFolder = useCallback((id: string) => {
+    persistFolders(favFolders.filter((f) => f.id !== id));
+    // Unfile any favorites that lived in the removed folder.
+    persist(FAV_KEY, favorites.map((x) => (x.folder === id ? { ...x, folder: null } : x)), setFavorites);
+    pushOp({ op: 'removeFavFolder', id });
+  }, [favFolders, favorites, persist, persistFolders, pushOp]);
+
+  const setFavFolder = useCallback((articleId: string, folderId: string | null) => {
+    persist(FAV_KEY, favorites.map((x) => (x.id === articleId ? { ...x, folder: folderId } : x)), setFavorites);
+    pushOp({ op: 'setFavFolder', articleId, folderId });
+  }, [favorites, persist, pushOp]);
+
   // History: most-recent first, de-duplicated, capped. Local-only (see note above).
   const recordHistory = useCallback((s: SavedItem) => {
     setHistory((prev) => {
@@ -159,7 +205,7 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
   }, [pushOp]);
 
   return (
-    <Ctx.Provider value={{ favorites, toRead, history, clippings, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, clearToRead, recordHistory, clearHistory, addClipping, removeClipping, ready }}>
+    <Ctx.Provider value={{ favorites, toRead, favFolders, history, clippings, isFavorite, isToRead, toggleFavorite, toggleToRead, removeToRead, clearToRead, addFavFolder, renameFavFolder, removeFavFolder, setFavFolder, recordHistory, clearHistory, addClipping, removeClipping, ready }}>
       {children}
     </Ctx.Provider>
   );

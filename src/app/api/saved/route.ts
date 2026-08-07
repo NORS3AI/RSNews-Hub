@@ -3,13 +3,14 @@ import { getCurrentUser } from '@/lib/auth';
 import { captureError } from '@/lib/logger';
 import {
   getSaved, toggleFavorite, toggleToRead, removeToRead, clearToRead, addClipping, removeClipping, mergeLocal,
+  addFavFolder, renameFavFolder, removeFavFolder, setFavFolder,
   normalizeSavedItem, normalizeClipping, type SavedBundle,
 } from '@/lib/saved';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const EMPTY: SavedBundle = { favorites: [], toRead: [], clippings: [] };
+const EMPTY: SavedBundle = { favorites: [], toRead: [], clippings: [], folders: [] };
 
 // Read the signed-in member's saved state. Anonymous → signedIn:false + empty
 // (the client then uses its local-only store).
@@ -53,6 +54,14 @@ export async function POST(req: Request) {
       }
       case 'removeClipping':
         return NextResponse.json(await removeClipping(user.id, String(body.id || '')));
+      case 'addFavFolder':
+        return NextResponse.json(await addFavFolder(user.id, String(body.name || '')));
+      case 'renameFavFolder':
+        return NextResponse.json(await renameFavFolder(user.id, String(body.id || ''), String(body.name || '')));
+      case 'removeFavFolder':
+        return NextResponse.json(await removeFavFolder(user.id, String(body.id || '')));
+      case 'setFavFolder':
+        return NextResponse.json(await setFavFolder(user.id, String(body.articleId || ''), body.folderId ? String(body.folderId) : null));
       case 'merge':
         return NextResponse.json(await mergeLocal(user.id, (body.local as Partial<SavedBundle>) || {}));
       default:
