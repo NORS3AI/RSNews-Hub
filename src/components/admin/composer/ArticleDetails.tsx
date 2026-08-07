@@ -12,13 +12,6 @@ type Article = {
   coverImage?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
-  audioStatus?: string; audioUrl?: string | null;
-};
-
-const AUDIO_LABEL: Record<string, { text: string; cls: string }> = {
-  PENDING: { text: '🎧 Audio generating…', cls: 'bg-amber-100 text-amber-800' },
-  READY: { text: '🎧 Audio ready', cls: 'bg-green-100 text-green-700' },
-  FAILED: { text: '🎧 Audio failed — retries nightly', cls: 'bg-red-100 text-red-700' },
 };
 
 function toLocalInput(d?: string | Date | null) {
@@ -75,12 +68,6 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
           <input id="publishedAt" name="publishedAt" type="datetime-local" defaultValue={toLocalInput(article?.publishedAt)} className="input" />
           <p className="mt-1 text-xs text-[var(--muted)]">Blank = now. A past date backdates; a future date schedules it (needs status Published).</p>
         </div>
-        {article?.audioStatus && article.audioStatus !== 'NONE' && (
-          <div className="flex items-center justify-between gap-2">
-            <span className={`badge ${AUDIO_LABEL[article.audioStatus]?.cls ?? 'bg-[var(--bg-soft)]'}`}>{AUDIO_LABEL[article.audioStatus]?.text ?? article.audioStatus}</span>
-            {article.audioStatus === 'READY' && article.audioUrl && <a href={article.audioUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand-600 hover:underline">Preview ↗</a>}
-          </div>
-        )}
         <div>
           <label className="label" htmlFor="breakingHours">Breaking News timer</label>
           <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">

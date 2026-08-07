@@ -7,6 +7,7 @@ FROM node:22-slim AS deps
 WORKDIR /app
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 # 2) Build (needs the schema for `prisma generate`, run in the build script)
@@ -33,13 +34,8 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma
-# Copy the FULL node_modules over the standalone bundle so Prisma's client +
-# query engine are always present at runtime (the standalone tracer can miss the
-# engine binary; copying just .prisma is not enough).
 COPY --from=build /app/node_modules ./node_modules
 EXPOSE 3000
-# This project manages its schema with `db push` (no migration files), so sync the
-# schema on start, then boot. --skip-generate: the client was generated at build.
-# (Move the db push to a one-off release step if your host runs one, so a rolling
-# deploy doesn't sync from every instance.)
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
+# Apply migrations, then start. (Move `migrate deploy` to a release step if your
+# host runs one, so a rolling deploy doesn't migrate from every instance.)
+CMD ["sh", "-c", "npx --no-install prisma migrate deploy && node server.js"]

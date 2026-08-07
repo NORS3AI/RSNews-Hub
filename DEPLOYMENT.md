@@ -195,53 +195,17 @@ a provider key are set):
 curl -X POST https://YOURSITE/api/cron/newsletter -H "Authorization: Bearer $CRON_SECRET"
 ```
 
-> **Scheduled-jobs checklist.** These endpoints must be hit daily or their
+> **Scheduled-jobs checklist.** These three endpoints must be hit daily or their
 > features silently stop (flights never end, reminder/renewal + "ads live" emails
-> never send, the newsletter never goes out, analytics stop rolling up, article
-> audio never generates, integration outages go unnoticed):
-> `POST /api/ads/maintenance`, `POST /api/cron/newsletter`, `POST /api/analytics/rollup`, `POST /api/cron/audio`, `POST /api/cron/integrations`.
+> never send, the newsletter never goes out, analytics stop rolling up):
+> `POST /api/ads/maintenance`, `POST /api/cron/newsletter`, `POST /api/analytics/rollup`.
 > The admin dashboard's **"Scheduled jobs"** tile shows each one's last run
 > (Never-run / Stale / healthy) so you can confirm the scheduler is actually firing.
 
-## "Listen to article" audio (ElevenLabs) — optional
-
-Published articles can carry a text-to-speech MP3 (a **Listen** button in the
-reader). It stays completely dormant until configured, so it's safe to leave off.
-
-To turn it on, set:
-
-| Var | Notes |
-|---|---|
-| `ELEVENLABS_API_KEY` | Your ElevenLabs account key. |
-| `ELEVENLABS_VOICE_ID` | The voice to narrate with (pick one in your ElevenLabs account). |
-| `ELEVENLABS_MODEL_ID` | Optional; defaults to the cost-efficient `eleven_turbo_v2_5`. |
-
-Also requires **persistent storage** (`S3_*`) — the MP3s must survive redeploys,
-like image uploads. With a key set, audio generates in the background right after
-an article is published (and re-generates only when the article's spoken text
-changes); the `POST /api/cron/audio` job is the safety net that catches anything
-pending. Without a key, no audio is made and the Listen button never appears —
-nothing breaks. Every **published** article gets audio — the whole hub is
-members-only, so the MP3 is no more exposed than the article's own cover image.
-
-## Integration monitoring (admin panel + alerts)
-
-**Admin → Integrations** (`/admin/integrations`, admin-only) checks every external
-connection — database, storage, Sentry, email provider, ElevenLabs, and inbound
-JotForm — live on each load, showing Connected / Not responding / Not set up.
-
-The `POST /api/cron/integrations` job runs those same checks unattended and
-**emails an admin whenever a connection goes down or recovers**, so a bad key or a
-provider outage is noticed without anyone watching the page. Recipients default to
-every active `ADMIN` user; set `ADMIN_ALERT_EMAIL` (comma-separated) to override.
-It only alerts on real failures ("Not responding") — never on services that are
-simply not configured yet. If email itself is unconfigured the alert is deferred,
-not lost: the next run re-sends once a provider is set.
-
 **Don't want to configure a host scheduler?** A ready-made GitHub Action —
-`.github/workflows/nightly.yml` — hits every scheduled endpoint on a daily
-schedule. Just add two repo secrets (`PROD_URL`, `CRON_SECRET`) and it runs;
-without `PROD_URL` it no-ops. (Prefer your host's native cron if it has one.)
+`.github/workflows/nightly.yml` — hits all three endpoints on a daily schedule.
+Just add two repo secrets (`PROD_URL`, `CRON_SECRET`) and it runs; without
+`PROD_URL` it no-ops. (Prefer your host's native cron if it has one.)
 
 **Image optimization** is automatic (via `sharp`, a dependency). On upload,
 images are auto-oriented, **stripped of metadata (including GPS)**, downscaled to
