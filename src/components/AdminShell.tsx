@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight, ExternalLink } from './icons';
 import { BrandMark } from './BrandLogo';
 
 type NavLink = { href: string; label: string; icon: typeof Grid; exact?: boolean; adminOnly?: boolean };
@@ -43,6 +43,7 @@ const groups: NavGroup[] = [
   { title: 'System', links: [
     { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
     { href: '/admin/subscribers', label: 'Subscribers', icon: Mail },
+    { href: '/admin/integrations', label: 'Integrations', icon: ExternalLink, adminOnly: true },
     { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
   ] },
 ];
