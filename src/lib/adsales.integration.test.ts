@@ -30,7 +30,7 @@ async function purge(vendorName: string) {
 const day = 86_400_000;
 
 describe('payment-confirmation go-live gate', () => {
-  it('blocks scheduling until confirmed, then allows it', async () => {
+  it('by default schedules without a payment (no money crosses the hub)', async () => {
     const name = brand('GateCo');
     const vendorId = await findOrCreateVendor(name);
     const campaignId = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT' });
@@ -39,15 +39,34 @@ describe('payment-confirmation go-live gate', () => {
     await assignAdsToFlight(flight!.id, [ad.id]);
 
     expect(await campaignIsPaid(campaignId)).toBe(false);
-    await expect(scheduleFlight(flight!.id)).rejects.toThrow(/confirm/i);
-    expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).not.toBe('SCHEDULED');
-
-    await markCampaignPaid(campaignId, 30000);
-    expect(await campaignIsPaid(campaignId)).toBe(true);
-    await scheduleFlight(flight!.id);
+    await scheduleFlight(flight!.id); // not gated on payment by default
     expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).toBe('SCHEDULED');
 
     await purge(name);
+  });
+
+  it('gates go-live on a confirmed payment when ADS_REQUIRE_PAYMENT is on', async () => {
+    const prev = process.env.ADS_REQUIRE_PAYMENT;
+    process.env.ADS_REQUIRE_PAYMENT = 'true';
+    try {
+      const name = brand('GateCoPay');
+      const vendorId = await findOrCreateVendor(name);
+      const campaignId = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT' });
+      const flight = await prisma.adFlight.findFirst({ where: { campaignId }, orderBy: { index: 'asc' } });
+      const ad = await prisma.ad.create({ data: { brand: name, headline: 'x', active: false } });
+      await assignAdsToFlight(flight!.id, [ad.id]);
+
+      expect(await campaignIsPaid(campaignId)).toBe(false);
+      await expect(scheduleFlight(flight!.id)).rejects.toThrow(/confirm/i);
+
+      await markCampaignPaid(campaignId, 30000);
+      await scheduleFlight(flight!.id);
+      expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).toBe('SCHEDULED');
+
+      await purge(name);
+    } finally {
+      if (prev === undefined) delete process.env.ADS_REQUIRE_PAYMENT; else process.env.ADS_REQUIRE_PAYMENT = prev;
+    }
   });
 
   it('refuses to schedule a flight with no creative even when confirmed', async () => {

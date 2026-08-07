@@ -11,7 +11,7 @@ import { planByKey, planEnd, generateFlights } from './adPlans';
 import { sendEmail } from './email';
 import { renderTemplate } from './emailTemplates';
 import { findOrCreateVendor } from './vendors';
-import { campaignIsPaid } from './payments';
+import { campaignIsPaid, paymentRequired } from './payments';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -104,15 +104,15 @@ async function anchorToGoLive(campaignId: string, now: Date): Promise<void> {
   if (ops.length) await prisma.$transaction(ops);
 }
 
-/** Schedule a flight ("Go"): it must have at least one creative AND the campaign's
- *  payment must be confirmed (a campaign can't go live before then — confirm it
- *  in the admin; JotForm confirms it automatically when the vendor pays there).
+/** Schedule a flight ("Go"): it must have at least one creative. A confirmed
+ *  payment is only required when ADS_REQUIRE_PAYMENT is on — by default no money
+ *  crosses the hub, so approval isn't gated on payment.
  *  The first go-live re-anchors the paid window to now (see anchorToGoLive). */
 export async function scheduleFlight(flightId: string): Promise<void> {
   const flight = await prisma.adFlight.findUnique({ where: { id: flightId }, select: { campaignId: true, _count: { select: { ads: true } } } });
   if (!flight) throw new Error('Flight not found');
   if (flight._count.ads === 0) throw new Error('Add at least one creative before scheduling this flight');
-  if (!(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
+  if (paymentRequired() && !(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
   await anchorToGoLive(flight.campaignId, new Date());
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
   await notifyAdsLive(flight.campaignId);

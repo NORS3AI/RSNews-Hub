@@ -290,6 +290,17 @@ export async function deleteAd(id: string) {
   revalidatePath('/docs');
 }
 
+// One-click fix when the auto-slotter guessed wrong on an import: swap the wide
+// banner and rectangle images.
+export async function swapAdImages(id: string) {
+  await ensureStaff();
+  const ad = await prisma.ad.findUnique({ where: { id }, select: { imageWide: true, imageRect: true } });
+  if (!ad) return;
+  await prisma.ad.update({ where: { id }, data: { imageWide: ad.imageRect, imageRect: ad.imageWide } });
+  revalidatePath('/admin/ads');
+  revalidatePath('/docs');
+}
+
 export async function toggleAd(id: string, active: boolean) {
   await ensureStaff();
   await prisma.ad.update({ where: { id }, data: { active } });

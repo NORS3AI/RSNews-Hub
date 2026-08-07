@@ -13,6 +13,15 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 export type PaymentLike = { status: string; amountCents: number };
 
+/**
+ * Whether a confirmed payment is required before a campaign can go live. Off by
+ * default — no money crosses the hub, so an admin approves/activates ads without
+ * a payment gate. Set ADS_REQUIRE_PAYMENT=true to re-enable the confirmation gate.
+ */
+export function paymentRequired(): boolean {
+  return process.env.ADS_REQUIRE_PAYMENT === 'true';
+}
+
 /** Is this campaign settled? True if any of its payments is PAID. */
 export function isPaid(payments: PaymentLike[]): boolean {
   return payments.some((p) => p.status === 'PAID');

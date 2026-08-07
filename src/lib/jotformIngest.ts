@@ -6,6 +6,8 @@
 import { prisma } from './db';
 import { log } from './logger';
 import { putImage, maxUploadBytes } from './storage';
+import { imageDimensions } from './storage/optimize';
+import { classifyShape, pairCreatives, type AdShape } from './adSizes';
 import { findOrCreateVendor } from './vendors';
 import { createCampaign } from './campaigns';
 import { planByKey, addMonths } from './adPlans';
@@ -64,14 +66,20 @@ export async function ingestSubmission(rawObj: Record<string, unknown>, submissi
   if (parsed.imageUrls.length > MAX_CREATIVES) {
     parsed.issues.push(`Only the first ${MAX_CREATIVES} of ${parsed.imageUrls.length} creatives were imported.`);
   }
-  const storedUrls: string[] = [];
+  // Measure each creative's shape BEFORE storing (aspect ratio survives
+  // optimization) so we can slot it automatically — no need for advertisers to
+  // submit in any order.
+  const storedCreatives: { url: string; shape: AdShape }[] = [];
   for (const url of urls) {
     const bytes = await fetchCreative(url);
     if (!bytes) continue;
+    const dims = await imageDimensions(bytes);
     const stored = await putImage(bytes);
     if (!stored.ok) { log.warn('jotform: creative rejected by storage', { err: stored.error }); continue; }
-    storedUrls.push(stored.url);
+    storedCreatives.push({ url: stored.url, shape: classifyShape(dims?.width, dims?.height) });
   }
+  // Pair a banner + a rectangle into one ad; never stuff one image into both slots.
+  const ads = pairCreatives(storedCreatives);
 
   // Create the vendor + DRAFT campaign + creatives atomically, so a mid-way
   // failure can't leave an orphaned campaign. Creatives are inactive/unassigned —
@@ -82,9 +90,9 @@ export async function ingestSubmission(rawObj: Record<string, unknown>, submissi
       vendorName: parsed.vendorName, vendorId, plan: parsed.planKey,
       startAt, endAt: endAt ?? null, notes: parsed.notes || undefined, status: 'DRAFT',
     }, tx);
-    for (const url of storedUrls) {
+    for (const slot of ads) {
       await tx.ad.create({
-        data: { brand: parsed.vendorName, headline: `${parsed.vendorName} — submitted ad`, imageWide: url, imageRect: url, active: false },
+        data: { brand: parsed.vendorName, headline: `${parsed.vendorName} — submitted ad`, imageWide: slot.imageWide, imageRect: slot.imageRect, active: false },
       });
     }
     // If the form collected payment, record it (deduped on the transaction id) so
@@ -101,5 +109,5 @@ export async function ingestSubmission(rawObj: Record<string, unknown>, submissi
     return { vendorId, campaignId };
   });
 
-  return { vendorId, campaignId, creatives: storedUrls.length, parsed };
+  return { vendorId, campaignId, creatives: storedCreatives.length, parsed };
 }

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { saveAd, deleteAd } from '@/lib/actions';
+import { saveAd, deleteAd, swapAdImages } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import InArticleAd from '@/components/InArticleAd';
 import AdImageInput from '@/components/admin/AdImageInput';
@@ -94,6 +94,13 @@ export default async function AdminAds() {
                 <div>
                   <div className="label mb-2">Live preview</div>
                   <InArticleAd ad={ad} slot="preview" size="in-article" />
+                  {(ad.imageWide || ad.imageRect) && (
+                    <form action={swapAdImages.bind(null, ad.id)} className="mt-3">
+                      <button className="btn-outline btn-sm" title="Swap the banner and rectangle images — handy if an import slotted them the wrong way round">
+                        ⇄ Swap banner ↔ rectangle
+                      </button>
+                    </form>
+                  )}
                 </div>
               </div>
             </details>

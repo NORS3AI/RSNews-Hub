@@ -112,3 +112,20 @@ export async function optimizeImage(bytes: Buffer, input: ImageType, cfg: Optimi
     return original;
   }
 }
+
+/**
+ * Best-effort intrinsic pixel size of an image, auto-oriented (a quarter-turn in
+ * EXIF swaps width/height so the ratio matches what a viewer sees). Returns null
+ * when sharp is unavailable or the decode fails — callers treat that as "unknown
+ * shape" and fall back accordingly. Never throws.
+ */
+export async function imageDimensions(bytes: Buffer): Promise<{ width: number; height: number } | null> {
+  let sharpFn: (typeof import('sharp'))['default'];
+  try { sharpFn = (await import('sharp')).default; } catch { return null; }
+  try {
+    const meta = await sharpFn(bytes, { failOn: 'none', limitInputPixels: 40_000_000 }).metadata();
+    let w = meta.width || 0, h = meta.height || 0;
+    if (meta.orientation && meta.orientation >= 5) { const t = w; w = h; h = t; }
+    return w > 0 && h > 0 ? { width: w, height: h } : null;
+  } catch { return null; }
+}
