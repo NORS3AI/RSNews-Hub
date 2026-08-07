@@ -45,6 +45,8 @@ async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' |
 
 /* ------------------------------- Articles ------------------------------- */
 
+const ARTICLE_REVISION_MAX = 20; // per-article cap on stored revisions
+
 export async function saveArticle(formData: FormData) {
   const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
@@ -98,8 +100,15 @@ export async function saveArticle(formData: FormData) {
 
   let savedId = id;
   if (id) {
-    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true } });
     if (!existing) throw new Error('Article not found');
+    // Snapshot the prior version before overwriting — only when the body actually
+    // changed — so an editor can roll back. Capped per article.
+    if (existing.content !== content) {
+      await prisma.articleRevision.create({ data: { articleId: id, title: existing.title, content: existing.content, excerpt: existing.excerpt, authorId: existing.authorId } });
+      const extra = await prisma.articleRevision.findMany({ where: { articleId: id }, orderBy: { createdAt: 'desc' }, skip: ARTICLE_REVISION_MAX, select: { id: true } });
+      if (extra.length) await prisma.articleRevision.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
+    }
     const slug = await uniqueSlug(title, 'article', id);
     await prisma.article.update({
       where: { id },
@@ -142,6 +151,64 @@ export async function saveArticle(formData: FormData) {
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
   redirect('/admin/articles');
+}
+
+// Background autosave for an article being edited. Persists the easily-lost work
+// (title + body + excerpt + cover) WITHOUT touching status or publishedAt — an
+// autosave never publishes, never reschedules, and never navigates. Only updates
+// an existing article; brand-new drafts are still protected by the unsaved-changes
+// guard until their first manual Save. Returns a timestamp for the "Autosaved …"
+// indicator. Never throws for the client — returns ok:false instead.
+export async function autosaveArticle(formData: FormData): Promise<{ ok: boolean; at: number }> {
+  const now = Date.now();
+  try {
+    await ensureStaff();
+    const id = (formData.get('id') as string) || '';
+    if (!id) return { ok: false, at: now };
+    const title = ((formData.get('title') as string) || '').trim();
+    const content = sanitizeArticleHtml(((formData.get('content') as string) || '').trim());
+    if (!title && !content) return { ok: false, at: now };
+    const coverImage = ((formData.get('coverImage') as string) || '').trim();
+    const excerptInput = ((formData.get('excerpt') as string) || '').trim();
+
+    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) return { ok: false, at: now };
+    await prisma.article.update({
+      where: { id },
+      data: {
+        ...(title ? { title } : {}),
+        ...(content ? { content, excerpt: excerptInput || makeExcerpt(content), readMinutes: estimateReadMinutes(content) } : {}),
+        coverImage: coverImage || null,
+      },
+    });
+    return { ok: true, at: Date.now() };
+  } catch {
+    return { ok: false, at: now };
+  }
+}
+
+// Roll an article back to a stored revision. The current version is snapshotted
+// first (so a restore is itself undoable), then the article's title/body/excerpt
+// are replaced. Status and publish date are left untouched.
+export async function restoreArticleRevision(revisionId: string) {
+  await ensureStaff();
+  const rev = await prisma.articleRevision.findUnique({ where: { id: revisionId } });
+  if (!rev) throw new Error('Revision not found');
+  const current = await prisma.article.findUnique({ where: { id: rev.articleId }, select: { title: true, content: true, excerpt: true, authorId: true } });
+  if (!current) throw new Error('Article not found');
+  if (current.content !== rev.content) {
+    await prisma.articleRevision.create({ data: { articleId: rev.articleId, title: current.title, content: current.content, excerpt: current.excerpt, authorId: current.authorId } });
+    const extra = await prisma.articleRevision.findMany({ where: { articleId: rev.articleId }, orderBy: { createdAt: 'desc' }, skip: ARTICLE_REVISION_MAX, select: { id: true } });
+    if (extra.length) await prisma.articleRevision.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
+  }
+  await prisma.article.update({
+    where: { id: rev.articleId },
+    data: { title: rev.title, content: rev.content, excerpt: rev.excerpt || makeExcerpt(rev.content), readMinutes: estimateReadMinutes(rev.content) },
+  });
+  revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+  // Navigate back to the editor so it remounts with the restored content.
+  redirect(`/admin/articles/${rev.articleId}`);
 }
 
 export async function setArticleStatus(id: string, status: string) {

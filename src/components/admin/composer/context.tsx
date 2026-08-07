@@ -32,7 +32,9 @@ export function ComposerProvider({
 
   const compute = useCallback((editor: Editor) => {
     const sel = editor.state.selection;
-    if (sel instanceof NodeSelection && CUSTOM_TYPES.includes(sel.node.type.name)) {
+    // Custom blocks and images both open the element inspector (images get an
+    // alt-text field there).
+    if (sel instanceof NodeSelection && (CUSTOM_TYPES.includes(sel.node.type.name) || sel.node.type.name === 'image')) {
       setSelected({ type: sel.node.type.name, attrs: { ...sel.node.attrs }, pos: sel.from });
     } else setSelected(null);
   }, []);

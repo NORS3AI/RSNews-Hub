@@ -6,6 +6,7 @@ import { ComposerProvider, type Opt, type Advertiser } from './composer/context'
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
+import AutoSave from './AutoSave';
 
 // Warn before leaving with unsaved edits: mark dirty on any edit in the form
 // (typing, field changes), clear it on submit, and gate a tab close / reload on it.
@@ -47,7 +48,8 @@ export default function ArticleEditor({
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{article ? 'Edit article' : 'New article'}</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {article?.id && <AutoSave formRef={formRef} />}
           <Link href="/admin/articles" className="btn-outline btn-sm">Cancel</Link>
           <button type="submit" className="btn-primary btn-sm">Save</button>
         </div>

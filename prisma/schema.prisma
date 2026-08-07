@@ -441,6 +441,7 @@ model User {
   savedItems    SavedItem[]
   favFolders    FavoriteFolder[]
   clippings     Clipping[]
+  articleRevisions ArticleRevision[]
   notes         String?
 }
 
@@ -561,9 +562,26 @@ model Article {
 
   tags        ArticleTag[]
   readingLogs ReadingLog[]
+  revisions   ArticleRevision[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// Point-in-time snapshots of an article's title/body, written on each meaningful
+// save (and before a restore) so an editor can roll back. Capped per article.
+model ArticleRevision {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  excerpt   String?
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([articleId, createdAt])
 }
 
 model ArticleTag {

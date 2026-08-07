@@ -6,7 +6,7 @@ import { Trash } from '@/components/icons';
 
 const LABELS: Record<string, string> = {
   adSlot: 'Ad slot', spacer: 'Blank space', pollEmbed: 'Poll', quizEmbed: 'Pop quiz',
-  ctaButton: 'Button', author: 'Author card',
+  ctaButton: 'Button', author: 'Author card', image: 'Image',
 };
 
 export default function ElementInspector() {
@@ -97,6 +97,21 @@ function Fields({ sel }: { sel: NonNullable<Selected> }) {
             </div>
           </div>
         )}
+      </div>
+    );
+  } else if (sel.type === 'image') {
+    body = (
+      <div className="space-y-2">
+        {a.src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={a.src} alt="" className="max-h-32 w-full rounded-lg border border-[var(--border)] object-contain" />
+        )}
+        <div>
+          <label className="label">Alt text</label>
+          <input className="input" defaultValue={a.alt || ''} onChange={(e) => updateSelected({ alt: e.target.value })}
+            placeholder="e.g. A driver scanning a package at the counter" />
+          <p className="mt-1 text-xs text-[var(--muted)]">Describes the image for screen readers and search. It&apos;s never shown on the page, spoken by &ldquo;Listen&rdquo;, or pulled into a clipping.</p>
+        </div>
       </div>
     );
   } else if (sel.type === 'spacer') {
