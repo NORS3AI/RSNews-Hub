@@ -187,8 +187,23 @@ bookkeeping + reminders:
 curl -X POST https://YOURSITE/api/ads/maintenance -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+The **daily newsletter** (`/api/cron/newsletter`) is the third scheduled job —
+it sends the Industry News digest to subscribers (a no-op unless `EMAIL_FROM` +
+a provider key are set):
+
+```bash
+curl -X POST https://YOURSITE/api/cron/newsletter -H "Authorization: Bearer $CRON_SECRET"
+```
+
+> **Scheduled-jobs checklist.** These three endpoints must be hit daily or their
+> features silently stop (flights never end, reminder/renewal + "ads live" emails
+> never send, the newsletter never goes out, analytics stop rolling up):
+> `POST /api/ads/maintenance`, `POST /api/cron/newsletter`, `POST /api/analytics/rollup`.
+> The admin dashboard's **"Scheduled jobs"** tile shows each one's last run
+> (Never-run / Stale / healthy) so you can confirm the scheduler is actually firing.
+
 **Don't want to configure a host scheduler?** A ready-made GitHub Action —
-`.github/workflows/nightly.yml` — hits both endpoints on a daily schedule.
+`.github/workflows/nightly.yml` — hits all three endpoints on a daily schedule.
 Just add two repo secrets (`PROD_URL`, `CRON_SECRET`) and it runs; without
 `PROD_URL` it no-ops. (Prefer your host's native cron if it has one.)
 

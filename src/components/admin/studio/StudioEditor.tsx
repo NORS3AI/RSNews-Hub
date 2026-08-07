@@ -24,6 +24,13 @@ export type CatOption = { name: string; slug: string };
 const CategoriesContext = createContext<CatOption[]>([]);
 const useCategories = () => useContext(CategoriesContext);
 
+// Advertisers (+ which image shapes each can fill) for the ad block's advertiser
+// picker and its "no creative in that shape" popup. Shared via context like
+// categories so it doesn't thread through every inspector level.
+export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
+const AdvertisersContext = createContext<Advertiser[]>([]);
+const useAdvertisers = () => useContext(AdvertisersContext);
+
 // Ad sizes shown directly in the palette so you drop the right shape for the
 // slot (e.g. Square fits a sidebar; Leaderboard is a wide banner).
 const AD_VARIANTS: { label: string; format: string }[] = [
@@ -33,10 +40,15 @@ const AD_VARIANTS: { label: string; format: string }[] = [
   { label: 'Ad — leaderboard', format: 'leaderboard' },
   { label: 'Ad — video', format: 'video' },
 ];
+// Which image creative each ad format needs, and helpers for the advertiser
+// "no creative in that shape" popup (mirrors the article maker's ad slot).
+const AD_FORMAT_SHAPE: Record<string, 'wide' | 'rect' | 'video'> = { leaderboard: 'wide', video: 'video', rectangle: 'rect', square: 'rect', vertical: 'rect' };
+const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false : shape === 'wide' ? adv.wide : shape === 'video' ? adv.video : adv.rect;
+const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
 
 export default function StudioEditor({
-  id, name: initialName, published, initialTree, categories = [],
-}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[] }) {
+  id, name: initialName, published, initialTree, categories = [], advertisers = [],
+}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[]; advertisers?: Advertiser[] }) {
   const router = useRouter();
   const [tree, setTree] = useState<ModuleTree>(initialTree);
   const [name, setName] = useState(initialName);
@@ -185,6 +197,7 @@ export default function StudioEditor({
 
   return (
     <CategoriesContext.Provider value={categories}>
+    <AdvertisersContext.Provider value={advertisers}>
     <div className="mx-auto max-w-6xl">
       {/* Top bar */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -388,6 +401,7 @@ export default function StudioEditor({
         </div>
       )}
     </div>
+    </AdvertisersContext.Provider>
     </CategoriesContext.Provider>
   );
 }
@@ -481,6 +495,8 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
+  const advertisers = useAdvertisers();
+  const [adGapKept, setAdGapKept] = useState('');
   const [tab, setTab] = useState<'content' | 'style' | 'fallback' | 'schedule' | 'access'>('content');
   const fbCount = block.fallbacks?.length ?? 0;
   const scheduled = !!(block.startAt || block.endAt);
@@ -516,23 +532,52 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
           )}
         </>
       )}
-      {block.type === 'ad' && (
-        <>
-          <Field label="Ad format">
-            <select className="input" value={String(s.format ?? 'rectangle')} onChange={(e) => set('format', e.target.value)}>
-              <option value="rectangle">Rectangle (medium)</option>
-              <option value="square">Square (fits a sidebar)</option>
-              <option value="vertical">Vertical (skyscraper)</option>
-              <option value="leaderboard">Leaderboard (wide banner)</option>
-              <option value="video">Video</option>
-            </select>
-          </Field>
-          <Field label="Limit to advertiser (optional)">
-            <input className="input" value={String(s.vendor ?? '')} onChange={(e) => set('vendor', e.target.value)} placeholder="e.g. PackageHub" />
-            <p className="mt-1 text-[11px] text-[var(--muted)]">Locks this slot to one advertiser&apos;s creatives — a sponsor spotlight. Leave blank to rotate all live ads. If that advertiser has no live ad, the slot falls through to your fallback.</p>
-          </Field>
-        </>
-      )}
+      {block.type === 'ad' && (() => {
+        const fmt = String(s.format ?? 'rectangle');
+        const vendor = String(s.vendor ?? '');
+        const adv = advertisers.find((x) => x.brand === vendor);
+        const shape = AD_FORMAT_SHAPE[fmt] || 'rect';
+        const gap = !!vendor && advAnyImg(adv) && !advImgShape(adv, shape);
+        const gapKey = `${vendor}::${fmt}`;
+        // Formats this advertiser DOES have an image for (to offer as a switch).
+        const alts: { format: string; label: string }[] = [];
+        if (adv?.wide) alts.push({ format: 'leaderboard', label: 'Leaderboard' });
+        if (adv?.rect) alts.push({ format: 'rectangle', label: 'Rectangle' });
+        if (adv?.video) alts.push({ format: 'video', label: 'Video' });
+        return (
+          <>
+            <Field label="Ad format">
+              <select className="input" value={fmt} onChange={(e) => set('format', e.target.value)}>
+                <option value="rectangle">Rectangle (medium)</option>
+                <option value="square">Square (fits a sidebar)</option>
+                <option value="vertical">Vertical (skyscraper)</option>
+                <option value="leaderboard">Leaderboard (wide banner)</option>
+                <option value="video">Video</option>
+              </select>
+            </Field>
+            <Field label="Advertiser">
+              <select className="input" value={vendor} onChange={(e) => { set('vendor', e.target.value); setAdGapKept(''); }}>
+                <option value="">Auto — smart cycle (contextual + competitor-safe)</option>
+                {advertisers.map((x) => <option key={x.key} value={x.brand}>{x.brand}</option>)}
+              </select>
+              <p className="mt-1 text-[11px] text-[var(--muted)]">Auto rotates the best-match ad and hides an advertiser&apos;s rivals. Or lock this slot to one advertiser; if they have no live ad it falls through to your fallback.</p>
+            </Field>
+            {gap && adGapKept !== gapKey && (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs dark:border-amber-800 dark:bg-amber-950/30">
+                <p className="font-semibold text-amber-800 dark:text-amber-200">{vendor} has no live {shape === 'wide' ? 'wide banner' : shape === 'video' ? 'video' : 'rectangle'} on file.</p>
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {alts.map((alt) => (
+                    <button key={alt.format} type="button" onClick={() => { set('format', alt.format); setAdGapKept(''); }}
+                      className="btn-outline btn-sm justify-start">Switch format to {alt.label} (they have it)</button>
+                  ))}
+                  <button type="button" onClick={() => { set('vendor', ''); setAdGapKept(''); }} className="btn-outline btn-sm justify-start">Use Auto instead</button>
+                  <button type="button" onClick={() => setAdGapKept(gapKey)} className="text-left text-[var(--muted)] hover:text-[var(--fg)]">Keep it — a text/best-match ad shows here instead</button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
       {block.type === 'image' && (
         <>
           <Field label="Image URL"><input className="input" value={String(s.url ?? '')} onChange={(e) => set('url', e.target.value)} placeholder="https://…" /></Field>

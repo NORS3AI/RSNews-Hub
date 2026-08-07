@@ -40,3 +40,54 @@ describe('sanitizeArticleHtml', () => {
     expect(sanitizeArticleHtml(null)).toBe('');
   });
 });
+
+describe('sanitizeArticleHtml — article composer elements survive a save', () => {
+  it('keeps the ad-slot marker + its advertiser lock (brand + size)', () => {
+    const out = sanitizeArticleHtml('<div data-ad-slot="" data-ad-brand="brewcrate" data-ad-size="rectangle" data-ad-label="BrewCrate"></div>');
+    expect(out).toContain('data-ad-slot');
+    expect(out).toContain('data-ad-brand="brewcrate"');
+    expect(out).toContain('data-ad-size="rectangle"');
+    expect(out).toContain('data-ad-label="BrewCrate"');
+  });
+
+  it('keeps the blank-space marker + size (height comes from CSS, not inline style)', () => {
+    const out = sanitizeArticleHtml('<div data-spacer="" data-size="lg" style="height:64px"></div>');
+    expect(out).toContain('data-spacer');
+    expect(out).toContain('data-size="lg"');
+    expect(out).not.toContain('style');
+  });
+
+  it('keeps poll and quiz embed markers', () => {
+    const out = sanitizeArticleHtml('<div data-poll="p1" data-label="Best tool?"></div><div data-quiz="q1"></div>');
+    expect(out).toContain('data-poll="p1"');
+    expect(out).toContain('data-quiz="q1"');
+    expect(out).toContain('data-label="Best tool?"');
+  });
+
+  it('keeps the full author card', () => {
+    const out = sanitizeArticleHtml('<div data-author="" data-name="Dana" data-title="Guest" data-avatar="/u/x.jpg" data-bio="Bio here" data-inhouse="0"></div>');
+    for (const a of ['data-author', 'data-name="Dana"', 'data-title="Guest"', 'data-avatar="/u/x.jpg"', 'data-bio="Bio here"', 'data-inhouse="0"']) {
+      expect(out).toContain(a);
+    }
+  });
+
+  it('keeps the button (a-btn class + data-button) and the pull-quote class', () => {
+    const btn = sanitizeArticleHtml('<a data-button="" class="a-btn" href="https://x.com">Go</a>');
+    expect(btn).toContain('class="a-btn"');
+    expect(btn).toContain('data-button');
+    expect(btn).toContain('rel="noopener noreferrer nofollow"');
+    const pq = sanitizeArticleHtml('<blockquote data-pullquote="" class="pullquote">Quote</blockquote>');
+    expect(pq).toContain('class="pullquote"');
+    expect(pq).toContain('data-pullquote');
+  });
+
+  it('still blocks XSS smuggled through the widened allowlist', () => {
+    // a div is allowed now, but not with handlers, styles, arbitrary classes or unknown data-*
+    expect(sanitizeArticleHtml('<div data-author="" onclick="alert(1)"></div>')).not.toContain('onclick');
+    expect(sanitizeArticleHtml('<div data-ad-slot="" style="position:fixed"></div>')).not.toContain('style');
+    expect(sanitizeArticleHtml('<div class="evil" data-spacer=""></div>')).not.toContain('evil');
+    expect(sanitizeArticleHtml('<div data-evil="1"></div>')).not.toContain('data-evil');
+    // only a-btn / pullquote class values pass
+    expect(sanitizeArticleHtml('<a class="evil" href="https://x.com">x</a>')).not.toContain('evil');
+  });
+});

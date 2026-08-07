@@ -3,7 +3,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
 import { getRelatedArticles } from '@/lib/recommend';
-import { pickArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
+import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,15 +35,21 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     return NextResponse.json({ error: 'Locked', requirement: article.requirement }, { status: 403 });
   }
 
-  const adContext = `${article.title} ${article.content} ${article.tags.map((t) => t.tag.name).join(' ')}`;
-  const [related, next, ads] = await Promise.all([
+  const adTagText = article.tags.map((t) => t.tag.name).join(' ');
+  const adContext = `${article.title} ${article.content} ${adTagText}`;
+  // Competitor suppression keys off the article's tags (+ title) — curated
+  // business names — not the whole body (avoids stray-word false positives).
+  const adSafeContext = `${article.title} ${adTagText}`;
+  const [related, next, ads, embeds, slotAds] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true },
     }),
-    pickArticleAds(adContext, 'modal'),
+    pickArticleAds(adContext, 'modal', '', adSafeContext),
+    resolveArticleEmbeds(article.content, user?.id),
+    loadBrandArticleAds(article.content),
   ]);
 
   return NextResponse.json({
@@ -63,5 +70,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     related: related.map((r) => ({ id: r.id, title: r.title, slug: r.slug, category: r.category })),
     next,
     ads,
+    embeds,
+    slotAds,
+    loggedIn: !!user,
   });
 }

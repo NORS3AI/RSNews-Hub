@@ -229,6 +229,11 @@ model Ad {
   video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
+  // Optional self-scheduling window for a manually-added (non-flighted) ad — lets
+  // a one-off outside advertiser go live / come down on a date without a campaign.
+  // Both null = always-on (house ad, for our own brands). Ignored for flighted ads.
+  liveFrom    DateTime?
+  liveUntil   DateTime?
   // Vendor ads belong to a 3-month flight (paid inventory); house ads have no
   // flight and serve whenever active. A flighted ad is only live inside its
   // flight's scheduled window (auto-takedown is automatic — see lib/ads).
@@ -289,6 +294,17 @@ model Vendor {
   reports      PerformanceReport[]
 }
 
+// A set of advertisers that must never advertise alongside each other. If any
+// member is named in an article, the others are suppressed in every ad slot of
+// that article (see lib/adsServer: their brands are folded into each member ad's
+// competitor terms). `brands` is a comma-separated list of advertiser brand names.
+model CompetitorGroup {
+  id        String   @id @default(cuid())
+  name      String
+  brands    String   @default("")
+  createdAt DateTime @default(now())
+}
+
 // A quarterly ad-performance report for one vendor. Auto-drafted from the ad
 // analytics we already collect (see lib/analytics advertiserReport), then the
 // admin reviews/edits the summary and publishes it — only PUBLISHED reports
@@ -326,6 +342,9 @@ model AdCampaign {
   // Set once we've emailed the vendor to renew (campaign nearing its end), so the
   // nightly job never double-nudges. Cleared implies "renewal reminder still due".
   renewalRemindedAt DateTime?
+  // Set once we've emailed the vendor that their ads went live (first go-live), so
+  // the "your ads are live" note is sent exactly once per campaign.
+  liveNotifiedAt    DateTime?
   flights     AdFlight[]
   payments    Payment[]
 

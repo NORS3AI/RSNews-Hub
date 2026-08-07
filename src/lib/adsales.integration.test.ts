@@ -24,6 +24,7 @@ async function purge(vendorName: string) {
     await prisma.vendor.delete({ where: { id: v.id } });               // cascades reports
   }
   await prisma.adCampaign.deleteMany({ where: { vendorName } });
+  await prisma.ad.deleteMany({ where: { brand: vendorName } }); // creatives created inline by tests
 }
 
 const day = 86_400_000;

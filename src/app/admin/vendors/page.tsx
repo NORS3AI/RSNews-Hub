@@ -1,16 +1,23 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { saveVendorContact } from '@/lib/actions';
+import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup } from '@/lib/actions';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminVendors() {
-  const vendors = await prisma.vendor.findMany({
-    orderBy: { name: 'asc' },
-    include: { _count: { select: { campaigns: true, reports: true } } },
-  });
+  const [vendors, adBrandRows, groups] = await Promise.all([
+    prisma.vendor.findMany({
+      orderBy: { name: 'asc' },
+      include: { _count: { select: { campaigns: true, reports: true } } },
+    }),
+    prisma.ad.findMany({ distinct: ['brand'], orderBy: { brand: 'asc' }, select: { brand: true } }),
+    prisma.competitorGroup.findMany({ orderBy: { createdAt: 'asc' } }),
+  ]);
   const missingEmail = vendors.filter((v) => !v.contactEmail).length;
+  // Every advertiser we can group: distinct ad brands + any vendor names not yet running an ad.
+  const advertisers = Array.from(new Set([...adBrandRows.map((a) => a.brand), ...vendors.map((v) => v.name)]))
+    .filter(Boolean).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="max-w-4xl">
@@ -58,6 +65,54 @@ export default async function AdminVendors() {
           ))}
         </div>
       )}
+
+      {/* ── Competitor groups ─────────────────────────────────────────────── */}
+      <div className="mt-12 border-t border-[var(--border)] pt-8">
+        <h2 className="mb-1 text-xl font-bold">Competitor groups</h2>
+        <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
+          Advertisers in the same group never run alongside each other. And if an article <strong>names or is tagged with</strong> one member, the others are held out of <strong>every</strong> ad slot in that article. Add a brand to as many groups as needed.
+        </p>
+
+        {groups.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {groups.map((g) => (
+              <div key={g.id} className="card flex flex-wrap items-center justify-between gap-2 p-3">
+                <div className="min-w-0">
+                  <div className="font-bold">{g.name}</div>
+                  <div className="mt-0.5 flex flex-wrap gap-1.5">
+                    {g.brands.split(',').map((b) => b.trim()).filter(Boolean).map((b) => (
+                      <span key={b} className="badge bg-[var(--bg-soft)]">{b}</span>
+                    ))}
+                  </div>
+                </div>
+                <form action={deleteCompetitorGroup}>
+                  <input type="hidden" name="id" value={g.id} />
+                  <button className="btn-outline btn-sm text-red-600">Delete</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {advertisers.length < 2 ? (
+          <p className="text-sm text-[var(--muted)]">Add at least two advertisers (create ads) before grouping.</p>
+        ) : (
+          <form action={saveCompetitorGroup} className="card p-4">
+            <div className="mb-3 font-semibold">New group</div>
+            <label className="label text-xs">Group name</label>
+            <input name="name" placeholder="e.g. Shipping software" className="input mb-3 h-9 max-w-sm" />
+            <label className="label text-xs">Advertisers that compete (pick 2+)</label>
+            <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+              {advertisers.map((b) => (
+                <label key={b} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="brands" value={b} className="h-4 w-4" /> {b}
+                </label>
+              ))}
+            </div>
+            <button className="btn-primary btn-sm mt-4">Create group</button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

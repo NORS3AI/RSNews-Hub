@@ -35,8 +35,24 @@ const FieldSet = ({ ad }: { ad?: any }) => (
       <div><label className="label">Accent</label><input name="accent" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
       <label className="mt-5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={ad ? ad.active : true} className="h-4 w-4" /> Active</label>
     </div>
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-soft)] p-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="label">Live from (optional)</label><input name="liveFrom" type="datetime-local" defaultValue={toLocalInput(ad?.liveFrom)} className="input" /></div>
+        <div><label className="label">Live until (optional)</label><input name="liveUntil" type="datetime-local" defaultValue={toLocalInput(ad?.liveUntil)} className="input" /></div>
+      </div>
+      <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Leave both blank for an always-on ad</strong> — that&apos;s the default for our own brands (Retail Shipping Associates, PackageHub). Set a window for a one-off outside advertiser who isn&apos;t going through JotForm.</p>
+    </div>
   </>
 );
+
+// Prefill a datetime-local input from a stored Date (local, minute precision).
+function toLocalInput(d?: Date | string | null): string {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
 
 export default async function AdminAds() {
   const ads = await prisma.ad.findMany({ orderBy: { createdAt: 'asc' } });
