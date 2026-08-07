@@ -125,8 +125,8 @@ img { max-width:100%; display:block; }
 .strip-label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:800; color:var(--orange); flex-shrink:0; }
 .chips { display:flex; gap:6px; overflow-x:auto; min-width:0; flex:1; scrollbar-width:none; }
 .chips::-webkit-scrollbar { display:none; }
-.chip { display:flex; align-items:center; gap:4px; max-width:46px; flex-shrink:0; border:1px solid var(--border);
-  background:linear-gradient(180deg,var(--tile-top),var(--tile-bot)); border-radius:9px; padding:5px 6px 5px 8px; box-shadow:var(--shadow-inner);
+.chip { display:flex; align-items:center; gap:4px; max-width:34px; height:32px; flex-shrink:0; border:1.5px solid var(--orange);
+  background:var(--card-top); border-radius:8px; padding:5px 6px 5px 8px; overflow:hidden;
   transition:max-width .2s ease; cursor:pointer; }
 .chip:hover { max-width:300px; }
 .chip .chip-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0; transition:opacity .15s; }
@@ -139,6 +139,9 @@ img { max-width:100%; display:block; }
 .strip.expanded .chip .chip-x { display:inline-flex; }
 .strip-icon-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:transparent; color:var(--muted); cursor:pointer; }
 .strip-icon-btn:hover { color:var(--orange); }
+.strip-arrow { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex-shrink:0; border:1px solid var(--border); border-radius:7px; background:var(--card-top); color:var(--muted); cursor:pointer; }
+.strip-arrow:hover { color:var(--orange); }
+.strip-arrow.hide { display:none; }
 .strip-clear-wrap { flex-shrink:0; margin-left:auto; padding-left:4px; }
 .strip-clear { border:1px solid var(--border); background:transparent; color:var(--muted); font:inherit; font-size:12.5px; font-weight:700; padding:6px 11px; border-radius:8px; cursor:pointer; white-space:nowrap; }
 .strip-clear:hover { color:#d9463a; border-color:#e6b4ad; }
