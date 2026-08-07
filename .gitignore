@@ -22,6 +22,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+!.env.example
 
 # database
 *.db
@@ -32,6 +33,13 @@ yarn-error.log*
 # locally-stored uploaded assets (see src/lib/storage/local.ts)
 /uploads
 
+# Runtime data
+/data
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Docker Compose configuration
+docker-compose.yml
+docker-compose.override.yml
