@@ -124,9 +124,8 @@ export function makeQuoteImage(o: QuoteOpts): string {
   const disp = blocks.map((b, i) => (i === 0 ? '“' + b : b) + (i === blocks.length - 1 ? '”' : ''));
 
   const maxW = W - pad * 2;
-  // Reserve room below the quote for the italic "excerpted" note (gap + up to 2 lines).
-  const NOTE_RESERVE = 110;
-  const quoteTop = pad + 210, avail = (H - 330) - quoteTop - NOTE_RESERVE;
+  // Leave a strip above the footer for the one-line italic "excerpted" note.
+  const quoteTop = pad + 210, avail = (H - 378) - quoteTop;
   let size = 62, wrapped: string[][] = [], lineH = 0, blockGap = 0;
   while (size >= 26) {
     ctx.font = `700 ${size}px ui-sans-serif, system-ui, Arial, sans-serif`;
@@ -140,13 +139,16 @@ export function makeQuoteImage(o: QuoteOpts): string {
   let y = quoteTop;
   wrapped.forEach((ls, i) => { if (i) y += blockGap; for (const ln of ls) { ctx.fillText(ln, pad, y); y += lineH; } });
 
-  // "Excerpted…" note — small italic, muted, directly beneath the quote.
-  ctx.fillStyle = p.bodySub;
-  ctx.font = 'italic 500 27px ui-sans-serif, system-ui, Arial, sans-serif';
-  let ny = y + 22;
-  for (const ln of wrap(ctx, EXCERPT_NOTE, maxW).slice(0, 2)) { ctx.fillText(ln, pad, ny); ny += 34; }
-
   const by = H - 300;
+
+  // "Excerpted…" note — one line (auto-shrunk to fit), small italic, muted,
+  // sitting just above the footer divider.
+  let ns = 23;
+  const noteFont = (s: number) => `italic 500 ${s}px ui-sans-serif, system-ui, Arial, sans-serif`;
+  ctx.font = noteFont(ns);
+  while (ns > 15 && ctx.measureText(EXCERPT_NOTE).width > maxW) { ns -= 1; ctx.font = noteFont(ns); }
+  ctx.fillStyle = p.bodySub;
+  ctx.fillText(EXCERPT_NOTE, pad, by - ns - 18);
   // A solid footer band (RS) or a hairline divider.
   if (p.footerBg) {
     ctx.fillStyle = p.footerBg; ctx.fillRect(0, by, W, H - by);
