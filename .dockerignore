@@ -7,3 +7,5 @@ prisma/dev.db
 .env
 .env*.local
 npm-debug.log
+data/
+uploads/
