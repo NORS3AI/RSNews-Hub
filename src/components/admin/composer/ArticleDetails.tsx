@@ -9,10 +9,18 @@ import { useComposer } from './context';
 type Cat = { id: string; name: string };
 type Article = {
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
-  coverImage?: string | null;
+  coverImage?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
 };
+
+// The 9 focal points, as CSS object-position values. Center is the default and
+// stores as blank (so an untouched cover carries no override).
+const FOCUS_POINTS = [
+  '0% 0%', '50% 0%', '100% 0%',
+  '0% 50%', '50% 50%', '100% 50%',
+  '0% 100%', '50% 100%', '100% 100%',
+];
 
 function toLocalInput(d?: string | Date | null) {
   if (!d) return '';
@@ -31,6 +39,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 export default function ArticleDetails({ article, categories }: { article?: Article; categories: Cat[] }) {
   const { html } = useComposer();
   const [cover, setCover] = useState(article?.coverImage as string ?? '');
+  const [focus, setFocus] = useState((article?.coverFocus as string) || '50% 50%');
   const [imgError, setImgError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -128,14 +137,32 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
         {cover ? (
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover} alt="" className="aspect-[16/9] w-full rounded-lg border border-[var(--border)] object-cover" />
+            <img src={cover} alt="" className="aspect-[16/9] w-full rounded-lg border border-[var(--border)] object-cover" style={{ objectPosition: focus }} />
             <button type="button" onClick={() => { setCover(''); if (fileRef.current) fileRef.current.value = ''; }}
               className="absolute right-2 top-2 rounded-md bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80">Remove</button>
+            {/* 9-point focal picker overlaid on the preview — click the spot that
+                should stay in frame when the cover is cropped (hero ⅔, cards…). */}
+            <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3 p-1.5">
+              {FOCUS_POINTS.map((pt) => (
+                <button key={pt} type="button" onClick={() => setFocus(pt)} aria-label={`Focus ${pt}`} aria-pressed={focus === pt}
+                  className="pointer-events-auto grid place-items-center">
+                  <span className={`h-3 w-3 rounded-full border-2 border-white shadow transition ${focus === pt ? 'bg-brand-500 ring-2 ring-white' : 'bg-black/30 hover:bg-black/60'}`} />
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="grid aspect-[16/9] w-full place-items-center rounded-lg border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">No cover</div>
         )}
+        {cover && (
+          <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+            <span>Focal point — click a dot to set what stays in frame when cropped.</span>
+            {focus !== '50% 50%' && <button type="button" onClick={() => setFocus('50% 50%')} className="font-semibold text-brand-600 hover:underline">Center</button>}
+          </div>
+        )}
         <input type="hidden" name="coverImage" value={cover} />
+        {/* Center is the default → store blank so an untouched cover has no override. */}
+        <input type="hidden" name="coverFocus" value={focus === '50% 50%' ? '' : focus} />
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-outline btn-sm w-full">{uploading ? 'Uploading…' : 'Upload image'}</button>
         <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
         <input type="url" value={cover.startsWith('data:') ? '' : cover} onChange={(e) => setCover(e.target.value)} className="input" placeholder="…or paste an image URL" />

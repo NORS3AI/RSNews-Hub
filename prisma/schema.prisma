@@ -528,6 +528,9 @@ model Article {
   excerpt     String?
   content     String
   coverImage  String?
+  // Optional focal point for the cover, as a CSS object-position ("50% 30%").
+  // null/blank = center. Honored wherever the cover is object-cover cropped.
+  coverFocus  String?
   status      String    @default("DRAFT")
   // Access gate: '' / 'public' = everyone; else an entitlement token checked
   // against the viewer (premium | vendor | staff | member | an affiliation key

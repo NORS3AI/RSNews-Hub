@@ -57,6 +57,7 @@ export async function saveArticle(formData: FormData) {
   const status = (formData.get('status') as string) || 'DRAFT';
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
+  const coverFocus = ((formData.get('coverFocus') as string) || '').trim();
   const featured = formData.get('featured') === 'on';
   const pinned = formData.get('pinned') === 'on';
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
@@ -113,7 +114,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -128,7 +129,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

@@ -24,13 +24,14 @@ import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
 import ModuleAdminToolbar from '@/components/site/ModuleAdminToolbar';
 import SectionWidth from '@/components/site/SectionWidth';
+import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
 export const dynamic = 'force-dynamic';
 
 const cardSelect = {
-  id: true, title: true, slug: true, excerpt: true, coverImage: true, publishedAt: true,
+  id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true, publishedAt: true,
   views: true, readMinutes: true,
   category: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
@@ -317,7 +318,8 @@ export default async function DocsHome() {
           if (!card) return null;
           if (b.type === 'article-headline') {
             return (
-              <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+              <article className="studio-fill card group relative overflow-hidden p-3.5" style={style}>
+                <AdminArticleEdit id={card.id} pos="right-2 top-2" />
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}
                 {card.category
@@ -338,12 +340,13 @@ export default async function DocsHome() {
           if (!card) return null;
           const overlay = b.settings.overlay !== false;
           return (
-            <div className="studio-fill" style={style}>
-              <ArticleLink slug={card.slug} className="group relative block overflow-hidden rounded-2xl border border-[var(--border)]">
+            <div className="studio-fill group relative" style={style}>
+              <AdminArticleEdit id={card.id} />
+              <ArticleLink slug={card.slug} className="relative block overflow-hidden rounded-2xl border border-[var(--border)]">
                 <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28]">
                   {card.coverImage
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                    ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" style={card.coverFocus ? { objectPosition: card.coverFocus } : undefined} />
                     : <span className="grid h-full w-full place-items-center text-[90px] font-black text-black/10 dark:text-white/10">RS</span>}
                 </div>
                 <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-5' : 'p-4'}>
@@ -363,7 +366,7 @@ export default async function DocsHome() {
             <div className="min-h-[160px] w-full overflow-hidden bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28]">
               {card.coverImage
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" style={card.coverFocus ? { objectPosition: card.coverFocus } : undefined} />
                 : <span className="grid h-full w-full place-items-center text-[70px] font-black text-black/10 dark:text-white/10">RS</span>}
             </div>
           );
@@ -375,8 +378,9 @@ export default async function DocsHome() {
             </div>
           );
           return (
-            <div className="studio-fill" style={style}>
-              <ArticleLink slug={card.slug} className="group grid overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] sm:grid-cols-2">
+            <div className="studio-fill group relative" style={style}>
+              <AdminArticleEdit id={card.id} />
+              <ArticleLink slug={card.slug} className="grid overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] sm:grid-cols-2">
                 {right ? <>{body}{img}</> : <>{img}{body}</>}
               </ArticleLink>
             </div>
@@ -462,7 +466,7 @@ export default async function DocsHome() {
         if (!items.length) return null;
         return (
           <FeatureCarousel key={id} items={items.slice(0, 8).map((a) => ({
-            slug: a.slug, title: a.title, excerpt: a.excerpt ?? null, coverImage: a.coverImage ?? null,
+            id: a.id, slug: a.slug, title: a.title, excerpt: a.excerpt ?? null, coverImage: a.coverImage ?? null, coverFocus: a.coverFocus ?? null,
             category: a.category ? { name: a.category.name, color: a.category.color } : null,
           }))} />
         );
@@ -567,6 +571,7 @@ export default async function DocsHome() {
               {latest.slice(0, 7).map((a, i) => (
                 <div key={a.id} className="group relative">
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
+                  <AdminArticleEdit id={a.id} pos="right-[88px] top-4" />
                   <ArticleLink slug={a.slug} className="block py-4"
                     data-trk-type="article" data-trk-id={a.id} data-trk-place="latest" data-trk-props={JSON.stringify({ module: 'latest', moduleType: 'list', pos: i, hasImage: false })}>
                     {a.category && <span className="cat-ink text-xs font-bold" style={{ '--c': a.category.color } as React.CSSProperties}>{a.category.name}</span>}
@@ -614,6 +619,7 @@ export default async function DocsHome() {
   const quick = [...all].sort((a, b) => a.readMinutes - b.readMinutes);
 
   return (
+    <AdminEditProvider value={isAdmin}>
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
       {/* ===== Headline (Full or ⅔ — admin-controlled) ===== */}
       {lead && (
@@ -636,6 +642,7 @@ export default async function DocsHome() {
                 <div className="absolute right-3 top-3 z-10">
                   <SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} tone="onColor" />
                 </div>
+                <AdminArticleEdit id={a.id} pos="left-3 top-3" />
                 <ArticleLink slug={a.slug} className="flex flex-1 flex-col">
                   <span className="text-xs font-extrabold uppercase tracking-wide text-white/85">{a.category?.name ?? 'News'}</span>
                   <h3 className="mt-1.5 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight">{a.title}</h3>
@@ -753,18 +760,20 @@ export default async function DocsHome() {
         </div>
       </section>
     </div>
+    </AdminEditProvider>
   );
 }
 
 function Hero({ lead }: { lead: Card }) {
   return (
-    <section className="relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
+    <section className="group relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
       <div className="absolute right-3 top-3 z-10"><SaveButtons item={{ id: lead.id, title: lead.title, slug: lead.slug }} /></div>
+      <AdminArticleEdit id={lead.id} />
       <ArticleLink slug={lead.slug} className="group grid md:grid-cols-[1.15fr_1fr]">
         <div className="relative grid min-h-[220px] place-items-center overflow-hidden bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28] md:min-h-[380px]">
           {lead.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={lead.coverImage} alt="" className="h-full w-full object-cover" />
+            <img src={lead.coverImage} alt="" className="h-full w-full object-cover" style={lead.coverFocus ? { objectPosition: lead.coverFocus } : undefined} />
           ) : (
             <span className="select-none text-[110px] font-black tracking-tighter text-black/10 dark:text-white/10">RS</span>
           )}

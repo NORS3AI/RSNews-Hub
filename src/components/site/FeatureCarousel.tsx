@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { useArticleModal } from './ArticleModalProvider';
 import { track } from '@/lib/analytics/track';
 import { ArrowLeft, ArrowRight } from '@/components/icons';
+import AdminArticleEdit from './AdminArticleEdit';
 
 export type FeatureItem = {
-  slug: string; title: string; excerpt: string | null; coverImage: string | null;
+  id: string; slug: string; title: string; excerpt: string | null; coverImage: string | null; coverFocus?: string | null;
   category: { name: string; color: string } | null;
 };
 
@@ -39,7 +40,8 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
   const accent = a.category?.color || '#E97D34';
 
   return (
-    <section className="feature-showcase overflow-hidden rounded-2xl border border-[var(--border)] shadow-card">
+    <section className="feature-showcase group relative overflow-hidden rounded-2xl border border-[var(--border)] shadow-card">
+      <AdminArticleEdit id={a.id} />
       <div className="grid md:grid-cols-2">
         {/* Text half */}
         <div className="relative flex min-h-[300px] flex-col justify-center bg-ink-950 p-8 text-white sm:p-10 md:min-h-[420px] lg:p-14">
@@ -69,7 +71,7 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
         <button onClick={() => open(a.slug)} className="group relative min-h-[220px] overflow-hidden md:min-h-[420px]" aria-label={`Open ${a.title}`}>
           {a.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={a.coverImage} alt={a.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+            <img src={a.coverImage} alt={a.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" style={a.coverFocus ? { objectPosition: a.coverFocus } : undefined} />
           ) : (
             <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] text-6xl font-black text-black/10 dark:from-[#33303a] dark:to-[#201d28] dark:text-white/10">RS</span>
           )}

@@ -4,6 +4,7 @@ import type { ArticleCard as Card } from '@/lib/recommend';
 import ArticleBadges from './ArticleBadges';
 import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
+import AdminArticleEdit from './site/AdminArticleEdit';
 
 export default function ArticleCard({ article, compact = false, trk }: { article: Card; compact?: boolean; trk?: { place?: string; props?: Record<string, unknown> } }) {
   const trkAttrs = trk ? {
@@ -18,6 +19,8 @@ export default function ArticleCard({ article, compact = false, trk }: { article
       <div className="absolute right-2.5 top-2.5 z-10">
         <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} />
       </div>
+      {/* Admin-only edit pencil (top-left); inert unless a staff viewer opted in. */}
+      <AdminArticleEdit id={article.id} />
 
       <ArticleLink slug={article.slug} className="flex h-full flex-col">
         {/* Uniform cover slot: every non-compact card shows an image (or a
@@ -25,7 +28,7 @@ export default function ArticleCard({ article, compact = false, trk }: { article
         {!compact && (
           article.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={article.coverImage} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" />
+            <img src={article.coverImage} alt="" className="aspect-[16/9] w-full object-cover" loading="lazy" style={article.coverFocus ? { objectPosition: article.coverFocus } : undefined} />
           ) : (
             <div className="flex aspect-[16/9] w-full items-center justify-center bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] text-3xl font-black text-black/10 dark:from-[#33303a] dark:to-[#201d28] dark:text-white/10">RS</div>
           )
