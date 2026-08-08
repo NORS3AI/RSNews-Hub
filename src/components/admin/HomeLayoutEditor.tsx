@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource, setHomeModuleSpan } from '@/lib/actions';
+import { moveHomeModule, toggleHomeModule, toggleHomeLock, toggleHomeSizeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource, setHomeModuleSpan } from '@/lib/actions';
 import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip } from '@/components/icons';
 
 type Source = { value: string; label: string };
-type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sources: Source[] | null; source: string | null; span: number };
+type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sizeLocked: boolean; sources: Source[] | null; source: string | null; span: number };
 
 // Width choices, in row-units. The homepage packs modules into rows of 3 units;
 // on narrow screens everything collapses to full width regardless.
@@ -100,15 +100,20 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
                     <button
                       key={w.value}
                       type="button"
-                      disabled={pending}
-                      title={w.hint}
+                      disabled={pending || m.sizeLocked}
+                      title={m.sizeLocked ? 'Width is locked' : w.hint}
                       onClick={() => run(() => setHomeModuleSpan(m.id, w.value))}
-                      className={`px-2 py-1 text-xs font-semibold transition ${m.span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}
+                      className={`px-2 py-1 text-xs font-semibold transition disabled:opacity-40 ${m.span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}
                     >
                       {w.label}
                     </button>
                   ))}
                 </div>
+                <button type="button" disabled={pending} onClick={() => run(() => toggleHomeSizeLock(m.id))}
+                  title={m.sizeLocked ? 'Width locked — click to unlock' : 'Lock this width'}
+                  className={`inline-flex items-center rounded-md border p-1 transition ${m.sizeLocked ? 'border-brand-600 bg-brand-600 text-white' : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                  {m.sizeLocked ? <Lock width={12} height={12} /> : <LockOpen width={12} height={12} />}
+                </button>
               </div>
             </div>
 

@@ -9,7 +9,7 @@ import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, clampSpan, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
@@ -894,6 +894,38 @@ export async function toggleHomeLock(id: string) {
   revalidatePath('/admin/homepage');
 }
 
+// Draft size-lock toggle (used by the layout editor). Freezes the ⅓/⅔/full
+// width control for this module.
+export async function toggleHomeSizeLock(id: string) {
+  await ensureStaff();
+  const layout = await getDraftLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.sizeLocked = !m.sizeLocked;
+  await saveDraftLayout(layout);
+  revalidatePath('/admin/homepage');
+}
+
+// Live-immediate lock toggles, driven from the on-homepage admin toolbar. They
+// publish straight to the live layout (and sync a pending draft) so the lock
+// takes effect in place, unlike the draft-staged editor controls.
+export async function toggleHomeLockLive(id: string) {
+  await ensureStaff();
+  const live = await getHomeLayout();
+  const next = !live.find((x) => x.id === id)?.locked;
+  await patchModuleLive(id, (m) => { m.locked = next; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+export async function toggleHomeSizeLockLive(id: string) {
+  await ensureStaff();
+  const live = await getHomeLayout();
+  const next = !live.find((x) => x.id === id)?.sizeLocked;
+  await patchModuleLive(id, (m) => { m.sizeLocked = next; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
 export async function setHomeModuleSource(id: string, source: string) {
   await ensureStaff();
   const layout = await getDraftLayout();
@@ -915,6 +947,17 @@ export async function setHomeModuleSpan(id: string, span: number) {
   m.span = clampSpan(span);
   await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
+}
+
+// Width for the two pinned top sections (Hero, "Published this week"), which
+// live above the module grid rather than in the layout array. Only Full (3) or
+// ⅔ (2) — never ⅓ — and a ⅔ section just leaves the remaining third open.
+export async function setSectionSpan(key: string, span: number) {
+  await ensureStaff();
+  if (key !== 'home_hero_span' && key !== 'home_week_span') return; // whitelist
+  const value = span === 2 ? '2' : '3';
+  await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  revalidatePath('/docs');
 }
 
 export async function resetHomeLayout() {

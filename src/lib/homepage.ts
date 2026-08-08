@@ -22,7 +22,10 @@ export type ModuleId =
 // of up to 3 units and share each row proportionally; 3 = full width (its own
 // row). Defaults to 3 so existing layouts are unchanged. Purely proportional —
 // on narrow screens every module collapses to full width (see the homepage grid).
-export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string; span?: number };
+// `locked` freezes the module's position (reorder lock); `sizeLocked` freezes
+// its width (so the ⅓/⅔/full control is disabled). Two independent locks, both
+// toggleable from the on-homepage admin toolbar and the layout editor.
+export type HomeModule = { id: string; enabled: boolean; locked?: boolean; sizeLocked?: boolean; source?: string; span?: number };
 
 /** Clamp a stored span to 1–3; anything missing/invalid → 3 (full width). */
 export function clampSpan(v: unknown): number {
@@ -92,7 +95,7 @@ function reconcile(value: string): HomeModule[] {
   const parsed = JSON.parse(value) as HomeModule[];
   const known = parsed
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.sizeLocked ? { sizeLocked: true } : {}), ...(m.source ? { source: m.source } : {}) }));
   const present = new Set(known.map((m) => m.id));
   for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked, span: clampSpan(def.span) });
   return known.length ? known : DEFAULT_LAYOUT;
@@ -101,7 +104,7 @@ function reconcile(value: string): HomeModule[] {
 function cleanLayout(layout: HomeModule[]) {
   return layout
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.sizeLocked ? { sizeLocked: true } : {}), ...(m.source ? { source: m.source } : {}) }));
 }
 
 // LIVE layout — what the public homepage renders.
@@ -179,4 +182,23 @@ export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
     update: { value: JSON.stringify(clean) },
     create: { key: KEY, value: JSON.stringify(clean) },
   });
+}
+
+// Apply a mutation to one module in the LIVE layout (published immediately) and,
+// if a pending draft exists, the same module in the draft — so an in-context
+// toggle from the live homepage takes effect now AND survives a later Go Live.
+// Used by the on-homepage admin toolbar (locks), where staging via draft would
+// be invisible (the homepage renders live).
+export async function patchModuleLive(id: string, patch: (m: HomeModule) => void): Promise<void> {
+  const live = await getHomeLayout();
+  const lm = live.find((x) => x.id === id);
+  if (lm) { patch(lm); await saveHomeLayout(live); }
+  const draftRow = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (draftRow) {
+    try {
+      const draft = reconcile(draftRow.value);
+      const dm = draft.find((x) => x.id === id);
+      if (dm) { patch(dm); await saveDraftLayout(draft); }
+    } catch { /* leave a malformed draft alone */ }
+  }
 }

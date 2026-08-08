@@ -22,8 +22,8 @@ import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
-import AdminEditChip from '@/components/site/AdminEditChip';
-import InlineColorEditor from '@/components/site/InlineColorEditor';
+import ModuleAdminToolbar from '@/components/site/ModuleAdminToolbar';
+import SectionWidth from '@/components/site/SectionWidth';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -76,6 +76,13 @@ export default async function DocsHome() {
   // module cycles through them on refresh.
   const activeComics = await prisma.comic.findMany({ where: { active: true }, orderBy: { postedAt: 'desc' } });
   const currentComic = activeComics.length ? activeComics[Math.floor(Math.random() * activeComics.length)] : null;
+
+  // Widths for the two pinned top sections (Hero, "Published this week"). Only
+  // Full (3) or ⅔ (2); default full.
+  const topSpanRows = await prisma.setting.findMany({ where: { key: { in: ['home_hero_span', 'home_week_span'] } } });
+  const sectionSpan = (key: string) => (topSpanRows.find((r) => r.key === key)?.value === '2' ? 2 : 3);
+  const heroSpan = sectionSpan('home_hero_span');
+  const weekSpan = sectionSpan('home_week_span');
 
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
@@ -608,11 +615,16 @@ export default async function DocsHome() {
 
   return (
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
-      {/* ===== Full-width headline ===== */}
-      {lead && <Hero lead={lead} />}
+      {/* ===== Headline (Full or ⅔ — admin-controlled) ===== */}
+      {lead && (
+        <SectionWidth spanKey="home_hero_span" span={heroSpan} isAdmin={isAdmin}>
+          <Hero lead={lead} />
+        </SectionWidth>
+      )}
 
-      {/* ===== Orange "Published this week" ===== */}
+      {/* ===== Orange "Published this week" (Full or ⅔ — admin-controlled) ===== */}
       {recent.length > 0 && (
+        <SectionWidth spanKey="home_week_span" span={weekSpan} isAdmin={isAdmin}>
         <section className="module module-orange bg-brand-600 text-white">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="module-title text-white">Published this week</h2>
@@ -636,6 +648,7 @@ export default async function DocsHome() {
             ))}
           </div>
         </section>
+        </SectionWidth>
       )}
 
       {/* ===== Admin-arranged modules — a 3-column grid on desktop; each module
@@ -648,17 +661,21 @@ export default async function DocsHome() {
           // Only literal classes so Tailwind's JIT keeps them.
           const spanClass = clampSpan(m.span) === 1 ? 'lg:col-span-1' : clampSpan(m.span) === 2 ? 'lg:col-span-2' : 'lg:col-span-3';
           if (!isAdmin) return <div key={`m-${m.id}`} className={spanClass}>{el}</div>;
-          // Admins get an in-place "Edit" chip on every module: custom modules open
-          // in the Studio; catalog modules open the homepage layout manager.
+          // Admins get an on-hover control cluster on every module: Edit (opens the
+          // Studio for custom modules, the layout manager for catalog ones), the
+          // two locks (size + position), and — for custom modules — quick colors.
           const isCustom = isCustomModuleId(m.id);
           const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
-          const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
+          const editLabel = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
           const customRow = isCustom ? customById.get(m.id) : null;
           return (
             <div key={`m-${m.id}`} className={`group relative ${spanClass}`}>
               {el}
-              {customRow && <InlineColorEditor moduleId={customRow.id} name={customRow.name} initialTree={parseTree(customRow.tree)} />}
-              <AdminEditChip href={href} title={title} />
+              <ModuleAdminToolbar
+                id={m.id} href={href} editLabel={editLabel}
+                locked={!!m.locked} sizeLocked={!!m.sizeLocked}
+                {...(customRow ? { colorTree: parseTree(customRow.tree), name: customRow.name } : {})}
+              />
             </div>
           );
         })}
