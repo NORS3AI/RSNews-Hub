@@ -141,6 +141,7 @@ export default function StudioEditor({
   const setShape = (shape: Shape) => mutate((t) => { t.shape = shape; return t; });
   const setContainerColor = (c: string | null) => mutate((t) => { t.rsColor = c; return t; });
   const setExpireDays = (d: number) => mutate((t) => { t.expireDays = d > 0 ? d : 0; return t; });
+  const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = n >= 1 && n <= 3 ? n : 3; return t; });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -293,7 +294,7 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas</span>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas <span className="ml-1 rounded bg-[var(--card-2)] px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-[var(--muted)]">{(Number(tree.defaultSpan) || 3) === 1 ? '⅓ width' : (Number(tree.defaultSpan) || 3) === 2 ? '⅔ width' : 'Full width'}</span></span>
             <div className="flex items-center gap-2">
               {/* Preview the module in the same three themes a reader can pick. */}
               <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-xs font-semibold">
@@ -312,7 +313,7 @@ export default function StudioEditor({
               </button>
             </div>
           </div>
-          <div className={`mx-auto w-full max-w-4xl rounded-2xl ${previewClass}`}>
+          <div className={`mx-auto w-full rounded-2xl transition-[max-width] duration-300 ${(Number(tree.defaultSpan) || 3) === 1 ? 'max-w-sm' : (Number(tree.defaultSpan) || 3) === 2 ? 'max-w-2xl' : 'max-w-4xl'} ${previewClass}`}>
             <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
               {tree.children.length === 0 ? (
@@ -367,7 +368,7 @@ export default function StudioEditor({
         <aside>
           {selectedBlock
             ? <BlockInspector block={selectedBlock} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
-            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} />}
+            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} />}
         </aside>
       </div>
 
@@ -472,13 +473,31 @@ function InspectorShell({ title, children }: { title: string; children: React.Re
   );
 }
 
-function ModuleInspector({ tree, onShape, onColor, onExpireDays }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void }) {
+const WIDTH_PRESETS: { value: number; label: string; hint: string }[] = [
+  { value: 1, label: '⅓', hint: 'One-third — three across a row' },
+  { value: 2, label: '⅔', hint: 'Two-thirds — pairs with a ⅓ module' },
+  { value: 3, label: 'Full', hint: 'Full width — its own row' },
+];
+
+function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void }) {
+  const span = Number(tree.defaultSpan) || 3;
   return (
     <InspectorShell title="Module">
       <Field label="Shape">
         <select className="input" value={tree.shape} onChange={(e) => onShape(e.target.value as Shape)}>
           {SHAPE_IDS.map((s) => <option key={s} value={s}>{SHAPES[s].label}</option>)}
         </select>
+      </Field>
+      <Field label="Homepage width">
+        <div className="inline-flex w-full overflow-hidden rounded-lg border border-[var(--border)]">
+          {WIDTH_PRESETS.map((w) => (
+            <button key={w.value} type="button" title={w.hint} onClick={() => onDefaultSpan(w.value)}
+              className={`flex-1 px-2 py-1.5 text-xs font-semibold transition ${span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}>
+              {w.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--muted)]">The width this module takes when first placed on the homepage. You can still override it per-placement in Homepage layout. Everything collapses to full width on phones.</p>
       </Field>
       <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
       <Field label="Auto-remove after (days)">
@@ -530,6 +549,38 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
               </select>
             </Field>
           )}
+        </>
+      )}
+      {(block.type === 'spotlight' || block.type === 'split') && (
+        <>
+          <ArticleFillFields s={s} set={set} />
+          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
+          {block.type === 'spotlight' && (
+            <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.overlay !== false} onChange={(e) => set('overlay', e.target.checked)} /> Overlay the headline on the image</label>
+          )}
+          {block.type === 'split' && (
+            <Field label="Image side">
+              <select className="input" value={String(s.imageSide ?? 'left')} onChange={(e) => set('imageSide', e.target.value)}>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </Field>
+          )}
+        </>
+      )}
+      {block.type === 'mosaic' && (
+        <>
+          <Field label="Source">
+            <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
+              <option value="featured">Featured</option>
+              <option value="latest">Latest</option>
+              <option value="trending">Trending</option>
+            </select>
+          </Field>
+          <Field label={`Tiles — ${Number(s.count ?? 4)} stories`}>
+            <input type="range" min={3} max={6} step={1} value={Number(s.count ?? 4)} onChange={(e) => set('count', Number(e.target.value))} className="w-full accent-brand-600" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">A tiled grid; auto-fills the newest stories from the source, de-duped across the homepage.</p>
+          </Field>
         </>
       )}
       {block.type === 'ad' && (() => {
@@ -879,6 +930,7 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
   const s = block.settings;
   switch (block.type) {
     case 'article': case 'article-image': case 'article-headline':
+    case 'spotlight': case 'split': case 'mosaic':
       return (
         <select className="input !h-8 !py-1 text-xs" value={String(s.source ?? 'latest')} onChange={(e) => onSet('source', e.target.value)}>
           <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option>

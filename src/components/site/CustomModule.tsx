@@ -161,6 +161,48 @@ function blockInner(block: Block) {
         </article>
       );
     }
+    case 'spotlight': {
+      const overlay = s.overlay !== false;
+      return (
+        <article className="studio-fill relative overflow-hidden rounded-2xl border border-[var(--border)]" style={style}>
+          <div className="aspect-[16/9] w-full bg-[var(--bg-soft)]" aria-hidden />
+          <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5' : 'p-4'}>
+            <span className="badge bg-brand-600/15 text-brand-600">Spotlight</span>
+            <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white' : ''}`}>A big featured story</h3>
+            {s.showDek !== false && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>Its standfirst previews the story in the live module.</p>}
+          </div>
+        </article>
+      );
+    }
+    case 'split': {
+      const right = s.imageSide === 'right';
+      const img = <div className="min-h-[130px] w-full bg-[var(--bg-soft)]" aria-hidden />;
+      const body = (
+        <div className="flex flex-col justify-center p-4">
+          <span className="badge bg-brand-600/15 text-brand-600">Feature</span>
+          <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight">A split feature headline</h3>
+          {s.showDek !== false && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">A short standfirst sits alongside the image.</p>}
+        </div>
+      );
+      return (
+        <article className="studio-fill card grid overflow-hidden sm:grid-cols-2" style={style}>
+          {right ? <>{body}{img}</> : <>{img}{body}</>}
+        </article>
+      );
+    }
+    case 'mosaic': {
+      const count = Math.min(Math.max(Number(s.count) || 4, 3), 6);
+      return (
+        <div className="studio-fill grid grid-cols-2 gap-2 sm:grid-cols-3" style={style}>
+          {Array.from({ length: count }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-lg border border-[var(--border)]">
+              <div className="aspect-[16/10] w-full bg-[var(--bg-soft)]" aria-hidden />
+              <div className="p-2"><div className="h-2.5 w-full rounded bg-[var(--bg-soft)]" /><div className="mt-1 h-2.5 w-2/3 rounded bg-[var(--bg-soft)]" /></div>
+            </div>
+          ))}
+        </div>
+      );
+    }
     default:
       return null;
   }

@@ -326,6 +326,67 @@ export default async function DocsHome() {
             </div>
           );
         }
+        case 'spotlight': {
+          const card = resolveArticle(b);
+          if (!card) return null;
+          const overlay = b.settings.overlay !== false;
+          return (
+            <div className="studio-fill" style={style}>
+              <ArticleLink slug={card.slug} className="group relative block overflow-hidden rounded-2xl border border-[var(--border)]">
+                <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28]">
+                  {card.coverImage
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                    : <span className="grid h-full w-full place-items-center text-[90px] font-black text-black/10 dark:text-white/10">RS</span>}
+                </div>
+                <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-5' : 'p-4'}>
+                  {card.category && <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
+                  <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white group-hover:text-brand-300' : 'group-hover:text-brand-600'}`}>{card.title}</h3>
+                  {b.settings.showDek !== false && card.excerpt && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>{card.excerpt}</p>}
+                </div>
+              </ArticleLink>
+            </div>
+          );
+        }
+        case 'split': {
+          const card = resolveArticle(b);
+          if (!card) return null;
+          const right = b.settings.imageSide === 'right';
+          const img = (
+            <div className="min-h-[160px] w-full overflow-hidden bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28]">
+              {card.coverImage
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={card.coverImage} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" />
+                : <span className="grid h-full w-full place-items-center text-[70px] font-black text-black/10 dark:text-white/10">RS</span>}
+            </div>
+          );
+          const body = (
+            <div className="flex flex-col justify-center p-5">
+              {card.category && <span className="badge cat-badge self-start" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
+              <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight group-hover:text-brand-600">{card.title}</h3>
+              {b.settings.showDek !== false && card.excerpt && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">{card.excerpt}</p>}
+            </div>
+          );
+          return (
+            <div className="studio-fill" style={style}>
+              <ArticleLink slug={card.slug} className="group grid overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] sm:grid-cols-2">
+                {right ? <>{body}{img}</> : <>{img}{body}</>}
+              </ArticleLink>
+            </div>
+          );
+        }
+        case 'mosaic': {
+          const count = Math.min(Math.max(Number(b.settings.count) || 4, 3), 6);
+          const pool = featurePool(String(b.settings.source ?? 'latest'));
+          const cards: Card[] = [];
+          for (const c of pool) { if (cards.length >= count) break; if (!used.has(c.id)) { used.add(c.id); cards.push(c); } }
+          if (cards.length === 0) return null;
+          return (
+            <div className="studio-fill grid grid-cols-2 gap-3 sm:grid-cols-3" style={style}>
+              {cards.map((card, k) => <ArticleCard key={card.id} article={card} compact trk={{ place: layoutId, props: { module: layoutId, moduleType: 'custom', pos: k } }} />)}
+            </div>
+          );
+        }
         case 'poll': {
           const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
           const p = pid ? modulePollById.get(pid) : null;

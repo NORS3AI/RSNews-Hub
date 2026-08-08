@@ -24,6 +24,7 @@ export function isShape(v: unknown): v is Shape {
 
 export type BlockType =
   | 'article' | 'article-image' | 'article-headline'
+  | 'spotlight' | 'split' | 'mosaic'
   | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image';
 
 // Palette groups — let the builder collapse whole categories of blocks.
@@ -52,6 +53,21 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     label: 'Article headline', group: 'Articles',
     description: 'Headline only — fills the row and shrinks to fit.',
     defaults: { mode: 'auto', source: 'latest' },
+  },
+  spotlight: {
+    label: 'Spotlight', group: 'Articles',
+    description: 'One big story — large cover image with the headline overlaid.',
+    defaults: { mode: 'auto', source: 'featured', showDek: true, overlay: true },
+  },
+  split: {
+    label: 'Split feature', group: 'Articles',
+    description: 'Two-up: cover image on one side, headline + dek on the other.',
+    defaults: { mode: 'auto', source: 'featured', showDek: true, imageSide: 'left' },
+  },
+  mosaic: {
+    label: 'Mosaic', group: 'Articles',
+    description: 'A tiled grid of several stories — one large, the rest small.',
+    defaults: { source: 'latest', count: 4 },
   },
   ad: {
     label: 'Ad', group: 'Media',
@@ -140,8 +156,20 @@ export type ModuleTree = {
   rsColor?: string | null;
   // Optional invisible expiry (days). 0 = never. Anchored at publish time.
   expireDays?: number;
+  // The width this module prefers on the homepage, in row-units (1 = ⅓, 2 = ⅔,
+  // 3 = full). Seeds the layout's per-instance `span` when the module is first
+  // placed; an admin can still override it per-placement in Homepage layout.
+  defaultSpan?: number;
   children: Block[];
 };
+
+/** Clamp a span to 1–3 (⅓ / ⅔ / full); anything missing/invalid → 3. Kept here
+ *  (not imported from homepage.ts) so studio.ts stays dependency-free and the
+ *  homepage↔studio import stays one-directional. */
+export function clampTreeSpan(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 3 ? n : 3;
+}
 
 // Hard caps so a malformed/hostile payload can't blow up the renderer or DB.
 export const MAX_BLOCKS = 40;
@@ -216,7 +244,7 @@ export function normalizeTree(input: unknown): ModuleTree {
   }
   const days = Number(obj.expireDays);
   const expireDays = Number.isInteger(days) && days > 0 ? Math.min(days, 3650) : 0;
-  return { shape, rsColor: color(obj.rsColor), expireDays, children };
+  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), children };
 }
 
 function normalizeBlock(input: unknown, index: number, allowFallbacks = true): Block | null {
@@ -289,6 +317,18 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
       };
     case 'article-headline':
       return { ...articleFill(s) };
+    case 'spotlight':
+      // One big story: full article sourcing + an overlay toggle (text over image
+      // vs below it).
+      return { ...articleFill(s), showDek: bool(s.showDek, true), overlay: bool(s.overlay, true) };
+    case 'split':
+      // Two-up feature: full article sourcing + which side the image sits on.
+      return { ...articleFill(s), showDek: bool(s.showDek, true), imageSide: s.imageSide === 'right' ? 'right' : 'left' };
+    case 'mosaic': {
+      // A tiled grid; auto-fills `count` stories (3–6) from a pool.
+      const n = Number(s.count);
+      return { source: articleSource(s.source), count: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 3), 6) : 4 };
+    }
     case 'ad': {
       const ok = ['leaderboard', 'video', 'vertical', 'square', 'rectangle'];
       // `vendor` (an advertiser/brand key) locks the slot to that advertiser's

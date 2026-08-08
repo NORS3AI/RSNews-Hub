@@ -990,8 +990,10 @@ export async function setCustomModulePublished(id: string, published: boolean): 
   // simply doesn't render live.
   if (published) {
     const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
+    let defaultSpan = 3;
     if (mod) {
       const tree = parseTree(mod.tree);
+      defaultSpan = clampSpan(tree.defaultSpan);
       // Materialize any inline poll blocks (legacy) into real Poll records.
       const changed = await materializeModulePolls(tree);
       if (changed) await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
@@ -1002,7 +1004,9 @@ export async function setCustomModulePublished(id: string, published: boolean): 
     const layoutId = `custom:${id}`;
     const layout = await getDraftLayout();
     if (!layout.some((m) => m.id === layoutId)) {
-      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
+      // Seed the placement's width from the module's chosen default width so a
+      // module built as "⅓" lands as ⅓ (the admin can still re-size it per slot).
+      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false, span: defaultSpan }]);
     }
   } else {
     await prisma.customModule.update({ where: { id }, data: { expiresAt: null } });
