@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
-import { getHomeLayout, moduleSource, type ModuleId, type HomeModule } from '@/lib/homepage';
+import { getHomeLayout, moduleSource, clampSpan, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
 import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
 import { Lock } from '@/components/icons';
@@ -577,25 +577,31 @@ export default async function DocsHome() {
         </section>
       )}
 
-      {/* ===== Admin-arranged modules ===== */}
-      {layout.filter((m) => m.enabled).map((m) => {
-        const el = renderModule(m);
-        if (!el) return null;
-        if (!isAdmin) return el;
-        // Admins get an in-place "Edit" chip on every module: custom modules open
-        // in the Studio; catalog modules open the homepage layout manager.
-        const isCustom = isCustomModuleId(m.id);
-        const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
-        const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
-        const customRow = isCustom ? customById.get(m.id) : null;
-        return (
-          <div key={`m-${m.id}`} className="group relative">
-            {el}
-            {customRow && <InlineColorEditor moduleId={customRow.id} name={customRow.name} initialTree={parseTree(customRow.tree)} />}
-            <AdminEditChip href={href} title={title} />
-          </div>
-        );
-      })}
+      {/* ===== Admin-arranged modules — a 3-column grid on desktop; each module
+          spans 1/2/3 columns (its `span`). Collapses to a single stacked column
+          below lg so mobile/tablet stay full-width and readable. ===== */}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-6 lg:gap-y-[52px]">
+        {layout.filter((m) => m.enabled).map((m) => {
+          const el = renderModule(m);
+          if (!el) return null;
+          // Only literal classes so Tailwind's JIT keeps them.
+          const spanClass = clampSpan(m.span) === 1 ? 'lg:col-span-1' : clampSpan(m.span) === 2 ? 'lg:col-span-2' : 'lg:col-span-3';
+          if (!isAdmin) return <div key={`m-${m.id}`} className={spanClass}>{el}</div>;
+          // Admins get an in-place "Edit" chip on every module: custom modules open
+          // in the Studio; catalog modules open the homepage layout manager.
+          const isCustom = isCustomModuleId(m.id);
+          const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
+          const title = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
+          const customRow = isCustom ? customById.get(m.id) : null;
+          return (
+            <div key={`m-${m.id}`} className={`group relative ${spanClass}`}>
+              {el}
+              {customRow && <InlineColorEditor moduleId={customRow.id} name={customRow.name} initialTree={parseTree(customRow.tree)} />}
+              <AdminEditChip href={href} title={title} />
+            </div>
+          );
+        })}
+      </div>
 
       {/* ===== More content + interspersed ads ===== */}
       <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>

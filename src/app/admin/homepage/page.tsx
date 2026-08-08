@@ -1,4 +1,4 @@
-import { getDraftLayout, hasDraftChanges, moduleSource, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
+import { getDraftLayout, hasDraftChanges, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
 import { isCustomModuleId, customIdOf, parseTree, blockLabel } from '@/lib/studio';
 import { prisma } from '@/lib/db';
 import HomeLayoutEditor from '@/components/admin/HomeLayoutEditor';
@@ -49,6 +49,7 @@ export default async function AdminHomepage() {
         locked: !!m.locked,
         sources: null,
         source: null,
+        span: clampSpan(m.span),
       };
     }
     const def = MODULE_CATALOG[m.id as ModuleId];
@@ -60,6 +61,7 @@ export default async function AdminHomepage() {
       locked: !!m.locked,
       sources: def.sources ?? null,
       source: moduleSource(m) ?? null,
+      span: clampSpan(m.span),
     };
   });
 

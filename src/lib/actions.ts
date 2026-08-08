@@ -9,7 +9,7 @@ import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, clampSpan, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
@@ -902,6 +902,17 @@ export async function setHomeModuleSource(id: string, source: string) {
   if (!m || !def?.sources) return;
   if (!def.sources.some((s) => s.value === source)) return; // reject unknown source
   m.source = source;
+  await saveDraftLayout(layout);
+  revalidatePath('/admin/homepage');
+}
+
+// Set a module's homepage width (1 = one-third, 2 = two-thirds, 3 = full).
+export async function setHomeModuleSpan(id: string, span: number) {
+  await ensureStaff();
+  const layout = await getDraftLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.span = clampSpan(span);
   await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
 }

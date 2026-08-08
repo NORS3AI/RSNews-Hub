@@ -67,8 +67,8 @@ export const DEFAULT_LAYOUT: HomeModule[] = [
   { id: 'council', enabled: true, locked: false },
   { id: 'ad-leaderboard', enabled: true, locked: false },
   { id: 'categories', enabled: true, locked: false },
-  { id: 'latest', enabled: true, locked: false },
-  { id: 'trending', enabled: true, locked: false },
+  { id: 'latest', enabled: true, locked: false, span: 2 },
+  { id: 'trending', enabled: true, locked: false, span: 1 },
   { id: 'ad-rectangles', enabled: true, locked: false },
 ];
 

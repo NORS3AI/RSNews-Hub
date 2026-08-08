@@ -1,11 +1,19 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource } from '@/lib/actions';
+import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource, setHomeModuleSpan } from '@/lib/actions';
 import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip } from '@/components/icons';
 
 type Source = { value: string; label: string };
-type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sources: Source[] | null; source: string | null };
+type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sources: Source[] | null; source: string | null; span: number };
+
+// Width choices, in row-units. The homepage packs modules into rows of 3 units;
+// on narrow screens everything collapses to full width regardless.
+const WIDTHS: { value: number; label: string; hint: string }[] = [
+  { value: 1, label: '⅓', hint: 'One-third — three fit across a row' },
+  { value: 2, label: '⅔', hint: 'Two-thirds — pairs with a ⅓ module' },
+  { value: 3, label: 'Full', hint: 'Full width — its own row' },
+];
 
 export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
   const [rows, setRows] = useState<Row[]>(modules);
@@ -85,6 +93,23 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
                   </select>
                 </label>
               )}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted)]">
+                Width:
+                <div className="inline-flex overflow-hidden rounded-md border border-[var(--border)]">
+                  {WIDTHS.map((w) => (
+                    <button
+                      key={w.value}
+                      type="button"
+                      disabled={pending}
+                      title={w.hint}
+                      onClick={() => run(() => setHomeModuleSpan(m.id, w.value))}
+                      className={`px-2 py-1 text-xs font-semibold transition ${m.span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <button disabled={pending} onClick={() => run(() => toggleHomeLock(m.id))}
