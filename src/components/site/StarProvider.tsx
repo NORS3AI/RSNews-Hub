@@ -66,6 +66,10 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
   const [clippings, setClippings] = useState<Clipping[]>([]);
   const [ready, setReady] = useState(false);
   const serverBacked = useRef(false);
+  // Serialize server mutations: each op waits for the previous one's response
+  // before firing, so responses can't arrive out of order and adopt a stale
+  // bundle (e.g. rapidly creating folders A then B). The last op wins, always.
+  const opChain = useRef<Promise<void>>(Promise.resolve());
 
   // Apply an authoritative server bundle to state + local cache.
   const applyBundle = useCallback((b: { favorites?: SavedItem[]; toRead?: SavedItem[]; clippings?: Clipping[]; folders?: FavFolder[] }) => {
@@ -76,12 +80,16 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Push a mutation to the server (when signed in) and adopt the returned bundle.
+  // Chained so ops run one at a time in order — the response we adopt last is
+  // always the newest server state.
   const pushOp = useCallback((payload: Record<string, unknown>) => {
     if (!serverBacked.current) return;
-    fetch('/api/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((b) => { if (b) applyBundle(b); })
-      .catch(() => { /* keep the optimistic local state */ });
+    opChain.current = opChain.current.then(() =>
+      fetch('/api/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((b) => { if (b) applyBundle(b); })
+        .catch(() => { /* keep the optimistic local state */ }),
+    );
   }, [applyBundle]);
 
   useEffect(() => {
