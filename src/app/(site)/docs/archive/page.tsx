@@ -24,10 +24,11 @@ export default async function ArchivePage() {
 
   return (
     <div className="container-page py-8 sm:py-10">
+      <div className="module">
       <div className="mb-8 flex items-center gap-2"><Archive className="text-brand-600" /><h1 className="text-2xl font-bold">Archive</h1></div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        <Link href="/docs/archive/industry" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+        <Link href="/docs/archive/industry" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
           <span className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Newspaper width={22} height={22} /></span>
             <span>
@@ -37,7 +38,7 @@ export default async function ArchivePage() {
           </span>
           <ArrowRight className="shrink-0 text-brand-600" />
         </Link>
-        <Link href="/docs/archive/polls" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+        <Link href="/docs/archive/polls" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
           <span className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><BarChart width={22} height={22} /></span>
             <span>
@@ -47,7 +48,7 @@ export default async function ArchivePage() {
           </span>
           <ArrowRight className="shrink-0 text-brand-600" />
         </Link>
-        <Link href="/docs/archive/comics" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+        <Link href="/docs/archive/comics" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
           <span className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-xl">😄</span>
             <span>
@@ -60,11 +61,11 @@ export default async function ArchivePage() {
       </div>
 
       {groups.size === 0 && <p className="text-[var(--muted)]">Nothing archived yet.</p>}
-      <div className="space-y-10">
+      <div className="space-y-8">
         {[...groups.entries()].map(([month, items]) => (
           <section key={month}>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">{month}</h2>
-            <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)]">
+            <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)] shadow-[var(--shadow-card)]">
               {items.map((a) => (
                 <li key={a.id}>
                   <Link href={`/docs/article/${a.slug}`} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-[var(--bg-soft)]">
@@ -80,6 +81,7 @@ export default async function ArchivePage() {
             </ul>
           </section>
         ))}
+      </div>
       </div>
     </div>
   );

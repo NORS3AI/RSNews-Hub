@@ -12,8 +12,8 @@ import { classNames } from '@/lib/utils';
  * variant "inline"   = labelled pill buttons (used in the reader).
  */
 export default function SaveButtons({
-  item, variant = 'floating',
-}: { item: SavedItem; variant?: 'floating' | 'inline' }) {
+  item, variant = 'floating', tone = 'default',
+}: { item: SavedItem; variant?: 'floating' | 'inline'; tone?: 'default' | 'onColor' }) {
   const { isFavorite, isToRead, toggleFavorite, toggleToRead, ready } = useSaved();
   const fav = ready && isFavorite(item.id);
   const read = ready && isToRead(item.id);
@@ -37,10 +37,16 @@ export default function SaveButtons({
     );
   }
 
-  const round =
-    'grid h-8 w-8 place-items-center rounded-full border shadow-sm transition-colors backdrop-blur ' +
-    'border-black/10 bg-[var(--card)]/85 text-[var(--fg)] hover:text-brand-600 dark:border-white/15';
-  const on = 'border-brand-500 bg-brand-500 text-white hover:text-white';
+  // On a colored surface (e.g. the orange "Published this week" module) the
+  // default translucent look has too little contrast to read on/off. `onColor`
+  // uses a crisp white outline for off and a SOLID white fill (brand icon) for
+  // on, so it's obvious whether an article is starred/pinned.
+  const round = tone === 'onColor'
+    ? 'grid h-8 w-8 place-items-center rounded-full border shadow-sm transition-colors backdrop-blur border-white/60 bg-white/15 text-white hover:bg-white/30'
+    : 'grid h-8 w-8 place-items-center rounded-full border shadow-sm transition-colors backdrop-blur border-black/10 bg-[var(--card)]/85 text-[var(--fg)] hover:text-brand-600 dark:border-white/15';
+  const on = tone === 'onColor'
+    ? 'border-white bg-white text-brand-600 hover:text-brand-600 shadow-md'
+    : 'border-brand-500 bg-brand-500 text-white hover:text-white';
 
   return (
     <div className="flex gap-1.5">

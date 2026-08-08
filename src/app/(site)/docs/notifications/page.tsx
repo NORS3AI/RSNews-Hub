@@ -23,10 +23,12 @@ export default async function NotificationsPage() {
   if (!user) {
     return (
       <div className="container-page py-10">
-        <div className="mb-6 flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
-        <div className="card flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[var(--muted)]">Sign in to follow topics and get notified about new articles and Industry News.</p>
-          <Link href="/login?next=/docs/notifications" className="btn-primary btn-sm">Sign in</Link>
+        <div className="module">
+          <div className="mb-6 flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
+          <div className="tile flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[var(--muted)]">Sign in to follow topics and get notified about new articles and Industry News.</p>
+            <Link href="/login?next=/docs/notifications" className="btn-primary btn-sm">Sign in</Link>
+          </div>
         </div>
       </div>
     );
@@ -38,22 +40,23 @@ export default async function NotificationsPage() {
     <div className="container-page py-8 sm:py-10">
       <NotificationsMarkSeen />
 
+      <div className="module mb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
         <SubscribeLauncher label="Manage subscriptions" className="btn-primary btn-sm" />
       </div>
 
       {!hasTopics ? (
-        <div className="card mb-8 p-8 text-center">
+        <div className="tile p-8 text-center">
           <Bell width={30} height={30} className="mx-auto mb-3 text-[var(--muted)]" />
           <p className="mb-1 text-lg font-bold">You&apos;re not following anything yet</p>
           <p className="mx-auto mb-4 max-w-sm text-sm text-[var(--muted)]">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>
           <SubscribeLauncher label="Choose topics" className="btn-primary" />
         </div>
       ) : items.length === 0 ? (
-        <div className="card mb-8 p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
+        <div className="tile p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
       ) : (
-        <div className="card mb-8 divide-y divide-[var(--border)] p-0">
+        <div className="tile divide-y divide-[var(--border)] p-0">
           {items.map((it, i) => {
             const inner = (
               <div className="flex items-start gap-3 px-4 py-3.5">
@@ -79,6 +82,7 @@ export default async function NotificationsPage() {
           })}
         </div>
       )}
+      </div>
 
       <AccountEmails />
     </div>

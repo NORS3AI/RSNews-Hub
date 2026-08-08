@@ -633,8 +633,8 @@ export default async function DocsHome() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {recent.map((a) => (
               <div key={a.id} className="owk-card group relative flex flex-col rounded-2xl border border-white/25 bg-white/[.13] p-4 transition hover:-translate-y-0.5 hover:bg-white/20">
-                <div className="absolute right-3 top-3 z-10 [&_button]:border-white/40 [&_button]:bg-white/15 [&_button]:text-white [&_button:hover]:bg-white/25">
-                  <SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} />
+                <div className="absolute right-3 top-3 z-10">
+                  <SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} tone="onColor" />
                 </div>
                 <ArticleLink slug={a.slug} className="flex flex-1 flex-col">
                   <span className="text-xs font-extrabold uppercase tracking-wide text-white/85">{a.category?.name ?? 'News'}</span>
