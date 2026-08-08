@@ -18,7 +18,17 @@ export type ModuleId =
 // articles it pulls from without changing the layout order.
 // `id` is a catalog ModuleId OR a namespaced custom-module id (`custom:<id>`),
 // so builder-made modules share the same ordered/lockable layout list.
-export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string };
+// `span` is the module's width in row-units (1, 2 or 3). Modules pack into rows
+// of up to 3 units and share each row proportionally; 3 = full width (its own
+// row). Defaults to 3 so existing layouts are unchanged. Purely proportional —
+// on narrow screens every module collapses to full width (see the homepage grid).
+export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string; span?: number };
+
+/** Clamp a stored span to 1–3; anything missing/invalid → 3 (full width). */
+export function clampSpan(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 3 ? n : 3;
+}
 
 function isKnownId(id: string): boolean {
   return id in MODULE_CATALOG || isCustomModuleId(id);
@@ -82,16 +92,16 @@ function reconcile(value: string): HomeModule[] {
   const parsed = JSON.parse(value) as HomeModule[];
   const known = parsed
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.source ? { source: m.source } : {}) }));
   const present = new Set(known.map((m) => m.id));
-  for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked });
+  for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked, span: clampSpan(def.span) });
   return known.length ? known : DEFAULT_LAYOUT;
 }
 
 function cleanLayout(layout: HomeModule[]) {
   return layout
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.source ? { source: m.source } : {}) }));
 }
 
 // LIVE layout — what the public homepage renders.
