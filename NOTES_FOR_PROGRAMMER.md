@@ -48,7 +48,7 @@ reading, analytics) to that account id.
 | # | Item | Status | Who |
 |---|------|--------|-----|
 | 1 | **Host the app on a Node server** (Railway / Vercel / Render / Fly). GitHub Pages only serves the static `docs/` preview. | 🟠 dev picks a host — steps in DEPLOYMENT.md (+ `Dockerfile`, standalone output ready). |
-| 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Turnkey** — schema is Postgres-ready, init SQL generated (`deploy/init.postgres.sql`), 1-line provider switch documented. 🟠 dev provisions the DB. |
+| 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Done** — now on PostgreSQL: provider switched, real migrations in `prisma/migrations/`, Docker + `docker-compose.example.yml` set up. 🟠 dev provisions the prod DB. |
 | 3 | **Set real environment secrets** — `DATABASE_URL`, `AUTH_SECRET`. | ✅ **Enforced in code** — `src/lib/env.ts` refuses weak/placeholder `AUTH_SECRET` in prod (login 500s, `/api/health` flags it). 🟠 dev sets the values. |
 | 4 | **No default admin login in prod.** | ✅ **Done** — seed reads `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` and **refuses to run in production** without them. 🟠 dev sets them. |
 | 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Ready** — `db:migrate` / `db:migrate:deploy` scripts + init SQL; DEPLOYMENT.md Step 4. 🟠 dev runs `migrate dev --name init` against Postgres once. |
@@ -318,7 +318,7 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 ## 4. Repo facts & gotchas the dev needs to know
 
 - **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma · Tailwind. DB is
-  SQLite in dev (`prisma/schema.prisma`, `DATABASE_URL=file:./dev.db`).
+  PostgreSQL (`prisma/schema.prisma` provider=postgresql; local via `docker compose up db`).
 - **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required in
   prod (validated in `src/lib/env.ts` — a weak `AUTH_SECRET` is rejected at
   runtime, not silently accepted). Admin seed needs `SEED_ADMIN_EMAIL` /

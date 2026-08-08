@@ -73,7 +73,7 @@ The first account ever created is automatically an admin.
 ## Tech stack
 
 - **Next.js 15** (App Router) + **TypeScript**
-- **Prisma** ORM with **SQLite** (swap to Postgres for production)
+- **Prisma** ORM with **PostgreSQL**
 - **Tailwind CSS** for responsive, themeable UI
 - Session auth via signed JWT cookies (`jose` + `bcryptjs`) — no external
   auth service required
@@ -85,7 +85,8 @@ The first account ever created is automatically an admin.
 ```bash
 npm install                 # installs deps + generates the Prisma client
 cp .env.example .env        # then edit AUTH_SECRET
-npm run db:push             # create the SQLite schema
+docker compose up -d db     # start local PostgreSQL (or point DATABASE_URL at your own)
+npm run db:push             # create the database schema
 npm run db:seed             # seed demo content + accounts
 npm run dev                 # http://localhost:3000  → redirects to /docs
 ```

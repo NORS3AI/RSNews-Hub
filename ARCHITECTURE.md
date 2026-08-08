@@ -17,7 +17,7 @@ login: the website authenticates members and hands the hub a verified identity
 whole thing runs and tests in isolation.
 
 **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma ·
-SQLite (dev) / Postgres (prod) · Tailwind. Tests: Vitest. CI: GitHub Actions.
+PostgreSQL · Tailwind. Tests: Vitest. CI: GitHub Actions.
 
 ## The two codebases
 
@@ -52,7 +52,7 @@ src/
                            ClippingsList, PollCard, QuizCard, ArticleModalProvider, …)
     admin/                 admin UI (ArticleEditor, ReportTable, Sparkline, …)
   lib/                     all business logic (see "The lib layer")
-prisma/    schema.prisma · seed.ts · dev.db
+prisma/    schema.prisma · seed.ts · migrations/
 scripts/   build-static.mjs (generates docs/data.js) · seed-analytics.mjs
 deploy/    init.postgres.sql
 docs/      static GitHub Pages preview (generated data + static shell)
@@ -74,7 +74,7 @@ Business logic lives here so routes/components stay thin. One line each:
 | `db.ts` | Prisma client singleton (cached in dev). |
 | `auth.ts` | Sessions (JWT via `jose`), bcrypt hashing, `getCurrentUser`/`requireAdmin`; delegates to the identity seam. |
 | `actions.ts` | `'use server'` admin write actions (articles, users, homepage, analytics rollup…). |
-| `constants.ts` | String-enum sources of truth (roles, statuses, account types) — SQLite has no enums. |
+| `constants.ts` | String-enum sources of truth (roles, statuses, account types) — kept as plain strings for portability + simpler migrations. |
 | `env.ts` | Centralized, validated env access; fails loud only at runtime-in-prod; `envReport()` powers `/api/health`. |
 | `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. Ships two REST transports — **Resend** and **SendGrid** — selected by `EMAIL_PROVIDER` (or whichever key is set); `EMAIL_FROM` is the sender for both. |
 | `emailTemplates.ts` | **Admin-editable email copy.** Registry of templates (`fresh_ads`, `renewal`) with default subject/body + `{mergeTag}` list; pure `renderCopy` (substitute tags, HTML-escape values, auto-link, paragraph) + `loadTemplateCopy` (DB override → default) + `renderTemplate`. Edited at `/admin/email-templates`. |
@@ -158,7 +158,7 @@ gates go-live). Analytics:
   analytics math, storage validation/signing, quiz/ads/saved/moderation
   normalizers, and the config/email/logger seams.
 - **CI** (`.github/workflows/ci.yml`) on every push to main and PR:
-  `npm ci` → `prisma generate` → `prisma db push` (throwaway SQLite) →
+  `npm ci` → `prisma generate` → `prisma db push` (throwaway Postgres service) →
   `typecheck` → `test` → `build`.
 
 ## Conventions
