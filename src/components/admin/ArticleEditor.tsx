@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { saveArticle } from '@/lib/actions';
+import { saveArticle, discardDraft } from '@/lib/actions';
 import { ComposerProvider, type Opt, type Advertiser } from './composer/context';
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
@@ -29,7 +29,7 @@ type Article = {
   id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
-  publishedAt?: string | Date | null; views?: number;
+  publishedAt?: string | Date | null; views?: number; draftSavedAt?: string | Date | null;
 };
 
 // The article builder: element palette (left), flowing canvas (center), and a
@@ -49,11 +49,22 @@ export default function ArticleEditor({
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{article ? 'Edit article' : 'New article'}</h1>
         <div className="flex items-center gap-3">
-          {article?.id && article.status !== 'PUBLISHED' && <AutoSave formRef={formRef} />}
+          {article?.id && <AutoSave formRef={formRef} />}
           <Link href="/admin/articles" className="btn-outline btn-sm">Cancel</Link>
           <button type="submit" className="btn-primary btn-sm">Save</button>
         </div>
       </div>
+
+      {article?.id && article.draftSavedAt && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+          <span className="text-amber-900 dark:text-amber-200">
+            You&apos;re editing an <b>autosaved draft</b> (saved {new Date(article.draftSavedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}). It isn&apos;t live yet — <b>Save</b> to publish these changes, or discard to go back to the live version.
+          </span>
+          {/* formAction submits to discardDraft instead of saveArticle (no nested form). */}
+          <button type="submit" formAction={discardDraft.bind(null, article.id)}
+            className="btn-outline btn-sm shrink-0" formNoValidate>Discard draft</button>
+        </div>
+      )}
 
       <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers}>
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">

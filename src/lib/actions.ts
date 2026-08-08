@@ -120,6 +120,8 @@ export async function saveArticle(formData: FormData) {
         // Explicit date wins (backdate or schedule); otherwise keep existing or stamp now on publish.
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt),
         tags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
+        // A deliberate Save supersedes any autosaved draft — clear it.
+        draftTitle: null, draftContent: null, draftExcerpt: null, draftCover: null, draftSavedAt: null,
       },
     });
   } else {
@@ -171,24 +173,37 @@ export async function autosaveArticle(formData: FormData): Promise<{ ok: boolean
     const coverImage = ((formData.get('coverImage') as string) || '').trim();
     const excerptInput = ((formData.get('excerpt') as string) || '').trim();
 
-    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true, status: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true } });
     if (!existing) return { ok: false, at: now };
-    // Never autosave over a PUBLISHED article — there's a single live `content`
-    // column and the public page reads it fresh, so a background write would push
-    // half-typed text to readers. Published edits go through a deliberate Save.
-    if (existing.status === 'PUBLISHED') return { ok: false, at: now };
+    // Write to the DRAFT columns only — never the live content. Safe for any
+    // status (a PUBLISHED article's readers keep seeing the saved version until a
+    // deliberate Save promotes the draft). The editor loads these back on reopen.
     await prisma.article.update({
       where: { id },
       data: {
-        ...(title ? { title } : {}),
-        ...(content ? { content, excerpt: excerptInput || makeExcerpt(content), readMinutes: estimateReadMinutes(content) } : {}),
-        coverImage: coverImage || null,
+        draftTitle: title || null,
+        draftContent: content || null,
+        draftExcerpt: excerptInput || (content ? makeExcerpt(content) : null),
+        draftCover: coverImage || null,
+        draftSavedAt: new Date(),
       },
     });
     return { ok: true, at: Date.now() };
   } catch {
     return { ok: false, at: now };
   }
+}
+
+// Throw away an article's autosaved draft, so the editor reloads the live copy.
+export async function discardDraft(id: string) {
+  await ensureStaff();
+  if (!id) return;
+  await prisma.article.update({
+    where: { id },
+    data: { draftTitle: null, draftContent: null, draftExcerpt: null, draftCover: null, draftSavedAt: null },
+  });
+  revalidatePath('/admin/articles');
+  redirect(`/admin/articles/${id}`);
 }
 
 // Roll an article back to a stored revision. The current version is snapshotted

@@ -537,6 +537,16 @@ model Article {
   pinned      Boolean   @default(false)
   views       Int       @default(0)
   readMinutes Int       @default(1)
+  // Autosaved draft — a work-in-progress copy that NEVER affects the live
+  // article. Autosave writes here (any status); the editor loads these when
+  // present; a manual Save promotes them to the live columns and clears them.
+  // This lets a PUBLISHED article be autosaved without pushing half-typed text
+  // to readers. draftSavedAt is the "has an unsaved draft" flag + its timestamp.
+  draftTitle    String?
+  draftContent  String?
+  draftExcerpt  String?
+  draftCover    String?
+  draftSavedAt  DateTime?
   // "Listen to article" TTS audio (ElevenLabs → S3). audioHash fingerprints the
   // spoken text the current MP3 was made from, so we only regenerate on a real
   // content change. Status: NONE (no audio) | PENDING (queued) | READY | FAILED.

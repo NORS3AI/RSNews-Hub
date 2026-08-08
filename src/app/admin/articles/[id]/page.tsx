@@ -17,14 +17,20 @@ export default async function EditArticle(props: { params: Promise<{ id: string 
     prisma.articleRevision.findMany({ where: { articleId: params.id }, orderBy: { createdAt: 'desc' }, take: 20, select: { id: true, title: true, createdAt: true, author: { select: { name: true } } } }),
   ]);
   if (!article) notFound();
+  // If an autosaved draft exists, seed the editor from it (so an in-progress edit
+  // resumes) instead of the live copy. The banner + Discard live in the editor.
+  const a = article as any;
+  const eff = a.draftSavedAt
+    ? { ...a, title: a.draftTitle ?? a.title, content: a.draftContent ?? a.content, excerpt: a.draftExcerpt ?? a.excerpt, coverImage: a.draftCover ?? a.coverImage }
+    : a;
   return (
     <>
-      {/* Key on updatedAt so a Restore (which redirects back here with a newer
-          timestamp) remounts the editor and re-seeds it with the restored body —
-          App Router otherwise preserves the TipTap client state across the redirect. */}
-      <ArticleEditor key={`${article.id}:${new Date((article as any).updatedAt).getTime()}`}
-        article={article as any} categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
-        advertisers={advertisers} authorName={(article as any).author?.name || 'You'} />
+      {/* Key on updatedAt + draftSavedAt so a Restore or Discard (which redirect
+          back here) remounts the editor and re-seeds it — App Router otherwise
+          preserves the TipTap client state across the redirect. */}
+      <ArticleEditor key={`${a.id}:${new Date(a.updatedAt).getTime()}:${a.draftSavedAt ? new Date(a.draftSavedAt).getTime() : 0}`}
+        article={eff} categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
+        advertisers={advertisers} authorName={a.author?.name || 'You'} />
       <ArticleRevisions revisions={revisions.map((r) => ({ id: r.id, title: r.title, createdAt: r.createdAt, authorName: r.author?.name ?? null }))} />
     </>
   );
