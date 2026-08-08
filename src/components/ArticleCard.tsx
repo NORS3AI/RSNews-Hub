@@ -14,7 +14,7 @@ export default function ArticleCard({ article, compact = false, trk }: { article
     'data-trk-props': JSON.stringify({ ...(trk.props || {}), hasImage: !!article.coverImage, category: article.category?.slug, compact }),
   } : {};
   return (
-    <article className="card card-hover group relative flex flex-col overflow-hidden" {...trkAttrs}>
+    <article className="card card-hover group relative flex flex-col overflow-hidden" data-hp-id={article.id} {...trkAttrs}>
       {/* Floating star — sits above the link, doesn't trigger navigation. */}
       <div className="absolute right-2.5 top-2.5 z-10">
         <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} />

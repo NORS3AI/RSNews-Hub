@@ -25,6 +25,7 @@ import PollCard from '@/components/site/PollCard';
 import ModuleAdminToolbar from '@/components/site/ModuleAdminToolbar';
 import SectionWidth from '@/components/site/SectionWidth';
 import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
+import HomepageHighlight from '@/components/site/HomepageHighlight';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -318,7 +319,7 @@ export default async function DocsHome() {
           if (!card) return null;
           if (b.type === 'article-headline') {
             return (
-              <article className="studio-fill card group relative overflow-hidden p-3.5" style={style}>
+              <article data-hp-id={card.id} className="studio-fill card group relative overflow-hidden p-3.5" style={style}>
                 <AdminArticleEdit id={card.id} pos="right-2 top-2" />
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}
@@ -340,7 +341,7 @@ export default async function DocsHome() {
           if (!card) return null;
           const overlay = b.settings.overlay !== false;
           return (
-            <div className="studio-fill group relative" style={style}>
+            <div data-hp-id={card.id} className="studio-fill group relative" style={style}>
               <AdminArticleEdit id={card.id} />
               <ArticleLink slug={card.slug} className="relative block overflow-hidden rounded-2xl border border-[var(--border)]">
                 <div className="aspect-[16/9] w-full bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28]">
@@ -378,7 +379,7 @@ export default async function DocsHome() {
             </div>
           );
           return (
-            <div className="studio-fill group relative" style={style}>
+            <div data-hp-id={card.id} className="studio-fill group relative" style={style}>
               <AdminArticleEdit id={card.id} />
               <ArticleLink slug={card.slug} className="grid overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] sm:grid-cols-2">
                 {right ? <>{body}{img}</> : <>{img}{body}</>}
@@ -569,7 +570,7 @@ export default async function DocsHome() {
             </div>
             <div className="divide-y divide-[var(--border)]">
               {latest.slice(0, 7).map((a, i) => (
-                <div key={a.id} className="group relative">
+                <div key={a.id} data-hp-id={a.id} className="group relative">
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
                   <AdminArticleEdit id={a.id} pos="right-[88px] top-4" />
                   <ArticleLink slug={a.slug} className="block py-4"
@@ -620,6 +621,7 @@ export default async function DocsHome() {
 
   return (
     <AdminEditProvider value={isAdmin}>
+    <HomepageHighlight />
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
       {/* ===== Headline (Full or ⅔ — admin-controlled) ===== */}
       {lead && (
@@ -638,7 +640,7 @@ export default async function DocsHome() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {recent.map((a) => (
-              <div key={a.id} className="owk-card group relative flex flex-col rounded-2xl border border-white/25 bg-white/[.13] p-4 transition hover:-translate-y-0.5 hover:bg-white/20">
+              <div key={a.id} data-hp-id={a.id} className="owk-card group relative flex flex-col rounded-2xl border border-white/25 bg-white/[.13] p-4 transition hover:-translate-y-0.5 hover:bg-white/20">
                 <div className="absolute right-3 top-3 z-10">
                   <SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} tone="onColor" />
                 </div>
@@ -766,7 +768,7 @@ export default async function DocsHome() {
 
 function Hero({ lead }: { lead: Card }) {
   return (
-    <section className="group relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
+    <section data-hp-id={lead.id} className="group relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
       <div className="absolute right-3 top-3 z-10"><SaveButtons item={{ id: lead.id, title: lead.title, slug: lead.slug }} /></div>
       <AdminArticleEdit id={lead.id} />
       <ArticleLink slug={lead.slug} className="group grid md:grid-cols-[1.15fr_1fr]">

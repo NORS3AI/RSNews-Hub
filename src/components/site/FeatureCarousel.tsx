@@ -40,7 +40,7 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
   const accent = a.category?.color || '#E97D34';
 
   return (
-    <section className="feature-showcase group relative overflow-hidden rounded-2xl border border-[var(--border)] shadow-card">
+    <section data-hp-id={a.id} className="feature-showcase group relative overflow-hidden rounded-2xl border border-[var(--border)] shadow-card">
       <AdminArticleEdit id={a.id} />
       <div className="grid md:grid-cols-2">
         {/* Text half */}

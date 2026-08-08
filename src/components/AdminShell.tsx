@@ -19,6 +19,7 @@ const groups: NavGroup[] = [
   ] },
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
+    { href: '/admin/homepage/inventory', label: 'On-page inventory', icon: Layers },
     { href: '/admin/studio', label: 'Module Studio', icon: Grid },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   ] },
