@@ -20,9 +20,12 @@ export default async function AdminReports() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="mb-1 text-2xl font-bold">Performance reports</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">Performance reports</h1>
+        <Link href="/admin/reports/builder" className="btn-outline btn-sm">📊 Report builder</Link>
+      </div>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports.
+        Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports. For a custom, exportable report (whole-site or one advertiser, your choice of charts) use the <strong>Report builder</strong>.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-3">
