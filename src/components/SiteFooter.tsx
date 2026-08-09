@@ -3,8 +3,11 @@ import { SITE_NAME, APP_VERSION } from '@/lib/constants';
 
 export default function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-[var(--border)]">
-      <div className="container-page py-10">
+    <footer className="mt-16">
+      <div className="container-page py-8">
+        {/* On a card so it themes correctly in light / dark / RS instead of bare
+            text on the page surround. */}
+        <div className="module">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-sm">
             <div className="font-bold">{SITE_NAME}</div>
@@ -38,7 +41,8 @@ export default function SiteFooter() {
         </div>
         <div className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
           <span>© {new Date().getFullYear()} {SITE_NAME}. Embeddable news hub.</span>
-          <span className="rounded-full border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 font-semibold tracking-wide">{APP_VERSION}</span>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--card-2)] px-2.5 py-1 font-semibold tracking-wide">{APP_VERSION}</span>
+        </div>
         </div>
       </div>
     </footer>

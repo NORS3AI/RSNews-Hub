@@ -246,6 +246,13 @@ body::before {
   50% { box-shadow: 0 0 0 11px rgba(47, 129, 247, 0.10); }
 }
 
+/* Dark mode: orange surfaces (Published this week, Industry News, orange house
+   ads) drop from the bright brand orange to a deeper BLOOD orange so they don't
+   glare against the dark page. Not brown — a darker orange-red. Overrides the
+   bg-brand-600 utility these surfaces carry. RS Mode (.rs) is unaffected. */
+.dark .module-orange,
+.dark .ad-orange { background-color: #b5330f !important; }
+
 /* Tidy scrollbar for the Industry News module */
 .industry-scroll::-webkit-scrollbar { width: 10px; }
 .industry-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }

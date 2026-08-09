@@ -98,10 +98,12 @@ export default async function DocsHome() {
     let pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
     if (brand && pool.length === 0) pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
     if (brand && pool.length === 0) return null;
-    if (!pool.length) return <AdSlot size={size} slot={slot} />;
+    if (!pool.length) return <AdSlot size={size} slot={slot} className="max-w-none" />;
     const ad = pool[homeAdCursor++ % pool.length];
-    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" />;
-    return <div className="mx-auto w-full max-w-[760px]"><InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" /></div>;
+    // Homepage ads fill their slot: rectangles fill their grid column, banners
+    // stretch the full content width (no centered max-width cap).
+    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" fill />;
+    return <InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" fill />;
   };
 
   const user = await getSessionUser();
@@ -522,14 +524,16 @@ export default async function DocsHome() {
       case 'comic':
         if (!currentComic) return null;
         return (
-          <section key={id}>
+          <section key={id} className="module">
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="module-title text-brand-600">Backroom Humor</h2>
               <Link href="/docs/archive/comics" className="text-sm font-semibold text-brand-600 hover:underline">View all comics</Link>
             </div>
-            {/* Full-width slate card; the comic is centered, snug top/bottom. */}
-            <div className="block rounded-2xl bg-[#2b333d] p-2 text-center shadow-modal">
-              <ComicImage src={currentComic.image} alt={currentComic.title} className="mx-auto block max-h-[560px] w-auto max-w-full rounded-xl" />
+            {/* The comic sits on a themed tile (the same nested-panel surface used
+                across the app) so it reads as part of the card in light / dark / RS
+                — no more foreign dark block. */}
+            <div className="tile grid place-items-center p-3">
+              <ComicImage src={currentComic.image} alt={currentComic.title} className="block max-h-[560px] w-auto max-w-full rounded-lg" />
             </div>
           </section>
         );

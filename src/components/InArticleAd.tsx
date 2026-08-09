@@ -11,9 +11,11 @@ import VideoAd from '@/components/site/VideoAd';
  * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
-  ad, slot, size = 'in-article', tone = 'card',
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange' }) {
-  if (!ad) return <AdSlot size={size} slot={slot} />;
+  ad, slot, size = 'in-article', tone = 'card', fill = false,
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean }) {
+  // `fill` drops the rectangle's max-width cap so the ad fills its column
+  // (used on the homepage grid) instead of floating centered at its native size.
+  if (!ad) return <AdSlot size={size} slot={slot} className={fill ? 'max-w-none' : undefined} />;
 
   const rect = size === 'rectangle';
   // A video creative is silent/looping and only fits the rectangle slot.
@@ -42,7 +44,7 @@ export default function InArticleAd({
         data-ad-brand={ad.brand}
         {...trk}
         aria-label={`Advertisement: ${ad.brand}`}
-        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
+        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect && !fill ? 'max-w-[360px]' : ''}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
@@ -58,7 +60,7 @@ export default function InArticleAd({
       data-ad-brand={ad.brand}
       {...trk}
       aria-label="Advertisement"
-      className={`mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect ? 'max-w-[340px]' : ''}`}
+      className={`mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect && !fill ? 'max-w-[340px]' : ''}`}
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="h-1" style={{ background: ad.accent }} />
