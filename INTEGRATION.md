@@ -61,6 +61,8 @@ const token = await new SignJWT({
   affiliations: user.affiliations,       // e.g. ['packagehub']
   vendorBrand: user.adBrand,             // vendors only — the ad brand they own
   region: user.region, storeType: user.storeType,
+  storeName: user.storeName,             // business/store name — shown on supplier testimonials
+  memberCode: user.memberCode,           // human member ID code — IN-HOUSE only (never shown to advertisers)
   roles: user.isStaff ? ['admin'] : [],
 })
   .setProtectedHeader({ alg: 'HS256' })
@@ -87,7 +89,19 @@ PARENT_HEADER_NAME=x-member-name
 PARENT_HEADER_ACCOUNT_TYPE=x-member-type
 # also read: x-member-region, x-member-store-type, x-member-staff (true/1),
 #            x-member-tier, x-member-affiliations (comma/space list), x-member-brand
+#            x-member-store-name, x-member-code
+PARENT_HEADER_STORE_NAME=x-member-store-name   # business/store name (optional)
+PARENT_HEADER_MEMBER_CODE=x-member-code        # human member ID code (optional, in-house only)
 ```
+
+**`storeName` and `memberCode` (both optional).** These power supplier
+testimonials. When a member vouches for a premium supplier, the hub snapshots
+their `name` (account holder), `storeName`, and `memberCode` onto the
+testimonial. Store name + account-holder name appear on the advertiser-facing
+document; the **member code is admin-only and is never shown to advertisers**.
+JWT claim aliases accepted: `storeName`|`store`|`companyName`, and
+`memberCode`|`memberId`|`code`. Omit them and those fields simply stay blank —
+nothing breaks.
 
 ### `AUTH_MODE=local` — default (dev / standalone only)
 The hub uses its own cookie login (the `/login` + `/register` pages) so it's
