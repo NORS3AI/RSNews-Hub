@@ -18,9 +18,9 @@ export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 // aged article stays in rotation instead of vanishing. DRAFT/TRASHED never show.
 export const RECOMMENDABLE_STATUSES = ['PUBLISHED', 'ARCHIVED'];
 
-export const SITE_NAME = 'RSNews Hub';
+export const SITE_NAME = 'RS News Hub';
 export const SITE_DESCRIPTION = 'News, articles and documentation — read, discover, subscribe.';
 
 // Bump on every pushed update. Shown in the footer; keep in sync with the
 // static preview footer in docs/index.html.
-export const APP_VERSION = 'v0.116.0';
+export const APP_VERSION = 'v0.117.0';

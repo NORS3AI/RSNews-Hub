@@ -173,7 +173,7 @@ export default function SubscribePopup() {
               <button type="button" onClick={() => setNotifyOn((v) => !v)}
                 className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left ${notifyOn ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30' : 'border-[var(--border)]'}`}>
                 <Bell width={19} height={19} className="text-brand-600" />
-                <span className="min-w-0"><span className="block text-sm font-bold">On-site notifications</span><span className="block text-xs text-[var(--muted)]">Your selections pop up in your notifications here on the RSNews Hub.</span></span>
+                <span className="min-w-0"><span className="block text-sm font-bold">On-site notifications</span><span className="block text-xs text-[var(--muted)]">Your selections pop up in your notifications here on the RS News Hub.</span></span>
                 <span className={`ml-auto grid h-5 w-5 place-items-center rounded-md border ${notifyOn ? 'border-brand-600 bg-brand-600 text-white' : 'border-[var(--border)]'}`}>{notifyOn && <Check width={13} height={13} />}</span>
               </button>
 
@@ -200,7 +200,7 @@ export default function SubscribePopup() {
           {/* Manage: emails this account has added (default mode only). */}
           {mode === 'default' && emails.length > 0 && (
             <div className="mt-5 border-t border-[var(--border)] pt-4">
-              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Your emails subscribed to RSNews Hub ({emails.length})</div>
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Your emails subscribed to RS News Hub ({emails.length})</div>
               <div className="space-y-1.5">
                 {emails.map((em) => (
                   <div key={em.id} className="flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2">

@@ -20,7 +20,7 @@ const NAV = [
   { href: '/docs/clippings', label: 'Clippings', icon: Scissors },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
-  { href: '/docs/suppliers', label: 'Phone book', icon: Book },
+  { href: '/docs/suppliers', label: 'Phone Book', icon: Book },
   { href: '/docs/notifications', label: 'Notifications', icon: Bell },
 ];
 
@@ -106,9 +106,9 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
         )}
       >
         <div className={classNames('flex items-center px-2 pb-3 pt-1', collapsed ? 'justify-center' : 'justify-between')}>
-          <Link href="/docs" className="flex min-w-0 items-center gap-2.5 font-extrabold">
-            <BrandMark size={36} priority className="shrink-0 rounded-[8px]" />
-            {!collapsed && <span className="truncate text-[17px]">{SITE_NAME}</span>}
+          <Link href="/docs" className="flex min-w-0 items-center gap-2 font-extrabold">
+            <BrandMark size={34} priority className="shrink-0 rounded-[8px]" />
+            {!collapsed && <span className="truncate whitespace-nowrap text-[16px]">{SITE_NAME}</span>}
           </Link>
           {!collapsed && (
             <button onClick={toggleCollapse} className="hidden h-8 w-8 place-items-center rounded-lg text-[var(--header-fg)]/60 hover:bg-white/10 hover:text-[var(--header-fg)] lg:grid" aria-label="Collapse menu">

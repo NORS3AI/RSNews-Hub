@@ -1,4 +1,4 @@
-# Deploying RSNews Hub
+# Deploying RS News Hub
 
 A step-by-step guide to take this repo from a local build to a live site. It's
 written to be followed top-to-bottom by someone who hasn't seen the codebase.
@@ -74,7 +74,7 @@ Set these in your host's dashboard (or a `.env` for a VPS). See `.env.example`.
 | `SEED_ADMIN_EMAIL` | ✅ (to seed) | Your real admin email. |
 | `SEED_ADMIN_PASSWORD` | ✅ (to seed) | A strong admin password. Seeding **fails in production** without these — so the demo login can never ship. |
 | `SITE_URL` | optional | Absolute URL used for Open Graph/meta tags, `robots.txt` and `sitemap.xml`. Set it in prod so links are absolute. |
-| `EMAIL_FROM` | optional | Verified sender, e.g. `RSNews Hub <no-reply@yoursite.com>`. Required alongside a provider key. |
+| `EMAIL_FROM` | optional | Verified sender, e.g. `RS News Hub <no-reply@yoursite.com>`. Required alongside a provider key. |
 | `RESEND_API_KEY` / `SENDGRID_API_KEY` | optional | Either one enables real email (see §3a). Unset → email is **logged, not sent**. |
 | `EMAIL_PROVIDER` | optional | `resend` (default) or `sendgrid` — picks the transport when both keys are set. |
 | `AD_ORDER_URL` | optional | Your JotForm ad-order link; fills the `{submitUrl}` tag in the reminder email templates. |

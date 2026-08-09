@@ -15,7 +15,7 @@ export default async function SuppliersPage() {
         <div className="module max-w-lg">
           <h1 className="mb-2 text-xl font-bold">Suppliers</h1>
           <p className="text-sm text-[var(--muted)]">
-            Sign in to browse our premium supplier directory and keep a personal phone book —
+            Sign in to browse our premium supplier directory and keep a personal Phone Book —
             star the suppliers you work with, add your own notes, and save an alternate contact.
           </p>
           <div className="mt-4 flex gap-2">

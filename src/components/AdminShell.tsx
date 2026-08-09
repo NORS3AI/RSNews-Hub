@@ -124,7 +124,7 @@ export default function AdminShell({
           </button>
           <Link href="/admin" className="flex items-center gap-2 font-bold">
             <BrandMark size={30} priority className="rounded-[6px]" />
-            <span className="hidden sm:inline">RSNews Admin</span>
+            <span className="hidden sm:inline">RS News Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <Link href="/docs" className={`btn-ghost btn-sm ${ghost}`}><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>

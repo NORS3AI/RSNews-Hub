@@ -1,6 +1,6 @@
 # Accessibility to-do (ADA / WCAG 2.1 AA)
 
-A running checklist for making RSNews Hub accessible. Target is **WCAG 2.1 AA**
+A running checklist for making RS News Hub accessible. Target is **WCAG 2.1 AA**
 (the level ADA case law generally points to). This is a to-do list, not a claim
 of compliance. Ordered by priority × payoff. Nothing here is a crisis — the app
 is in decent shape; these are the gaps worth closing before a wide reveal.

@@ -85,7 +85,7 @@ export const DEFAULT_ADS: AdRow[] = [
     headline: 'Stripe — accept payments and grow revenue with a few lines of code.',
     cta: 'Get started', href: '#', accent: '#5a54d6',
     keywords: 'Stripe', competitors: 'Square, PayPal, Adyen, Braintree', active: true },
-  { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RSNews Hub',
+  { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RS News Hub',
     headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.',
     cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '', active: true },
   { id: 'seed-clouddesk', brand: 'CloudDesk', label: 'Support software',

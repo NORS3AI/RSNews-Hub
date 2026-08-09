@@ -41,12 +41,12 @@ function digestHtml(g: Gathered, unsubUrl: string): string {
     body += `</table>`;
   }
   if (g.articles.length) {
-    body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:22px 0 6px">New on RSNews Hub</h2><table role="presentation" width="100%">`;
+    body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:22px 0 6px">New on RS News Hub</h2><table role="presentation" width="100%">`;
     body += g.articles.map((a) => row(a.title, `${b}/docs/article/${a.slug}`, a.category?.name || '')).join('');
     body += `</table>`;
   }
-  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this RSNews Hub digest for the topics you picked. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
-  return renderEmail('Your RSNews Hub digest', body);
+  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this RS News Hub digest for the topics you picked. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
+  return renderEmail('Your RS News Hub digest', body);
 }
 
 /** Send each active subscriber their own digest for their own topics. Skips a
@@ -67,7 +67,7 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
       if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
       const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;
       const n = itemCount(g);
-      const r = await sendEmail({ to: s.email, subject: `RSNews Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
+      const r = await sendEmail({ to: s.email, subject: `RS News Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
       if (r.ok) sent++; else failed++;
     } catch { failed++; }
   }
@@ -84,7 +84,7 @@ export async function sendTestTo(emailRaw: string): Promise<{ ok: boolean; error
   const keys: TopicKey[] = existing ? parseTopics(existing.topics) : [ALL];
   const g = await gatherSince(keys.length ? keys : [ALL], new Date(Date.now() - 7 * 24 * 3600 * 1000), new Date(), 40);
   const unsub = `${base()}/newsletter/unsubscribe?token=${existing?.token || 'test'}`;
-  const r = await sendEmail({ to: email, subject: `[Test] RSNews Hub — ${itemCount(g)} update${itemCount(g) === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
+  const r = await sendEmail({ to: email, subject: `[Test] RS News Hub — ${itemCount(g)} update${itemCount(g) === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
   return { ok: r.ok, skipped: r.skipped, error: r.error };
 }
 

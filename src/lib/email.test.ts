@@ -26,7 +26,7 @@ describe('renderEmail', () => {
     const html = renderEmail('<b>hi</b>', '<p>trusted</p>');
     expect(html).toContain('&lt;b&gt;hi&lt;/b&gt;'); // title escaped
     expect(html).toContain('<p>trusted</p>'); // body verbatim
-    expect(html).toContain('RSNews Hub');
+    expect(html).toContain('RS News Hub');
   });
 });
 

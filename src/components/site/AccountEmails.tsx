@@ -45,7 +45,7 @@ export default function AccountEmails() {
   return (
     <section className="card p-5">
       <div className="mb-1 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-bold"><Mail width={18} height={18} className="text-brand-600" /> Your emails subscribed to RSNews Hub</h2>
+        <h2 className="flex items-center gap-2 text-lg font-bold"><Mail width={18} height={18} className="text-brand-600" /> Your emails subscribed to RS News Hub</h2>
         <button onClick={openAdd} className="btn-primary btn-sm"><Plus width={15} height={15} /> Add email</button>
       </div>
       <p className="mb-4 text-sm text-[var(--muted)]">These emails are signed up for specific subscriptions — customize, remove, or add another. All emails and their customizations feed into the notifications you get here.</p>

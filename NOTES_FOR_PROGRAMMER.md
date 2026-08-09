@@ -1,7 +1,7 @@
-# Notes for the Programmer — RSNews Hub
+# Notes for the Programmer — RS News Hub
 
 > **Purpose.** A running list of everything that needs a human developer / infra
-> to take this from the current build to live on the real RSNews Hub site. We
+> to take this from the current build to live on the real RS News Hub site. We
 > add to it as we build. Near completion we'll review it together, do whatever
 > we can ourselves, and turn the rest into a concrete step-by-step for the dev.
 >

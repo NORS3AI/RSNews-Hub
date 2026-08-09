@@ -170,7 +170,7 @@ export function makeQuoteImage(o: QuoteOpts): string {
     ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('RS', pad + 34, by + 34 + 36);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+    ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RS News Hub', pad + 86, by + 40);
     urlY = by + 78; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, urlY);
     urlY = -1; // already drawn beside the wordmark
   }

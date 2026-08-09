@@ -1,4 +1,4 @@
-# RSNews Hub — production image (Next.js standalone).
+# RS News Hub — production image (Next.js standalone).
 # Works on any container host (Render, Fly.io, Railway, a VPS, etc.).
 # Vercel does NOT need this. See DEPLOYMENT.md.
 

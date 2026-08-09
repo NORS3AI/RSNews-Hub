@@ -82,8 +82,8 @@ export function transitions(prev: Record<string, IntegrationStatus>, cur: Integr
 function alertEmail(newlyDown: IntegrationResult[], recovered: IntegrationResult[], down: IntegrationResult[], panelUrl: string) {
   const anyDown = down.length > 0;
   const subject = newlyDown.length
-    ? `⚠️ RSNews Hub: ${newlyDown.length} integration${newlyDown.length === 1 ? '' : 's'} not responding`
-    : `✓ RSNews Hub: integration${recovered.length === 1 ? '' : 's'} recovered`;
+    ? `⚠️ RS News Hub: ${newlyDown.length} integration${newlyDown.length === 1 ? '' : 's'} not responding`
+    : `✓ RS News Hub: integration${recovered.length === 1 ? '' : 's'} recovered`;
 
   const li = (r: IntegrationResult) => `<li style="margin:4px 0"><strong>${escapeHtml(r.label)}</strong> — ${escapeHtml(r.message)}</li>`;
   const lines: string[] = [];

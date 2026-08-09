@@ -22,12 +22,12 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
   return (
     <div className="module">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-xl font-bold"><StarFilled className="text-brand-600" width={20} height={20} /> Phone book</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold"><StarFilled className="text-brand-600" width={20} height={20} /> Phone Book</h1>
         <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-sm font-semibold">
           {(['book', 'directory'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 ${tab === t ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
-              {t === 'book' ? `My phone book${entries.length ? ` (${entries.length})` : ''}` : 'Directory'}
+              {t === 'book' ? `My Phone Book${entries.length ? ` (${entries.length})` : ''}` : 'Directory'}
             </button>
           ))}
         </div>
@@ -35,7 +35,7 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
 
       {tab === 'book' ? (
         entries.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Your phone book is empty. Open the <button onClick={() => setTab('directory')} className="font-semibold text-brand-600 hover:underline">Directory</button> and star a supplier to add them here — then open them to keep notes and an alternate contact.</p>
+          <p className="text-sm text-[var(--muted)]">Your Phone Book is empty. Open the <button onClick={() => setTab('directory')} className="font-semibold text-brand-600 hover:underline">Directory</button> and star a supplier to add them here — then open them to keep notes and an alternate contact.</p>
         ) : (
           <div className="space-y-3">
             {entries.map((e) => (
@@ -72,7 +72,7 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
                     </div>
                   </div>
                   <button onClick={() => run(() => on ? removeSavedSupplier(v.id) : addSavedSupplier(v.id))} disabled={pending}
-                    title={on ? 'In your phone book' : 'Add to phone book'} aria-pressed={on}
+                    title={on ? 'In your Phone Book' : 'Add to Phone Book'} aria-pressed={on}
                     className={`shrink-0 rounded-full border p-2 transition ${on ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--border)] text-[var(--muted)] hover:text-brand-600'}`}>
                     {on ? <StarFilled width={16} height={16} /> : <Star width={16} height={16} />}
                   </button>

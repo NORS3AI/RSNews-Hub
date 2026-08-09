@@ -1,4 +1,4 @@
-# RSNews Hub
+# RS News Hub
 
 A modern, embeddable news & documentation hub. Admins post and organize
 articles; readers browse, search, get personalized recommendations, and

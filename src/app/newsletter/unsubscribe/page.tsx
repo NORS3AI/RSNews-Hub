@@ -10,7 +10,7 @@ export default async function Unsubscribe({ searchParams }: { searchParams: Prom
 
   return (
     <div style={{ maxWidth: 460, margin: '0 auto', padding: '64px 24px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ color: '#E97D34', fontWeight: 800, fontSize: 20, marginBottom: 18 }}>RSNews Hub</div>
+      <div style={{ color: '#E97D34', fontWeight: 800, fontSize: 20, marginBottom: 18 }}>RS News Hub</div>
       {res.ok ? (
         <>
           <h1 style={{ fontSize: 22, marginBottom: 8 }}>You&apos;re unsubscribed</h1>
@@ -22,7 +22,7 @@ export default async function Unsubscribe({ searchParams }: { searchParams: Prom
           <p style={{ color: '#6b7280' }}>That unsubscribe link is invalid or already used.</p>
         </>
       )}
-      <p style={{ marginTop: 24 }}><Link href="/docs" style={{ color: '#E97D34', fontWeight: 700 }}>← Back to RSNews Hub</Link></p>
+      <p style={{ marginTop: 24 }}><Link href="/docs" style={{ color: '#E97D34', fontWeight: 700 }}>← Back to RS News Hub</Link></p>
     </div>
   );
 }

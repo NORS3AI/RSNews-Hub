@@ -12,7 +12,7 @@ function readMinutes(c: string) {
 }
 
 async function main() {
-  console.log('Seeding RSNews Hub…');
+  console.log('Seeding RS News Hub…');
 
   // Admin credentials come from the environment. Demo defaults are used only
   // outside production; in production they are REQUIRED so no site ever ships
@@ -35,7 +35,7 @@ async function main() {
       passwordHash: adminPass,
       role: 'ADMIN',
       status: 'ACTIVE',
-      bio: 'The RSNews Hub administrator.',
+      bio: 'The RS News Hub administrator.',
     },
   });
 
@@ -84,8 +84,8 @@ async function main() {
   }
 
   const articles = [
-    { title: 'Introducing RSNews Hub', category: 'Feature Article', tags: ['announcement', 'release'], featured: true, coverImage: '/covers/cover-intro.jpg',
-      content: `<p>Today we are thrilled to launch <strong>RSNews Hub</strong>, a modern home for our articles, guides and announcements.</p><p>The Hub brings together everything in one searchable, mobile-friendly place. You can browse by category, follow tags, subscribe to topics you care about, and get personalized recommendations based on what you read.</p><h2>What you can do</h2><ul><li>Read articles with a clean, distraction-free reader.</li><li>Discover related content automatically.</li><li>Subscribe to categories and never miss an update.</li></ul><p>We're just getting started. Welcome aboard.</p>` },
+    { title: 'Introducing RS News Hub', category: 'Feature Article', tags: ['announcement', 'release'], featured: true, coverImage: '/covers/cover-intro.jpg',
+      content: `<p>Today we are thrilled to launch <strong>RS News Hub</strong>, a modern home for our articles, guides and announcements.</p><p>The Hub brings together everything in one searchable, mobile-friendly place. You can browse by category, follow tags, subscribe to topics you care about, and get personalized recommendations based on what you read.</p><h2>What you can do</h2><ul><li>Read articles with a clean, distraction-free reader.</li><li>Discover related content automatically.</li><li>Subscribe to categories and never miss an update.</li></ul><p>We're just getting started. Welcome aboard.</p>` },
     { title: 'How Our Recommendation Engine Works', category: 'Blog', tags: ['ai', 'performance', 'best-practices'],
       content: `<p>Great content is only useful if people can find it. Our recommendation engine scores every article against what you're reading using a blend of shared tags and category affinity.</p><h2>Content-based scoring</h2><p>When you finish an article, we look at its tags and category, then rank other published pieces by overlap. Shared tags are weighted heavily, with a bonus for same-category matches.</p><h2>Personalization</h2><p>Over time, your reading history builds an interest profile that powers your personalized feed on the home page.</p>` },
     { title: 'A Practical Guide to Writing Great Articles', category: 'Education', tags: ['tutorial', 'best-practices', 'design'],
@@ -161,8 +161,8 @@ async function main() {
     where: { slug: 'about' },
     update: {},
     create: {
-      title: 'About RSNews Hub', slug: 'about', status: 'PUBLISHED',
-      content: `<p>RSNews Hub is our central place for news, articles and documentation. It's built to be fast, accessible and easy to search.</p><p>Have feedback? We'd love to hear it.</p>`,
+      title: 'About RS News Hub', slug: 'about', status: 'PUBLISHED',
+      content: `<p>RS News Hub is our central place for news, articles and documentation. It's built to be fast, accessible and easy to search.</p><p>Have feedback? We'd love to hear it.</p>`,
     },
   });
 

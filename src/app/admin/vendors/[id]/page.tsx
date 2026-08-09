@@ -42,10 +42,10 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
     <div className="max-w-3xl">
       <Link href="/admin/vendors" className="mb-4 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]"><ArrowLeft width={16} height={16} /> Vendors</Link>
       <h1 className="mb-1 text-2xl font-bold">{vendor.name}</h1>
-      <p className="mb-5 text-sm text-[var(--muted)]">Advertiser profile. When <strong>Premium supplier</strong> is on, these fields populate the reader phone book, and ads gain an options menu that links out to the supplier page on our main site.</p>
+      <p className="mb-5 text-sm text-[var(--muted)]">Advertiser profile. When <strong>Premium supplier</strong> is on, these fields populate the reader Phone Book, and ads gain an options menu that links out to the supplier page on our main site.</p>
 
       <div className="mb-5 grid grid-cols-3 gap-3">
-        {[['Campaigns', vendor._count.campaigns], ['Reports', vendor._count.reports], ['In phone books', vendor._count.savedBy]].map(([l, n]) => (
+        {[['Campaigns', vendor._count.campaigns], ['Reports', vendor._count.reports], ['In Phone Books', vendor._count.savedBy]].map(([l, n]) => (
           <div key={l as string} className="tile p-3 text-center">
             <div className="text-2xl font-black">{n as number}</div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{l as string}</div>
@@ -64,14 +64,14 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
           <F label="Website" name="website" defaultValue={vendor.website} placeholder="https://…" type="url" />
           <F label="Sales phone" name="phone" defaultValue={vendor.phone} placeholder="(555) 123-4567" />
         </div>
-        <F label="Supplier page URL (on our main site)" name="supplierUrl" defaultValue={vendor.supplierUrl} placeholder="https://rsnews.com/suppliers/… — links out from ads & phone book" type="url" />
+        <F label="Supplier page URL (on our main site)" name="supplierUrl" defaultValue={vendor.supplierUrl} placeholder="https://rsnews.com/suppliers/… — links out from ads & Phone Book" type="url" />
         <div className="grid gap-4 sm:grid-cols-2">
           <F label="Contact name" name="contactName" defaultValue={vendor.contactName} placeholder="e.g. Dave Miller" />
           <F label="Contact email (official)" name="contactEmail" defaultValue={vendor.contactEmail} placeholder="sales@vendor.com" type="email" />
         </div>
         <label className="block">
-          <span className="label !mb-1 text-xs">Blurb (phone book)</span>
-          <textarea name="blurb" defaultValue={vendor.blurb ?? ''} rows={3} className="input" placeholder="A short description shown in the phone book." />
+          <span className="label !mb-1 text-xs">Blurb (Phone Book)</span>
+          <textarea name="blurb" defaultValue={vendor.blurb ?? ''} rows={3} className="input" placeholder="A short description shown in the Phone Book." />
         </label>
         <F label="Logo URL" name="logoUrl" defaultValue={vendor.logoUrl} placeholder="https://… (optional)" />
         <label className="block">
@@ -80,7 +80,7 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
         </label>
         <div className="flex items-center gap-3">
           <button type="submit" className="btn-primary btn-sm">Save profile</button>
-          {vendor.premium && <Link href={`/docs/suppliers/${vendor.id}`} className="btn-outline btn-sm" target="_blank">Open in phone book <ExternalLink width={13} height={13} /></Link>}
+          {vendor.premium && <Link href={`/docs/suppliers/${vendor.id}`} className="btn-outline btn-sm" target="_blank">Open in Phone Book <ExternalLink width={13} height={13} /></Link>}
         </div>
       </form>
 
@@ -157,7 +157,7 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
           {vendor.premium
             ? requestOpen
               ? `A request is open. ${audience} saver${audience === 1 ? '' : 's'} who haven't vouched yet are being nudged in their notifications.`
-              : `Requesting nudges the ${audience} reader${audience === 1 ? '' : 's'} who have this supplier in their phone book and haven't left a testimonial yet. Approve the ones you like, then include them in the advertiser's downloadable document.`
+              : `Requesting nudges the ${audience} reader${audience === 1 ? '' : 's'} who have this supplier in their Phone Book and haven't left a testimonial yet. Approve the ones you like, then include them in the advertiser's downloadable document.`
             : 'Testimonials appear here once the supplier is premium and readers respond.'}
         </p>
 

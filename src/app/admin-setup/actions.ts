@@ -30,7 +30,7 @@ export async function bootstrapAdmin(_prev: unknown, formData: FormData): Promis
   await prisma.user.upsert({
     where: { email },
     update: { passwordHash, role: 'ADMIN', status: 'ACTIVE' },
-    create: { email, name: 'Site Admin', passwordHash, role: 'ADMIN', status: 'ACTIVE', bio: 'The RSNews Hub administrator.' },
+    create: { email, name: 'Site Admin', passwordHash, role: 'ADMIN', status: 'ACTIVE', bio: 'The RS News Hub administrator.' },
   });
   redirect('/login?next=/admin');
 }

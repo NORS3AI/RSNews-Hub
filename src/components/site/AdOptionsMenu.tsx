@@ -62,7 +62,7 @@ export default function AdOptionsMenu({
             </a>
           )}
           <button role="menuitem" onClick={save} disabled={pending || isSaved} className={`${item} disabled:opacity-60`}>
-            {isSaved ? <><Check width={15} height={15} /> In your phone book</> : <><Star width={15} height={15} /> Save to phone book</>}
+            {isSaved ? <><Check width={15} height={15} /> In your Phone Book</> : <><Star width={15} height={15} /> Save to Phone Book</>}
           </button>
         </div>
       )}

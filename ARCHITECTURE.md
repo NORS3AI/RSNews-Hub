@@ -1,6 +1,6 @@
 # Architecture
 
-A map of the RSNews Hub codebase for anyone picking it up. It aims to answer
+A map of the RS News Hub codebase for anyone picking it up. It aims to answer
 "where does X live?" and "why is it shaped this way?" in a few minutes.
 
 > **Companion docs:** [`DEPLOYMENT.md`](./DEPLOYMENT.md) (ship it),
@@ -9,7 +9,7 @@ A map of the RSNews Hub codebase for anyone picking it up. It aims to answer
 
 ## What it is
 
-RSNews Hub is a **gated area of the RS News website** — a reader/member
+RS News Hub is a **gated area of the RS News website** — a reader/member
 experience (articles, comics, polls, a pop quiz, clippings, recommendations) plus
 an admin console and an analytics suite. In production it does **not** run its own
 login: the website authenticates members and hands the hub a verified identity

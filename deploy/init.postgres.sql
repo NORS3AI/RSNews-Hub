@@ -1,4 +1,4 @@
--- RSNews Hub — PostgreSQL initial schema
+-- RS News Hub — PostgreSQL initial schema
 -- ----------------------------------------------------------------------------
 -- Generated from prisma/schema.prisma. Two ways to use it:
 --   A) Recommended — let Prisma manage it:

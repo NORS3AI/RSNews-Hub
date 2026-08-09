@@ -804,7 +804,7 @@ export async function addSavedSupplier(vendorId: string) {
   if (!u) throw new Error('Sign in to save suppliers.');
   // Only premium suppliers are in the directory / phone book.
   const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
-  if (!v?.premium) throw new Error('That supplier is not available in the phone book.');
+  if (!v?.premium) throw new Error('That supplier is not available in the Phone Book.');
   await prisma.savedSupplier.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
     update: {},
@@ -864,7 +864,7 @@ export async function submitTestimonial(formData: FormData) {
   const saved = await prisma.savedSupplier.findUnique({
     where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true },
   });
-  if (!saved) throw new Error('Add this supplier to your phone book first.');
+  if (!saved) throw new Error('Add this supplier to your Phone Book first.');
   // Snapshot the account-holder name + store name so the record is stable even if
   // their profile later changes.
   const prof = await prisma.user.findUnique({ where: { id: u.id }, select: { storeName: true, memberCode: true } });
@@ -912,7 +912,7 @@ export async function addSupplierNote(vendorId: string, body: string) {
   if (!text) throw new Error('Empty note');
   // Only for suppliers in the reader's phone book.
   const saved = await prisma.savedSupplier.findUnique({ where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true } });
-  if (!saved) throw new Error('Add this supplier to your phone book first.');
+  if (!saved) throw new Error('Add this supplier to your Phone Book first.');
   await prisma.supplierNote.create({ data: { userId: u.id, vendorId, body: text } });
   revalidatePath(`/docs/suppliers/${vendorId}`);
 }

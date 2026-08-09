@@ -30,7 +30,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
       <div className="container-page py-8 sm:py-10">
         <div className="module max-w-lg">
           <h1 className="mb-2 text-xl font-bold">{supplier.name}</h1>
-          <p className="text-sm text-[var(--muted)]">Sign in to keep this supplier in your phone book — with your own notes, an alternate contact, and quick links to their current ads.</p>
+          <p className="text-sm text-[var(--muted)]">Sign in to keep this supplier in your Phone Book — with your own notes, an alternate contact, and quick links to their current ads.</p>
           <div className="mt-4 flex gap-2">
             <Link href="/login" className="btn-primary btn-sm">Sign in</Link>
             <Link href="/register" className="btn-outline btn-sm">Create account</Link>
@@ -51,7 +51,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
   return (
     <div className="container-page py-8 sm:py-10">
       <Link href="/docs/suppliers" className="mb-4 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
-        <ArrowLeft width={16} height={16} /> Phone book
+        <ArrowLeft width={16} height={16} /> Phone Book
       </Link>
 
       <div className="module">
@@ -91,6 +91,14 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
           contact={contact}
           sticky={sticky}
         />
+
+        {/* Testimonial CTA lives at the bottom of the main card, under the sticky notes. */}
+        <TestimonialCta
+          vendorId={supplier.id}
+          vendorName={supplier.name}
+          canSubmit={isSaved}
+          existing={mine ? { status: mine.status } : null}
+        />
       </div>
 
       {ads.length > 0 && (
@@ -100,13 +108,6 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
           ))}
         </div>
       )}
-
-      <TestimonialCta
-        vendorId={supplier.id}
-        vendorName={supplier.name}
-        canSubmit={isSaved}
-        existing={mine ? { status: mine.status } : null}
-      />
     </div>
   );
 }

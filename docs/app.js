@@ -1,4 +1,4 @@
-/* RSNews Hub — static preview. Sidebar nav, module-forward layout,
+/* RS News Hub — static preview. Sidebar nav, module-forward layout,
    favorites (★) + read-later (📖) + history, flat orange (#E97D34). */
 (function () {
   'use strict';
@@ -262,7 +262,7 @@
       ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
       ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('RS', pad + 34, by + 34 + 36); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+      ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RS News Hub', pad + 86, by + 40);
       ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78); urlY = -1;
     }
     if (urlY >= 0) { ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad, urlY); }
@@ -695,7 +695,7 @@
     { id: 'postalmate', brand: 'PostalMate', group: 'shipping-software', label: 'Shipping & POS software', headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.', cta: 'Start free trial', href: '#', accent: '#2f6f4f' },
     { id: 'shiprite', brand: 'ShipRite', group: 'shipping-software', label: 'Shipping software', headline: 'ShipRite — multi-carrier shipping and store management, built for pack-and-ship stores.', cta: 'Book a demo', href: '#', accent: '#2b5a86' },
     { id: 'stripe', brand: 'Stripe', group: 'payments', label: 'Payments', headline: 'Stripe — accept payments and grow revenue with a few lines of code.', cta: 'Get started', href: '#', accent: '#5a54d6' },
-    { id: 'rsnews-pro', brand: 'RSNews Pro', group: null, label: 'RSNews Hub', headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.', cta: 'Upgrade', href: '#', accent: '#E97D34' },
+    { id: 'rsnews-pro', brand: 'RSNews Pro', group: null, label: 'RS News Hub', headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.', cta: 'Upgrade', href: '#', accent: '#E97D34' },
     { id: 'clouddesk', brand: 'CloudDesk', group: null, label: 'Support software', headline: 'CloudDesk — the helpdesk your team will actually enjoy using.', cta: 'Try it free', href: '#', accent: '#2b7a8c' },
     { id: 'brewcrate', brand: 'BrewCrate', group: null, label: 'Coffee club', headline: 'BrewCrate — freshly-roasted specialty coffee, delivered to your desk monthly.', cta: 'Shop now', href: '#', accent: '#8a5a2b' },
     { id: 'ledgerlite', brand: 'LedgerLite', group: null, label: 'Accounting', headline: 'LedgerLite — simple bookkeeping and invoicing for small businesses.', cta: 'Learn more', href: '#', accent: '#4a6b8a' }
@@ -1350,7 +1350,7 @@
     if (e.target.closest('[data-dlg-close]')) { e.preventDefault(); closeDialog(); return; }
     var shareBtn = e.target.closest('[data-share]'); if (shareBtn) { e.preventDefault(); e.stopPropagation(); openShare(shareBtn.getAttribute('data-share')); return; }
     var copyLink = e.target.closest('[data-copy-link]'); if (copyLink) { e.preventDefault(); if (navigator.clipboard) navigator.clipboard.writeText(copyLink.getAttribute('data-copy-link')); toast('Link copied!'); return; }
-    var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RSNews Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
+    var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RS News Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
     var clipSave = e.target.closest('[data-clip-save]'); if (clipSave) { e.preventDefault();
       if (dialogData && !dialogData.saved) {
         saveClipping({ id: 'c' + Date.now(), quote: dialogData.text, title: dialogData.o.title, author: dialogData.o.author, slug: dialogData.slug, ts: Date.now() });

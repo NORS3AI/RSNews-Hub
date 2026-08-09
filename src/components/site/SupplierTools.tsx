@@ -25,7 +25,7 @@ export default function SupplierTools({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <button onClick={() => run(() => addSavedSupplier(vendorId))} disabled={pending}
           className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:border-brand-500 hover:text-brand-600">
-          <Star width={16} height={16} /> Add to phone book
+          <Star width={16} height={16} /> Add to Phone Book
         </button>
         <span className="text-sm text-[var(--muted)]">Save {vendorName} to keep your own contacts, notes, and sticky notes here.</span>
       </div>

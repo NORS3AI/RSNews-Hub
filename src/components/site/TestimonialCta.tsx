@@ -42,12 +42,12 @@ export default function TestimonialCta({
   }
 
   return (
-    <section className="mt-6 module">
+    <section className="mt-6 border-t border-[var(--border)] pt-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold">Recommend {vendorName}</h2>
+          <h2 className="text-base font-bold">Recommend {vendorName}</h2>
           <p className="mt-0.5 text-sm text-[var(--muted)]">
-            {canSubmit ? 'Vouch for a supplier you use — approved testimonials may be shared with them.' : 'Add them to your phone book to leave a testimonial.'}
+            {canSubmit ? 'Vouch for a supplier you use — approved testimonials may be shared with them.' : 'Add them to your Phone Book to leave a testimonial.'}
           </p>
         </div>
         {canSubmit && (
