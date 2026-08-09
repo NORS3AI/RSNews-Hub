@@ -108,7 +108,7 @@ export async function saveArticle(formData: FormData) {
 
   let savedId = id;
   if (id) {
-    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true, slug: true } });
     if (!existing) throw new Error('Article not found');
     // Snapshot the prior version before overwriting — only when the body actually
     // changed — so an editor can roll back. Capped per article.
@@ -117,7 +117,10 @@ export async function saveArticle(formData: FormData) {
       const extra = await prisma.articleRevision.findMany({ where: { articleId: id }, orderBy: { createdAt: 'desc' }, skip: ARTICLE_REVISION_MAX, select: { id: true } });
       if (extra.length) await prisma.articleRevision.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
     }
-    const slug = await uniqueSlug(title, 'article', id);
+    // Keep the existing slug stable on edit — renaming the title must NOT change
+    // a live article's URL (would break bookmarks, shares, SEO, saved-item links).
+    // A new slug is only minted if the article somehow has none yet.
+    const slug = existing.slug || await uniqueSlug(title, 'article', id);
     await prisma.article.update({
       where: { id },
       data: {
@@ -897,6 +900,7 @@ export async function setTestimonialStatus(id: string, status: 'APPROVED' | 'REJ
   });
   revalidatePath(`/admin/vendors/${t.vendorId}`);
   revalidatePath('/docs/vendor');
+  revalidatePath('/vendor-testimonials');
 }
 
 // Admin: include / remove an APPROVED testimonial in the advertiser's vendor-
@@ -909,6 +913,7 @@ export async function setTestimonialOnDashboard(id: string, on: boolean) {
   await prisma.testimonial.update({ where: { id }, data: { showOnVendorDashboard: on } });
   revalidatePath(`/admin/vendors/${cur.vendorId}`);
   revalidatePath('/docs/vendor');
+  revalidatePath('/vendor-testimonials');
 }
 
 // ---- Phone-book sticky notes (private, per reader + supplier) ----

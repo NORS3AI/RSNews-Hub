@@ -27,10 +27,15 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   if (!user) return <Shell><Notice title="Sign in to view your vendor dashboard" body="Log in on the main RS News site to see your ad campaigns." /></Shell>;
   if (!isVendor(ent)) return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;
 
+  const brand = brandKey(ent.vendorBrand);
   const vendorId = await vendorIdForBrand(ent.vendorBrand);
   const mine = vendorId
     ? await prisma.adCampaign.findMany({ where: { vendorId }, orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })
-    : (await prisma.adCampaign.findMany({ orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })).filter((c) => brandKey(c.vendorName) === brandKey(ent.vendorBrand));
+    // Fallback for a brand with no Vendor row yet: match by name. Guarded on a
+    // non-empty brand key so an empty brand can never trigger a full-table scan.
+    : brand
+      ? (await prisma.adCampaign.findMany({ orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })).filter((c) => brandKey(c.vendorName) === brand)
+      : [];
 
   const now = new Date();
   const current = mine.filter((c) => c.status === 'ACTIVE');

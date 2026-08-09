@@ -38,8 +38,9 @@ export const dynamic = 'force-dynamic';
 
 const cardSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true, publishedAt: true,
-  views: true, readMinutes: true,
+  views: true, readMinutes: true, requirement: true, breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
+  extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;
 const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t.tag) });
