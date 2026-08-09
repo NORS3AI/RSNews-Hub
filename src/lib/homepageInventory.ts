@@ -1,6 +1,7 @@
 import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
 import { isCustomModuleId, customIdOf, parseTree, isArticleSourced, type Block } from './studio';
+import { RECOMMENDABLE_STATUSES } from './constants';
 import { getPersonalizedFeed, trendingArticles } from './recommend';
 
 // Homepage content inventory — what articles / polls / quizzes actually appear on
@@ -91,22 +92,22 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
     if (mode === 'pick') {
       const id = String(b.settings.articleId ?? '');
       const a = id ? await prisma.article.findUnique({ where: { id }, select: { id: true, title: true, slug: true, status: true } }) : null;
-      if (a && a.status === 'PUBLISHED') { used.add(a.id); return [{ id: a.id, title: a.title, slug: a.slug }]; }
+      if (a && (a.status === 'PUBLISHED' || a.status === 'ARCHIVED')) { used.add(a.id); return [{ id: a.id, title: a.title, slug: a.slug }]; }
       return [];
     }
     if (mode === 'tag') {
       const t = String(b.settings.tag ?? '').trim().toLowerCase();
-      const rows = t ? await prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
+      const rows = t ? await prisma.article.findMany({ where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: now }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
       return firstUnused(rows);
     }
     if (mode === 'year') {
       const y = Number(b.settings.year);
-      const rows = y > 0 ? await prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
+      const rows = y > 0 ? await prisma.article.findMany({ where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
       return firstUnused(rows);
     }
     if (mode === 'category') {
       const slug = String(b.settings.categorySlug ?? '').trim().toLowerCase();
-      const rows = slug ? await prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now }, OR: [{ category: { slug } }, { extraCategories: { some: { slug } } }] }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
+      const rows = slug ? await prisma.article.findMany({ where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: now }, OR: [{ category: { slug } }, { extraCategories: { some: { slug } } }] }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
       return firstUnused(rows);
     }
     return firstUnused(featurePool(String(b.settings.source ?? 'latest')));

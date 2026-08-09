@@ -246,6 +246,18 @@ body::before {
   50% { box-shadow: 0 0 0 11px rgba(47, 129, 247, 0.10); }
 }
 
+/* Scroll reveal (homepage modules) + endless-feed card fade-in. The reveal
+   hidden state is only ever added by JS (see ScrollReveal), so no-JS stays fully
+   visible. Reduced-motion disables both. */
+.reveal-init { opacity: 0; transform: translateY(16px); }
+.reveal-init.revealed { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s ease; }
+@keyframes feedIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.feed-in { animation: feedIn .5s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal-init, .reveal-init.revealed { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .feed-in { animation: none !important; }
+}
+
 /* Dark mode: orange surfaces (Published this week, Industry News, orange house
    ads) drop from the bright brand orange to a deeper BLOOD orange so they don't
    glare against the dark page. Not brown — a darker orange-red. Overrides the

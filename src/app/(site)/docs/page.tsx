@@ -4,9 +4,11 @@ import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, clampSpan, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
+import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
 import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
 import { Lock } from '@/components/icons';
-import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
+import { sweepExpiredModulePolls, sweepExpiredModules, sweepExpiredQuizzes } from '@/lib/studioPolls';
+import { sweepAutoArchivedArticles } from '@/lib/autoArchive';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
@@ -26,6 +28,8 @@ import ModuleAdminToolbar from '@/components/site/ModuleAdminToolbar';
 import SectionWidth from '@/components/site/SectionWidth';
 import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
 import HomepageHighlight from '@/components/site/HomepageHighlight';
+import EndlessFeed from '@/components/site/EndlessFeed';
+import ScrollReveal from '@/components/site/ScrollReveal';
 import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -139,7 +143,9 @@ export default async function DocsHome() {
   // logs), then load the still-open ones referenced by these modules so they
   // render live and votable.
   await sweepExpiredModulePolls();
+  await sweepExpiredQuizzes();
   await sweepExpiredModules();
+  await sweepAutoArchivedArticles();
   // Scans below flatten each block into its full priority stack (block +
   // fallbacks) so a poll/article/quiz that only appears as a *fallback* still
   // has its live content pre-fetched and can fill its slot when promoted.
@@ -166,12 +172,12 @@ export default async function DocsHome() {
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
   const cats = [...new Set(artBlocks.filter((b) => b.settings.mode === 'category' && b.settings.categorySlug).map((b) => String(b.settings.categorySlug).trim().toLowerCase()))];
 
-  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: 'PUBLISHED' }, select: cardSelect }) : [];
+  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: { in: RECOMMENDABLE_STATUSES } }, select: cardSelect }) : [];
   const pickById = new Map(pickRows.map((a) => [a.id, toCard(a)]));
   const byTag = new Map<string, Card[]>();
   await Promise.all(tags.map(async (t) => {
     const rows = await prisma.article.findMany({
-      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } },
+      where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } },
       orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
     });
     byTag.set(t, rows.map(toCard));
@@ -179,7 +185,7 @@ export default async function DocsHome() {
   const byYear = new Map<number, Card[]>();
   await Promise.all(years.map(async (y) => {
     const rows = await prisma.article.findMany({
-      where: { status: 'PUBLISHED', publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } },
+      where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } },
       orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
     });
     byYear.set(y, rows.map(toCard));
@@ -189,7 +195,7 @@ export default async function DocsHome() {
   await Promise.all(cats.map(async (slug) => {
     const rows = await prisma.article.findMany({
       where: {
-        status: 'PUBLISHED', publishedAt: { lte: new Date() },
+        status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() },
         OR: [{ category: { slug } }, { extraCategories: { some: { slug } } }],
       },
       orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
@@ -629,6 +635,7 @@ export default async function DocsHome() {
   return (
     <AdminEditProvider value={isAdmin}>
     <HomepageHighlight />
+    <ScrollReveal />
     <div className="space-y-10 px-4 py-6 lg:space-y-[52px] lg:px-7 lg:py-8">
       {/* ===== Headline (Full or ⅔ — admin-controlled) ===== */}
       {lead && (
@@ -768,6 +775,10 @@ export default async function DocsHome() {
           <div className="mt-4"><SubscribeLauncher label="Subscribe" className="btn bg-white text-brand-700 hover:bg-white/90" /></div>
         </div>
       </section>
+
+      {/* Endless "Keep scrolling" feed — older stories fade in as you reach the
+          bottom, until the catalog runs out. */}
+      <EndlessFeed />
     </div>
     </AdminEditProvider>
   );

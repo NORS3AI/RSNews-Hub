@@ -12,9 +12,15 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number];
 export const CONTENT_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED', 'TRASHED'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 
+// Statuses eligible for DISCOVERY surfaces (recommendations, trending, search,
+// throwback sourcing). ARCHIVED = retired from the "current" surfaces (Latest,
+// hero, Published this week) but still surfaceable via recommendations, so an
+// aged article stays in rotation instead of vanishing. DRAFT/TRASHED never show.
+export const RECOMMENDABLE_STATUSES = ['PUBLISHED', 'ARCHIVED'];
+
 export const SITE_NAME = 'RSNews Hub';
 export const SITE_DESCRIPTION = 'News, articles and documentation — read, discover, subscribe.';
 
 // Bump on every pushed update. Shown in the footer; keep in sync with the
 // static preview footer in docs/index.html.
-export const APP_VERSION = 'v0.105.0';
+export const APP_VERSION = 'v0.106.0';

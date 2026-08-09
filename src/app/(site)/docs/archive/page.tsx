@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { Archive, Newspaper, ArrowRight, BarChart } from '@/components/icons';
+import { Archive, Newspaper, ArrowRight, BarChart, Check } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ export default async function ArchivePage() {
       <div className="module">
       <div className="mb-8 flex items-center gap-2"><Archive className="text-brand-600" /><h1 className="text-2xl font-bold">Archive</h1></div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/docs/archive/industry" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
           <span className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Newspaper width={22} height={22} /></span>
@@ -54,6 +54,16 @@ export default async function ArchivePage() {
             <span>
               <span className="block font-extrabold">Backroom Humor</span>
               <span className="block text-sm text-[var(--muted)]">Every comic we&apos;ve run.</span>
+            </span>
+          </span>
+          <ArrowRight className="shrink-0 text-brand-600" />
+        </Link>
+        <Link href="/docs/archive/quizzes" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
+          <span className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Check width={22} height={22} /></span>
+            <span>
+              <span className="block font-extrabold">Pop Quiz archive</span>
+              <span className="block text-sm text-[var(--muted)]">Past quizzes and how many played.</span>
             </span>
           </span>
           <ArrowRight className="shrink-0 text-brand-600" />

@@ -957,6 +957,18 @@ export async function setHomeModuleSpan(id: string, span: number) {
   revalidatePath('/admin/homepage');
 }
 
+// Auto-archive age (months) for published articles; 0 = off. Clears the sweep's
+// throttle so a change takes effect on the next homepage load.
+export async function setAutoArchiveMonths(formData: FormData) {
+  await ensureStaff();
+  const raw = Number(formData.get('months'));
+  const months = Number.isFinite(raw) && raw > 0 ? Math.min(Math.round(raw), 1200) : 0;
+  await prisma.setting.upsert({ where: { key: 'auto_archive_months' }, update: { value: String(months) }, create: { key: 'auto_archive_months', value: String(months) } });
+  await prisma.setting.deleteMany({ where: { key: 'auto_archive_last_run' } });
+  revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+}
+
 // Width for the two pinned top sections (Hero, "Published this week"), which
 // live above the module grid rather than in the layout array. Only Full (3) or
 // ⅔ (2) — never ⅓ — and a ⅔ section just leaves the remaining third open.

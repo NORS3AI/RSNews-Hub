@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { setArticleStatus, deleteArticle } from '@/lib/actions';
+import { setArticleStatus, deleteArticle, setAutoArchiveMonths } from '@/lib/actions';
+import { getAutoArchiveMonths } from '@/lib/autoArchive';
 import { ActionButtons } from '@/components/admin/RowActions';
 import { Plus, Eye } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
@@ -24,6 +25,7 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
   ]);
   const countBy = (s: string) => counts.find((c) => c.status === s)?._count ?? 0;
   const total = counts.reduce((n, c) => n + c._count, 0);
+  const autoMonths = await getAutoArchiveMonths();
 
   const filters = [
     { key: undefined, label: 'All', n: total },
@@ -36,6 +38,23 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
         <h1 className="text-2xl font-bold">Articles</h1>
         <Link href="/admin/articles/new" className="btn-primary btn-sm"><Plus width={16} height={16} /> New article</Link>
       </div>
+
+      {/* Auto-archive: age out old published articles automatically. They stay
+          recommendable (throwbacks / recommendations) — they just leave the
+          "current" surfaces. Admin-set; 0 = off. */}
+      <form action={setAutoArchiveMonths} className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card">
+        <span className="text-sm font-semibold">Auto-archive old articles</span>
+        <select name="months" defaultValue={String(autoMonths)} className="input h-9 w-auto py-1 text-sm">
+          <option value="0">Off</option>
+          <option value="12">After 1 year</option>
+          <option value="24">After 2 years</option>
+          <option value="36">After 3 years</option>
+          <option value="60">After 5 years</option>
+          <option value="120">After 10 years</option>
+        </select>
+        <button type="submit" className="btn-outline btn-sm">Save</button>
+        <span className="w-full text-xs text-[var(--muted)] sm:w-auto sm:flex-1">Published articles older than this move to Archived on their own. They stay recommendable — they just leave Latest / hero / Published this week.</span>
+      </form>
 
       <div className="mb-5 flex flex-wrap gap-2">
         {filters.map((f) => (

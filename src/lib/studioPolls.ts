@@ -36,6 +36,22 @@ export async function materializeModulePolls(tree: ModuleTree): Promise<boolean>
 // Close module polls whose timer has elapsed: deactivate them (hides them from
 // their module and stops voting) and record an admin-log entry. They remain in
 // the polls archive. Lazy sweep — safe to call on any render. Returns the count.
+// Quiz lifecycle parity: close (active=false) any quiz whose timer elapsed, and
+// log it — so the Pop Quiz archive shows accurate Live/Closed state like polls.
+export async function sweepExpiredQuizzes(): Promise<number> {
+  const now = new Date();
+  const expired = await prisma.quiz.findMany({
+    where: { active: true, closesAt: { lt: now } },
+    select: { id: true, title: true },
+  });
+  if (!expired.length) return 0;
+  await prisma.quiz.updateMany({ where: { id: { in: expired.map((e) => e.id) } }, data: { active: false } });
+  await prisma.adminLog.createMany({
+    data: expired.map((e) => ({ kind: 'quiz_closed', message: `Quiz timer ended — closed & archived: “${e.title}”` })),
+  });
+  return expired.length;
+}
+
 export async function sweepExpiredModulePolls(): Promise<number> {
   const now = new Date();
   const expired = await prisma.poll.findMany({
