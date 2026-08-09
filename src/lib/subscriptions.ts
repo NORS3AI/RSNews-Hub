@@ -15,6 +15,7 @@
 
 import { prisma } from './db';
 import { linkSource } from './industry';
+import { testimonialNudges } from './testimonials';
 
 export const INDUSTRY = 'industry';
 export const ALL = 'all';
@@ -113,7 +114,7 @@ export async function setAccountTopics(userId: string, keys: TopicKey[]): Promis
 }
 
 export type FeedItem = {
-  type: 'industry' | 'article';
+  type: 'industry' | 'article' | 'testimonial';
   title: string; href: string; date: Date;
   meta?: string; categoryName?: string; categoryColor?: string; unread: boolean;
 };
@@ -121,20 +122,37 @@ export type FeedItem = {
 /** The shared account bell: recent items in followed topics, newest first, each
  *  flagged unread if it landed after the account last opened Notifications. */
 export async function notificationFeed(userId: string, limit = 50): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
-  const [keys, user] = await Promise.all([
+  const [keys, user, nudges] = await Promise.all([
     getAccountTopics(userId),
     prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true } }),
+    testimonialNudges(userId),
   ]);
-  if (!keys.length) return { items: [], unread: 0, hasTopics: false };
-
   const now = new Date();
+  const seenAt = user?.notificationsSeenAt ?? new Date(0);
+
+  // Testimonial nudges reach a reader whether or not they follow any topics —
+  // they're tied to suppliers the reader saved, not to topic subscriptions.
+  const nudgeItems: FeedItem[] = nudges.map((n): FeedItem => ({
+    type: 'testimonial',
+    title: `Share your experience with ${n.vendorName}`,
+    href: `/docs/supplier/${n.slug}#testimonial`,
+    date: n.createdAt,
+    meta: 'You saved them — a quick testimonial helps other stores',
+    unread: n.createdAt > seenAt,
+  }));
+
+  if (!keys.length) {
+    const items = nudgeItems.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return { items: items.slice(0, limit), unread: items.filter((i) => i.unread).length, hasTopics: false };
+  }
+
   const since = new Date(now.getTime() - 60 * 24 * 3600 * 1000); // last 60 days of activity
   // Gather generously so the unread count reflects everything recent, not just
   // what fits the display slice (each source is capped, so pull extra).
   const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100));
-  const seenAt = user?.notificationsSeenAt ?? new Date(0);
 
   const all: FeedItem[] = [
+    ...nudgeItems,
     ...industry.map((l): FeedItem => ({
       type: 'industry', title: l.title, href: l.url, date: l.postedAt,
       meta: `${l.author} · ${linkSource(l.url, l.source)}`, unread: l.postedAt > seenAt,

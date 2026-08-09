@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { getPremiumSupplierBySlug, getSupplierLiveAds, savedVendorIds } from '@/lib/suppliers';
+import { testimonialsForSupplierPage, myTestimonial } from '@/lib/testimonials';
 import SupplierSaveButton from '@/components/site/SupplierSaveButton';
+import TestimonialForm from '@/components/site/TestimonialForm';
 import InArticleAd from '@/components/InArticleAd';
 import { ArrowLeft, LinkIcon, Mail } from '@/components/icons';
 
@@ -20,9 +22,11 @@ export default async function SupplierPage(props: { params: Promise<{ slug: stri
   if (!supplier) notFound();
 
   const user = await getCurrentUser();
-  const [saved, liveAds] = await Promise.all([
+  const [saved, liveAds, testimonials, mine] = await Promise.all([
     user ? savedVendorIds(user.id) : Promise.resolve([]),
     getSupplierLiveAds(supplier.brandKey),
+    testimonialsForSupplierPage(supplier.id),
+    user ? myTestimonial(user.id, supplier.id) : Promise.resolve(null),
   ]);
   const isSaved = saved.includes(supplier.id);
 
@@ -81,6 +85,29 @@ export default async function SupplierPage(props: { params: Promise<{ slug: stri
           </div>
         </div>
       )}
+
+      {testimonials.length > 0 && (
+        <div className="mt-6 module">
+          <h2 className="mb-3 text-lg font-bold">What stores say</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {testimonials.map((t) => (
+              <figure key={t.id} className="tile p-4">
+                <blockquote className="text-sm leading-relaxed text-[var(--fg)]">“{t.body}”</blockquote>
+                <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.authorName}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <TestimonialForm
+        vendorId={supplier.id}
+        vendorName={supplier.name}
+        signedIn={!!user}
+        isSaver={isSaved}
+        existing={mine ? { body: mine.body, status: mine.status } : null}
+        highlighted={false}
+      />
     </div>
   );
 }

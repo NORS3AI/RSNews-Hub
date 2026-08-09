@@ -301,6 +301,43 @@ model Vendor {
   campaigns    AdCampaign[]
   reports      PerformanceReport[]
   savedBy      SavedSupplier[]
+  testimonials Testimonial[]
+  testimonialRequests TestimonialRequest[]
+}
+
+// An admin ask, at spotlight time, for readers to vouch for a premium supplier.
+// One active request per vendor; readers who have the supplier starred (and
+// haven't submitted yet) get a nudge in their notifications feed.
+model TestimonialRequest {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+}
+
+// A reader's testimonial for a supplier. Submitted PENDING, reviewed in the
+// advertiser admin area; when approved an admin can surface it on the public
+// supplier page and/or that advertiser's vendor dashboard. One per user+vendor
+// (re-submitting edits their own).
+model Testimonial {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorName            String   // display-name snapshot at submit time
+  body                  String
+  status                String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  showOnSupplierPage    Boolean  @default(false)
+  showOnVendorDashboard Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, vendorId])
+  @@index([vendorId])
 }
 
 // A reader's personal "phone book" entry for a supplier (account-tied so it
@@ -472,6 +509,7 @@ model User {
   clippings     Clipping[]
   articleRevisions ArticleRevision[]
   savedSuppliers SavedSupplier[]
+  testimonials  Testimonial[]
   notes         String?
 }
 

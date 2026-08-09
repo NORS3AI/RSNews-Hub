@@ -5,6 +5,7 @@ import { entitlementsOf, isVendor, brandKey } from '@/lib/entitlements';
 import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { listPublishedReports, parseSnapshot } from '@/lib/reports';
+import { testimonialsForVendorDashboard } from '@/lib/testimonials';
 import { loadAds } from '@/lib/adsServer';
 import { adIsLive } from '@/lib/ads';
 import ReportView from '@/components/ReportView';
@@ -48,6 +49,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const current = mine.filter((c) => c.status === 'ACTIVE');
   const past = mine.filter((c) => c.status === 'COMPLETED' || c.status === 'CANCELLED');
   const reports = vendorId ? await listPublishedReports(vendorId) : [];
+  const testimonials = vendorId ? await testimonialsForVendorDashboard(vendorId) : [];
 
   // This vendor's own live creatives (for the "your ads in the Hub" preview) and
   // the earliest live-flight start (their go-live date for the banner).
@@ -84,6 +86,20 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
               )}
               {myAds.length > 0 && <VendorAdShowcase ads={myAds} brand={ent.vendorBrand || user.name || 'your brand'} />}
               {current.map((c) => <CampaignCard key={c.id} c={c} now={now} live />)}
+              {testimonials.length > 0 && (
+                <div className="card p-5">
+                  <h2 className="mb-1 font-bold">What stores are saying about you</h2>
+                  <p className="mb-3 text-xs text-[var(--muted)]">Testimonials RS News readers left for your brand, curated by our team.</p>
+                  <div className="space-y-3">
+                    {testimonials.map((t) => (
+                      <figure key={t.id} className="tile p-4">
+                        <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
+                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.authorName}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
       )}

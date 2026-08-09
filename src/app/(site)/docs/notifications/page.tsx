@@ -46,16 +46,7 @@ export default async function NotificationsPage() {
         <SubscribeLauncher label="Manage subscriptions" className="btn-primary btn-sm" />
       </div>
 
-      {!hasTopics ? (
-        <div className="tile p-8 text-center">
-          <Bell width={30} height={30} className="mx-auto mb-3 text-[var(--muted)]" />
-          <p className="mb-1 text-lg font-bold">You&apos;re not following anything yet</p>
-          <p className="mx-auto mb-4 max-w-sm text-sm text-[var(--muted)]">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>
-          <SubscribeLauncher label="Choose topics" className="btn-primary" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="tile p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
-      ) : (
+      {items.length > 0 ? (
         <div className="tile divide-y divide-[var(--border)] p-0">
           {items.map((it, i) => {
             const inner = (
@@ -69,6 +60,8 @@ export default async function NotificationsPage() {
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--muted)]">
                     {it.type === 'industry'
                       ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Industry News</span>
+                      : it.type === 'testimonial'
+                      ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Testimonial</span>
                       : it.categoryName && <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: `${it.categoryColor}22`, color: it.categoryColor }}>{it.categoryName}</span>}
                     <span>{it.meta || ago(it.date)}</span>
                     {it.meta && <span>· {ago(it.date)}</span>}
@@ -81,6 +74,15 @@ export default async function NotificationsPage() {
               : <Link key={i} href={it.href} className="block hover:bg-[var(--surface-2)]">{inner}</Link>;
           })}
         </div>
+      ) : !hasTopics ? (
+        <div className="tile p-8 text-center">
+          <Bell width={30} height={30} className="mx-auto mb-3 text-[var(--muted)]" />
+          <p className="mb-1 text-lg font-bold">You&apos;re not following anything yet</p>
+          <p className="mx-auto mb-4 max-w-sm text-sm text-[var(--muted)]">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>
+          <SubscribeLauncher label="Choose topics" className="btn-primary" />
+        </div>
+      ) : (
+        <div className="tile p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
       )}
       </div>
 

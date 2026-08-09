@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { saveVendorProfile } from '@/lib/actions';
+import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, toggleTestimonialVisibility } from '@/lib/actions';
 import { supplierSlug } from '@/lib/suppliers';
+import { testimonialsForAdmin, testimonialAudienceCount, hasActiveRequest } from '@/lib/testimonials';
 import { ArrowLeft, ExternalLink } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -20,6 +21,12 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
     },
   });
   if (!vendor) notFound();
+
+  const [testimonials, audience, requestOpen] = await Promise.all([
+    testimonialsForAdmin(vendor.id),
+    testimonialAudienceCount(vendor.id),
+    hasActiveRequest(vendor.id),
+  ]);
 
   const F = ({ label, name, defaultValue, placeholder, type = 'text' }: { label: string; name: string; defaultValue?: string | null; placeholder?: string; type?: string }) => (
     <label className="block">
@@ -86,6 +93,67 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
           </ul>
         </div>
       )}
+
+      {/* ── Testimonials ─────────────────────────────────────────────────── */}
+      <div className="mt-8">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-black uppercase tracking-wide text-[var(--muted)]">Testimonials</h2>
+          {vendor.premium ? (
+            <form action={requestSupplierTestimonials.bind(null, vendor.id)}>
+              <button type="submit" className="btn-outline btn-sm" disabled={audience === 0}>
+                {requestOpen ? 'Re-send request' : 'Request testimonials'}{audience > 0 ? ` (${audience})` : ''}
+              </button>
+            </form>
+          ) : (
+            <span className="text-xs text-[var(--muted)]">Turn on Premium to collect testimonials.</span>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-[var(--muted)]">
+          {vendor.premium
+            ? requestOpen
+              ? `A request is open. ${audience} saver${audience === 1 ? '' : 's'} who haven't vouched yet are being nudged in their notifications.`
+              : `Nudges the ${audience} reader${audience === 1 ? '' : 's'} who have this supplier in their phone book and haven't left a testimonial yet.`
+            : 'Testimonials appear here once the supplier is premium and readers respond.'}
+        </p>
+
+        {testimonials.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">No testimonials yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {testimonials.map((t) => (
+              <li key={t.id} className="card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
+                    <div className="mt-1.5 text-xs text-[var(--muted)]">— {t.authorName} · {formatDate(t.createdAt)}</div>
+                  </div>
+                  <span className={`badge shrink-0 ${t.status === 'APPROVED' ? 'bg-green-100 text-green-700' : t.status === 'REJECTED' ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : 'bg-amber-100 text-amber-800'}`}>
+                    {t.status[0] + t.status.slice(1).toLowerCase()}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
+                  {t.status !== 'APPROVED' && (
+                    <form action={setTestimonialStatus.bind(null, t.id, 'APPROVED')}><button className="btn-outline btn-sm text-green-700">Approve</button></form>
+                  )}
+                  {t.status !== 'REJECTED' && (
+                    <form action={setTestimonialStatus.bind(null, t.id, 'REJECTED')}><button className="btn-outline btn-sm text-red-600">Reject</button></form>
+                  )}
+                  {t.status === 'APPROVED' && (
+                    <>
+                      <form action={toggleTestimonialVisibility.bind(null, t.id, 'showOnSupplierPage')}>
+                        <button className={`btn-sm ${t.showOnSupplierPage ? 'btn-primary' : 'btn-outline'}`}>{t.showOnSupplierPage ? '✓ On supplier page' : 'Show on supplier page'}</button>
+                      </form>
+                      <form action={toggleTestimonialVisibility.bind(null, t.id, 'showOnVendorDashboard')}>
+                        <button className={`btn-sm ${t.showOnVendorDashboard ? 'btn-primary' : 'btn-outline'}`}>{t.showOnVendorDashboard ? '✓ On vendor dashboard' : 'Show on vendor dashboard'}</button>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { updateVendorContact } from './vendors';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
+import { supplierSlug } from './suppliers';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -825,6 +826,73 @@ export async function updateSavedSupplier(vendorId: string, data: { note?: strin
     create: { userId: u.id, vendorId, note, altEmail, altPhone },
   });
   revalidatePath('/docs/suppliers');
+}
+
+// ---- Supplier testimonials ----
+
+// Admin: at spotlight time, open a testimonial request for a premium supplier.
+// Nudges every reader who has them starred (and hasn't vouched yet) via the
+// derived notifications feed. Only one request is active at a time.
+export async function requestSupplierTestimonials(vendorId: string) {
+  await ensureStaff();
+  const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!vendor) throw new Error('Vendor not found');
+  if (!vendor.premium) throw new Error('Only premium suppliers can collect testimonials.');
+  await prisma.$transaction([
+    prisma.testimonialRequest.updateMany({ where: { vendorId, active: true }, data: { active: false } }),
+    prisma.testimonialRequest.create({ data: { vendorId } }),
+  ]);
+  revalidatePath(`/admin/vendors/${vendorId}`);
+}
+
+// Reader: submit (or edit) a testimonial for a supplier they have in their phone
+// book. Re-submitting replaces their own text and returns to PENDING review.
+export async function submitTestimonial(formData: FormData) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in to leave a testimonial.');
+  const vendorId = ((formData.get('vendorId') as string) || '').trim();
+  const body = ((formData.get('body') as string) || '').trim().slice(0, 1500);
+  if (!vendorId) throw new Error('Missing supplier');
+  if (body.length < 10) throw new Error('Please write a little more.');
+  // Gate to savers: a testimonial should come from someone who actually uses them.
+  const saved = await prisma.savedSupplier.findUnique({
+    where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true },
+  });
+  if (!saved) throw new Error('Add this supplier to your phone book first.');
+  await prisma.testimonial.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    update: { body, status: 'PENDING', authorName: u.name },
+    create: { userId: u.id, vendorId, body, authorName: u.name },
+  });
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { brandKey: true } });
+  if (v) revalidatePath(`/docs/supplier/${supplierSlug(v.brandKey)}`);
+}
+
+// Admin: approve / reject / reset a submitted testimonial.
+export async function setTestimonialStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') {
+  await ensureStaff();
+  if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) throw new Error('Bad status');
+  const t = await prisma.testimonial.update({
+    where: { id },
+    data: { status, ...(status === 'APPROVED' ? {} : { showOnSupplierPage: false, showOnVendorDashboard: false }) },
+    select: { vendorId: true, vendor: { select: { brandKey: true } } },
+  });
+  revalidatePath(`/admin/vendors/${t.vendorId}`);
+  revalidatePath(`/docs/supplier/${supplierSlug(t.vendor.brandKey)}`);
+  revalidatePath('/docs/vendor');
+}
+
+// Admin: toggle where an APPROVED testimonial appears (public page / dashboard).
+export async function toggleTestimonialVisibility(id: string, field: 'showOnSupplierPage' | 'showOnVendorDashboard') {
+  await ensureStaff();
+  if (field !== 'showOnSupplierPage' && field !== 'showOnVendorDashboard') throw new Error('Bad field');
+  const cur = await prisma.testimonial.findUnique({ where: { id }, select: { status: true, showOnSupplierPage: true, showOnVendorDashboard: true, vendorId: true, vendor: { select: { brandKey: true } } } });
+  if (!cur) throw new Error('Not found');
+  if (cur.status !== 'APPROVED') throw new Error('Approve the testimonial before publishing it.');
+  await prisma.testimonial.update({ where: { id }, data: { [field]: !cur[field] } });
+  revalidatePath(`/admin/vendors/${cur.vendorId}`);
+  revalidatePath(`/docs/supplier/${supplierSlug(cur.vendor.brandKey)}`);
+  revalidatePath('/docs/vendor');
 }
 
 // Competitor groups: advertisers that must never run alongside each other, and
