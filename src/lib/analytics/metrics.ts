@@ -166,6 +166,11 @@ export function aggregateOverview(evs: Ev[]) {
 // ---- Advertiser-scoped reporting (a vendor sees only their own brand) ----
 
 const brandOf = (e: Ev): string => String(e.props.campaignId ?? e.props.brand ?? '');
+// Match key for a brand string — trim + lowercase, mirroring lib/entitlements'
+// brandKey. Kept inline so this module stays DB/import-free and unit-testable.
+// Ensures the admin "Build report" hand-off (which passes the vendor's *display
+// name*) still matches events keyed on campaignId/brand across casing/whitespace.
+const brandMatchKey = (s: unknown): string => (typeof s === 'string' ? s.trim() : String(s ?? '')).toLowerCase();
 
 // Distinct advertiser/brand names present in the ad events.
 export function advertiserList(evs: Ev[]): string[] {
@@ -189,7 +194,8 @@ export function adTrend(evs: Ev[]): { key: string; impressions: number; clicks: 
 // Full report for one advertiser — totals + per-creative + per-placement +
 // daily trend, scoped strictly to that brand's events.
 export function advertiserReport(evs: Ev[], brand: string) {
-  const ads = evs.filter((e) => e.subjectType === 'ad' && brandOf(e) === brand);
+  const key = brandMatchKey(brand);
+  const ads = evs.filter((e) => e.subjectType === 'ad' && brandMatchKey(brandOf(e)) === key);
   const totals = aggregateAds(ads, 'campaign')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
   return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
 }

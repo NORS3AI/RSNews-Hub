@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireAdmin } from '@/lib/auth';
-import { buildReport, parseReportParams, type Viz } from '@/lib/reportData';
+import { buildReport, parseReportParams, reportQuery, type Viz } from '@/lib/reportData';
 import ReportSectionView from '@/components/admin/ReportSectionView';
 import PrintButton from '@/components/site/PrintButton';
 import { SITE_NAME } from '@/lib/constants';
@@ -32,7 +32,7 @@ export default async function ReportExportPage(props: { searchParams: Promise<Re
       <style>{`@media print { [data-noprint]{display:none!important} @page{margin:16mm} body{background:#fff} }`}</style>
 
       <div data-noprint className="mb-6 flex items-center justify-between gap-3">
-        <Link href={`/admin/reports/builder?${new URLSearchParams(sp as Record<string, string>).toString()}`} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">← Back to builder</Link>
+        <Link href={`/admin/reports/builder?${reportQuery(params)}`} className="text-sm text-[var(--muted)] hover:text-[var(--fg)]">← Back to builder</Link>
         <PrintButton />
       </div>
 

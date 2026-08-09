@@ -12,7 +12,7 @@ import RequestReportForm from '@/components/site/RequestReportForm';
 import { loadAds } from '@/lib/adsServer';
 import ReportView from '@/components/ReportView';
 import { formatDate } from '@/lib/utils';
-import { ExternalLink } from '@/components/icons';
+import { ExternalLink, Megaphone } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,14 +59,19 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
 
   return (
     <Shell>
-      <div className="card overflow-hidden">
-        <div className="border-b border-[var(--border)] p-5 sm:p-6">
-          <h1 className="text-2xl font-bold">Your ad dashboard</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">{ent.vendorBrand || user.name} · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
-          <div className="mt-4 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
+        <div className="border-b border-[var(--border)] bg-gradient-to-br from-brand-600/10 to-transparent p-5 sm:p-7">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm"><Megaphone width={22} height={22} /></span>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-black leading-tight">Your ad dashboard</h1>
+              <p className="text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--fg)]">{ent.vendorBrand || user.name}</span> · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
+            </div>
+          </div>
+          <div className="mt-5 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
             {TABS.map(([key, label]) => (
               <Link key={key} href={`/docs/vendor?tab=${key}`}
-                className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === key ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
+                className={`rounded-lg px-3.5 py-1.5 text-sm font-bold transition ${tab === key ? 'bg-brand-600 text-white shadow-sm' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
             ))}
           </div>
         </div>
@@ -88,7 +93,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                 {/* View your current ads (what's on file) */}
                 <section className="p-5 sm:p-6">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="font-bold">View your current ads</h2>
+                    <h2 className="text-lg font-black">View your current ads</h2>
                     {updateUrl
                       ? <a href={updateUrl} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">Update your ads <ExternalLink width={13} height={13} /></a>
                       : <span className="text-xs text-[var(--muted)]">To refresh your creatives, contact the RS News team.</span>}
@@ -117,7 +122,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                 {testimonials.length > 0 && (
                   <section className="p-5 sm:p-6">
                     <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="font-bold">What stores are saying about you</h2>
+                      <h2 className="text-lg font-black">What stores are saying about you</h2>
                       <Link href="/vendor-testimonials" target="_blank" className="btn-primary btn-sm">View &amp; download</Link>
                     </div>
                     <p className="mb-3 text-xs text-[var(--muted)]">{testimonials.length} testimonial{testimonials.length === 1 ? '' : 's'} RS News readers left for your brand, curated by our team.</p>
@@ -138,7 +143,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
         {tab === 'performance' && (
           <div className="divide-y divide-[var(--border)]">
             <section className="p-5 sm:p-6">
-              <h2 className="font-bold">Request a performance report</h2>
+              <h2 className="text-lg font-black">Request a performance report</h2>
               <p className="mb-3 mt-0.5 text-sm text-[var(--muted)]">Ask us to compile how your ads performed over a period — we’ll put it together and send it to you.</p>
               <RequestReportForm disabled={reqDisabled} disabledNote={reqNote} />
               {latestReq && (
@@ -146,7 +151,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
               )}
             </section>
             <section className="p-5 sm:p-6">
-              <h2 className="mb-3 font-bold">Published reports</h2>
+              <h2 className="mb-3 text-lg font-black">Published reports</h2>
               {reports.length === 0
                 ? <p className="text-sm text-[var(--muted)]">No reports yet — request one above, or we’ll publish your quarterly summary here after review.</p>
                 : <div className="space-y-4">{reports.map((r) => (
@@ -201,7 +206,7 @@ function CampaignSection({ c, now, past = false }: { c: CampaignWithFlights; now
   return (
     <section className="p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-bold">{past ? planLabel : `Current campaign · ${planLabel}`}</h2>
+        <h2 className="text-lg font-black">{past ? planLabel : `Current campaign · ${planLabel}`}</h2>
         <span className="badge bg-[var(--bg-soft)]">{c.status}{!past ? ` · ${countdownLabel(c.endAt, now)}` : ''}</span>
       </div>
       <div className="mt-0.5 text-sm text-[var(--muted)]">{formatDate(c.startAt)} → {formatDate(c.endAt)}</div>

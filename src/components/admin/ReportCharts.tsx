@@ -37,6 +37,10 @@ export function Pie({ rows }: { rows: Slice[] }) {
   if (!total) return <p className="text-sm text-[var(--muted)]">No data in this range.</p>;
   const R = 60, r0 = 34, C = 70; // viewBox 140, donut
   let a0 = -Math.PI / 2;
+  // A lone slice (or one that rounds to the whole circle) can't be drawn as an
+  // arc — start and end coincide, so the path collapses to nothing. Render it as
+  // a full ring instead.
+  const single = data.length === 1;
   const arcs = data.map((d, i) => {
     const frac = d.count / total;
     const a1 = a0 + frac * 2 * Math.PI;
@@ -49,7 +53,13 @@ export function Pie({ rows }: { rows: Slice[] }) {
   return (
     <div className="flex flex-wrap items-center gap-5">
       <svg viewBox="0 0 140 140" className="h-36 w-36 shrink-0" role="img" aria-label="Distribution">
-        {arcs.map((a) => (
+        {single ? (
+          <>
+            <circle cx={C} cy={C} r={(R + r0) / 2} fill="none" stroke={arcs[0].hue} strokeWidth={R - r0} />
+            <circle cx={C} cy={C} r={R} fill="none" stroke="var(--card)" strokeWidth={2} />
+            <circle cx={C} cy={C} r={r0} fill="none" stroke="var(--card)" strokeWidth={2} />
+          </>
+        ) : arcs.map((a) => (
           <path key={a.d.key} d={a.path} fill={a.hue} stroke="var(--card)" strokeWidth={2} />
         ))}
       </svg>

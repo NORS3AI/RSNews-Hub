@@ -2,13 +2,9 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { requestVendorReport } from '@/lib/actions';
+import { REPORT_PERIODS } from '@/lib/vendorReports';
 
-const PERIODS: { key: string; label: string }[] = [
-  { key: 'quarter', label: 'Last quarter' },
-  { key: '6mo', label: 'Last 6 months' },
-  { key: 'year', label: 'Last 12 months' },
-  { key: 'lifetime', label: 'Lifetime' },
-];
+const PERIODS = Object.entries(REPORT_PERIODS).map(([key, v]) => ({ key, label: v.label }));
 
 // Vendor self-serve: request a compiled performance report for a period. The
 // server rate-limits (one open request; one per 30 days); we surface its result.
