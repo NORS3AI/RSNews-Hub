@@ -799,6 +799,9 @@ export async function saveVendorProfile(formData: FormData) {
 export async function addSavedSupplier(vendorId: string) {
   const u = await getCurrentUser();
   if (!u) throw new Error('Sign in to save suppliers.');
+  // Only premium suppliers are in the directory / phone book.
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!v?.premium) throw new Error('That supplier is not available in the phone book.');
   await prisma.savedSupplier.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
     update: {},
@@ -864,7 +867,9 @@ export async function submitTestimonial(formData: FormData) {
   const prof = await prisma.user.findUnique({ where: { id: u.id }, select: { storeName: true, memberCode: true } });
   await prisma.testimonial.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
-    update: { body, status: 'PENDING', authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
+    // Editing returns to PENDING AND pulls it from the vendor document, so edited
+    // text can't be silently re-published — the admin must re-approve + re-add it.
+    update: { body, status: 'PENDING', showOnVendorDashboard: false, authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
     create: { userId: u.id, vendorId, body, authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
   });
   revalidatePath(`/docs/suppliers/${vendorId}`);

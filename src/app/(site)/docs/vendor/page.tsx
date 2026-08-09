@@ -6,6 +6,7 @@ import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { listPublishedReports, parseSnapshot } from '@/lib/reports';
 import { testimonialsForVendorDashboard } from '@/lib/testimonials';
+import TestimonialAttribution from '@/components/site/TestimonialAttribution';
 import { loadAds } from '@/lib/adsServer';
 import { adIsLive } from '@/lib/ads';
 import ReportView from '@/components/ReportView';
@@ -97,7 +98,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                     {testimonials.slice(0, 3).map((t) => (
                       <figure key={t.id} className="tile p-4">
                         <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
-                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.storeName ? `${t.storeName} · ` : ''}{t.authorName}</figcaption>
+                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— <TestimonialAttribution storeName={t.storeName} authorName={t.authorName} /></figcaption>
                       </figure>
                     ))}
                   </div>

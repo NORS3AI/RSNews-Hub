@@ -73,7 +73,10 @@ export async function testimonialNudges(userId: string): Promise<TestimonialNudg
   ]);
   const savedSet = new Set(saved.map((s) => s.vendorId));
   const doneSet = new Set(mine.map((m) => m.vendorId));
+  const seen = new Set<string>();
   return requests
     .filter((r) => r.vendor.premium && savedSet.has(r.vendorId) && !doneSet.has(r.vendorId))
+    // One nudge per vendor even if (via a race) two active requests exist.
+    .filter((r) => (seen.has(r.vendorId) ? false : (seen.add(r.vendorId), true)))
     .map((r) => ({ vendorId: r.vendorId, vendorName: r.vendor.name, createdAt: r.createdAt }));
 }

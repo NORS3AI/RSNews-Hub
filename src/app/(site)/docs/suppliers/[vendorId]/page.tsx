@@ -2,8 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import {
-  getPremiumSupplier, getSavedSupplier, getSupplierStickyNotes,
-  getSupplierAdsOnFile, savedVendorIds,
+  getPremiumSupplier, getSavedSupplier, getSupplierStickyNotes, getSupplierAdsOnFile,
 } from '@/lib/suppliers';
 import { myTestimonial } from '@/lib/testimonials';
 import SupplierTools from '@/components/site/SupplierTools';
@@ -40,14 +39,13 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
     );
   }
 
-  const [saved, contact, sticky, mine, ads] = await Promise.all([
-    savedVendorIds(user.id),
+  const [contact, sticky, mine, ads] = await Promise.all([
     getSavedSupplier(user.id, vendorId),
     getSupplierStickyNotes(user.id, vendorId),
     myTestimonial(user.id, vendorId),
     getSupplierAdsOnFile(supplier.brandKey),
   ]);
-  const isSaved = saved.includes(supplier.id);
+  const isSaved = !!contact; // getSavedSupplier returns the row only when saved
 
   return (
     <div className="container-page py-8 sm:py-10">

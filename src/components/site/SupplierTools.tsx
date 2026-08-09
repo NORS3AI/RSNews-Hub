@@ -22,12 +22,12 @@ export default function SupplierTools({
   const params = useSearchParams();
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(savedInit);
-  const run = (fn: () => Promise<unknown>, after?: () => void) => start(async () => { try { await fn(); after?.(); router.refresh(); } catch (e) { alert(e instanceof Error ? e.message : 'Something went wrong.'); } });
+  const run = (fn: () => Promise<unknown>, after?: () => void, onError?: () => void) => start(async () => { try { await fn(); after?.(); router.refresh(); } catch (e) { onError?.(); alert(e instanceof Error ? e.message : 'Something went wrong.'); } });
 
   return (
     <div className="mt-5 space-y-6">
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => { const next = !saved; setSaved(next); run(() => next ? addSavedSupplier(vendorId) : removeSavedSupplier(vendorId)); }}
+        <button onClick={() => { const next = !saved; setSaved(next); run(() => next ? addSavedSupplier(vendorId) : removeSavedSupplier(vendorId), undefined, () => setSaved(!next)); }}
           disabled={pending}
           className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${saved ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--border)] hover:border-brand-500 hover:text-brand-600'}`}>
           {saved ? <StarFilled width={16} height={16} /> : <Star width={16} height={16} />}

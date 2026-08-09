@@ -7,6 +7,7 @@ import { testimonialsForVendorDashboard } from '@/lib/testimonials';
 import { SITE_NAME } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
 import PrintButton from '@/components/site/PrintButton';
+import TestimonialAttribution from '@/components/site/TestimonialAttribution';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Testimonials' };
@@ -65,7 +66,7 @@ export default async function VendorTestimonialsDoc(props: { searchParams: Promi
               <figure key={t.id} className="break-inside-avoid">
                 <blockquote className="border-l-4 border-brand-300 pl-4 text-lg italic leading-relaxed">“{t.body}”</blockquote>
                 <figcaption className="mt-2 pl-4 text-sm font-semibold text-[var(--muted)]">
-                  — {t.storeName ? <><span className="text-[var(--fg)]">{t.storeName}</span> · </> : ''}{t.authorName}
+                  — <TestimonialAttribution storeName={t.storeName} authorName={t.authorName} />
                 </figcaption>
               </figure>
             ))}

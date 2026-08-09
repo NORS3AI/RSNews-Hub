@@ -49,6 +49,7 @@ export default async function NotificationsPage() {
       {items.length > 0 ? (
         <div className="tile divide-y divide-[var(--border)] p-0">
           {items.map((it, i) => {
+            const key = `${it.type}:${it.href}:${it.date instanceof Date ? it.date.getTime() : it.date}`;
             const inner = (
               <div className="flex items-start gap-3 px-4 py-3.5">
                 <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${it.unread ? 'bg-brand-600' : 'bg-transparent'}`} aria-hidden />
@@ -70,8 +71,8 @@ export default async function NotificationsPage() {
               </div>
             );
             return it.type === 'industry'
-              ? <a key={i} href={it.href} target="_blank" rel="noopener noreferrer" className="block hover:bg-[var(--surface-2)]">{inner}</a>
-              : <Link key={i} href={it.href} className="block hover:bg-[var(--surface-2)]">{inner}</Link>;
+              ? <a key={key} href={it.href} target="_blank" rel="noopener noreferrer" className="block hover:bg-[var(--surface-2)]">{inner}</a>
+              : <Link key={key} href={it.href} className="block hover:bg-[var(--surface-2)]">{inner}</Link>;
           })}
         </div>
       ) : !hasTopics ? (
