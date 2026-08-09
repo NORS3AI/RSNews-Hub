@@ -155,7 +155,10 @@ export default async function DocsHome() {
 
   // Resolve the non-pool article sourcing modes used by custom-module article
   // blocks: hand-picked ids, by-tag, and by-year (throwbacks).
-  const artBlocks = allBlocks.filter((b) => b.type.startsWith('article'));
+  // Spotlight/Split are article-driven too (full sourcing: pick/tag/year/category),
+  // so they must join the prefetch or those modes resolve to an empty pool and the
+  // element renders blank. (Mosaic only uses `source`, handled in its own branch.)
+  const artBlocks = allBlocks.filter((b) => b.type.startsWith('article') || b.type === 'spotlight' || b.type === 'split');
   const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
   const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
@@ -476,7 +479,7 @@ export default async function DocsHome() {
         if (councilArticles.length === 0) return null;
         const councilEl = (
           <CouncilColumn items={councilArticles.map((a) => ({
-            slug: a.slug, title: a.title, content: a.content, author: a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
+            id: a.id, slug: a.slug, title: a.title, content: a.content, author: a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
           }))} />
         );
         // The column is intentionally narrow; fill the space beside it with ads.
@@ -551,7 +554,7 @@ export default async function DocsHome() {
             <div className="mb-4"><h2 className="module-title">Trending</h2></div>
             <div className="divide-y divide-[var(--border)]">
               {trending.map((a, i) => (
-                <ArticleLink key={a.id} slug={a.slug} className="flex items-center gap-3.5 py-3 hover:opacity-90"
+                <ArticleLink key={a.id} slug={a.slug} data-hp-id={a.id} className="flex items-center gap-3.5 py-3 hover:opacity-90"
                   data-trk-type="article" data-trk-id={a.id} data-trk-place="trending" data-trk-props={JSON.stringify({ module: 'trending', moduleType: 'list', pos: i, hasImage: false })}>
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-sm font-extrabold text-white">{i + 1}</span>
                   <span className="flex-1 text-lg font-extrabold leading-tight tracking-tight">{a.title}</span>
@@ -725,7 +728,7 @@ export default async function DocsHome() {
             <h2 className="module-title">Editor&rsquo;s picks</h2>
             
           </div>
-          <Carousel>{picks.map((a, i) => <ArticleCard key={a.id} article={a} trk={{ place: 'picks', props: { module: 'picks', moduleType: 'carousel', pos: i } }} />)}</Carousel>
+          <Carousel>{picks.map((a, i) => <ArticleCard key={a.id} article={a} hpId={false} trk={{ place: 'picks', props: { module: 'picks', moduleType: 'carousel', pos: i } }} />)}</Carousel>
         </section>
       )}
 
@@ -736,7 +739,7 @@ export default async function DocsHome() {
           <h2 className="module-title">Quick reads</h2>
           <span className="text-sm font-semibold text-[var(--muted)]">5 min or less</span>
         </div>
-        <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a, i) => <ArticleCard key={a.id} article={a} compact trk={{ place: 'quick', props: { module: 'quick', moduleType: 'carousel', pos: i } }} />)}</Carousel>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{quick.map((a, i) => <ArticleCard key={a.id} article={a} compact hpId={false} trk={{ place: 'quick', props: { module: 'quick', moduleType: 'carousel', pos: i } }} />)}</Carousel>
       </section>
 
       <section className="module">
@@ -744,7 +747,7 @@ export default async function DocsHome() {
           <h2 className="module-title">More to explore</h2>
           
         </div>
-        <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a, i) => <ArticleCard key={a.id} article={a} compact trk={{ place: 'more', props: { module: 'more', moduleType: 'carousel', pos: i } }} />)}</Carousel>
+        <Carousel itemWidth="w-[240px] sm:w-[260px]">{all.map((a, i) => <ArticleCard key={a.id} article={a} compact hpId={false} trk={{ place: 'more', props: { module: 'more', moduleType: 'carousel', pos: i } }} />)}</Carousel>
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

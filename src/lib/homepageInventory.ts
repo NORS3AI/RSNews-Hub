@@ -64,15 +64,18 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
     if (items.length) pushArts(items, `In ${c.name}`);
   }
 
-  // RS Council column: the ungated council pieces + the active council poll aside.
+  // RS Council column: the ungated council pieces (the council poll/quiz are NOT
+  // here — they render in the Industry module's aside; see below).
   if (enabled.has('council')) {
     const council = await prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: now }, category: { slug: 'rs-council-column' }, requirement: '' }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } });
     pushArts(council, 'RS Council column');
-    const poll = await prisma.poll.findFirst({ where: { active: true, kind: 'council' }, orderBy: { createdAt: 'desc' }, select: { id: true, question: true } });
-    if (poll) occ.push({ id: poll.id, title: poll.question, slug: '', kind: 'poll', place: 'RS Council poll' });
   }
 
   // ---- Custom Studio modules (layout order), with the page's custom-only dedup ----
+  // Track which poll/quiz ids custom modules pin, so the Industry aside below can
+  // yield them (matches the page's pinnedPollIds / pinnedQuizIds de-dup).
+  const pinnedPollIds = new Set<string>();
+  const pinnedQuizIds = new Set<string>();
   const used = new Set<string>();
   const firstUnused = (pool: Lite[], n = 1): Lite[] => {
     const out: Lite[] = [];
@@ -117,13 +120,25 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
       if (b.type.startsWith('article') || b.type === 'spotlight' || b.type === 'split' || b.type === 'mosaic') {
         pushArts(await resolveArticleBlock(b), row.name);
       } else if (b.type === 'poll' && b.settings.pollId) {
+        pinnedPollIds.add(String(b.settings.pollId));
         const p = await prisma.poll.findUnique({ where: { id: String(b.settings.pollId) }, select: { id: true, question: true } });
         if (p) occ.push({ id: p.id, title: p.question, slug: '', kind: 'poll', place: row.name });
       } else if (b.type === 'quiz' && b.settings.quizId) {
+        pinnedQuizIds.add(String(b.settings.quizId));
         const q = await prisma.quiz.findUnique({ where: { id: String(b.settings.quizId) }, select: { id: true, title: true } });
         if (q) occ.push({ id: q.id, title: q.title, slug: '', kind: 'quiz', place: row.name });
       }
     }
+  }
+
+  // Industry module aside: the generic active council poll + active Pop Quiz show
+  // here — but only when NOT already pinned inside a custom module (the page yields
+  // them via pinnedPollIds/pinnedQuizIds). Mirrors docs/page.tsx 'industry' case.
+  if (enabled.has('industry')) {
+    const poll = await prisma.poll.findFirst({ where: { active: true, kind: 'council' }, orderBy: { createdAt: 'desc' }, select: { id: true, question: true } });
+    if (poll && !pinnedPollIds.has(poll.id)) occ.push({ id: poll.id, title: poll.question, slug: '', kind: 'poll', place: 'Industry aside' });
+    const quiz = await prisma.quiz.findFirst({ where: { active: true, closesAt: { gt: now } }, orderBy: { createdAt: 'desc' }, select: { id: true, title: true } });
+    if (quiz && !pinnedQuizIds.has(quiz.id)) occ.push({ id: quiz.id, title: quiz.title, slug: '', kind: 'quiz', place: 'Industry aside' });
   }
 
   // ---- Aggregate by id ----

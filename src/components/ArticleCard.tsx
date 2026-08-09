@@ -6,7 +6,7 @@ import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
 import AdminArticleEdit from './site/AdminArticleEdit';
 
-export default function ArticleCard({ article, compact = false, trk }: { article: Card; compact?: boolean; trk?: { place?: string; props?: Record<string, unknown> } }) {
+export default function ArticleCard({ article, compact = false, trk, hpId = true }: { article: Card; compact?: boolean; trk?: { place?: string; props?: Record<string, unknown> }; hpId?: boolean }) {
   const trkAttrs = trk ? {
     'data-trk-type': 'article',
     'data-trk-id': article.id,
@@ -14,7 +14,7 @@ export default function ArticleCard({ article, compact = false, trk }: { article
     'data-trk-props': JSON.stringify({ ...(trk.props || {}), hasImage: !!article.coverImage, category: article.category?.slug, compact }),
   } : {};
   return (
-    <article className="card card-hover group relative flex flex-col overflow-hidden" data-hp-id={article.id} {...trkAttrs}>
+    <article className="card card-hover group relative flex flex-col overflow-hidden" data-hp-id={hpId ? article.id : undefined} {...trkAttrs}>
       {/* Floating star — sits above the link, doesn't trigger navigation. */}
       <div className="absolute right-2.5 top-2.5 z-10">
         <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} />

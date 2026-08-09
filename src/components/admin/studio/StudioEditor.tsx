@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useTra
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, MAX_BLOCKS, MAX_FALLBACKS,
+  BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, clampTreeSpan, MAX_BLOCKS, MAX_FALLBACKS,
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
 import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
@@ -141,7 +141,7 @@ export default function StudioEditor({
   const setShape = (shape: Shape) => mutate((t) => { t.shape = shape; return t; });
   const setContainerColor = (c: string | null) => mutate((t) => { t.rsColor = c; return t; });
   const setExpireDays = (d: number) => mutate((t) => { t.expireDays = d > 0 ? d : 0; return t; });
-  const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = n >= 1 && n <= 3 ? n : 3; return t; });
+  const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = clampTreeSpan(n); return t; });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -294,7 +294,7 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas <span className="ml-1 rounded bg-[var(--card-2)] px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-[var(--muted)]">{(Number(tree.defaultSpan) || 3) === 1 ? '⅓ width' : (Number(tree.defaultSpan) || 3) === 2 ? '⅔ width' : 'Full width'}</span></span>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas <span className="ml-1 rounded bg-[var(--card-2)] px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-[var(--muted)]">{clampTreeSpan(tree.defaultSpan) === 1 ? '⅓ width' : clampTreeSpan(tree.defaultSpan) === 2 ? '⅔ width' : 'Full width'}</span></span>
             <div className="flex items-center gap-2">
               {/* Preview the module in the same three themes a reader can pick. */}
               <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-xs font-semibold">
@@ -313,7 +313,7 @@ export default function StudioEditor({
               </button>
             </div>
           </div>
-          <div className={`mx-auto w-full rounded-2xl transition-[max-width] duration-300 ${(Number(tree.defaultSpan) || 3) === 1 ? 'max-w-sm' : (Number(tree.defaultSpan) || 3) === 2 ? 'max-w-2xl' : 'max-w-4xl'} ${previewClass}`}>
+          <div className={`mx-auto w-full rounded-2xl transition-[max-width] duration-300 ${clampTreeSpan(tree.defaultSpan) === 1 ? 'max-w-sm' : clampTreeSpan(tree.defaultSpan) === 2 ? 'max-w-2xl' : 'max-w-4xl'} ${previewClass}`}>
             <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
               {tree.children.length === 0 ? (
@@ -480,7 +480,7 @@ const WIDTH_PRESETS: { value: number; label: string; hint: string }[] = [
 ];
 
 function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void }) {
-  const span = Number(tree.defaultSpan) || 3;
+  const span = clampTreeSpan(tree.defaultSpan);
   return (
     <InspectorShell title="Module">
       <Field label="Shape">

@@ -1,6 +1,6 @@
 import ArticleLink from './ArticleLink';
 
-export type CouncilItem = { slug: string; title: string; content: string; author: string | null; publishedAt: string };
+export type CouncilItem = { id: string; slug: string; title: string; content: string; author: string | null; publishedAt: string };
 
 /**
  * RS Council column — a tall, narrow module that prints every Council piece in
@@ -17,8 +17,8 @@ export default function CouncilColumn({ items }: { items: CouncilItem[] }) {
 
       <div className="divide-y divide-[var(--border)]">
         {items.map((a, i) => (
-          <ArticleLink key={a.slug} slug={a.slug} className="council-entry group block cursor-pointer py-5 first:pt-0"
-            data-trk-type="article" data-trk-id={a.slug} data-trk-place="council" data-trk-props={JSON.stringify({ module: 'council', moduleType: 'column', pos: i, hasImage: false, label: 'council' })}>
+          <ArticleLink key={a.slug} slug={a.slug} data-hp-id={a.id} className="council-entry group block cursor-pointer py-5 first:pt-0"
+            data-trk-type="article" data-trk-id={a.id} data-trk-place="council" data-trk-props={JSON.stringify({ module: 'council', moduleType: 'column', pos: i, hasImage: false, label: 'council' })}>
             <h3 className="text-[19px] font-extrabold leading-snug tracking-tight group-hover:text-[#b91c1c]">{a.title}</h3>
             <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
               {a.author ?? 'RS Council'}{a.publishedAt ? ` · ${a.publishedAt}` : ''}

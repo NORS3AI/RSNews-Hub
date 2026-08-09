@@ -16,13 +16,13 @@ export function AdminEditProvider({ value, children }: { value: boolean; childre
 // AdminEditProvider above marks the viewer as staff. Place inside a
 // `group relative` parent (as a sibling of the element's link, NOT nested in it,
 // to avoid an <a> inside an <a>). Sits top-left so it clears the top-right star.
-export default function AdminArticleEdit({ id, alwaysShow = false, pos = 'left-2 top-2' }: { id: string; alwaysShow?: boolean; pos?: string }) {
+export default function AdminArticleEdit({ id, pos = 'left-2 top-2' }: { id: string; pos?: string }) {
   const on = useContext(AdminEditContext);
   if (!on) return null;
   return (
     <Link href={`/admin/articles/${id}`} title="Edit this article" aria-label="Edit this article"
       onClick={(e) => e.stopPropagation()}
-      className={`absolute ${pos} z-20 inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs font-bold text-[var(--fg)] shadow-card transition hover:border-brand-400 hover:text-brand-600 focus:opacity-100 ${alwaysShow ? '' : 'opacity-0 group-hover:opacity-100'}`}>
+      className={`absolute ${pos} z-20 inline-flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs font-bold text-[var(--fg)] opacity-0 shadow-card transition hover:border-brand-400 hover:text-brand-600 focus:opacity-100 group-hover:opacity-100`}>
       <Edit width={13} height={13} /> Edit
     </Link>
   );

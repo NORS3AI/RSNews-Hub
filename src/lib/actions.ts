@@ -57,7 +57,12 @@ export async function saveArticle(formData: FormData) {
   const status = (formData.get('status') as string) || 'DRAFT';
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
-  const coverFocus = ((formData.get('coverFocus') as string) || '').trim();
+  // Focal point: accept only the 9 known object-position values; anything else
+  // (incl. a forged value) → null (center). Defense-in-depth so the value can
+  // never be a surprise if it's ever interpolated into a raw style string.
+  const COVER_FOCUS_OK = new Set(['0% 0%', '50% 0%', '100% 0%', '0% 50%', '50% 50%', '100% 50%', '0% 100%', '50% 100%', '100% 100%']);
+  const coverFocusRaw = ((formData.get('coverFocus') as string) || '').trim();
+  const coverFocus = COVER_FOCUS_OK.has(coverFocusRaw) ? coverFocusRaw : '';
   const featured = formData.get('featured') === 'on';
   const pinned = formData.get('pinned') === 'on';
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
@@ -912,6 +917,8 @@ export async function toggleHomeSizeLock(id: string) {
 // takes effect in place, unlike the draft-staged editor controls.
 export async function toggleHomeLockLive(id: string) {
   await ensureStaff();
+  // Compute the target from live ONCE, then apply that absolute value to both live
+  // and the draft — so live and draft can't toggle independently and diverge.
   const live = await getHomeLayout();
   const next = !live.find((x) => x.id === id)?.locked;
   await patchModuleLive(id, (m) => { m.locked = next; });
