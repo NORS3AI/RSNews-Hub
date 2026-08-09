@@ -20,7 +20,6 @@ const groups: NavGroup[] = [
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
     { href: '/admin/homepage/inventory', label: 'On-page inventory', icon: Layers },
-    { href: '/admin/studio', label: 'Module Studio', icon: Grid },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   ] },
   { title: 'Create content', links: [
@@ -29,6 +28,7 @@ const groups: NavGroup[] = [
     { href: '/admin/polls', label: 'Polls', icon: BarChart },
     { href: '/admin/quizzes', label: 'Pop Quiz', icon: Check },
     { href: '/admin/comics', label: 'Comics', icon: Sparkles },
+    { href: '/admin/studio', label: 'Module Studio', icon: Grid },
     { href: '/admin/pages', label: 'Pages', icon: Archive },
   ] },
   { title: 'Organize', links: [
