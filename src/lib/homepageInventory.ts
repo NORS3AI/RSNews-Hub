@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
-import { isCustomModuleId, customIdOf, parseTree, type Block } from './studio';
+import { isCustomModuleId, customIdOf, parseTree, isArticleSourced, type Block } from './studio';
 import { getPersonalizedFeed, trendingArticles } from './recommend';
 
 // Homepage content inventory — what articles / polls / quizzes actually appear on
@@ -117,7 +117,7 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
     const row = await prisma.customModule.findUnique({ where: { id: customIdOf(m.id)! }, select: { name: true, tree: true, published: true } });
     if (!row || !row.published) continue;
     for (const b of parseTree(row.tree).children) {
-      if (b.type.startsWith('article') || b.type === 'spotlight' || b.type === 'split' || b.type === 'mosaic') {
+      if (isArticleSourced(b.type) || b.type === 'mosaic') {
         pushArts(await resolveArticleBlock(b), row.name);
       } else if (b.type === 'poll' && b.settings.pollId) {
         pinnedPollIds.add(String(b.settings.pollId));

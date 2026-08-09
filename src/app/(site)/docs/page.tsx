@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, clampSpan, type ModuleId, type HomeModule } from '@/lib/homepage';
-import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
 import { Lock } from '@/components/icons';
 import { sweepExpiredModulePolls, sweepExpiredModules } from '@/lib/studioPolls';
@@ -155,10 +155,10 @@ export default async function DocsHome() {
 
   // Resolve the non-pool article sourcing modes used by custom-module article
   // blocks: hand-picked ids, by-tag, and by-year (throwbacks).
-  // Spotlight/Split are article-driven too (full sourcing: pick/tag/year/category),
-  // so they must join the prefetch or those modes resolve to an empty pool and the
-  // element renders blank. (Mosaic only uses `source`, handled in its own branch.)
-  const artBlocks = allBlocks.filter((b) => b.type.startsWith('article') || b.type === 'spotlight' || b.type === 'split');
+  // Article-sourced blocks (incl. spotlight/split) need pick/tag/year/category
+  // pools prefetched or those modes resolve empty and the element renders blank.
+  // isArticleSourced() is the single source of truth (shared with the inventory).
+  const artBlocks = allBlocks.filter((b) => isArticleSourced(b.type));
   const pickIds = [...new Set(artBlocks.filter((b) => b.settings.mode === 'pick' && typeof b.settings.articleId === 'string').map((b) => b.settings.articleId as string))];
   const tags = [...new Set(artBlocks.filter((b) => b.settings.mode === 'tag' && b.settings.tag).map((b) => String(b.settings.tag).trim().toLowerCase()))];
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];

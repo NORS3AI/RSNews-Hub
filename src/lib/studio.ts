@@ -108,6 +108,18 @@ export function blocksInGroup(group: BlockGroup): BlockType[] {
 export function isBlockType(v: unknown): v is BlockType {
   return typeof v === 'string' && v in BLOCKS;
 }
+
+// Block types that resolve a single article via the full sourcing model
+// (auto / category / tag / year / pick — see articleFill). The homepage MUST
+// prefetch pick/tag/year/category pools for these, and the inventory resolves
+// them the same way. Single-sourced here so a new article-driven element can't
+// silently miss the prefetch (which renders it blank) — the studio test asserts
+// this set stays in sync with the block catalog. NOTE: `mosaic` shows articles
+// too but is source-only (no pick/tag/year), so it is deliberately NOT here.
+export const ARTICLE_SOURCED_BLOCKS: BlockType[] = ['article', 'article-image', 'article-headline', 'spotlight', 'split'];
+export function isArticleSourced(type: BlockType): boolean {
+  return ARTICLE_SOURCED_BLOCKS.includes(type);
+}
 export function blockLabel(type: BlockType): string {
   return BLOCKS[type]?.label ?? type;
 }

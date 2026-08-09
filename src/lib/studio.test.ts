@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeTree, emptyTree, makeBlock, serializeTree, parseTree, isHexColor,
   MAX_BLOCKS, MAX_FALLBACKS, blockChain, inSchedule, customModuleId, isCustomModuleId, customIdOf,
+  BLOCK_IDS, ARTICLE_SOURCED_BLOCKS, isArticleSourced,
 } from './studio';
 
 describe('studio tree model', () => {
@@ -171,5 +172,23 @@ describe('studio tree model', () => {
     expect(isCustomModuleId('latest')).toBe(false);
     expect(customIdOf('custom:abc')).toBe('abc');
     expect(customIdOf('latest')).toBeNull();
+  });
+
+  // Drift guard: the homepage prefetch and the admin inventory both rely on
+  // isArticleSourced() to decide which blocks need pick/tag/year/category pools.
+  // If someone adds a new article-driven element and forgets to classify it, it
+  // would render blank live (the exact bug the audit caught) — this test forces
+  // the decision by pinning the set and asserting every entry is a real block.
+  it('isArticleSourced covers exactly the sourcing-driven blocks', () => {
+    expect([...ARTICLE_SOURCED_BLOCKS].sort()).toEqual(
+      ['article', 'article-headline', 'article-image', 'spotlight', 'split'].sort(),
+    );
+    for (const t of ARTICLE_SOURCED_BLOCKS) expect(BLOCK_IDS).toContain(t);
+    expect(isArticleSourced('spotlight')).toBe(true);
+    expect(isArticleSourced('split')).toBe(true);
+    // mosaic shows articles but is source-only (no pick/tag/year) → not "sourced".
+    expect(isArticleSourced('mosaic')).toBe(false);
+    expect(isArticleSourced('ad')).toBe(false);
+    expect(isArticleSourced('poll')).toBe(false);
   });
 });
