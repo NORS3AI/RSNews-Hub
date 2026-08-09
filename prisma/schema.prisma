@@ -288,10 +288,39 @@ model Vendor {
   brandKey     String       @unique         // normalized match key (see lib/vendors)
   contactEmail String?                      // reminders / performance reports (later phases)
   notes        String?
+  // Reader-facing supplier profile fields. `premium` gates the public supplier
+  // page + inclusion in the supplier directory; the rest populate it + the phone
+  // book. `phone` is the official sales line; website is the advertiser's site.
+  premium      Boolean      @default(false)
+  website      String?
+  phone        String?
+  blurb        String?                       // short description on the supplier page
+  logoUrl      String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   campaigns    AdCampaign[]
   reports      PerformanceReport[]
+  savedBy      SavedSupplier[]
+}
+
+// A reader's personal "phone book" entry for a supplier (account-tied so it
+// follows them across devices — unlike localStorage favorites). Holds the
+// reader's own notes and OPTIONAL alternative contact details they add
+// themselves (kept separate from the vendor's official contact info).
+model SavedSupplier {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  note      String?
+  altEmail  String?
+  altPhone  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, vendorId])
+  @@index([userId])
 }
 
 // A set of advertisers that must never advertise alongside each other. If any
@@ -442,6 +471,7 @@ model User {
   favFolders    FavoriteFolder[]
   clippings     Clipping[]
   articleRevisions ArticleRevision[]
+  savedSuppliers SavedSupplier[]
   notes         String?
 }
 

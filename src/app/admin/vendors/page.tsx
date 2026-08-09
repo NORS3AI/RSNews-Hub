@@ -39,7 +39,7 @@ export default async function AdminVendors() {
           {vendors.map((v) => (
             <div key={v.id} className="card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-bold">{v.name}</div>
+                <Link href={`/admin/vendors/${v.id}`} className="font-bold hover:text-brand-600 hover:underline">{v.name}{v.premium ? <span className="ml-2 badge bg-brand-600/15 align-middle text-[10px] text-brand-600">Premium</span> : null}</Link>
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
                   <span className="badge bg-[var(--bg-soft)]">{v._count.campaigns} campaign{v._count.campaigns === 1 ? '' : 's'}</span>
                   <span className="badge bg-[var(--bg-soft)]">{v._count.reports} report{v._count.reports === 1 ? '' : 's'}</span>

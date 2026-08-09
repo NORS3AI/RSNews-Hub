@@ -6,7 +6,7 @@ import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
 import SubscribePopup, { NOTIF_CHANGED } from './SubscribePopup';
-import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors, Star } from '@/components/icons';
+import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors, Star, Book } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
@@ -20,6 +20,7 @@ const NAV = [
   { href: '/docs/clippings', label: 'Clippings', icon: Scissors },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
+  { href: '/docs/suppliers', label: 'Suppliers', icon: Book },
   { href: '/docs/notifications', label: 'Notifications', icon: Bell },
 ];
 

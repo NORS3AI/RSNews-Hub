@@ -14,8 +14,9 @@ import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
 import AdSlot from '@/components/AdSlot';
-import InArticleAd from '@/components/InArticleAd';
+import AdWithOptions from '@/components/site/AdWithOptions';
 import { loadAds } from '@/lib/adsServer';
+import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import ArticleLink from '@/components/site/ArticleLink';
 import SaveButtons from '@/components/site/StarButton';
 import Carousel from '@/components/site/Carousel';
@@ -44,13 +45,14 @@ const cardSelect = {
 const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t.tag) });
 
 export default async function DocsHome() {
-  const [featuredRaw, latestRaw, categories, layout, industry, allAds] = await Promise.all([
+  const [featuredRaw, latestRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
     prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } } }),
     getHomeLayout(),
     prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }], take: 50 }),
     loadAds(),
+    getSupplierAdMap(),
   ]);
 
   const activePoll = await prisma.poll.findFirst({
@@ -90,6 +92,12 @@ export default async function DocsHome() {
   const heroSpan = sectionSpan('home_hero_span');
   const weekSpan = sectionSpan('home_week_span');
 
+  const user = await getSessionUser();
+  const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
+  // Which premium suppliers this reader has already saved — powers the "in your
+  // phone book" state on each ad's options menu.
+  const savedSupplierIds = user ? await savedVendorIds(user.id) : [];
+
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
@@ -105,13 +113,15 @@ export default async function DocsHome() {
     if (!pool.length) return <AdSlot size={size} slot={slot} className="max-w-none" />;
     const ad = pool[homeAdCursor++ % pool.length];
     // Homepage ads fill their slot: rectangles fill their grid column, banners
-    // stretch the full content width (no centered max-width cap).
-    if (size === 'rectangle') return <InArticleAd ad={ad} slot={slot} size="rectangle" tone="orange" fill />;
-    return <InArticleAd ad={ad} slot={slot} size="in-article" tone="orange" fill />;
+    // stretch the full content width (no centered max-width cap). Premium
+    // suppliers also get a small ⋯ options menu (supplier page · site · save).
+    return (
+      <AdWithOptions
+        ad={ad} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user}
+        slot={slot} size={size === 'rectangle' ? 'rectangle' : 'in-article'} tone="orange" fill
+      />
+    );
   };
-
-  const user = await getSessionUser();
-  const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
   // The viewer's entitlement attributes, for element audience gates. Null when
   // signed out (gated elements then tease/hide for everyone unless public).
   const account: AccountLike | null = user

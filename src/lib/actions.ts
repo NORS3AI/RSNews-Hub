@@ -768,6 +768,65 @@ export async function saveVendorContact(formData: FormData) {
   revalidatePath('/admin/vendors');
 }
 
+// Admin: edit an advertiser's full reader-facing profile (name, premium flag,
+// website, phone, contact email, blurb, logo, private notes).
+export async function saveVendorProfile(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('id') as string) || '').trim();
+  if (!id) throw new Error('id required');
+  const s = (k: string, max: number) => { const v = ((formData.get(k) as string) || '').trim(); return v ? v.slice(0, max) : null; };
+  const name = s('name', 120);
+  await prisma.vendor.update({
+    where: { id },
+    data: {
+      ...(name ? { name } : {}),
+      premium: formData.get('premium') === 'on',
+      website: s('website', 300),
+      phone: s('phone', 60),
+      contactEmail: s('contactEmail', 200),
+      blurb: s('blurb', 600),
+      logoUrl: s('logoUrl', 1000),
+      notes: s('notes', 2000),
+    },
+  });
+  revalidatePath('/admin/vendors');
+  revalidatePath(`/admin/vendors/${id}`);
+  revalidatePath('/docs/suppliers');
+}
+
+// ---- Reader phone book (account-tied) ----
+export async function addSavedSupplier(vendorId: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in to save suppliers.');
+  await prisma.savedSupplier.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    update: {},
+    create: { userId: u.id, vendorId },
+  });
+  revalidatePath('/docs/suppliers');
+}
+export async function removeSavedSupplier(vendorId: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  await prisma.savedSupplier.deleteMany({ where: { userId: u.id, vendorId } });
+  revalidatePath('/docs/suppliers');
+}
+// Save the reader's own note + optional alternative contact for a supplier.
+// Upserts so it works whether or not the supplier is already starred.
+export async function updateSavedSupplier(vendorId: string, data: { note?: string; altEmail?: string; altPhone?: string }) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  const note = (data.note ?? '').trim().slice(0, 2000) || null;
+  const altEmail = (data.altEmail ?? '').trim().slice(0, 200) || null;
+  const altPhone = (data.altPhone ?? '').trim().slice(0, 60) || null;
+  await prisma.savedSupplier.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    update: { note, altEmail, altPhone },
+    create: { userId: u.id, vendorId, note, altEmail, altPhone },
+  });
+  revalidatePath('/docs/suppliers');
+}
+
 // Competitor groups: advertisers that must never run alongside each other, and
 // whose rivals are suppressed in any article that names one of them.
 export async function saveCompetitorGroup(formData: FormData) {
