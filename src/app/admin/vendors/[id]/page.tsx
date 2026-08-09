@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, setTestimonialOnDashboard } from '@/lib/actions';
+import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, setTestimonialOnDashboard, fulfillReportRequest } from '@/lib/actions';
+import { REPORT_PERIODS } from '@/lib/vendorReports';
 import { testimonialsForAdmin, testimonialAudienceCount, hasActiveRequest } from '@/lib/testimonials';
 import TestimonialAttribution from '@/components/site/TestimonialAttribution';
 import { ArrowLeft, ExternalLink } from '@/components/icons';
@@ -22,11 +23,13 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
   });
   if (!vendor) notFound();
 
-  const [testimonials, audience, requestOpen] = await Promise.all([
+  const [testimonials, audience, requestOpen, reportRequests] = await Promise.all([
     testimonialsForAdmin(vendor.id),
     testimonialAudienceCount(vendor.id),
     hasActiveRequest(vendor.id),
+    prisma.adReportRequest.findMany({ where: { vendorId: vendor.id }, orderBy: { createdAt: 'desc' }, take: 10 }),
   ]);
+  const pendingReports = reportRequests.filter((r) => r.status === 'PENDING');
 
   const F = ({ label, name, defaultValue, placeholder, type = 'text' }: { label: string; name: string; defaultValue?: string | null; placeholder?: string; type?: string }) => (
     <label className="block">
@@ -80,6 +83,39 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
           {vendor.premium && <Link href={`/docs/suppliers/${vendor.id}`} className="btn-outline btn-sm" target="_blank">Open in phone book <ExternalLink width={13} height={13} /></Link>}
         </div>
       </form>
+
+      {/* ── Report requests (from the vendor's dashboard) ─────────────────── */}
+      {reportRequests.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-black uppercase tracking-wide text-[var(--muted)]">
+            Report requests{pendingReports.length ? ` · ${pendingReports.length} pending` : ''}
+          </h2>
+          <ul className="space-y-2">
+            {reportRequests.map((r) => {
+              const days = REPORT_PERIODS[r.period]?.days ?? 90;
+              const label = REPORT_PERIODS[r.period]?.label ?? r.period;
+              return (
+                <li key={r.id} className="card flex flex-wrap items-center justify-between gap-2 p-3">
+                  <div className="text-sm">
+                    <span className="font-semibold">{label}</span>
+                    <span className="ml-2 text-xs text-[var(--muted)]">requested {formatDate(r.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {r.status === 'PENDING' ? (
+                      <>
+                        <Link href={`/admin/reports/builder?scope=advertiser&brand=${encodeURIComponent(vendor.name)}&days=${days}`} target="_blank" className="btn-outline btn-sm">Build report <ExternalLink width={13} height={13} /></Link>
+                        <form action={fulfillReportRequest.bind(null, r.id)}><button className="btn-primary btn-sm">Mark sent</button></form>
+                      </>
+                    ) : (
+                      <span className="badge bg-green-100 text-green-700">Sent {r.fulfilledAt ? formatDate(r.fulfilledAt) : ''}</span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {vendor.reports.length > 0 && (
         <div className="mt-6">

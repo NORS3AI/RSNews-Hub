@@ -6,16 +6,17 @@ import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { listPublishedReports, parseSnapshot } from '@/lib/reports';
 import { testimonialsForVendorDashboard } from '@/lib/testimonials';
+import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from '@/lib/vendorReports';
 import TestimonialAttribution from '@/components/site/TestimonialAttribution';
+import RequestReportForm from '@/components/site/RequestReportForm';
 import { loadAds } from '@/lib/adsServer';
-import { adIsLive } from '@/lib/ads';
 import ReportView from '@/components/ReportView';
-import VendorAdShowcase from '@/components/site/VendorAdShowcase';
 import { formatDate } from '@/lib/utils';
+import { ExternalLink } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
-const TABS = [['current', 'Current'], ['history', 'History'], ['performance', 'Performance']] as const;
+const TABS = [['current', 'Current'], ['performance', 'Performance'], ['history', 'History']] as const;
 
 export default async function VendorDashboard(props: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: tabParam } = await props.searchParams;
@@ -23,109 +24,153 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const user = await getCurrentUser();
   const ent = entitlementsOf(user ?? {});
 
-  if (!user) {
-    return <Shell><Notice title="Sign in to view your vendor dashboard" body="Log in on the main RS News site to see your ad campaigns." /></Shell>;
-  }
-  if (!isVendor(ent)) {
-    return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;
-  }
+  if (!user) return <Shell><Notice title="Sign in to view your vendor dashboard" body="Log in on the main RS News site to see your ad campaigns." /></Shell>;
+  if (!isVendor(ent)) return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;
 
-  // Resolve the vendor by their brand to the Vendor entity, then load campaigns
-  // by FK (indexed). If no Vendor row exists yet (e.g. an account with no
-  // campaigns, or pre-backfill data), fall back to the brand-key label match so
-  // nothing silently disappears during the transition.
   const vendorId = await vendorIdForBrand(ent.vendorBrand);
   const mine = vendorId
-    ? await prisma.adCampaign.findMany({
-        where: { vendorId },
-        orderBy: { createdAt: 'desc' },
-        include: { flights: { orderBy: { index: 'asc' } } },
-      })
-    : (await prisma.adCampaign.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { flights: { orderBy: { index: 'asc' } } },
-      })).filter((c) => brandKey(c.vendorName) === brandKey(ent.vendorBrand));
+    ? await prisma.adCampaign.findMany({ where: { vendorId }, orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })
+    : (await prisma.adCampaign.findMany({ orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })).filter((c) => brandKey(c.vendorName) === brandKey(ent.vendorBrand));
 
   const now = new Date();
   const current = mine.filter((c) => c.status === 'ACTIVE');
   const past = mine.filter((c) => c.status === 'COMPLETED' || c.status === 'CANCELLED');
-  const reports = vendorId ? await listPublishedReports(vendorId) : [];
-  const testimonials = vendorId ? await testimonialsForVendorDashboard(vendorId) : [];
+  const [reports, testimonials, updateUrlRow, latestReq] = await Promise.all([
+    vendorId ? listPublishedReports(vendorId) : Promise.resolve([]),
+    vendorId ? testimonialsForVendorDashboard(vendorId) : Promise.resolve([]),
+    prisma.setting.findUnique({ where: { key: AD_UPDATE_URL_KEY } }),
+    vendorId ? prisma.adReportRequest.findFirst({ where: { vendorId }, orderBy: { createdAt: 'desc' } }) : Promise.resolve(null),
+  ]);
+  const updateUrl = updateUrlRow?.value || '';
 
-  // This vendor's own live creatives (for the "your ads in the Hub" preview) and
-  // the earliest live-flight start (their go-live date for the banner).
-  const myAds = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && adIsLive(a, now));
+  // The vendor's creatives on file (any with an image), for "view your current ads".
+  const creatives = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && (a.imageWide || a.imageRect));
   const liveFlights = current.flatMap((c) => c.flights).filter((f) => f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt);
   const liveSince = liveFlights.length ? liveFlights.map((f) => f.startAt).sort((a, b) => a.getTime() - b.getTime())[0] : null;
 
+  // Report-request state (rate limit surfaced to the vendor).
+  const reqPending = latestReq?.status === 'PENDING';
+  const cooldownUntil = latestReq ? new Date(latestReq.createdAt.getTime() + 30 * 864e5) : null;
+  const inCooldown = !reqPending && cooldownUntil ? now < cooldownUntil : false;
+  const reqDisabled = reqPending || inCooldown;
+  const reqNote = reqPending
+    ? 'You have a report request in progress — we’ll send it over soon.'
+    : inCooldown && cooldownUntil ? `You can request another report after ${formatDate(cooldownUntil)}.` : undefined;
+
   return (
     <Shell>
-      <div className="card p-5 sm:p-6">
-        <h1 className="text-2xl font-bold">Your ad dashboard</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">{ent.vendorBrand || user.name} · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
-      </div>
+      <div className="card overflow-hidden">
+        <div className="border-b border-[var(--border)] p-5 sm:p-6">
+          <h1 className="text-2xl font-bold">Your ad dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">{ent.vendorBrand || user.name} · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
+          <div className="mt-4 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
+            {TABS.map(([key, label]) => (
+              <Link key={key} href={`/docs/vendor?tab=${key}`}
+                className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === key ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
+            ))}
+          </div>
+        </div>
 
-      <div className="mt-5 mb-6 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
-        {TABS.map(([key, label]) => (
-          <Link key={key} href={`/docs/vendor?tab=${key}`}
-            className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === key ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
-            {label}
-          </Link>
-        ))}
-      </div>
+        {tab === 'current' && (
+          current.length === 0
+            ? <div className="p-6"><Notice title="No live campaigns" body="When a campaign of yours is active, it shows here with your creatives and timeline." /></div>
+            : (
+              <div className="divide-y divide-[var(--border)]">
+                {liveSince && (
+                  <div className="p-5 sm:p-6">
+                    <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30">
+                      <p className="font-bold text-green-800 dark:text-green-200">🎉 Your ads are live on RS News Hub</p>
+                      <p className="text-sm text-green-700 dark:text-green-300">Live since {formatDate(liveSince)}, published by the RS News team.</p>
+                    </div>
+                  </div>
+                )}
 
-      {tab === 'current' && (
-        current.length === 0
-          ? <Notice title="No live campaigns" body="When a campaign of yours is active, its flights and countdowns show here." />
-          : (
-            <div className="space-y-4">
-              {liveSince && (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30">
-                  <p className="font-bold text-green-800 dark:text-green-200">🎉 Your ads are live on RS News Hub</p>
-                  <p className="text-sm text-green-700 dark:text-green-300">Live since {formatDate(liveSince)} · published by the RS News team. Preview below shows exactly how they appear to readers.</p>
-                </div>
-              )}
-              {myAds.length > 0 && <VendorAdShowcase ads={myAds} brand={ent.vendorBrand || user.name || 'your brand'} />}
-              {current.map((c) => <CampaignCard key={c.id} c={c} now={now} live />)}
-              {testimonials.length > 0 && (
-                <div className="card p-5">
-                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="font-bold">What stores are saying about you</h2>
-                    <Link href="/vendor-testimonials" target="_blank" className="btn-primary btn-sm">View &amp; download</Link>
+                {/* View your current ads (what's on file) */}
+                <section className="p-5 sm:p-6">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-bold">View your current ads</h2>
+                    {updateUrl
+                      ? <a href={updateUrl} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">Update your ads <ExternalLink width={13} height={13} /></a>
+                      : <span className="text-xs text-[var(--muted)]">To refresh your creatives, contact the RS News team.</span>}
                   </div>
-                  <p className="mb-3 text-xs text-[var(--muted)]">{testimonials.length} testimonial{testimonials.length === 1 ? '' : 's'} RS News readers left for your brand, curated by our team. Open the document to print or save as PDF.</p>
-                  <div className="space-y-3">
-                    {testimonials.slice(0, 3).map((t) => (
-                      <figure key={t.id} className="tile p-4">
-                        <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
-                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— <TestimonialAttribution storeName={t.storeName} authorName={t.authorName} /></figcaption>
-                      </figure>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-      )}
-      {tab === 'history' && (
-        past.length === 0
-          ? <Notice title="No past campaigns yet" body="Completed and cancelled campaigns will be listed here." />
-          : <div className="space-y-4">{past.map((c) => <CampaignCard key={c.id} c={c} now={now} />)}</div>
-      )}
-      {tab === 'performance' && (
-        reports.length === 0
-          ? <Notice title="Performance reports" body="We publish a performance summary for your ads each quarter after review. Your latest report will appear here once it’s ready." />
-          : <div className="space-y-4">{reports.map((r) => (
-              <div key={r.id} className="card p-5">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-bold">{r.periodLabel}</span>
-                  <span className="text-xs text-[var(--muted)]">{formatDate(r.periodStart)} → {formatDate(r.periodEnd)}</span>
-                </div>
-                {r.summary && <p className="mb-4 whitespace-pre-line text-sm text-[var(--fg)]">{r.summary}</p>}
-                <ReportView snapshot={parseSnapshot(r.metrics)} />
+                  {creatives.length === 0
+                    ? <p className="text-sm text-[var(--muted)]">No creatives on file yet.</p>
+                    : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {creatives.map((a) => {
+                          const img = a.imageWide || a.imageRect!;
+                          return (
+                            <div key={a.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={img} alt={`${a.brand} ad`} className="block w-full" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                </section>
+
+                {/* Current campaign(s) */}
+                {current.map((c) => <CampaignSection key={c.id} c={c} now={now} />)}
+
+                {/* Testimonials */}
+                {testimonials.length > 0 && (
+                  <section className="p-5 sm:p-6">
+                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="font-bold">What stores are saying about you</h2>
+                      <Link href="/vendor-testimonials" target="_blank" className="btn-primary btn-sm">View &amp; download</Link>
+                    </div>
+                    <p className="mb-3 text-xs text-[var(--muted)]">{testimonials.length} testimonial{testimonials.length === 1 ? '' : 's'} RS News readers left for your brand, curated by our team.</p>
+                    <div className="space-y-3">
+                      {testimonials.slice(0, 3).map((t) => (
+                        <figure key={t.id} className="tile p-4">
+                          <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
+                          <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— <TestimonialAttribution storeName={t.storeName} authorName={t.authorName} /></figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
-            ))}</div>
-      )}
+            )
+        )}
+
+        {tab === 'performance' && (
+          <div className="divide-y divide-[var(--border)]">
+            <section className="p-5 sm:p-6">
+              <h2 className="font-bold">Request a performance report</h2>
+              <p className="mb-3 mt-0.5 text-sm text-[var(--muted)]">Ask us to compile how your ads performed over a period — we’ll put it together and send it to you.</p>
+              <RequestReportForm disabled={reqDisabled} disabledNote={reqNote} />
+              {latestReq && (
+                <p className="mt-2 text-xs text-[var(--muted)]">Last request: {REPORT_PERIODS[latestReq.period]?.label ?? latestReq.period} · {latestReq.status === 'FULFILLED' ? `sent ${latestReq.fulfilledAt ? formatDate(latestReq.fulfilledAt) : ''}` : 'pending'}</p>
+              )}
+            </section>
+            <section className="p-5 sm:p-6">
+              <h2 className="mb-3 font-bold">Published reports</h2>
+              {reports.length === 0
+                ? <p className="text-sm text-[var(--muted)]">No reports yet — request one above, or we’ll publish your quarterly summary here after review.</p>
+                : <div className="space-y-4">{reports.map((r) => (
+                    <div key={r.id} className="tile p-4">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold">{r.periodLabel}</span>
+                        <span className="text-xs text-[var(--muted)]">{formatDate(r.periodStart)} → {formatDate(r.periodEnd)}</span>
+                      </div>
+                      {r.summary && <p className="mb-4 whitespace-pre-line text-sm text-[var(--fg)]">{r.summary}</p>}
+                      <ReportView snapshot={parseSnapshot(r.metrics)} />
+                    </div>
+                  ))}</div>}
+            </section>
+          </div>
+        )}
+
+        {tab === 'history' && (
+          <div className="p-5 sm:p-6">
+            {past.length === 0
+              ? <Notice title="No past campaigns yet" body="Completed and cancelled campaigns will be listed here." />
+              : <div className="divide-y divide-[var(--border)]">{past.map((c) => <CampaignSection key={c.id} c={c} now={now} past />)}</div>}
+          </div>
+        )}
+      </div>
     </Shell>
   );
 }
@@ -136,7 +181,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <div className="card p-8 text-center">
+    <div className="p-8 text-center">
       <p className="font-semibold">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">{body}</p>
     </div>
@@ -145,15 +190,22 @@ function Notice({ title, body }: { title: string; body: string }) {
 
 type CampaignWithFlights = { id: string; vendorName: string; plan: string; startAt: Date; endAt: Date; status: string; allowsVideo: boolean; flights: { id: string; index: number; startAt: Date; endAt: Date; status: string }[] };
 
-function CampaignCard({ c, now, live = false }: { c: CampaignWithFlights; now: Date; live?: boolean }) {
+function CampaignSection({ c, now, past = false }: { c: CampaignWithFlights; now: Date; past?: boolean }) {
   const plan = planByKey(c.plan);
+  const planLabel = `${plan?.label ?? c.plan}${c.allowsVideo ? ' · video' : ''}`;
+  // Roughly, when fresh ads are next needed: the next flight awaiting creatives,
+  // else the end of the currently-live flight.
+  const nextDue = c.flights.find((f) => (f.status === 'AWAITING' || f.status === 'REVIEW') && now < f.startAt)?.startAt
+    ?? c.flights.find((f) => f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt)?.endAt
+    ?? null;
   return (
-    <div className="card p-4">
+    <section className="p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-bold">{plan?.label ?? c.plan}{c.allowsVideo ? ' · video' : ''}</span>
-        <span className="badge bg-[var(--bg-soft)]">{c.status}{live ? ` · ${countdownLabel(c.endAt, now)}` : ''}</span>
+        <h2 className="font-bold">{past ? planLabel : `Current campaign · ${planLabel}`}</h2>
+        <span className="badge bg-[var(--bg-soft)]">{c.status}{!past ? ` · ${countdownLabel(c.endAt, now)}` : ''}</span>
       </div>
       <div className="mt-0.5 text-sm text-[var(--muted)]">{formatDate(c.startAt)} → {formatDate(c.endAt)}</div>
+      {!past && nextDue && <div className="mt-1 text-sm font-semibold text-brand-700 dark:text-brand-300">Next fresh ads due around {formatDate(nextDue)}</div>}
       <ul className="mt-3 space-y-1.5">
         {c.flights.map((f) => {
           const isLive = f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt;
@@ -170,6 +222,6 @@ function CampaignCard({ c, now, live = false }: { c: CampaignWithFlights; now: D
           );
         })}
       </ul>
-    </div>
+    </section>
   );
 }

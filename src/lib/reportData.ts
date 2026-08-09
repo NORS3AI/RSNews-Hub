@@ -29,8 +29,9 @@ export type ReportData = {
   sections: ReportSection[];
 };
 
-export const RANGES = [7, 30, 90, 365] as const;
-export const rangeLabel = (d: number) => (d === 365 ? 'Last 12 months' : `Last ${d} days`);
+export const RANGES = [7, 30, 90, 180, 365, 3650] as const;
+export const rangeLabel = (d: number) =>
+  d >= 3650 ? 'Lifetime' : d === 365 ? 'Last 12 months' : d === 180 ? 'Last 6 months' : `Last ${d} days`;
 
 const nf = (n: number) => Number(n).toLocaleString();
 const pctStr = (v: number) => `${Math.round(v * 100)}%`;

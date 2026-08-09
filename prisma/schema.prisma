@@ -307,6 +307,24 @@ model Vendor {
   testimonials Testimonial[]
   testimonialRequests TestimonialRequest[]
   supplierNotes SupplierNote[]
+  reportRequests AdReportRequest[]
+}
+
+// A vendor's self-serve request for a performance report over a period. Rate-
+// limited; staff fulfil it (build + send the report) and mark it done.
+model AdReportRequest {
+  id          String   @id @default(cuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period      String   // 'quarter' | '6mo' | 'year' | 'lifetime'
+  status      String   @default("PENDING") // PENDING | FULFILLED
+  createdAt   DateTime @default(now())
+  fulfilledAt DateTime?
+
+  @@index([vendorId])
+  @@index([status])
 }
 
 // An admin ask, at spotlight time, for readers to vouch for a premium supplier.
@@ -532,6 +550,7 @@ model User {
   savedSuppliers SavedSupplier[]
   testimonials  Testimonial[]
   supplierNotes SupplierNote[]
+  reportRequests AdReportRequest[]
   notes         String?
 }
 

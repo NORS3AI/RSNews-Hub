@@ -1,18 +1,20 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup } from '@/lib/actions';
+import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup, setAdUpdateUrl } from '@/lib/actions';
+import { AD_UPDATE_URL_KEY } from '@/lib/vendorReports';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminVendors() {
-  const [vendors, adBrandRows, groups] = await Promise.all([
+  const [vendors, adBrandRows, groups, adUpdateUrlRow] = await Promise.all([
     prisma.vendor.findMany({
       orderBy: { name: 'asc' },
       include: { _count: { select: { campaigns: true, reports: true } } },
     }),
     prisma.ad.findMany({ distinct: ['brand'], orderBy: { brand: 'asc' }, select: { brand: true } }),
     prisma.competitorGroup.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.setting.findUnique({ where: { key: AD_UPDATE_URL_KEY } }),
   ]);
   const missingEmail = vendors.filter((v) => !v.contactEmail).length;
   // Every advertiser we can group: distinct ad brands + any vendor names not yet running an ad.
@@ -31,6 +33,15 @@ export default async function AdminVendors() {
           <strong>{missingEmail} vendor{missingEmail === 1 ? '' : 's'}</strong> {missingEmail === 1 ? 'has' : 'have'} no contact email — reminder emails can&apos;t reach {missingEmail === 1 ? 'it' : 'them'} until one is set below.
         </div>
       )}
+
+      <form action={setAdUpdateUrl} className="mb-6 flex flex-wrap items-end gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card">
+        <div className="min-w-64 flex-1">
+          <label className="label text-xs">&ldquo;Update your ads&rdquo; link (shown to advertisers on their dashboard)</label>
+          <input name="url" type="url" defaultValue={adUpdateUrlRow?.value ?? ''} placeholder="https://form.jotform.com/… or your VP app URL" className="input h-9" />
+        </div>
+        <button className="btn-outline btn-sm">Save link</button>
+        <span className="w-full text-xs text-[var(--muted)] sm:w-auto sm:flex-1">Where the &ldquo;Update your ads&rdquo; button sends advertisers to submit fresh creatives. Leave blank to hide the button.</span>
+      </form>
 
       {vendors.length === 0 ? (
         <p className="text-[var(--muted)]">No vendors yet. They&apos;re created when a campaign is made or a JotForm submission arrives.</p>

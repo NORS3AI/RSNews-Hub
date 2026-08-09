@@ -16,7 +16,9 @@ import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
-import { updateVendorContact } from './vendors';
+import { updateVendorContact, vendorIdForBrand } from './vendors';
+import { entitlementsOf, isVendor } from './entitlements';
+import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
@@ -922,6 +924,47 @@ export async function deleteSupplierNote(id: string) {
   if (!note || note.userId !== u.id) return;
   await prisma.supplierNote.deleteMany({ where: { id, userId: u.id } });
   revalidatePath(`/docs/suppliers/${note.vendorId}`);
+}
+
+// ---- Vendor "update your ads" link (admin-set; shown on the vendor dashboard) ----
+export async function setAdUpdateUrl(formData: FormData) {
+  await ensureStaff();
+  const url = ((formData.get('url') as string) || '').trim().slice(0, 500);
+  await prisma.setting.upsert({ where: { key: AD_UPDATE_URL_KEY }, update: { value: url }, create: { key: AD_UPDATE_URL_KEY, value: url } });
+  revalidatePath('/admin/vendors');
+  revalidatePath('/docs/vendor');
+}
+
+// ---- Vendor self-serve report requests ----
+const REPORT_COOLDOWN_DAYS = 30;
+
+// A vendor asks us to compile a performance report for a period. Rate-limited:
+// one open request at a time, and one new request per 30 days.
+export async function requestVendorReport(period: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  if (!isVendor(entitlementsOf(u))) throw new Error('This is for advertisers.');
+  if (!REPORT_PERIODS[period]) throw new Error('Pick a period.');
+  const vendorId = await vendorIdForBrand(entitlementsOf(u).vendorBrand);
+  if (!vendorId) throw new Error('No advertiser record is linked to your account.');
+
+  const pending = await prisma.adReportRequest.findFirst({ where: { vendorId, status: 'PENDING' }, select: { id: true } });
+  if (pending) throw new Error('You already have a report request in progress — we’ll send it soon.');
+  const recent = await prisma.adReportRequest.findFirst({ where: { vendorId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+  if (recent) {
+    const nextOk = recent.createdAt.getTime() + REPORT_COOLDOWN_DAYS * 864e5;
+    if (Date.now() < nextOk) throw new Error(`You can request another report after ${new Date(nextOk).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`);
+  }
+  await prisma.adReportRequest.create({ data: { vendorId, userId: u.id, period } });
+  revalidatePath('/docs/vendor');
+}
+
+// Admin: mark a report request fulfilled (after building + sending it).
+export async function fulfillReportRequest(id: string) {
+  await ensureStaff();
+  const r = await prisma.adReportRequest.update({ where: { id }, data: { status: 'FULFILLED', fulfilledAt: new Date() }, select: { vendorId: true } });
+  revalidatePath(`/admin/vendors/${r.vendorId}`);
+  revalidatePath('/docs/vendor');
 }
 
 // Competitor groups: advertisers that must never run alongside each other, and
