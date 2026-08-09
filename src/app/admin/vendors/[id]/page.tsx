@@ -130,7 +130,11 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
-                    <div className="mt-1.5 text-xs text-[var(--muted)]">— {t.authorName} · {formatDate(t.createdAt)}</div>
+                    <div className="mt-1.5 text-xs text-[var(--muted)]">
+                      — {t.storeName ? <><span className="font-semibold text-[var(--fg)]">{t.storeName}</span> · </> : ''}{t.authorName}
+                      {t.memberCode ? <> · <span className="rounded bg-[var(--bg-soft)] px-1.5 py-0.5 font-mono text-[10px]" title="Member ID — in-house only, not shown to advertisers">{t.memberCode}</span></> : ''}
+                      {' · '}{formatDate(t.createdAt)}
+                    </div>
                   </div>
                   <span className={`badge shrink-0 ${t.status === 'APPROVED' ? 'bg-green-100 text-green-700' : t.status === 'REJECTED' ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : 'bg-amber-100 text-amber-800'}`}>
                     {t.status[0] + t.status.slice(1).toLowerCase()}

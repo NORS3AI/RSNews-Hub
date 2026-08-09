@@ -7,7 +7,7 @@ afterEach(() => vi.unstubAllEnvs());
 describe('memberFromClaims', () => {
   it('maps a full claim set', () => {
     expect(memberFromClaims({ sub: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', region: 'West', storeType: 'chain', roles: ['member'] }))
-      .toEqual({ externalId: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', tier: null, affiliations: [], vendorBrand: null, region: 'West', storeType: 'chain', isStaff: false });
+      .toEqual({ externalId: 'acct_1', email: 'a@b.com', name: 'Ada', accountType: 'VENDOR', tier: null, affiliations: [], vendorBrand: null, region: 'West', storeType: 'chain', storeName: null, memberCode: null, isStaff: false });
   });
 
   it('maps entitlement claims (tier, affiliations, vendorBrand/brand)', () => {

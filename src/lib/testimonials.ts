@@ -5,7 +5,7 @@ import { prisma } from './db';
 // Server actions that mutate live in lib/actions.
 
 export type TestimonialLite = {
-  id: string; authorName: string; body: string; createdAt: Date;
+  id: string; authorName: string; storeName: string | null; body: string; createdAt: Date;
 };
 
 /** Approved testimonials an admin pushed to the advertiser's own dashboard. */
@@ -13,7 +13,7 @@ export async function testimonialsForVendorDashboard(vendorId: string): Promise<
   const rows = await prisma.testimonial.findMany({
     where: { vendorId, status: 'APPROVED', showOnVendorDashboard: true },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, authorName: true, body: true, createdAt: true },
+    select: { id: true, authorName: true, storeName: true, body: true, createdAt: true },
   });
   return rows;
 }
@@ -24,7 +24,7 @@ export async function testimonialsForAdmin(vendorId: string) {
     where: { vendorId },
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     select: {
-      id: true, authorName: true, body: true, status: true,
+      id: true, authorName: true, storeName: true, memberCode: true, body: true, status: true,
       showOnVendorDashboard: true, createdAt: true,
     },
   });

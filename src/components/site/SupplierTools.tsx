@@ -119,7 +119,7 @@ function RecommendButton({ vendorId, vendorName, existing, canSubmit, run, pendi
     <>
       <button onClick={() => setOpen(true)}
         className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:border-brand-500 hover:text-brand-600">
-        ★ {existing ? 'Edit your testimonial' : 'Recommend them'}
+        ★ {existing ? 'Edit your testimonial' : 'Leave a testimonial!'}
       </button>
       {statusNote && <span className="self-center text-xs font-semibold text-[var(--muted)]">{statusNote}</span>}
 

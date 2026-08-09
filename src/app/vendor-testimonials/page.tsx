@@ -64,7 +64,9 @@ export default async function VendorTestimonialsDoc(props: { searchParams: Promi
             {items.map((t) => (
               <figure key={t.id} className="break-inside-avoid">
                 <blockquote className="border-l-4 border-brand-300 pl-4 text-lg italic leading-relaxed">“{t.body}”</blockquote>
-                <figcaption className="mt-2 pl-4 text-sm font-semibold text-[var(--muted)]">— {t.authorName}</figcaption>
+                <figcaption className="mt-2 pl-4 text-sm font-semibold text-[var(--muted)]">
+                  — {t.storeName ? <><span className="text-[var(--fg)]">{t.storeName}</span> · </> : ''}{t.authorName}
+                </figcaption>
               </figure>
             ))}
           </div>

@@ -859,10 +859,13 @@ export async function submitTestimonial(formData: FormData) {
     where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true },
   });
   if (!saved) throw new Error('Add this supplier to your phone book first.');
+  // Snapshot the account-holder name + store name so the record is stable even if
+  // their profile later changes.
+  const prof = await prisma.user.findUnique({ where: { id: u.id }, select: { storeName: true, memberCode: true } });
   await prisma.testimonial.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
-    update: { body, status: 'PENDING', authorName: u.name },
-    create: { userId: u.id, vendorId, body, authorName: u.name },
+    update: { body, status: 'PENDING', authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
+    create: { userId: u.id, vendorId, body, authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
   });
   revalidatePath(`/docs/suppliers/${vendorId}`);
 }

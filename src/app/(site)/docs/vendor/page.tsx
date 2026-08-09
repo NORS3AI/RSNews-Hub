@@ -97,7 +97,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                     {testimonials.slice(0, 3).map((t) => (
                       <figure key={t.id} className="tile p-4">
                         <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
-                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.authorName}</figcaption>
+                        <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.storeName ? `${t.storeName} · ` : ''}{t.authorName}</figcaption>
                       </figure>
                     ))}
                   </div>

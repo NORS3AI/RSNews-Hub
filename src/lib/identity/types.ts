@@ -21,6 +21,8 @@ export type Member = {
   vendorBrand?: string | null; // for vendors: the ad brand they own
   region?: string | null;
   storeType?: string | null;
+  storeName?: string | null;  // the member's business/store name, for attribution
+  memberCode?: string | null; // human-facing member ID code (in-house use only)
   /** True when the parent flags this member as hub staff/admin. */
   isStaff?: boolean;
 };

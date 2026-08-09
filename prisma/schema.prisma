@@ -331,7 +331,9 @@ model Testimonial {
   vendor                Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  authorName            String   // display-name snapshot at submit time
+  authorName            String   // account-holder name snapshot at submit time
+  storeName             String?  // store/business name snapshot at submit time
+  memberCode            String?  // member ID code snapshot (in-house only, never shown to advertisers)
   body                  String
   status                String   @default("PENDING") // PENDING | APPROVED | REJECTED
   showOnVendorDashboard Boolean  @default(false)     // admin included it in the vendor's document
@@ -504,6 +506,8 @@ model User {
   affiliations String        @default("")       // comma-separated keys, e.g. "packagehub"
   vendorBrand  String?       // for vendors: the ad brand they own (favored ads + dashboard)
   storeType    String?       // e.g. franchise | independent | chain (member facet)
+  storeName    String?       // the member's business/store name (from parent profile)
+  memberCode   String?       // human-facing member ID code (in-house only)
   region       String?       // e.g. Northeast | Midwest | South | West
   // Remembered UI theme (light | dark | rs). Lets the chosen theme follow the
   // member across devices; anonymous visitors fall back to localStorage.

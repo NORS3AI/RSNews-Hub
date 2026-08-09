@@ -31,6 +31,8 @@ export class HeaderIdentityProvider implements IdentityProvider {
       vendorBrand: p('x-member-brand'),
       region: p('x-member-region'),
       storeType: p('x-member-store-type'),
+      storeName: p(process.env.PARENT_HEADER_STORE_NAME || 'x-member-store-name'),
+      memberCode: p(process.env.PARENT_HEADER_MEMBER_CODE || 'x-member-code'),
       isStaff: staff === 'true' || staff === '1' || accountType === 'STAFF',
     };
   }
