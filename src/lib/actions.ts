@@ -783,6 +783,7 @@ export async function saveVendorProfile(formData: FormData) {
       premium: formData.get('premium') === 'on',
       website: s('website', 300),
       supplierUrl: s('supplierUrl', 300),
+      contactName: s('contactName', 120),
       phone: s('phone', 60),
       contactEmail: s('contactEmail', 200),
       blurb: s('blurb', 600),

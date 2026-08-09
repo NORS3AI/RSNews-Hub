@@ -1,49 +1,41 @@
 'use client';
-import { useEffect, useState, useTransition } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  addSavedSupplier, removeSavedSupplier, updateSavedSupplier,
-  addSupplierNote, deleteSupplierNote, submitTestimonial,
+  addSavedSupplier, updateSavedSupplier, addSupplierNote, deleteSupplierNote,
 } from '@/lib/actions';
-import { Star, StarFilled, Check, Plus, Trash, X } from '@/components/icons';
+import { Star, Check, Plus, Trash } from '@/components/icons';
 
 type Sticky = { id: string; body: string; createdAt: string | Date };
 type Contact = { note: string | null; altEmail: string | null; altPhone: string | null } | null;
-type Existing = { body: string; status: string } | null;
 
-// All the interactive bits of a phone-book supplier detail page: save/unsave,
-// the reader's own contacts + notes, a sticky-notes grid, and the "recommend"
-// (testimonial) popup. The supplier's official info and ads are server-rendered
-// on the page around this.
+// The reader's own tools on a phone-book supplier detail page: their private
+// contacts + notes and a sticky-notes grid. Only meaningful once the supplier is
+// saved — you normally reach this page from your phone book, so it usually is.
+// If you arrived unsaved (e.g. from the directory), a small "Add" appears.
 export default function SupplierTools({
-  vendorId, vendorName, saved: savedInit, contact, sticky: stickyInit, existing,
-}: { vendorId: string; vendorName: string; saved: boolean; contact: Contact; sticky: Sticky[]; existing: Existing }) {
+  vendorId, vendorName, saved, contact, sticky,
+}: { vendorId: string; vendorName: string; saved: boolean; contact: Contact; sticky: Sticky[] }) {
   const router = useRouter();
-  const params = useSearchParams();
   const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(savedInit);
-  const run = (fn: () => Promise<unknown>, after?: () => void, onError?: () => void) => start(async () => { try { await fn(); after?.(); router.refresh(); } catch (e) { onError?.(); alert(e instanceof Error ? e.message : 'Something went wrong.'); } });
+  const run = (fn: () => Promise<unknown>, after?: () => void) => start(async () => { try { await fn(); after?.(); router.refresh(); } catch (e) { alert(e instanceof Error ? e.message : 'Something went wrong.'); } });
+
+  if (!saved) {
+    return (
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button onClick={() => run(() => addSavedSupplier(vendorId))} disabled={pending}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:border-brand-500 hover:text-brand-600">
+          <Star width={16} height={16} /> Add to phone book
+        </button>
+        <span className="text-sm text-[var(--muted)]">Save {vendorName} to keep your own contacts, notes, and sticky notes here.</span>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => { const next = !saved; setSaved(next); run(() => next ? addSavedSupplier(vendorId) : removeSavedSupplier(vendorId), undefined, () => setSaved(!next)); }}
-          disabled={pending}
-          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${saved ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--border)] hover:border-brand-500 hover:text-brand-600'}`}>
-          {saved ? <StarFilled width={16} height={16} /> : <Star width={16} height={16} />}
-          {saved ? 'In your phone book' : 'Save to phone book'}
-        </button>
-        <RecommendButton vendorId={vendorId} vendorName={vendorName} existing={existing} canSubmit={saved} run={run} pending={pending} autoOpen={params.get('recommend') === '1'} />
-      </div>
-
-      {saved ? (
-        <>
-          <ContactEditor vendorId={vendorId} contact={contact} run={run} pending={pending} />
-          <StickyNotes vendorId={vendorId} notes={stickyInit} run={run} pending={pending} />
-        </>
-      ) : (
-        <p className="text-sm text-[var(--muted)]">Save {vendorName} to your phone book to keep your own contacts, notes, and sticky notes here.</p>
-      )}
+      <ContactEditor vendorId={vendorId} contact={contact} run={run} pending={pending} />
+      <StickyNotes vendorId={vendorId} notes={sticky} run={run} pending={pending} />
     </div>
   );
 }
@@ -97,57 +89,5 @@ function StickyNotes({ vendorId, notes, run, pending }: { vendorId: string; note
         </div>
       </div>
     </section>
-  );
-}
-
-function RecommendButton({ vendorId, vendorName, existing, canSubmit, run, pending, autoOpen }: {
-  vendorId: string; vendorName: string; existing: Existing; canSubmit: boolean;
-  run: (fn: () => Promise<unknown>, after?: () => void) => void; pending: boolean; autoOpen: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [body, setBody] = useState(existing?.body ?? '');
-  const [done, setDone] = useState(false);
-  useEffect(() => { if (autoOpen && canSubmit) setOpen(true); }, [autoOpen, canSubmit]);
-
-  const statusNote =
-    existing?.status === 'APPROVED' ? 'Published — thank you!'
-    : existing?.status === 'PENDING' ? 'Submitted — pending review.'
-    : existing?.status === 'REJECTED' ? 'Not used this time.'
-    : '';
-
-  return (
-    <>
-      <button onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold hover:border-brand-500 hover:text-brand-600">
-        ★ {existing ? 'Edit your testimonial' : 'Leave a testimonial!'}
-      </button>
-      {statusNote && <span className="self-center text-xs font-semibold text-[var(--muted)]">{statusNote}</span>}
-
-      {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setOpen(false)}>
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Recommend {vendorName}</h3>
-              <button onClick={() => setOpen(false)} className="rounded-lg p-1 text-[var(--muted)] hover:bg-[var(--bg-soft)]"><X width={18} height={18} /></button>
-            </div>
-            {!canSubmit ? (
-              <p className="text-sm text-[var(--muted)]">Save {vendorName} to your phone book first — testimonials come from stores that actually use them.</p>
-            ) : (
-              <>
-                <p className="mb-2 text-sm text-[var(--muted)]">Tell other pack-and-ship stores why you recommend them. Approved testimonials may be shared with the supplier.</p>
-                <textarea value={body} onChange={(e) => { setBody(e.target.value); setDone(false); }} rows={4}
-                  placeholder={`What's it like working with ${vendorName}?`} className="input" maxLength={1500} autoFocus />
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <button onClick={() => setOpen(false)} className="btn-outline btn-sm">Cancel</button>
-                  <button disabled={pending || body.trim().length < 10}
-                    onClick={() => { const fd = new FormData(); fd.set('vendorId', vendorId); fd.set('body', body); run(() => submitTestimonial(fd), () => { setDone(true); setOpen(false); }); }}
-                    className="btn-primary btn-sm disabled:opacity-40">{done ? 'Saved' : existing ? 'Update' : 'Submit'}</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </>
   );
 }

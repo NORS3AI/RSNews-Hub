@@ -22,7 +22,7 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
   return (
     <div className="module">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-xl font-bold"><StarFilled className="text-brand-600" width={20} height={20} /> Suppliers</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold"><StarFilled className="text-brand-600" width={20} height={20} /> Phone book</h1>
         <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-sm font-semibold">
           {(['book', 'directory'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}

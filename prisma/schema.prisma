@@ -295,6 +295,7 @@ model Vendor {
   premium      Boolean      @default(false)
   website      String?
   supplierUrl  String?                       // external supplier page on the main site
+  contactName  String?                       // the supplier's contact person (sales rep)
   phone        String?
   blurb        String?                       // short description in the phone book
   logoUrl      String?

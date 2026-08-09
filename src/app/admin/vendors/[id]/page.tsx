@@ -62,7 +62,10 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
           <F label="Sales phone" name="phone" defaultValue={vendor.phone} placeholder="(555) 123-4567" />
         </div>
         <F label="Supplier page URL (on our main site)" name="supplierUrl" defaultValue={vendor.supplierUrl} placeholder="https://rsnews.com/suppliers/… — links out from ads & phone book" type="url" />
-        <F label="Contact email (official)" name="contactEmail" defaultValue={vendor.contactEmail} placeholder="sales@vendor.com" type="email" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <F label="Contact name" name="contactName" defaultValue={vendor.contactName} placeholder="e.g. Dave Miller" />
+          <F label="Contact email (official)" name="contactEmail" defaultValue={vendor.contactEmail} placeholder="sales@vendor.com" type="email" />
+        </div>
         <label className="block">
           <span className="label !mb-1 text-xs">Blurb (phone book)</span>
           <textarea name="blurb" defaultValue={vendor.blurb ?? ''} rows={3} className="input" placeholder="A short description shown in the phone book." />

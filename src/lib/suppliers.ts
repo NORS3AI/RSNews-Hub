@@ -9,13 +9,13 @@ import { brandKey } from './entitlements';
 
 export type SupplierLite = {
   id: string; name: string; brandKey: string; premium: boolean;
-  website: string | null; supplierUrl: string | null; phone: string | null;
-  contactEmail: string | null; blurb: string | null; logoUrl: string | null;
+  website: string | null; supplierUrl: string | null; contactName: string | null;
+  phone: string | null; contactEmail: string | null; blurb: string | null; logoUrl: string | null;
 };
 
 const supplierSelect = {
   id: true, name: true, brandKey: true, premium: true,
-  website: true, supplierUrl: true, phone: true, contactEmail: true, blurb: true, logoUrl: true,
+  website: true, supplierUrl: true, contactName: true, phone: true, contactEmail: true, blurb: true, logoUrl: true,
 } as const;
 
 /** All premium suppliers, for the phone-book directory. */
