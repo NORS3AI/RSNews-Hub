@@ -88,10 +88,13 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
               {current.map((c) => <CampaignCard key={c.id} c={c} now={now} live />)}
               {testimonials.length > 0 && (
                 <div className="card p-5">
-                  <h2 className="mb-1 font-bold">What stores are saying about you</h2>
-                  <p className="mb-3 text-xs text-[var(--muted)]">Testimonials RS News readers left for your brand, curated by our team.</p>
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="font-bold">What stores are saying about you</h2>
+                    <Link href="/vendor-testimonials" target="_blank" className="btn-primary btn-sm">View &amp; download</Link>
+                  </div>
+                  <p className="mb-3 text-xs text-[var(--muted)]">{testimonials.length} testimonial{testimonials.length === 1 ? '' : 's'} RS News readers left for your brand, curated by our team. Open the document to print or save as PDF.</p>
                   <div className="space-y-3">
-                    {testimonials.map((t) => (
+                    {testimonials.slice(0, 3).map((t) => (
                       <figure key={t.id} className="tile p-4">
                         <blockquote className="text-sm leading-relaxed">“{t.body}”</blockquote>
                         <figcaption className="mt-2 text-xs font-semibold text-[var(--muted)]">— {t.authorName}</figcaption>

@@ -13,8 +13,8 @@ import { LinkIcon, Newspaper, Star, StarFilled, Check } from '@/components/icons
  * Only rendered for ads whose brand is a premium supplier.
  */
 export default function AdOptionsMenu({
-  slug, website, vendorId, saved, signedIn,
-}: { slug: string; website: string | null; vendorId: string; saved: boolean; signedIn: boolean }) {
+  supplierUrl, website, vendorId, saved, signedIn,
+}: { supplierUrl: string | null; website: string | null; vendorId: string; saved: boolean; signedIn: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isSaved, setIsSaved] = useState(saved);
@@ -51,9 +51,11 @@ export default function AdOptionsMenu({
       </button>
       {open && (
         <div role="menu" className="absolute right-0 mt-1.5 w-52 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] py-1 shadow-[var(--shadow-card)]">
-          <Link role="menuitem" href={`/docs/supplier/${slug}`} className={item} onClick={() => setOpen(false)}>
-            <Newspaper width={15} height={15} /> Supplier page
-          </Link>
+          {supplierUrl && (
+            <a role="menuitem" href={supplierUrl} target="_blank" rel="noopener noreferrer" className={item} onClick={() => setOpen(false)}>
+              <Newspaper width={15} height={15} /> Supplier page
+            </a>
+          )}
           {website && (
             <a role="menuitem" href={website} target="_blank" rel="noopener noreferrer" className={item} onClick={() => setOpen(false)}>
               <LinkIcon width={15} height={15} /> Visit website

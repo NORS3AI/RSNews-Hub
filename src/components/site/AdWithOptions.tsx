@@ -34,7 +34,7 @@ export default function AdWithOptions({
     <div className={wrap}>
       <InArticleAd ad={ad} slot={slot} size={size} tone={tone} fill={fill} />
       <AdOptionsMenu
-        slug={info.slug}
+        supplierUrl={info.supplierUrl}
         website={info.website || ad.href}
         vendorId={info.vendorId}
         saved={savedIds.includes(info.vendorId)}

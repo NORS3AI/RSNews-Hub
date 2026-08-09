@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, toggleTestimonialVisibility } from '@/lib/actions';
-import { supplierSlug } from '@/lib/suppliers';
+import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, setTestimonialOnDashboard } from '@/lib/actions';
 import { testimonialsForAdmin, testimonialAudienceCount, hasActiveRequest } from '@/lib/testimonials';
 import { ArrowLeft, ExternalLink } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
@@ -39,7 +38,7 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
     <div className="max-w-3xl">
       <Link href="/admin/vendors" className="mb-4 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]"><ArrowLeft width={16} height={16} /> Vendors</Link>
       <h1 className="mb-1 text-2xl font-bold">{vendor.name}</h1>
-      <p className="mb-5 text-sm text-[var(--muted)]">Advertiser profile. Fields marked below appear on the reader-facing supplier page &amp; phone book (when <strong>Premium supplier</strong> is on).</p>
+      <p className="mb-5 text-sm text-[var(--muted)]">Advertiser profile. When <strong>Premium supplier</strong> is on, these fields populate the reader phone book, and ads gain an options menu that links out to the supplier page on our main site.</p>
 
       <div className="mb-5 grid grid-cols-3 gap-3">
         {[['Campaigns', vendor._count.campaigns], ['Reports', vendor._count.reports], ['In phone books', vendor._count.savedBy]].map(([l, n]) => (
@@ -54,17 +53,18 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
         <input type="hidden" name="id" value={vendor.id} />
         <label className="flex items-center gap-2 text-sm font-semibold">
           <input type="checkbox" name="premium" defaultChecked={vendor.premium} className="h-4 w-4" /> Premium supplier
-          <span className="font-normal text-[var(--muted)]">— shows a public supplier page &amp; appears in the directory.</span>
+          <span className="font-normal text-[var(--muted)]">— appears in the phone-book directory readers can save.</span>
         </label>
         <F label="Display name" name="name" defaultValue={vendor.name} />
         <div className="grid gap-4 sm:grid-cols-2">
           <F label="Website" name="website" defaultValue={vendor.website} placeholder="https://…" type="url" />
           <F label="Sales phone" name="phone" defaultValue={vendor.phone} placeholder="(555) 123-4567" />
         </div>
+        <F label="Supplier page URL (on our main site)" name="supplierUrl" defaultValue={vendor.supplierUrl} placeholder="https://rsnews.com/suppliers/… — links out from ads & phone book" type="url" />
         <F label="Contact email (official)" name="contactEmail" defaultValue={vendor.contactEmail} placeholder="sales@vendor.com" type="email" />
         <label className="block">
-          <span className="label !mb-1 text-xs">Blurb (supplier page)</span>
-          <textarea name="blurb" defaultValue={vendor.blurb ?? ''} rows={3} className="input" placeholder="A short description shown on their supplier page." />
+          <span className="label !mb-1 text-xs">Blurb (phone book)</span>
+          <textarea name="blurb" defaultValue={vendor.blurb ?? ''} rows={3} className="input" placeholder="A short description shown in the phone book." />
         </label>
         <F label="Logo URL" name="logoUrl" defaultValue={vendor.logoUrl} placeholder="https://… (optional)" />
         <label className="block">
@@ -73,7 +73,7 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
         </label>
         <div className="flex items-center gap-3">
           <button type="submit" className="btn-primary btn-sm">Save profile</button>
-          {vendor.premium && <Link href={`/docs/supplier/${supplierSlug(vendor.brandKey)}`} className="btn-outline btn-sm" target="_blank">View supplier page <ExternalLink width={13} height={13} /></Link>}
+          {vendor.premium && <Link href={`/docs/suppliers/${vendor.id}`} className="btn-outline btn-sm" target="_blank">Open in phone book <ExternalLink width={13} height={13} /></Link>}
         </div>
       </form>
 
@@ -98,21 +98,26 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
       <div className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-black uppercase tracking-wide text-[var(--muted)]">Testimonials</h2>
-          {vendor.premium ? (
-            <form action={requestSupplierTestimonials.bind(null, vendor.id)}>
-              <button type="submit" className="btn-outline btn-sm" disabled={audience === 0}>
-                {requestOpen ? 'Re-send request' : 'Request testimonials'}{audience > 0 ? ` (${audience})` : ''}
-              </button>
-            </form>
-          ) : (
-            <span className="text-xs text-[var(--muted)]">Turn on Premium to collect testimonials.</span>
-          )}
+          <div className="flex items-center gap-2">
+            {testimonials.some((t) => t.showOnVendorDashboard) && (
+              <Link href={`/vendor-testimonials?vendorId=${vendor.id}`} target="_blank" className="btn-outline btn-sm">Preview document <ExternalLink width={13} height={13} /></Link>
+            )}
+            {vendor.premium ? (
+              <form action={requestSupplierTestimonials.bind(null, vendor.id)}>
+                <button type="submit" className="btn-outline btn-sm" disabled={audience === 0}>
+                  {requestOpen ? 'Re-send request' : 'Request testimonials'}{audience > 0 ? ` (${audience})` : ''}
+                </button>
+              </form>
+            ) : (
+              <span className="text-xs text-[var(--muted)]">Turn on Premium to collect testimonials.</span>
+            )}
+          </div>
         </div>
         <p className="mb-3 text-xs text-[var(--muted)]">
           {vendor.premium
             ? requestOpen
               ? `A request is open. ${audience} saver${audience === 1 ? '' : 's'} who haven't vouched yet are being nudged in their notifications.`
-              : `Nudges the ${audience} reader${audience === 1 ? '' : 's'} who have this supplier in their phone book and haven't left a testimonial yet.`
+              : `Requesting nudges the ${audience} reader${audience === 1 ? '' : 's'} who have this supplier in their phone book and haven't left a testimonial yet. Approve the ones you like, then include them in the advertiser's downloadable document.`
             : 'Testimonials appear here once the supplier is premium and readers respond.'}
         </p>
 
@@ -139,14 +144,9 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
                     <form action={setTestimonialStatus.bind(null, t.id, 'REJECTED')}><button className="btn-outline btn-sm text-red-600">Reject</button></form>
                   )}
                   {t.status === 'APPROVED' && (
-                    <>
-                      <form action={toggleTestimonialVisibility.bind(null, t.id, 'showOnSupplierPage')}>
-                        <button className={`btn-sm ${t.showOnSupplierPage ? 'btn-primary' : 'btn-outline'}`}>{t.showOnSupplierPage ? '✓ On supplier page' : 'Show on supplier page'}</button>
-                      </form>
-                      <form action={toggleTestimonialVisibility.bind(null, t.id, 'showOnVendorDashboard')}>
-                        <button className={`btn-sm ${t.showOnVendorDashboard ? 'btn-primary' : 'btn-outline'}`}>{t.showOnVendorDashboard ? '✓ On vendor dashboard' : 'Show on vendor dashboard'}</button>
-                      </form>
-                    </>
+                    <form action={setTestimonialOnDashboard.bind(null, t.id, !t.showOnVendorDashboard)}>
+                      <button className={`btn-sm ${t.showOnVendorDashboard ? 'btn-primary' : 'btn-outline'}`}>{t.showOnVendorDashboard ? '✓ In vendor document' : 'Add to vendor document'}</button>
+                    </form>
                   )}
                 </div>
               </li>

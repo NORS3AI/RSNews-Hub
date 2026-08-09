@@ -20,7 +20,6 @@ import { updateVendorContact } from './vendors';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
-import { supplierSlug } from './suppliers';
 
 async function ensureStaff() {
   const u = await requireAdmin();
@@ -783,6 +782,7 @@ export async function saveVendorProfile(formData: FormData) {
       ...(name ? { name } : {}),
       premium: formData.get('premium') === 'on',
       website: s('website', 300),
+      supplierUrl: s('supplierUrl', 300),
       phone: s('phone', 60),
       contactEmail: s('contactEmail', 200),
       blurb: s('blurb', 600),
@@ -864,8 +864,7 @@ export async function submitTestimonial(formData: FormData) {
     update: { body, status: 'PENDING', authorName: u.name },
     create: { userId: u.id, vendorId, body, authorName: u.name },
   });
-  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { brandKey: true } });
-  if (v) revalidatePath(`/docs/supplier/${supplierSlug(v.brandKey)}`);
+  revalidatePath(`/docs/suppliers/${vendorId}`);
 }
 
 // Admin: approve / reject / reset a submitted testimonial.
@@ -874,25 +873,46 @@ export async function setTestimonialStatus(id: string, status: 'APPROVED' | 'REJ
   if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) throw new Error('Bad status');
   const t = await prisma.testimonial.update({
     where: { id },
-    data: { status, ...(status === 'APPROVED' ? {} : { showOnSupplierPage: false, showOnVendorDashboard: false }) },
-    select: { vendorId: true, vendor: { select: { brandKey: true } } },
+    // Rejecting/un-approving also pulls it from the vendor's document.
+    data: { status, ...(status === 'APPROVED' ? {} : { showOnVendorDashboard: false }) },
+    select: { vendorId: true },
   });
   revalidatePath(`/admin/vendors/${t.vendorId}`);
-  revalidatePath(`/docs/supplier/${supplierSlug(t.vendor.brandKey)}`);
   revalidatePath('/docs/vendor');
 }
 
-// Admin: toggle where an APPROVED testimonial appears (public page / dashboard).
-export async function toggleTestimonialVisibility(id: string, field: 'showOnSupplierPage' | 'showOnVendorDashboard') {
+// Admin: include / remove an APPROVED testimonial in the advertiser's vendor-
+// dashboard document.
+export async function setTestimonialOnDashboard(id: string, on: boolean) {
   await ensureStaff();
-  if (field !== 'showOnSupplierPage' && field !== 'showOnVendorDashboard') throw new Error('Bad field');
-  const cur = await prisma.testimonial.findUnique({ where: { id }, select: { status: true, showOnSupplierPage: true, showOnVendorDashboard: true, vendorId: true, vendor: { select: { brandKey: true } } } });
+  const cur = await prisma.testimonial.findUnique({ where: { id }, select: { status: true, vendorId: true } });
   if (!cur) throw new Error('Not found');
-  if (cur.status !== 'APPROVED') throw new Error('Approve the testimonial before publishing it.');
-  await prisma.testimonial.update({ where: { id }, data: { [field]: !cur[field] } });
+  if (on && cur.status !== 'APPROVED') throw new Error('Approve the testimonial first.');
+  await prisma.testimonial.update({ where: { id }, data: { showOnVendorDashboard: on } });
   revalidatePath(`/admin/vendors/${cur.vendorId}`);
-  revalidatePath(`/docs/supplier/${supplierSlug(cur.vendor.brandKey)}`);
   revalidatePath('/docs/vendor');
+}
+
+// ---- Phone-book sticky notes (private, per reader + supplier) ----
+export async function addSupplierNote(vendorId: string, body: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  const text = (body || '').trim().slice(0, 500);
+  if (!text) throw new Error('Empty note');
+  // Only for suppliers in the reader's phone book.
+  const saved = await prisma.savedSupplier.findUnique({ where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true } });
+  if (!saved) throw new Error('Add this supplier to your phone book first.');
+  await prisma.supplierNote.create({ data: { userId: u.id, vendorId, body: text } });
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+export async function deleteSupplierNote(id: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  // deleteMany scoped to owner so a reader can only remove their own notes.
+  const note = await prisma.supplierNote.findUnique({ where: { id }, select: { vendorId: true, userId: true } });
+  if (!note || note.userId !== u.id) return;
+  await prisma.supplierNote.deleteMany({ where: { id, userId: u.id } });
+  revalidatePath(`/docs/suppliers/${note.vendorId}`);
 }
 
 // Competitor groups: advertisers that must never run alongside each other, and

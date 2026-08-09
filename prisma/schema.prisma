@@ -288,13 +288,15 @@ model Vendor {
   brandKey     String       @unique         // normalized match key (see lib/vendors)
   contactEmail String?                      // reminders / performance reports (later phases)
   notes        String?
-  // Reader-facing supplier profile fields. `premium` gates the public supplier
-  // page + inclusion in the supplier directory; the rest populate it + the phone
-  // book. `phone` is the official sales line; website is the advertiser's site.
+  // Supplier fields. `premium` gates inclusion in the phone-book directory; the
+  // rest populate the phone book. `phone` is the official sales line; `website`
+  // is the advertiser's site; `supplierUrl` is their supplier page on our MAIN
+  // website (we link out to it — the hub does not host supplier pages).
   premium      Boolean      @default(false)
   website      String?
+  supplierUrl  String?                       // external supplier page on the main site
   phone        String?
-  blurb        String?                       // short description on the supplier page
+  blurb        String?                       // short description in the phone book
   logoUrl      String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -303,6 +305,7 @@ model Vendor {
   savedBy      SavedSupplier[]
   testimonials Testimonial[]
   testimonialRequests TestimonialRequest[]
+  supplierNotes SupplierNote[]
 }
 
 // An admin ask, at spotlight time, for readers to vouch for a premium supplier.
@@ -331,13 +334,26 @@ model Testimonial {
   authorName            String   // display-name snapshot at submit time
   body                  String
   status                String   @default("PENDING") // PENDING | APPROVED | REJECTED
-  showOnSupplierPage    Boolean  @default(false)
-  showOnVendorDashboard Boolean  @default(false)
+  showOnVendorDashboard Boolean  @default(false)     // admin included it in the vendor's document
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   @@unique([userId, vendorId])
   @@index([vendorId])
+}
+
+// A reader's private sticky notes for a supplier in their phone book. Each note
+// is one square in a grid; add drops a new one, delete removes it.
+model SupplierNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, vendorId])
 }
 
 // A reader's personal "phone book" entry for a supplier (account-tied so it
@@ -510,6 +526,7 @@ model User {
   articleRevisions ArticleRevision[]
   savedSuppliers SavedSupplier[]
   testimonials  Testimonial[]
+  supplierNotes SupplierNote[]
   notes         String?
 }
 

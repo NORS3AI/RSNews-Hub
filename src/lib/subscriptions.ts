@@ -135,7 +135,7 @@ export async function notificationFeed(userId: string, limit = 50): Promise<{ it
   const nudgeItems: FeedItem[] = nudges.map((n): FeedItem => ({
     type: 'testimonial',
     title: `Share your experience with ${n.vendorName}`,
-    href: `/docs/supplier/${n.slug}#testimonial`,
+    href: `/docs/suppliers/${n.vendorId}?recommend=1`,
     date: n.createdAt,
     meta: 'You saved them — a quick testimonial helps other stores',
     unread: n.createdAt > seenAt,

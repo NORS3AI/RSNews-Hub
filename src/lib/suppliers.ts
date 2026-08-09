@@ -1,45 +1,33 @@
 import { prisma } from './db';
 import { loadAds } from './adsServer';
-import { adIsLive, type AdRow } from './ads';
+import { type AdRow } from './ads';
 import { brandKey } from './entitlements';
 
-// Server helpers for the reader-facing supplier directory + phone book.
-
-/** URL-safe slug for a supplier's public page. The brand key is lowercase but
- *  keeps spaces/punctuation, which don't belong in a path segment — so links use
- *  this hyphenated form and the page reverse-matches on it. */
-export function supplierSlug(s: string): string {
-  return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
+// Server helpers for the supplier directory + phone book. The hub does NOT host
+// public supplier pages — those live on the main site and we link out via
+// `supplierUrl`. The phone book is an account-tied, private tool.
 
 export type SupplierLite = {
-  id: string; name: string; brandKey: string; slug: string; premium: boolean;
-  website: string | null; phone: string | null; contactEmail: string | null;
-  blurb: string | null; logoUrl: string | null;
+  id: string; name: string; brandKey: string; premium: boolean;
+  website: string | null; supplierUrl: string | null; phone: string | null;
+  contactEmail: string | null; blurb: string | null; logoUrl: string | null;
 };
 
 const supplierSelect = {
   id: true, name: true, brandKey: true, premium: true,
-  website: true, phone: true, contactEmail: true, blurb: true, logoUrl: true,
+  website: true, supplierUrl: true, phone: true, contactEmail: true, blurb: true, logoUrl: true,
 } as const;
 
-type SupplierRow = { id: string; name: string; brandKey: string; premium: boolean; website: string | null; phone: string | null; contactEmail: string | null; blurb: string | null; logoUrl: string | null };
-const toLite = (v: SupplierRow): SupplierLite => ({ ...v, slug: supplierSlug(v.brandKey) });
-
-/** All premium suppliers, for the public directory. */
+/** All premium suppliers, for the phone-book directory. */
 export async function listPremiumSuppliers(): Promise<SupplierLite[]> {
-  const rows = await prisma.vendor.findMany({ where: { premium: true }, orderBy: { name: 'asc' }, select: supplierSelect });
-  return rows.map(toLite);
+  return prisma.vendor.findMany({ where: { premium: true }, orderBy: { name: 'asc' }, select: supplierSelect });
 }
 
-/** A premium supplier by its URL slug, for its public profile page. Non-premium
- *  vendors have no public page (returns null). Slugs are matched against the
- *  premium set (small), so a brand key with spaces resolves cleanly. */
-export async function getPremiumSupplierBySlug(slug: string): Promise<SupplierLite | null> {
-  const target = supplierSlug(slug);
-  const rows = await prisma.vendor.findMany({ where: { premium: true }, select: supplierSelect });
-  const match = rows.find((v) => supplierSlug(v.brandKey) === target);
-  return match ? toLite(match) : null;
+/** A premium supplier by id, for its phone-book detail page (null if missing or
+ *  not premium — non-premium vendors aren't browsable in the phone book). */
+export async function getPremiumSupplier(vendorId: string): Promise<SupplierLite | null> {
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: supplierSelect });
+  return v && v.premium ? v : null;
 }
 
 export type PhoneBookEntry = {
@@ -57,7 +45,24 @@ export async function getPhoneBook(userId: string): Promise<PhoneBookEntry[]> {
     orderBy: { vendor: { name: 'asc' } },
     select: { note: true, altEmail: true, altPhone: true, vendor: { select: supplierSelect } },
   });
-  return rows.map((r) => ({ vendor: toLite(r.vendor), note: r.note, altEmail: r.altEmail, altPhone: r.altPhone }));
+  return rows.map((r) => ({ vendor: r.vendor, note: r.note, altEmail: r.altEmail, altPhone: r.altPhone }));
+}
+
+/** One phone-book entry (the reader's saved row for a supplier), or null. */
+export async function getSavedSupplier(userId: string, vendorId: string) {
+  return prisma.savedSupplier.findUnique({
+    where: { userId_vendorId: { userId, vendorId } },
+    select: { note: true, altEmail: true, altPhone: true },
+  });
+}
+
+/** The reader's private sticky notes for a supplier, newest first. */
+export async function getSupplierStickyNotes(userId: string, vendorId: string) {
+  return prisma.supplierNote.findMany({
+    where: { userId, vendorId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, body: true, createdAt: true },
+  });
 }
 
 /** Vendor ids the member has saved — for star state in the directory. */
@@ -66,15 +71,14 @@ export async function savedVendorIds(userId: string): Promise<string[]> {
   return rows.map((r) => r.vendorId);
 }
 
-/** A supplier's currently-live ad creatives, matched on brand key. Powers the
- *  "Current campaigns" strip on their public profile page. */
-export async function getSupplierLiveAds(supplierBrandKey: string): Promise<AdRow[]> {
-  const now = new Date();
+/** Every ad creative on file for a supplier (matched on brand key), for the
+ *  "their ads" strip in the phone-book detail. Each links to its own href. */
+export async function getSupplierAdsOnFile(supplierBrandKey: string): Promise<AdRow[]> {
   const ads = await loadAds();
-  return ads.filter((a) => brandKey(a.brand) === supplierBrandKey && adIsLive(a, now));
+  return ads.filter((a) => brandKey(a.brand) === supplierBrandKey);
 }
 
-export type SupplierAdInfo = { vendorId: string; brandKey: string; slug: string; premium: boolean; website: string | null };
+export type SupplierAdInfo = { vendorId: string; brandKey: string; premium: boolean; website: string | null; supplierUrl: string | null };
 
 /** brandKey → supplier info, so an ad creative can offer its "options" menu
  *  (supplier page · website · save to phone book) only when its brand is a
@@ -82,9 +86,9 @@ export type SupplierAdInfo = { vendorId: string; brandKey: string; slug: string;
 export async function getSupplierAdMap(): Promise<Map<string, SupplierAdInfo>> {
   const rows = await prisma.vendor.findMany({
     where: { premium: true },
-    select: { id: true, brandKey: true, premium: true, website: true },
+    select: { id: true, brandKey: true, premium: true, website: true, supplierUrl: true },
   });
   const m = new Map<string, SupplierAdInfo>();
-  for (const r of rows) m.set(r.brandKey, { vendorId: r.id, brandKey: r.brandKey, slug: supplierSlug(r.brandKey), premium: r.premium, website: r.website });
+  for (const r of rows) m.set(r.brandKey, { vendorId: r.id, brandKey: r.brandKey, premium: r.premium, website: r.website, supplierUrl: r.supplierUrl });
   return m;
 }

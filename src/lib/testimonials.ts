@@ -1,23 +1,12 @@
 import { prisma } from './db';
-import { supplierSlug } from './suppliers';
 
 // Server helpers for supplier testimonials: the admin request, the reader's
-// submission, and the three read surfaces (admin review, supplier page, vendor
-// dashboard). Server actions that mutate live in lib/actions.
+// submission, and the read surfaces (admin review + vendor dashboard document).
+// Server actions that mutate live in lib/actions.
 
 export type TestimonialLite = {
   id: string; authorName: string; body: string; createdAt: Date;
 };
-
-/** Approved testimonials for a supplier's PUBLIC page (admin opted each in). */
-export async function testimonialsForSupplierPage(vendorId: string): Promise<TestimonialLite[]> {
-  const rows = await prisma.testimonial.findMany({
-    where: { vendorId, status: 'APPROVED', showOnSupplierPage: true },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, authorName: true, body: true, createdAt: true },
-  });
-  return rows;
-}
 
 /** Approved testimonials an admin pushed to the advertiser's own dashboard. */
 export async function testimonialsForVendorDashboard(vendorId: string): Promise<TestimonialLite[]> {
@@ -36,7 +25,7 @@ export async function testimonialsForAdmin(vendorId: string) {
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     select: {
       id: true, authorName: true, body: true, status: true,
-      showOnSupplierPage: true, showOnVendorDashboard: true, createdAt: true,
+      showOnVendorDashboard: true, createdAt: true,
     },
   });
 }
@@ -66,7 +55,7 @@ export async function testimonialAudienceCount(vendorId: string): Promise<number
   return savers.filter((s) => !done.has(s.userId)).length;
 }
 
-export type TestimonialNudge = { vendorId: string; vendorName: string; slug: string; createdAt: Date };
+export type TestimonialNudge = { vendorId: string; vendorName: string; createdAt: Date };
 
 /** Testimonial nudges for a reader's notifications feed: active requests on
  *  suppliers they've starred and haven't yet vouched for. Derived (no stored
@@ -74,7 +63,7 @@ export type TestimonialNudge = { vendorId: string; vendorName: string; slug: str
 export async function testimonialNudges(userId: string): Promise<TestimonialNudge[]> {
   const requests = await prisma.testimonialRequest.findMany({
     where: { active: true },
-    select: { vendorId: true, createdAt: true, vendor: { select: { name: true, brandKey: true, premium: true } } },
+    select: { vendorId: true, createdAt: true, vendor: { select: { name: true, premium: true } } },
   });
   if (!requests.length) return [];
   const vendorIds = requests.map((r) => r.vendorId);
@@ -86,5 +75,5 @@ export async function testimonialNudges(userId: string): Promise<TestimonialNudg
   const doneSet = new Set(mine.map((m) => m.vendorId));
   return requests
     .filter((r) => r.vendor.premium && savedSet.has(r.vendorId) && !doneSet.has(r.vendorId))
-    .map((r) => ({ vendorId: r.vendorId, vendorName: r.vendor.name, slug: supplierSlug(r.vendor.brandKey), createdAt: r.createdAt }));
+    .map((r) => ({ vendorId: r.vendorId, vendorName: r.vendor.name, createdAt: r.createdAt }));
 }
