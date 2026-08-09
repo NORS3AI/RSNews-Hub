@@ -811,18 +811,24 @@ export async function addSavedSupplier(vendorId: string) {
     create: { userId: u.id, vendorId },
   });
   revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
 }
 export async function removeSavedSupplier(vendorId: string) {
   const u = await getCurrentUser();
   if (!u) throw new Error('Sign in.');
   await prisma.savedSupplier.deleteMany({ where: { userId: u.id, vendorId } });
   revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
 }
 // Save the reader's own note + optional alternative contact for a supplier.
 // Upserts so it works whether or not the supplier is already starred.
 export async function updateSavedSupplier(vendorId: string, data: { note?: string; altEmail?: string; altPhone?: string }) {
   const u = await getCurrentUser();
   if (!u) throw new Error('Sign in.');
+  // Same premium gate as addSavedSupplier — the create branch here can otherwise
+  // manufacture a saved-supplier row for a non-premium (or wrong) vendor.
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!v?.premium) throw new Error('That supplier is not available in the Phone Book.');
   const note = (data.note ?? '').trim().slice(0, 2000) || null;
   const altEmail = (data.altEmail ?? '').trim().slice(0, 200) || null;
   const altPhone = (data.altPhone ?? '').trim().slice(0, 60) || null;
@@ -832,6 +838,7 @@ export async function updateSavedSupplier(vendorId: string, data: { note?: strin
     create: { userId: u.id, vendorId, note, altEmail, altPhone },
   });
   revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
 }
 
 // ---- Supplier testimonials ----
