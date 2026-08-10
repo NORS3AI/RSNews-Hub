@@ -178,6 +178,40 @@ export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeM
   return out;
 }
 
+// Reorder honoring BOTH locks and visibility: a module that is locked OR hidden
+// keeps its absolute slot; only the enabled+unlocked modules are rearranged, in
+// the order given. `orderedVisibleIds` is the new order of the currently-visible
+// modules (what an admin dragged on the live homepage). Used by on-page arrange.
+export function applyLiveReorder(current: HomeModule[], orderedVisibleIds: string[]): HomeModule[] {
+  const byId = new Map(current.map((m) => [m.id, m]));
+  const idset = new Set(orderedVisibleIds);
+  // Only modules the caller actually listed take part in the shuffle; a slot is a
+  // "fill slot" only if its module is enabled, unlocked AND present in the list.
+  // Enabled-but-omitted modules (e.g. one that rendered empty) stay pinned, so
+  // the id→slot mapping can't drift.
+  const movable = orderedVisibleIds
+    .map((id) => byId.get(id))
+    .filter((m): m is HomeModule => !!m && m.enabled && !m.locked);
+  const isFill = (m: HomeModule) => m.enabled && !m.locked && idset.has(m.id);
+  const out: HomeModule[] = [];
+  let i = 0;
+  for (const m of current) out.push(isFill(m) ? movable[i++] ?? m : m);
+  return out;
+}
+
+// Persist an on-homepage drag: reorder LIVE (published immediately) and, if a
+// pending draft exists, apply the same id-order to it — so a later "Go Live"
+// can't silently revert what an admin just arranged on the page.
+export async function reorderLiveLayout(orderedVisibleIds: string[]): Promise<void> {
+  const live = await getHomeLayout();
+  await saveHomeLayout(applyLiveReorder(live, orderedVisibleIds));
+  const draftRow = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (draftRow) {
+    try { await saveDraftLayout(applyLiveReorder(reconcile(draftRow.value), orderedVisibleIds)); }
+    catch { /* leave a malformed draft alone */ }
+  }
+}
+
 export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
   const clean = cleanLayout(layout);
   await prisma.setting.upsert({

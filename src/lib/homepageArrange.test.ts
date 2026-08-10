@@ -1,0 +1,42 @@
+import { describe, it, expect } from 'vitest';
+import { applyLiveReorder, type HomeModule } from './homepage';
+
+const m = (id: string, over: Partial<HomeModule> = {}): HomeModule => ({ id, enabled: true, locked: false, ...over });
+
+describe('applyLiveReorder', () => {
+  it('reorders enabled, unlocked modules into the given order', () => {
+    const cur = [m('a'), m('b'), m('c')];
+    const out = applyLiveReorder(cur, ['c', 'a', 'b']);
+    expect(out.map((x) => x.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('keeps a locked module pinned to its slot', () => {
+    const cur = [m('a'), m('b', { locked: true }), m('c')];
+    // Client can only reorder the movable ones (a, c); b stays in slot 2.
+    const out = applyLiveReorder(cur, ['c', 'a']);
+    expect(out.map((x) => x.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('keeps a hidden module pinned to its slot', () => {
+    const cur = [m('a'), m('b', { enabled: false }), m('c')];
+    const out = applyLiveReorder(cur, ['c', 'a']);
+    expect(out.map((x) => x.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('pins an enabled module that was omitted (e.g. rendered empty)', () => {
+    // b is enabled+unlocked but NOT in the ordered list → must stay put, and the
+    // mapping for the others must not drift.
+    const cur = [m('a'), m('b'), m('c'), m('d')];
+    const out = applyLiveReorder(cur, ['d', 'a', 'c']); // b omitted
+    // b pins at its index (1); the fill slots (0,2,3) take d,a,c in order.
+    expect(out.map((x) => x.id)).toEqual(['d', 'b', 'a', 'c']);
+    expect(out[1].id).toBe('b');
+    // No duplicates, no drops.
+    expect(new Set(out.map((x) => x.id)).size).toBe(4);
+  });
+
+  it('is a no-op when the order matches', () => {
+    const cur = [m('a'), m('b'), m('c')];
+    expect(applyLiveReorder(cur, ['a', 'b', 'c']).map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+});

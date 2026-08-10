@@ -9,7 +9,7 @@ import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
@@ -1143,6 +1143,24 @@ export async function toggleHomeSizeLockLive(id: string) {
   const live = await getHomeLayout();
   const next = !live.find((x) => x.id === id)?.sizeLocked;
   await patchModuleLive(id, (m) => { m.sizeLocked = next; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
+// On-homepage "Arrange" drop: persist the new visible-module order to live (and
+// mirror any pending draft). Locked + hidden modules keep their slots.
+export async function reorderHomeLive(orderedVisibleIds: string[]) {
+  await ensureStaff();
+  if (!Array.isArray(orderedVisibleIds)) return;
+  await reorderLiveLayout(orderedVisibleIds.map(String));
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
+// On-homepage "Arrange" eye toggle: show/hide a module live (mirrors draft).
+export async function setHomeVisibilityLive(id: string, enabled: boolean) {
+  await ensureStaff();
+  await patchModuleLive(id, (m) => { m.enabled = enabled; });
   revalidatePath('/docs');
   revalidatePath('/admin/homepage');
 }

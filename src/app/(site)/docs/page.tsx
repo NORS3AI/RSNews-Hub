@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
 import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, type ArticleCard as Card } from '@/lib/recommend';
-import { getHomeLayout, moduleSource, clampSpan, type ModuleId, type HomeModule } from '@/lib/homepage';
+import { getHomeLayout, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
 import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
@@ -25,7 +25,7 @@ import { formatDate } from '@/lib/utils';
 import IndustryNews from '@/components/site/IndustryNews';
 import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
-import ModuleAdminToolbar from '@/components/site/ModuleAdminToolbar';
+import HomeArrangeGrid from '@/components/site/HomeArrangeGrid';
 import SectionWidth from '@/components/site/SectionWidth';
 import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
 import HomepageHighlight from '@/components/site/HomepageHighlight';
@@ -717,33 +717,39 @@ export default async function DocsHome() {
 
       {/* ===== Admin-arranged modules — a 3-column grid on desktop; each module
           spans 1/2/3 columns (its `span`). Collapses to a single stacked column
-          below lg so mobile/tablet stay full-width and readable. ===== */}
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-6 lg:gap-y-[52px]">
-        {layout.filter((m) => m.enabled).map((m) => {
-          const el = renderModule(m);
-          if (!el) return null;
-          // Only literal classes so Tailwind's JIT keeps them.
-          const spanClass = clampSpan(m.span) === 1 ? 'lg:col-span-1' : clampSpan(m.span) === 2 ? 'lg:col-span-2' : 'lg:col-span-3';
-          if (!isAdmin) return <div key={`m-${m.id}`} className={spanClass}>{el}</div>;
-          // Admins get an on-hover control cluster on every module: Edit (opens the
-          // Studio for custom modules, the layout manager for catalog ones), the
-          // two locks (size + position), and — for custom modules — quick colors.
-          const isCustom = isCustomModuleId(m.id);
-          const href = isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage';
-          const editLabel = isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules';
-          const customRow = isCustom ? customById.get(m.id) : null;
-          return (
-            <div key={`m-${m.id}`} className={`group relative ${spanClass}`}>
-              {el}
-              <ModuleAdminToolbar
-                id={m.id} href={href} editLabel={editLabel}
-                locked={!!m.locked} sizeLocked={!!m.sizeLocked}
-                {...(customRow ? { colorTree: parseTree(customRow.tree), name: customRow.name } : {})}
-              />
-            </div>
-          );
-        })}
-      </div>
+          below lg so mobile/tablet stay full-width and readable. For staff, the
+          whole grid is wrapped so it can flip into on-page drag "Arrange" mode. ===== */}
+      {!isAdmin ? (
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-6 lg:gap-y-[52px]">
+          {layout.filter((m) => m.enabled).map((m) => {
+            const el = renderModule(m);
+            if (!el) return null;
+            const spanCls = clampSpan(m.span) === 1 ? 'lg:col-span-1' : clampSpan(m.span) === 2 ? 'lg:col-span-2' : 'lg:col-span-3';
+            return <div key={`m-${m.id}`} className={spanCls}>{el}</div>;
+          })}
+        </div>
+      ) : (
+        (() => {
+          const moduleLabel = (mid: string): string =>
+            isCustomModuleId(mid) ? (customById.get(mid)?.name ?? 'Custom module') : (MODULE_CATALOG[mid as ModuleId]?.label ?? mid);
+          const arrangeItems = layout.filter((m) => m.enabled).flatMap((m) => {
+            const el = renderModule(m);
+            if (!el) return [];
+            const isCustom = isCustomModuleId(m.id);
+            const customRow = isCustom ? customById.get(m.id) : null;
+            return [{
+              id: m.id, span: clampSpan(m.span), locked: !!m.locked, sizeLocked: !!m.sizeLocked,
+              isCustom, href: isCustom ? `/admin/studio/${m.id.slice('custom:'.length)}` : '/admin/homepage',
+              editLabel: isCustom ? 'Edit this module in the Studio' : 'Manage homepage modules',
+              label: moduleLabel(m.id),
+              ...(customRow ? { colorTree: parseTree(customRow.tree), name: customRow.name } : {}),
+              node: el,
+            }];
+          });
+          const hiddenModules = layout.filter((m) => !m.enabled).map((m) => ({ id: m.id, label: moduleLabel(m.id) }));
+          return <HomeArrangeGrid items={arrangeItems} hidden={hiddenModules} />;
+        })()
+      )}
 
       {/* ===== More content + interspersed ads ===== */}
       <div className="flex justify-center">{homeAd('leaderboard', 'home-mid')}</div>
