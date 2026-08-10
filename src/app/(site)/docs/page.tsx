@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
-import { getPersonalizedFeed, trendingArticles, type ArticleCard as Card } from '@/lib/recommend';
+import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, clampSpan, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
@@ -131,8 +131,11 @@ export default async function DocsHome() {
   const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
-    trendingArticles(5),
+    trendingWindowArticles(5, 7),
   ]);
+  // "Rediscover" back-catalog picks, rotating daily. Exclude what Trending is
+  // already showing so the two side-by-side slots don't echo each other.
+  const rediscover = await rediscoverArticles(5, trending.map((t) => t.id));
 
   // A logged-in reader may have already voted / answered — surface that so the
   // poll and quiz render their results/submitted state rather than re-prompting.
@@ -581,6 +584,33 @@ export default async function DocsHome() {
                   <span className="flex-1 text-lg font-extrabold leading-tight tracking-tight">{a.title}</span>
                   <span className="flex shrink-0 items-center gap-1.5 text-sm text-[var(--muted)]"><Eye width={14} height={14} />{a.views}</span>
                 </ArticleLink>
+              ))}
+            </div>
+          </section>
+        );
+      case 'rediscover':
+        if (rediscover.length === 0) return null;
+        return (
+          <section key={id} className="module">
+            <div className="mb-4">
+              <h2 className="module-title">Rediscover</h2>
+              <p className="mt-1 text-sm text-[var(--muted)]">Older stories worth another look — refreshed daily.</p>
+            </div>
+            <div className="divide-y divide-[var(--border)]">
+              {rediscover.map((a, i) => (
+                <div key={a.id} data-hp-id={a.id} className="group relative">
+                  <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
+                  <AdminArticleEdit id={a.id} pos="right-[88px] top-4" />
+                  <ArticleLink slug={a.slug} className="block py-4"
+                    data-trk-type="article" data-trk-id={a.id} data-trk-place="rediscover" data-trk-props={JSON.stringify({ module: 'rediscover', moduleType: 'list', pos: i, hasImage: false })}>
+                    {a.category && <span className="cat-ink text-xs font-bold" style={{ '--c': a.category.color } as React.CSSProperties}>{a.category.name}</span>}
+                    <h3 className="mt-1 pr-[76px] text-[22px] font-extrabold leading-tight tracking-tight group-hover:text-brand-600">{a.title}</h3>
+                    <div className="mt-2 flex items-center gap-3.5 text-xs text-[var(--muted)]">
+                      <span>{formatDate(a.publishedAt)}</span>
+                      <span className="flex items-center gap-1"><Clock width={13} height={13} />{a.readMinutes} min</span>
+                    </div>
+                  </ArticleLink>
+                </div>
               ))}
             </div>
           </section>

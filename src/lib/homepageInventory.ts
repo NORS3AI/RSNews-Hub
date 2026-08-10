@@ -2,7 +2,7 @@ import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
 import { isCustomModuleId, customIdOf, parseTree, isArticleSourced, type Block } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
-import { getPersonalizedFeed, trendingArticles } from './recommend';
+import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles } from './recommend';
 
 // Homepage content inventory — what articles / polls / quizzes actually appear on
 // the public homepage, and how many times each is placed, so an admin can spot
@@ -39,7 +39,8 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
   const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
   const recent = all.filter((a) => a.publishedAt && new Date(a.publishedAt).getTime() >= weekAgo).slice(0, 8);
   const latest = all.filter((a) => a.id !== lead?.id);
-  const trending = (await trendingArticles(5)).map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
+  const trendingCards = await trendingWindowArticles(5, 7);
+  const trending = trendingCards.map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
   const featurePool = (source?: string): Lite[] =>
     source === 'latest' ? latest : source === 'trending' ? trending : (featured.length ? featured : all.slice(0, 5));
 
@@ -48,6 +49,10 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
   pushArts(recent, 'Published this week');
   if (enabled.has('latest')) pushArts(latest.slice(0, 7), 'Latest articles');
   if (enabled.has('trending')) pushArts(trending, 'Trending');
+  if (enabled.has('rediscover')) {
+    const redis = await rediscoverArticles(5, trending.map((t) => t.id));
+    pushArts(redis.map((a) => ({ id: a.id, title: a.title, slug: a.slug })), 'Rediscover');
+  }
   if (enabled.has('feature-carousel')) {
     const m = layout.find((x) => x.id === 'feature-carousel');
     pushArts(featurePool(m ? moduleSource(m) : 'featured').slice(0, 8), 'Feature showcase');

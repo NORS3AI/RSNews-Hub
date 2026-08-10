@@ -9,6 +9,7 @@ export type ModuleId =
   | 'council'
   | 'categories'
   | 'trending'
+  | 'rediscover'
   | 'latest'
   | 'ad-leaderboard'
   | 'ad-rectangles';
@@ -54,7 +55,8 @@ export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
   comic: { label: 'Backroom Humor comic', description: 'The current comic; the rest live in the archive.' },
   council: { label: 'RS Council column', description: 'A tall column showing the full text of every RS Council piece.' },
   categories: { label: 'Category strip', description: 'Quick links to every category.' },
-  trending: { label: 'Trending / Most read', description: 'The most-viewed published articles.' },
+  trending: { label: 'Trending / Most read', description: 'The most-opened articles over the last 7 days (falls back to all-time when traffic is thin).' },
+  rediscover: { label: 'Rediscover', description: 'Older stories from the back catalog, rotating to a fresh set each day.' },
   latest: { label: 'Latest articles', description: 'The main chronological grid of stories.' },
   'ad-leaderboard': { label: 'Ad — leaderboard', description: 'Full-width banner ad slot.' },
   'ad-rectangles': { label: 'Ad — rectangle row', description: 'A row of medium-rectangle ad slots.' },
@@ -72,6 +74,7 @@ export const DEFAULT_LAYOUT: HomeModule[] = [
   { id: 'categories', enabled: true, locked: false },
   { id: 'latest', enabled: true, locked: false, span: 2 },
   { id: 'trending', enabled: true, locked: false, span: 1 },
+  { id: 'rediscover', enabled: true, locked: false, span: 1 },
   { id: 'ad-rectangles', enabled: true, locked: false },
 ];
 

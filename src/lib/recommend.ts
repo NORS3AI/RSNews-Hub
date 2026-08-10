@@ -170,6 +170,94 @@ export async function trendingArticles(limit = 6, excludeIds: string[] = []): Pr
 }
 
 /**
+ * "Trending right now" — the most-opened articles over a rolling recent window
+ * (default 7 days), so the list reflects what readers are actually reading this
+ * week rather than all-time view totals. Popularity is measured from
+ * `article_open` analytics events. When the window is thin (a quiet stretch or a
+ * brand-new site) it backfills with all-time trending so the slot never looks
+ * empty. Returns cards in descending recent-popularity order.
+ */
+export async function trendingWindowArticles(limit = 5, days = 7, excludeIds: string[] = []): Promise<ArticleCard[]> {
+  const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+  const exclude = new Set(excludeIds);
+
+  // Count recent opens per article; pull a buffer so status/exclusion filtering
+  // below still leaves enough candidates.
+  const grouped = await prisma.analyticsEvent.groupBy({
+    by: ['subjectId'],
+    where: { type: 'article_open', subjectType: 'article', subjectId: { not: null }, createdAt: { gte: since } },
+    _count: { subjectId: true },
+    orderBy: { _count: { subjectId: 'desc' } },
+    take: limit * 5,
+  });
+
+  const rankedIds = grouped
+    .map((g) => g.subjectId as string)
+    .filter((id) => id && !exclude.has(id));
+
+  let picks: ArticleCard[] = [];
+  if (rankedIds.length) {
+    // Only surface articles still eligible for the homepage; keep the popularity
+    // ordering from the grouping (findMany doesn't preserve `in` order).
+    const rows = await prisma.article.findMany({
+      where: { id: { in: rankedIds }, status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() } },
+      select: cardSelect,
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    picks = rankedIds.map((id) => byId.get(id)).filter(Boolean).map(toCard).slice(0, limit);
+  }
+
+  // Backfill from all-time trending when the recent window is thin.
+  if (picks.length < limit) {
+    const have = new Set([...exclude, ...picks.map((p) => p.id)]);
+    const filler = await trendingArticles(limit - picks.length, [...have]);
+    picks = [...picks, ...filler];
+  }
+  return picks;
+}
+
+// Small deterministic RNG (mulberry32) so a given day seed always yields the
+// same shuffle — the Rediscover module rotates once per day, not per request.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * "Rediscover" — resurfaces older stories from the back catalog, rotating to a
+ * different set each day. The freshest handful are skipped (they live in Latest /
+ * This week), then the remaining pool is shuffled with a day-derived seed and the
+ * top `limit` returned. Deterministic within a UTC day, different the next day.
+ * Returns [] until there is enough back catalog to draw from, so the module
+ * simply hides on a young site.
+ */
+export async function rediscoverArticles(limit = 5, excludeIds: string[] = [], skipFreshest = 6): Promise<ArticleCard[]> {
+  const exclude = new Set(excludeIds);
+  // Candidate pool: everything eligible, newest first, minus the freshest few.
+  const rows = await prisma.article.findMany({
+    where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, id: exclude.size ? { notIn: [...exclude] } : undefined },
+    orderBy: { publishedAt: 'desc' },
+    select: cardSelect,
+    skip: skipFreshest,
+    take: 60,
+  });
+  if (!rows.length) return [];
+  const daySeed = Math.floor(Date.now() / (24 * 3600 * 1000));
+  return seededShuffle(rows, daySeed).slice(0, limit).map(toCard);
+}
+
+/**
  * Smart search: ranks by weighted relevance across title, excerpt, content,
  * category and tags. SQLite-friendly (uses `contains`), tokenizes the query so
  * multi-word searches match partial term overlap.
