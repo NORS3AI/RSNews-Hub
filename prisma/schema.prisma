@@ -636,6 +636,11 @@ model Article {
   slug        String    @unique
   excerpt     String?
   content     String
+  // Optional display byline that overrides the account name shown as "By …" in
+  // the reader. Lets a colleague post on behalf of another author (e.g. via
+  // Simple upload) without reassigning the article's owning account. Blank/null
+  // = fall back to the author account's name.
+  byline      String?
   coverImage  String?
   // Optional focal point for the cover, as a CSS object-position ("50% 30%").
   // null/blank = center. Honored wherever the cover is object-cover cropped.

@@ -120,7 +120,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-          {article.author && <span>By {article.author.name}</span>}
+          {(article.byline || article.author?.name) && <span>By {article.byline || article.author?.name}</span>}
           <span>{formatDate(article.publishedAt ?? article.createdAt)}</span>
           <span className="flex items-center gap-1"><Clock width={14} height={14} />{article.readMinutes} min read</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>

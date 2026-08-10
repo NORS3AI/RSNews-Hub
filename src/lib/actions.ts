@@ -71,6 +71,8 @@ export async function saveArticle(formData: FormData) {
   const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
+  // Optional display byline (overrides the author account name in the reader).
+  const byline = ((formData.get('byline') as string) || '').trim().slice(0, 120);
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
   const publishedAtRaw = ((formData.get('publishedAt') as string) || '').trim();
   const publishedAtInput = publishedAtRaw ? new Date(publishedAtRaw) : null;
@@ -124,7 +126,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -139,7 +141,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

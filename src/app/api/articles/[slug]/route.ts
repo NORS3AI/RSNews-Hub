@@ -64,6 +64,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       readMinutes: article.readMinutes,
       views: article.views,
       publishedAt: article.publishedAt,
+      byline: article.byline,
       author: article.author,
       category: article.category,
       extraCategories: article.extraCategories,

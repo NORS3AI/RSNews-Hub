@@ -9,6 +9,7 @@ import { useComposer } from './context';
 type Cat = { id: string; name: string };
 type Article = {
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
+  byline?: string | null;
   coverImage?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
@@ -88,6 +89,15 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
             <option value="custom">Custom…</option>
           </select>
           {breaking === 'custom' && <input type="number" name="breakingCustomHours" min={1} max={720} defaultValue={48} className="input mt-2" placeholder="Hours" />}
+        </div>
+      </Section>
+
+      <Section title="Byline">
+        <div>
+          <label className="label" htmlFor="byline">Shown to readers as &ldquo;By …&rdquo;</label>
+          <input id="byline" name="byline" defaultValue={article?.byline ?? ''} maxLength={120} autoComplete="off"
+            className="input" placeholder="Defaults to your name" />
+          <p className="mt-1 text-xs text-[var(--muted)]">Optional. Post on behalf of a colleague — blank uses your account name. Simple upload fills this from a &ldquo;By …&rdquo; line.</p>
         </div>
       </Section>
 

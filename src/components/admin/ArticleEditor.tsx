@@ -6,6 +6,7 @@ import { ComposerProvider, type Opt, type Advertiser } from './composer/context'
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
+import SimpleUpload from './composer/SimpleUpload';
 import AutoSave from './AutoSave';
 
 // Warn before leaving with unsaved edits: mark dirty on any edit in the form
@@ -26,7 +27,7 @@ function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
 
 type Cat = { id: string; name: string; color?: string };
 type Article = {
-  id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
+  id: string; title: string; content: string; excerpt: string | null; byline?: string | null; coverImage: string | null;
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null; views?: number; draftSavedAt?: string | Date | null;
@@ -75,6 +76,7 @@ export default function ArticleEditor({
           </aside>
 
           <div className="order-1 min-w-0 lg:order-2">
+            <SimpleUpload />
             <Canvas initialTitle={article?.title} categories={categories}
               previewMeta={{ author: authorName, views: article?.views ?? 0 }} />
           </div>

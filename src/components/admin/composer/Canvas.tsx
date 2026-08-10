@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/utils';
 import { Bold, Italic, LinkIcon, Eye, X, Clock, Star, Pin, Share, Scissors } from '@/components/icons';
 
 type Cat = { id: string; name: string; color?: string };
-type PreviewData = { title: string; cover: string; cats: { name: string; color: string }[]; breaking: boolean; date: string; readMin: number };
+type PreviewData = { title: string; byline: string; cover: string; cats: { name: string; color: string }[]; breaking: boolean; date: string; readMin: number };
 
 function TB({ on, active, title, children }: { on: () => void; active?: boolean; title: string; children: React.ReactNode }) {
   return (
@@ -44,6 +44,7 @@ export default function Canvas({
     const words = html.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
     setPreview({
       title: val('title') || 'Untitled',
+      byline: val('byline'),
       cover: (document.querySelector('input[name="coverImage"]') as HTMLInputElement)?.value || '',
       cats: shownCats, breaking,
       date: val('publishedAt') ? formatDate(new Date(val('publishedAt'))) : formatDate(new Date()),
@@ -135,7 +136,7 @@ export default function Canvas({
                 </div>
                 <h1 className="text-3xl font-black leading-tight sm:text-4xl">{preview.title}</h1>
                 <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-                  <span>By {previewMeta.author}</span>
+                  <span>By {preview.byline || previewMeta.author}</span>
                   <span>{preview.date}</span>
                   <span className="flex items-center gap-1"><Clock width={14} height={14} />{preview.readMin} min read</span>
                   <span className="flex items-center gap-1"><Eye width={14} height={14} />{previewMeta.views} views</span>

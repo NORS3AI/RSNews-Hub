@@ -15,6 +15,7 @@ import { track } from '@/lib/analytics/track';
 type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null;
   status: string; readMinutes: number; views: number; publishedAt: string | null;
+  byline?: string | null;
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
   extraCategories?: { name: string; slug: string; color: string }[];
@@ -175,7 +176,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">
-                      {a.author && <span>By {a.author.name}</span>}
+                      {(a.byline || a.author?.name) && <span>By {a.byline || a.author?.name}</span>}
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
