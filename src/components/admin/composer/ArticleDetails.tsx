@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { uploadImage } from '@/lib/uploadClient';
+import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
 import { suggestTags } from '@/lib/suggestTags';
 import { useComposer } from './context';
@@ -10,7 +10,7 @@ type Cat = { id: string; name: string };
 type Article = {
   status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   byline?: string | null;
-  coverImage?: string | null; coverFocus?: string | null;
+  coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   publishedAt?: string | Date | null;
 };
@@ -44,6 +44,11 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
   const [imgError, setImgError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Optional cover VIDEO (plays on the reader + hero; the image above is its poster).
+  const [video, setVideo] = useState(article?.coverVideo as string ?? '');
+  const [vidError, setVidError] = useState<string | null>(null);
+  const [vidUploading, setVidUploading] = useState(false);
+  const videoRef = useRef<HTMLInputElement>(null);
   const initiallyBreaking = !!(article?.breakingUntil && new Date(article.breakingUntil).getTime() > Date.now());
   const [breaking, setBreaking] = useState<string>(initiallyBreaking ? 'keep' : '');
   const [tags, setTags] = useState(article?.tags.map((t) => t.tag.name).join(', ') ?? '');
@@ -55,6 +60,13 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
     const res = await uploadImage(file); setUploading(false);
     if (res.ok) setCover(res.url); else setImgError(res.error);
     if (fileRef.current) fileRef.current.value = '';
+  }
+  async function onPickVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setVidError(null); setVidUploading(true);
+    const res = await uploadVideo(file); setVidUploading(false);
+    if (res.ok) setVideo(res.url); else setVidError(res.error);
+    if (videoRef.current) videoRef.current.value = '';
   }
   function onSuggestTags() {
     const title = (document.getElementById('title') as HTMLInputElement)?.value || '';
@@ -177,6 +189,24 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
         <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
         <input type="url" value={cover.startsWith('data:') ? '' : cover} onChange={(e) => setCover(e.target.value)} className="input" placeholder="…or paste an image URL" />
         {imgError && <p className="text-xs text-red-600">{imgError}</p>}
+
+        {/* Optional cover VIDEO — plays on the article reader + homepage hero
+            (muted, looping); the image above is its still poster / fallback. */}
+        <div className="mt-3 border-t border-[var(--border)] pt-3">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--fg)]">Cover video <span className="font-normal text-[var(--muted)]">(optional)</span></span>
+            {video && <button type="button" onClick={() => { setVideo(''); if (videoRef.current) videoRef.current.value = ''; }} className="text-xs font-semibold text-brand-600 hover:underline">Remove</button>}
+          </div>
+          {video ? (
+            <video src={video} muted loop playsInline autoPlay className="aspect-[16/9] w-full rounded-lg border border-[var(--border)] object-cover" />
+          ) : (
+            <p className="mb-2 text-xs text-[var(--muted)]">Plays on the reader &amp; hero only. The image above is the poster shown on cards, shares and while it loads.</p>
+          )}
+          <button type="button" onClick={() => videoRef.current?.click()} disabled={vidUploading} className="btn-outline btn-sm mt-2 w-full">{vidUploading ? 'Uploading…' : (video ? 'Replace video' : 'Upload cover video (mp4/webm)')}</button>
+          <input ref={videoRef} type="file" accept="video/mp4,video/webm" onChange={onPickVideo} className="hidden" />
+          <input type="hidden" name="coverVideo" value={video} />
+          {vidError && <p className="mt-1 text-xs text-red-600">{vidError}</p>}
+        </div>
       </Section>
 
       <Section title="Tags">

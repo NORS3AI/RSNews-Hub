@@ -7,6 +7,7 @@ export type ArticleCard = {
   slug: string;
   excerpt: string | null;
   coverImage: string | null;
+  coverVideo?: string | null;
   coverFocus?: string | null;
   publishedAt: Date | null;
   views: number;
@@ -24,6 +25,7 @@ const cardSelect = {
   slug: true,
   excerpt: true,
   coverImage: true,
+  coverVideo: true,
   coverFocus: true,
   publishedAt: true,
   views: true,

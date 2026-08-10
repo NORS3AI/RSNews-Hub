@@ -10,6 +10,7 @@ import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
 import ListenButton from '@/components/site/ListenButton';
+import CoverVideo from '@/components/site/CoverVideo';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
 import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
@@ -135,10 +136,12 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           )}
         </div>
 
-        {article.coverImage && (
+        {article.coverVideo ? (
+          <CoverVideo src={article.coverVideo} poster={article.coverImage} className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
+        ) : article.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           (<img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />)
-        )}
+        ) : null}
 
         <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" /></div>
 

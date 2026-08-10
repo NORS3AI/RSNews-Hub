@@ -9,11 +9,12 @@ import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
 import ListenButton from './ListenButton';
+import CoverVideo from './CoverVideo';
 import { useSaved } from './StarProvider';
 import { track } from '@/lib/analytics/track';
 
 type ModalArticle = {
-  id: string; title: string; slug: string; content: string; coverImage: string | null;
+  id: string; title: string; slug: string; content: string; coverImage: string | null; coverVideo?: string | null;
   status: string; readMinutes: number; views: number; publishedAt: string | null;
   byline?: string | null;
   author: { name: string } | null;
@@ -183,10 +184,12 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     </div>
                     {a.audioUrl && <div className="mt-4"><ListenButton src={a.audioUrl} /></div>}
 
-                    {a.coverImage && (
+                    {a.coverVideo ? (
+                      <CoverVideo src={a.coverVideo} poster={a.coverImage} className="mt-6 aspect-[16/9] w-full rounded-xl object-cover" />
+                    ) : a.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.coverImage} alt="" className="mt-6 aspect-[16/9] w-full rounded-xl object-cover" />
-                    )}
+                    ) : null}
 
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
                     <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" /></div>

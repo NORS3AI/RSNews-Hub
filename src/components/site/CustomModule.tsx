@@ -119,6 +119,15 @@ function blockInner(block: Block) {
       // eslint-disable-next-line @next/next/no-img-element
       return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
     }
+    case 'video': {
+      const url = String(s.url ?? '');
+      const w = Number(s.widthPct) || 100;
+      const radius = s.radius !== false;
+      if (!url) {
+        return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Video — upload one in settings</div>;
+      }
+      return <video src={url} poster={String(s.poster ?? '') || undefined} muted loop playsInline autoPlay preload="metadata" style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+    }
     case 'ad': {
       const format = String(s.format ?? 'rectangle');
       const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : format === 'vertical' ? 'min-h-[250px]' : format === 'square' ? 'min-h-[200px]' : 'min-h-[90px]';

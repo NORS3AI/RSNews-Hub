@@ -8,6 +8,7 @@ import {
 } from '@/lib/studio';
 import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
+import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import EntityPicker from '@/components/admin/studio/EntityPicker';
 import RsColorPicker from '@/components/admin/studio/RsColorPicker';
 import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X } from '@/components/icons';
@@ -640,6 +641,22 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
           <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
         </>
       )}
+      {block.type === 'video' && (
+        <>
+          <Field label="Video (mp4/webm)">
+            <MediaUploadField kind="video" value={String(s.url ?? '')} onChange={(u) => set('url', u)} placeholder="https://… or upload" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Autoplays muted &amp; looping. Viewers with reduced-motion get the poster + play controls.</p>
+          </Field>
+          <Field label="Poster image (shown before it plays / fallback)">
+            <MediaUploadField kind="image" value={String(s.poster ?? '')} onChange={(u) => set('poster', u)} placeholder="https://… or upload" />
+          </Field>
+          <Field label={`Width — ${Number(s.widthPct ?? 100)}% of the module`}>
+            <input type="range" min={10} max={200} step={5} value={Number(s.widthPct ?? 100)} onChange={(e) => set('widthPct', Number(e.target.value))} className="w-full accent-brand-600" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% intentionally overflows the module edges.</p>
+          </Field>
+          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
+        </>
+      )}
       {block.type === 'quiz' && (
         <>
           <Field label="Quiz"><EntityPicker value={String(s.quizId ?? '')} onChange={(id) => set('quizId', id)} endpoint="/api/admin/quizzes/search" placeholder="Search quizzes…" /></Field>
@@ -944,6 +961,8 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
       );
     case 'image':
       return <input className="input !h-8 !py-1 text-xs" value={String(s.url ?? '')} onChange={(e) => onSet('url', e.target.value)} placeholder="Image URL" />;
+    case 'video':
+      return <input className="input !h-8 !py-1 text-xs" value={String(s.url ?? '')} onChange={(e) => onSet('url', e.target.value)} placeholder="Video URL" />;
     case 'poll':
       return <EntityPicker value={String(s.pollId ?? '')} onChange={(id) => onSet('pollId', id)} endpoint="/api/admin/polls/search" placeholder="Poll (or leave for active)…" />;
     case 'quiz':
@@ -957,3 +976,31 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
   }
 }
 
+
+// URL field + upload button used by the Studio Video block (video + poster).
+// Mirrors the article editor: upload to /api/uploads, or paste a URL directly.
+function MediaUploadField({ kind, value, onChange, placeholder }: {
+  kind: 'image' | 'video'; value: string; onChange: (url: string) => void; placeholder?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setErr(null); setBusy(true);
+    const res = kind === 'video' ? await uploadVideo(file) : await uploadImage(file);
+    setBusy(false);
+    if (res.ok) onChange(res.url); else setErr(res.error);
+    if (ref.current) ref.current.value = '';
+  }
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input className="input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+        <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="btn-outline btn-sm shrink-0">{busy ? '…' : 'Upload'}</button>
+      </div>
+      <input ref={ref} type="file" accept={kind === 'video' ? 'video/mp4,video/webm' : 'image/*'} onChange={pick} className="hidden" />
+      {err && <p className="mt-1 text-[11px] text-red-600">{err}</p>}
+    </div>
+  );
+}

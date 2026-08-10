@@ -60,6 +60,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       slug: article.slug,
       content: article.content,
       coverImage: article.coverImage,
+      coverVideo: article.coverVideo,
       status: article.status,
       readMinutes: article.readMinutes,
       views: article.views,

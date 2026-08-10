@@ -642,6 +642,11 @@ model Article {
   // = fall back to the author account's name.
   byline      String?
   coverImage  String?
+  // Optional cover VIDEO (mp4/webm URL). When set, the big single surfaces — the
+  // article reader (page + modal) and the homepage hero — autoplay it muted/looped
+  // with coverImage as the poster/fallback. Everywhere small (cards, grids, social
+  // previews, email) always uses coverImage. Blank/null = image-only cover.
+  coverVideo  String?
   // Optional focal point for the cover, as a CSS object-position ("50% 30%").
   // null/blank = center. Honored wherever the cover is object-cover cropped.
   coverFocus  String?

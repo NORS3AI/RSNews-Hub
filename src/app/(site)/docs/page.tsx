@@ -26,6 +26,7 @@ import IndustryNews from '@/components/site/IndustryNews';
 import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
 import HomeArrangeGrid from '@/components/site/HomeArrangeGrid';
+import CoverVideo from '@/components/site/CoverVideo';
 import SectionWidth from '@/components/site/SectionWidth';
 import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
 import HomepageHighlight from '@/components/site/HomepageHighlight';
@@ -37,7 +38,7 @@ import ComicImage from '@/components/site/ComicImage';
 export const dynamic = 'force-dynamic';
 
 const cardSelect = {
-  id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true, publishedAt: true,
+  id: true, title: true, slug: true, excerpt: true, coverImage: true, coverVideo: true, coverFocus: true, publishedAt: true,
   views: true, readMinutes: true, requirement: true, breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
@@ -321,6 +322,13 @@ export default async function DocsHome() {
           const radius = b.settings.radius !== false;
           // eslint-disable-next-line @next/next/no-img-element
           return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+        }
+        case 'video': {
+          const url = String(b.settings.url ?? '');
+          if (!url) return null;
+          const w = Number(b.settings.widthPct) || 100;
+          const radius = b.settings.radius !== false;
+          return <CoverVideo src={url} poster={String(b.settings.poster ?? '') || null} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
         }
         case 'quiz': {
           const qid = b.settings.quizId ? String(b.settings.quizId) : '';
@@ -838,7 +846,9 @@ function Hero({ lead }: { lead: Card }) {
       <AdminArticleEdit id={lead.id} />
       <ArticleLink slug={lead.slug} className="group grid md:grid-cols-[1.15fr_1fr]">
         <div className="relative grid min-h-[220px] place-items-center overflow-hidden bg-gradient-to-br from-[#ece7dc] to-[#d3ccbd] dark:from-[#33303a] dark:to-[#201d28] md:min-h-[380px]">
-          {lead.coverImage ? (
+          {lead.coverVideo ? (
+            <CoverVideo src={lead.coverVideo} poster={lead.coverImage} className="h-full w-full object-cover" style={lead.coverFocus ? { objectPosition: lead.coverFocus } : undefined} />
+          ) : lead.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={lead.coverImage} alt="" className="h-full w-full object-cover" style={lead.coverFocus ? { objectPosition: lead.coverFocus } : undefined} />
           ) : (

@@ -25,7 +25,7 @@ export function isShape(v: unknown): v is Shape {
 export type BlockType =
   | 'article' | 'article-image' | 'article-headline'
   | 'spotlight' | 'split' | 'mosaic'
-  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image';
+  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image' | 'video';
 
 // Palette groups — let the builder collapse whole categories of blocks.
 export type BlockGroup = 'Articles' | 'Media' | 'Interactive' | 'Content';
@@ -78,6 +78,11 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     label: 'Image', group: 'Media',
     description: 'A picture with manual resize.',
     defaults: { url: '', alt: '', widthPct: 100, radius: true },
+  },
+  video: {
+    label: 'Video', group: 'Media',
+    description: 'An autoplaying, muted, looping video with a still poster fallback.',
+    defaults: { url: '', poster: '', widthPct: 100, radius: true },
   },
   poll: {
     label: 'Poll', group: 'Interactive',

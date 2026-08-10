@@ -59,6 +59,7 @@ export async function saveArticle(formData: FormData) {
   const status = (formData.get('status') as string) || 'DRAFT';
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
+  const coverVideo = ((formData.get('coverVideo') as string) || '').trim();
   // Focal point: accept only the 9 known object-position values; anything else
   // (incl. a forged value) → null (center). Defense-in-depth so the value can
   // never be a surprise if it's ever interpolated into a raw style string.
@@ -126,7 +127,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -141,7 +142,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,
