@@ -145,7 +145,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
         <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" /></div>
 
-        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''}>
+        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.byline || article.author?.name || ''}>
           <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
         </article>
 

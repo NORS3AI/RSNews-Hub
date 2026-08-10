@@ -184,12 +184,17 @@ export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeM
 // modules (what an admin dragged on the live homepage). Used by on-page arrange.
 export function applyLiveReorder(current: HomeModule[], orderedVisibleIds: string[]): HomeModule[] {
   const byId = new Map(current.map((m) => [m.id, m]));
-  const idset = new Set(orderedVisibleIds);
+  // Dedupe first: a repeated id would make `movable` longer than the fill slots,
+  // duplicating one module and dropping another. Keep first occurrence only, so a
+  // malformed/replayed request can never corrupt the shared layout.
+  const seen = new Set<string>();
+  const ordered = orderedVisibleIds.filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
+  const idset = new Set(ordered);
   // Only modules the caller actually listed take part in the shuffle; a slot is a
   // "fill slot" only if its module is enabled, unlocked AND present in the list.
   // Enabled-but-omitted modules (e.g. one that rendered empty) stay pinned, so
   // the id→slot mapping can't drift.
-  const movable = orderedVisibleIds
+  const movable = ordered
     .map((id) => byId.get(id))
     .filter((m): m is HomeModule => !!m && m.enabled && !m.locked);
   const isFill = (m: HomeModule) => m.enabled && !m.locked && idset.has(m.id);

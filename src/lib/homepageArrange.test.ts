@@ -35,6 +35,14 @@ describe('applyLiveReorder', () => {
     expect(new Set(out.map((x) => x.id)).size).toBe(4);
   });
 
+  it('is robust to a duplicated id in the input (no drop, no dupe)', () => {
+    const cur = [m('a'), m('b'), m('c')];
+    const out = applyLiveReorder(cur, ['a', 'a', 'b']); // 'a' repeated, 'c' omitted
+    // Dedupe → treat as ['a','b']; 'c' is enabled+unlocked but omitted, so pinned.
+    expect(new Set(out.map((x) => x.id)).size).toBe(3); // no duplicates
+    expect(out.map((x) => x.id).sort()).toEqual(['a', 'b', 'c']); // nothing dropped
+  });
+
   it('is a no-op when the order matches', () => {
     const cur = [m('a'), m('b'), m('c')];
     expect(applyLiveReorder(cur, ['a', 'b', 'c']).map((x) => x.id)).toEqual(['a', 'b', 'c']);

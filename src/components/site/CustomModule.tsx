@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
 import { isHexColor, rsTextureUrl } from '@/lib/studio';
+import CoverVideo from '@/components/site/CoverVideo';
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -126,7 +127,7 @@ function blockInner(block: Block) {
       if (!url) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Video — upload one in settings</div>;
       }
-      return <video src={url} poster={String(s.poster ?? '') || undefined} muted loop playsInline autoPlay preload="metadata" style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+      return <CoverVideo src={url} poster={String(s.poster ?? '') || null} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
     }
     case 'ad': {
       const format = String(s.format ?? 'rectangle');

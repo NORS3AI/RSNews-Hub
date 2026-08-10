@@ -194,7 +194,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
                     <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" /></div>
 
-                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''}>
+                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.byline || a.author?.name || ''}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
                         adBySlot={data?.slotAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} />
                     </article>
