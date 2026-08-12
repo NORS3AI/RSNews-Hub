@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Bell, Mail, Check, X, Trash } from '@/components/icons';
 
 // One Subscribe popup, used everywhere. Two scopes, because a hub login is shared
@@ -157,7 +158,7 @@ export default function SubscribePopup() {
                 <input type="checkbox" checked={checked.has('industry')} onChange={() => toggle('industry')} className="h-[18px] w-[18px] accent-brand-600" />
                 <span className="inline-block h-3 w-3 rounded-full" style={{ background: menu.industry.color }} />
                 <span className="font-bold">Industry News</span>
-                <span className="ml-auto text-xs text-[var(--muted)]">Brandon's daily posts</span>
+                <span className="ml-auto text-xs text-[var(--muted)]">Brandon&apos;s daily posts</span>
               </label>
             )}
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -196,7 +197,7 @@ export default function SubscribePopup() {
                     {accountEmail && emailAddr !== accountEmail && (
                       <button type="button" onClick={() => setEmailAddr(accountEmail)} className="btn-outline btn-sm whitespace-nowrap">Use account email</button>
                     )}
-                    <p className="w-full text-xs text-[var(--muted)]">We&apos;ll only use it for the updates you pick. See our <a href="/docs/page/privacy" className="text-brand-600 hover:underline">Privacy Policy</a>.</p>
+                    <p className="w-full text-xs text-[var(--muted)]">We&apos;ll only use it for the updates you pick. See our <Link href="/docs/page/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>.</p>
                   </div>
                 )}
               </div>

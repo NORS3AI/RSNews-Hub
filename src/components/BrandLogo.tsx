@@ -27,14 +27,15 @@ export function BrandLockup({
   height = 96, variant = 'auto', className = '', priority = false,
 }: { height?: number; variant?: 'auto' | 'light' | 'dark'; className?: string; priority?: boolean }) {
   const w = (a: typeof LIGHT) => Math.round((height * a.w) / a.h);
-  const common = (a: typeof LIGHT) => ({ src: a.src, width: w(a), height, alt: 'RS News Hub', priority, style: { height, width: 'auto' as const } });
+  const common = (a: typeof LIGHT) => ({ src: a.src, width: w(a), height, priority, style: { height, width: 'auto' as const } });
+  const ALT = 'RS News Hub';
 
-  if (variant === 'light') return <Image {...common(LIGHT)} className={className} />;
-  if (variant === 'dark') return <Image {...common(DARK)} className={className} />;
+  if (variant === 'light') return <Image {...common(LIGHT)} alt={ALT} className={className} />;
+  if (variant === 'dark') return <Image {...common(DARK)} alt={ALT} className={className} />;
   return (
     <>
-      <Image {...common(LIGHT)} className={`block dark:hidden ${className}`} />
-      <Image {...common(DARK)} className={`hidden dark:block ${className}`} />
+      <Image {...common(LIGHT)} alt={ALT} className={`block dark:hidden ${className}`} />
+      <Image {...common(DARK)} alt={ALT} className={`hidden dark:block ${className}`} />
     </>
   );
 }
