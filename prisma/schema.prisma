@@ -15,6 +15,26 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Saved announcement-bar messages (a reusable library). Which one is live, and
+// whether the bar is on at all, live in Setting rows (announcement:liveId /
+// announcement:enabled) — so saving/editing a message never changes what's
+// published or flips the on/off switch.
+model Announcement {
+  id            String    @id @default(cuid())
+  name          String    @default("") // short library label
+  message       String    @default("")
+  href          String    @default("")
+  hrefLabel     String    @default("")
+  targetAt      DateTime?               // countdown target (null = no countdown)
+  showCountdown Boolean   @default(false)
+  size          String    @default("md")   // sm | md | lg
+  ticker        Boolean   @default(false)  // scroll the message text
+  order         String    @default("message,countdown,button") // element order
+  starred       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
 // Open newsletter signups — anyone (owner, manager or employee) can subscribe
 // with just an email; the daily Industry News digest goes to these addresses.
 // A personal EMAIL digest signup. Identity is the email address, NOT a hub

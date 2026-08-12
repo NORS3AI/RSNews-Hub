@@ -7,11 +7,11 @@ import AnnouncementBar from '@/components/site/AnnouncementBar';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewAs, activeViewAs } from '@/lib/viewAsServer';
 import { listAdvertisers } from '@/lib/adsServer';
-import { getAnnouncement, announcementSignature } from '@/lib/announcement';
+import { getLiveAnnouncement, announcementSignature } from '@/lib/announcement';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  const announcement = await getAnnouncement();
+  const liveAnnouncement = await getLiveAnnouncement();
   // Admin "View as": offer the switcher (and reflect the active impersonation)
   // only to real staff/admin accounts.
   const showViewAs = canViewAs(user);
@@ -22,8 +22,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <SiteProviders>
       <AppSidebarShell
         user={user ? { id: user.id, name: user.name, role: user.role } : null}
-        announcement={announcement.enabled && announcement.message
-          ? <AnnouncementBar config={announcement} sig={announcementSignature(announcement)} />
+        announcement={liveAnnouncement
+          ? <AnnouncementBar record={liveAnnouncement} sig={announcementSignature(liveAnnouncement)} />
           : null}>
         {children}
       </AppSidebarShell>

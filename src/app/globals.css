@@ -316,3 +316,10 @@ body.modal-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* Announcement-bar message ticker (opt-in). Two copies of the text scroll one
+   full copy-width, so the loop is seamless. The global reduced-motion rule above
+   near-freezes the animation, leaving it effectively static for those users. */
+@keyframes ann-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ann-marquee { display: inline-flex; white-space: nowrap; will-change: transform; animation: ann-marquee 22s linear infinite; }
+.ann-marquee:hover { animation-play-state: paused; }

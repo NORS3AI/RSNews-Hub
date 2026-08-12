@@ -21,7 +21,7 @@ import { entitlementsOf, isVendor } from './entitlements';
 import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { setNewsletterEnabled } from './newsletter';
-import { setAnnouncement } from './announcement';
+import { upsertAnnouncement, deleteAnnouncement, toggleStar as toggleAnnouncementStarLib, setLiveAnnouncement, setAnnouncementEnabled, type AnnouncementInput } from './announcement';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
 
@@ -45,18 +45,34 @@ export async function setDigestEnabled(on: boolean): Promise<void> {
   revalidatePath('/admin/subscribers');
 }
 
-/** Admin: save the site-wide announcement bar (top strip + optional countdown).
- *  normalizeAnnouncement (inside setAnnouncement) validates/clamps the input. */
-export async function saveAnnouncement(formData: FormData): Promise<void> {
+/* --------------------- Announcement bar (library) ------------------------ */
+// Save/edit/star/delete a message in the library, choose which is live, and the
+// master on/off — all separate, so "save" never publishes or flips on/off.
+
+export async function saveAnnouncementMessage(input: AnnouncementInput): Promise<string> {
   await ensureStaff();
-  await setAnnouncement({
-    enabled: formData.get('enabled') === 'on',
-    message: String(formData.get('message') || ''),
-    href: String(formData.get('href') || ''),
-    hrefLabel: String(formData.get('hrefLabel') || ''),
-    targetAt: String(formData.get('targetAt') || '') || null,
-    showCountdown: formData.get('showCountdown') === 'on',
-  });
+  const id = await upsertAnnouncement(input);
+  revalidatePath('/admin/announcement');
+  return id;
+}
+export async function deleteAnnouncementMessage(id: string): Promise<void> {
+  await ensureStaff();
+  await deleteAnnouncement(id);
+  revalidatePath('/admin/announcement');
+}
+export async function toggleAnnouncementStar(id: string): Promise<void> {
+  await ensureStaff();
+  await toggleAnnouncementStarLib(id);
+  revalidatePath('/admin/announcement');
+}
+export async function showAnnouncementMessage(id: string): Promise<void> {
+  await ensureStaff();
+  await setLiveAnnouncement(id);
+  revalidatePath('/admin/announcement');
+}
+export async function setAnnouncementBarEnabled(on: boolean): Promise<void> {
+  await ensureStaff();
+  await setAnnouncementEnabled(on);
   revalidatePath('/admin/announcement');
 }
 

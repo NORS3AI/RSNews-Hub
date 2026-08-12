@@ -53,8 +53,8 @@ export default function StarStrip() {
     <button
       onClick={() => page(dir)} disabled={!enabled} tabIndex={enabled ? 0 : -1}
       aria-label={dir === 1 ? 'Show more pinned' : 'Show earlier pinned'}
-      className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] transition hover:text-brand-600 ${enabled ? '' : 'invisible'}`}>
-      <ChevronRight width={14} height={14} className={dir === -1 ? 'rotate-180' : ''} />
+      className={`grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[var(--border)] bg-[var(--card)] text-[var(--muted)] transition hover:text-brand-600 ${enabled ? '' : 'invisible'}`}>
+      <ChevronRight width={15} height={15} className={dir === -1 ? 'rotate-180' : ''} />
     </button>
   );
 
@@ -65,11 +65,11 @@ export default function StarStrip() {
         <button onClick={() => setExpanded((e) => !e)}
           title={expanded ? 'Collapse' : 'Expand — show all titles'}
           aria-label={expanded ? 'Collapse pinned list' : 'Expand pinned list'} aria-pressed={expanded}
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)] transition-colors hover:text-brand-600">
-          {expanded ? <CollapseLR width={14} height={14} /> : <ExpandLR width={14} height={14} />}
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[var(--border)] text-[var(--muted)] transition-colors hover:text-brand-600">
+          {expanded ? <CollapseLR width={15} height={15} /> : <ExpandLR width={15} height={15} />}
         </button>
 
-        <span className="shrink-0 pr-1 text-xs font-bold text-brand-600">Pinned</span>
+        <span className="shrink-0 pr-1 text-sm font-bold text-brand-600">Pinned</span>
 
         {/* Left arrow — only occupies space when the row can actually scroll. */}
         {overflowing && arrow(-1, canL)}
@@ -79,7 +79,7 @@ export default function StarStrip() {
             const open = expanded || tapped === s.id;
             return (
             <div key={s.id}
-              className={`group/chip flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-brand-500 bg-[var(--card)] transition-[max-width] duration-200 ease-out ${open ? 'max-w-[280px]' : 'max-w-[34px] hover:max-w-[280px]'}`}>
+              className={`group/chip flex h-9 shrink-0 items-center overflow-hidden rounded-md border border-brand-500 bg-[var(--card)] transition-[max-width] duration-200 ease-out ${open ? 'max-w-[320px]' : 'max-w-[38px] hover:max-w-[320px]'}`}>
               <button
                 onClick={(e) => {
                   // Touch + collapsed + not yet revealed → reveal instead of opening.
@@ -87,8 +87,8 @@ export default function StarStrip() {
                   openArticle(s.slug);
                 }}
                 className="flex h-full min-w-0 items-center gap-1.5 pl-2 pr-1" title={s.title}>
-                <Pin width={16} height={16} strokeWidth={2.4} className="shrink-0 text-brand-600" />
-                <span className={`truncate text-xs font-medium text-[var(--fg)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
+                <Pin width={18} height={18} strokeWidth={2.4} className="shrink-0 text-brand-600" />
+                <span className={`truncate text-sm font-medium text-[var(--fg)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
                   {s.title}
                 </span>
               </button>

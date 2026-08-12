@@ -1,57 +1,133 @@
-// Site-wide announcement bar config — a single admin-controlled Setting row.
-// Drives the dismissible top strip (see AnnouncementBar) and can carry a live
-// countdown (e.g. "RS Expo 2026" ticking down to the date). Pure helpers so the
-// signature can be computed on both server and client.
+// Announcement bar — a reusable LIBRARY of saved messages plus two independent
+// switches held in Setting rows:
+//   • announcement:enabled — the master on/off for the whole bar
+//   • announcement:liveId   — which saved message is currently shown
+// Saving/editing a message (upsertAnnouncement) NEVER touches those, so "save"
+// only edits the library; "on/off" and "show this one" are separate actions.
+// Pure signature helper so dismissal can be keyed on both client and server.
 
 import { prisma } from './db';
 
-const KEY = 'announcement';
+const ENABLED_KEY = 'announcement:enabled';
+const LIVE_KEY = 'announcement:liveId';
 
-export type AnnouncementConfig = {
-  enabled: boolean;
-  message: string;        // e.g. "RS Expo 2026 — the industry's biggest weekend"
-  href: string;           // optional link (empty = no link)
-  hrefLabel: string;      // e.g. "Register" (empty = "Learn more" when href set)
-  targetAt: string | null; // ISO instant to count down to (null = no countdown)
-  showCountdown: boolean;  // show the live countdown in the bar
+export type AnnSize = 'sm' | 'md' | 'lg';
+export type AnnElement = 'message' | 'countdown' | 'button';
+const ELEMENTS: AnnElement[] = ['message', 'countdown', 'button'];
+
+export type AnnouncementRecord = {
+  id: string;
+  name: string;
+  message: string;
+  href: string;
+  hrefLabel: string;
+  targetAt: string | null;   // ISO instant, or null
+  showCountdown: boolean;
+  size: AnnSize;
+  ticker: boolean;
+  order: AnnElement[];        // the render order of the three elements
+  starred: boolean;
 };
 
-export const EMPTY_ANNOUNCEMENT: AnnouncementConfig = {
-  enabled: false, message: '', href: '', hrefLabel: '', targetAt: null, showCountdown: false,
-};
-
-/** A stable signature of the *visible* content. When it changes (new message,
- *  new date), a reader who dismissed the old one sees the new one. */
-export function announcementSignature(c: AnnouncementConfig): string {
-  return [c.message, c.href, c.hrefLabel, c.targetAt ?? '', c.showCountdown ? '1' : '0'].join('|');
+const clampStr = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const asSize = (v: unknown): AnnSize => (v === 'sm' || v === 'lg' ? v : 'md');
+function normTarget(v: unknown): Date | null {
+  if (typeof v === 'string' && v.trim()) { const d = new Date(v); if (!isNaN(d.getTime())) return d; }
+  return null;
 }
 
-/** Coerce arbitrary stored/submitted data into a valid config. */
-export function normalizeAnnouncement(raw: unknown): AnnouncementConfig {
-  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
-  let targetAt: string | null = null;
-  if (typeof o.targetAt === 'string' && o.targetAt.trim()) {
-    const d = new Date(o.targetAt);
-    if (!isNaN(d.getTime())) targetAt = d.toISOString();
-  }
+/** Parse a stored/submitted "message,countdown,button" order into a complete,
+ *  deduped list — unknown tokens dropped, any missing element appended. */
+export function parseOrder(raw: string | null | undefined): AnnElement[] {
+  const parts = String(raw ?? '').split(',').map((s) => s.trim()).filter((s): s is AnnElement => (ELEMENTS as string[]).includes(s));
+  const seen = new Set<AnnElement>();
+  const out: AnnElement[] = [];
+  for (const p of parts) if (!seen.has(p)) { seen.add(p); out.push(p); }
+  for (const e of ELEMENTS) if (!seen.has(e)) out.push(e);
+  return out;
+}
+
+type Row = {
+  id: string; name: string; message: string; href: string; hrefLabel: string;
+  targetAt: Date | null; showCountdown: boolean; size: string; ticker: boolean; order: string; starred: boolean;
+};
+function toRecord(r: Row): AnnouncementRecord {
   return {
-    enabled: !!o.enabled,
-    message: str(o.message, 200),
-    href: str(o.href, 500),
-    hrefLabel: str(o.hrefLabel, 40),
-    targetAt,
-    showCountdown: !!o.showCountdown && !!targetAt,
+    id: r.id, name: r.name, message: r.message, href: r.href, hrefLabel: r.hrefLabel,
+    targetAt: r.targetAt ? r.targetAt.toISOString() : null,
+    showCountdown: r.showCountdown && !!r.targetAt,
+    size: asSize(r.size), ticker: r.ticker, order: parseOrder(r.order), starred: r.starred,
   };
 }
 
-export async function getAnnouncement(): Promise<AnnouncementConfig> {
-  const row = await prisma.setting.findUnique({ where: { key: KEY } });
-  if (!row?.value) return EMPTY_ANNOUNCEMENT;
-  try { return normalizeAnnouncement(JSON.parse(row.value)); } catch { return EMPTY_ANNOUNCEMENT; }
+/** Signature of the *visible* content — changes when the admin edits it, so a
+ *  reader who dismissed the old one sees the new. Includes the id so switching
+ *  which message is live also re-shows. */
+export function announcementSignature(r: AnnouncementRecord): string {
+  return [r.id, r.message, r.href, r.hrefLabel, r.targetAt ?? '', r.showCountdown ? '1' : '0', r.size, r.ticker ? '1' : '0', r.order.join('')].join('|');
 }
 
-export async function setAnnouncement(cfg: AnnouncementConfig): Promise<void> {
-  const value = JSON.stringify(normalizeAnnouncement(cfg));
-  await prisma.setting.upsert({ where: { key: KEY }, update: { value }, create: { key: KEY, value } });
+async function getSetting(key: string): Promise<string> {
+  const row = await prisma.setting.findUnique({ where: { key } });
+  return row?.value ?? '';
+}
+async function setSetting(key: string, value: string): Promise<void> {
+  await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+}
+
+export type AnnouncementInput = {
+  id?: string; name?: string; message?: string; href?: string; hrefLabel?: string;
+  targetAt?: string | null; showCountdown?: boolean; size?: string; ticker?: boolean; order?: string;
+};
+
+/** The whole library, starred first then most-recently-edited. */
+export async function listAnnouncements(): Promise<AnnouncementRecord[]> {
+  const rows = await prisma.announcement.findMany({ orderBy: [{ starred: 'desc' }, { updatedAt: 'desc' }] });
+  return rows.map(toRecord);
+}
+
+/** Create or update a library message. Does NOT change on/off or which is live. */
+export async function upsertAnnouncement(input: AnnouncementInput): Promise<string> {
+  const targetAt = normTarget(input.targetAt);
+  const data = {
+    name: clampStr(input.name, 80),
+    message: clampStr(input.message, 200),
+    href: clampStr(input.href, 500),
+    hrefLabel: clampStr(input.hrefLabel, 40),
+    targetAt,
+    showCountdown: !!input.showCountdown && !!targetAt,
+    size: asSize(input.size),
+    ticker: !!input.ticker,
+    order: parseOrder(input.order).join(','),
+  };
+  if (input.id) return (await prisma.announcement.update({ where: { id: input.id }, data, select: { id: true } })).id;
+  return (await prisma.announcement.create({ data, select: { id: true } })).id;
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await prisma.announcement.deleteMany({ where: { id } });
+  if ((await getSetting(LIVE_KEY)) === id) await setSetting(LIVE_KEY, ''); // clear if it was live
+}
+
+export async function toggleStar(id: string): Promise<void> {
+  const row = await prisma.announcement.findUnique({ where: { id }, select: { starred: true } });
+  if (row) await prisma.announcement.update({ where: { id }, data: { starred: !row.starred } });
+}
+
+/** Choose which saved message the bar shows (independent of on/off). */
+export async function setLiveAnnouncement(id: string): Promise<void> { await setSetting(LIVE_KEY, id); }
+/** The master on/off for the whole bar (independent of which message is live). */
+export async function setAnnouncementEnabled(on: boolean): Promise<void> { await setSetting(ENABLED_KEY, on ? 'true' : 'false'); }
+
+export async function getAnnouncementState(): Promise<{ enabled: boolean; liveId: string }> {
+  const [enabled, liveId] = await Promise.all([getSetting(ENABLED_KEY), getSetting(LIVE_KEY)]);
+  return { enabled: enabled === 'true', liveId };
+}
+
+/** The message the reader bar should show right now, or null (off / none chosen). */
+export async function getLiveAnnouncement(): Promise<AnnouncementRecord | null> {
+  const { enabled, liveId } = await getAnnouncementState();
+  if (!enabled || !liveId) return null;
+  const row = await prisma.announcement.findUnique({ where: { id: liveId } });
+  return row && row.message ? toRecord(row) : null;
 }
