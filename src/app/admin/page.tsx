@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { FileText, Users, Layers, Eye, Plus } from '@/components/icons';
+import { FileText, Users, Layers, Eye, Plus, Edit, Ban, Newspaper, ExternalLink, BarChart } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import { getJobHealth } from '@/lib/jobHealth';
 
@@ -18,6 +18,18 @@ export default async function AdminDashboard() {
     prisma.article.findMany({ orderBy: { updatedAt: 'desc' }, take: 6, select: { id: true, title: true, slug: true, status: true, updatedAt: true, views: true } }),
     prisma.article.findMany({ where: { status: 'PUBLISHED' }, orderBy: { views: 'desc' }, take: 5, select: { id: true, title: true, slug: true, views: true } }),
   ]);
+
+  // Newsroom quick actions — plain shortcuts to where the task lives. Each is
+  // safe for a non-technical stand-in; the risky things (ads, newsletter blast,
+  // homepage rebuild) are intentionally NOT here.
+  const quickActions = [
+    { label: 'Post a story', desc: 'Write it, or paste from Word in one step', href: '/admin/articles/new', icon: Plus, primary: true },
+    { label: 'Correct or update a story', desc: 'Find it, edit, hit Save — it stays live in place', href: '/admin/articles', icon: Edit },
+    { label: 'Pull a story', desc: 'Take a live story down in one click (Unpublish)', href: '/admin/articles?status=PUBLISHED', icon: Ban },
+    { label: 'Add an industry link', desc: 'Share a quick external news link', href: '/admin/industry', icon: Newspaper },
+    { label: 'Run a poll', desc: 'Start or manage a reader poll', href: '/admin/polls', icon: BarChart },
+    { label: 'View the live site', desc: 'See exactly what readers see', href: '/docs', icon: ExternalLink, external: true },
+  ];
 
   const stats = [
     { label: 'Published', value: published, icon: FileText, href: '/admin/articles?status=PUBLISHED' },
@@ -39,6 +51,26 @@ export default async function AdminDashboard() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <Link href="/admin/articles/new" className="btn-primary btn-sm"><Plus width={16} height={16} /> New article</Link>
       </div>
+
+      {/* Quick actions — guide whoever lands here (esp. a stand-in covering the
+          newsroom) straight to the common tasks, without hunting the nav. */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Quick actions</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {quickActions.map((q) => (
+            <Link key={q.label} href={q.href} {...(q.external ? { target: '_blank', rel: 'noopener' } : {})}
+              className="group flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card transition hover:border-brand-400 hover:shadow-md">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${q.primary ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-600 dark:bg-brand-950/40'}`}>
+                <q.icon width={18} height={18} />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-bold leading-tight group-hover:text-brand-600">{q.label}</span>
+                <span className="mt-0.5 block text-xs text-[var(--muted)]">{q.desc}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => (
