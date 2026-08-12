@@ -11,6 +11,7 @@ export type EventType =
   | 'save'         // favorite / read-later / pin
   | 'search'
   | 'video'        // video-ad playback progress (props.quartile: 0|25|50|75|100)
+  | 'ad_expand'    // a reader opened an ad in the zoom overlay (readability signal)
   | 'nav'          // carousel arrows, module nav, etc.
   | 'theme';       // active/selected UI theme (props.theme: light|dark|rs)
 
@@ -29,4 +30,4 @@ export type ClientEvent = {
   props?: Record<string, unknown>;
 };
 
-export const EVENT_TYPES: EventType[] = ['pageview', 'impression', 'click', 'article_open', 'read', 'clip', 'save', 'search', 'video', 'nav', 'theme'];
+export const EVENT_TYPES: EventType[] = ['pageview', 'impression', 'click', 'article_open', 'read', 'clip', 'save', 'search', 'video', 'ad_expand', 'nav', 'theme'];

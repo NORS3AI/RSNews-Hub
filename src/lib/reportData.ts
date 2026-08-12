@@ -84,6 +84,7 @@ export async function buildReport(scope: 'site' | 'advertiser', days: number, br
       { key: 'viewable', label: 'Viewable', type: 'int' },
       { key: 'clicks', label: 'Clicks', type: 'int' },
       { key: 'ctr', label: 'CTR', type: 'pct01' },
+      { key: 'expands', label: 'Expands', type: 'int' },
     ];
     const sections: ReportSection[] = [
       {
@@ -93,6 +94,7 @@ export async function buildReport(scope: 'site' | 'advertiser', days: number, br
           { label: 'Viewable', value: nf(r.totals.viewable) },
           { label: 'Clicks', value: nf(r.totals.clicks) },
           { label: 'CTR', value: pctStr(r.totals.ctr), sub: 'clicks ÷ viewable' },
+          { label: 'Expands', value: nf(r.totals.expands), sub: 'opened the zoom view' },
         ],
       },
       {
@@ -154,7 +156,7 @@ export async function buildReport(scope: 'site' | 'advertiser', days: number, br
     {
       id: 'advertisers', title: 'Advertisers', allowed: ['bar', 'table'], defaultViz: 'table',
       slices: adsByBrand.map((a) => ({ key: a.key, count: a.impressions })),
-      table: { columns: [{ key: 'key', label: 'Advertiser', type: 'text' }, { key: 'impressions', label: 'Impressions', type: 'int' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }], rows: adsByBrand },
+      table: { columns: [{ key: 'key', label: 'Advertiser', type: 'text' }, { key: 'impressions', label: 'Impressions', type: 'int' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }, { key: 'expands', label: 'Expands', type: 'int' }], rows: adsByBrand },
     },
   ];
   return { scope, days, title: 'Whole-site report', subtitle: `Site analytics · ${rangeLabel(days)}`, sections };

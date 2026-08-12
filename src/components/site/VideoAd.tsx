@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { track } from '@/lib/analytics/track';
+import AdExpand from '@/components/site/AdExpand';
 
 // Silent, looping video ad creative for the rectangle slot. It:
 //  - autoplays MUTED (the only kind browsers allow) and only while on-screen,
@@ -64,33 +65,38 @@ export default function VideoAd({ id, href, brand, slot, src, poster, accent }: 
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const trkProps = { brand, campaignId: brand, creativeId: id, format: 'video', shape: 'rectangle' };
+
   return (
-    <a
-      href={href}
-      data-ad-slot={slot}
-      data-ad-brand={brand}
-      data-trk-type="ad"
-      data-trk-id={id}
-      data-trk-place={slot}
-      data-trk-props={JSON.stringify({ brand, campaignId: brand, creativeId: id, format: 'video', shape: 'rectangle' })}
-      aria-label={`Advertisement: ${brand}`}
-      className="relative mx-auto block w-full max-w-[360px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
-      style={{ boxShadow: 'var(--shadow-card)' }}
-    >
-      <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
-      <span className="absolute right-3 top-3 z-10 rounded bg-black/45 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/90" aria-hidden>▶ Muted</span>
-      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster || undefined}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        className="block w-full"
-        style={{ background: accent }}
-      />
-    </a>
+    <div className="relative mx-auto w-full max-w-[360px]">
+      <a
+        href={href}
+        data-ad-slot={slot}
+        data-ad-brand={brand}
+        data-trk-type="ad"
+        data-trk-id={id}
+        data-trk-place={slot}
+        data-trk-props={JSON.stringify(trkProps)}
+        aria-label={`Advertisement: ${brand}`}
+        className="relative block w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
+        style={{ boxShadow: 'var(--shadow-card)' }}
+      >
+        <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
+        <span className="absolute right-3 top-3 z-10 rounded bg-black/45 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/90" aria-hidden>▶ Muted</span>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          ref={videoRef}
+          src={src}
+          poster={poster || undefined}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          className="block w-full"
+          style={{ background: accent }}
+        />
+      </a>
+      <AdExpand kind="video" brand={brand} href={href} subjectId={id} placement={slot} trkProps={trkProps} src={src} poster={poster} accent={accent} />
+    </div>
   );
 }

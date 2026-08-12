@@ -63,16 +63,18 @@ describe('aggregateAds', () => {
     ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { viewable: true, aboveFold: true, dwellMs: 2000 } }),
     ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { viewable: true, aboveFold: false, dwellMs: 4000 } }),
     ev({ type: 'click', subjectType: 'ad', placement: 'home-top', props: {} }),
+    ev({ type: 'ad_expand', subjectType: 'ad', placement: 'home-top', props: {} }),
     ev({ type: 'impression', subjectType: 'ad', placement: 'article-bottom', props: { viewable: true, dwellMs: 1000 } }),
     ev({ type: 'impression', subjectType: 'article', placement: 'latest', props: {} }), // ignored
   ];
-  it('groups ads by placement with viewability, dwell, above-fold and CTR', () => {
+  it('groups ads by placement with viewability, dwell, above-fold, CTR and expands', () => {
     const rows = aggregateAds(evs, 'placement');
     const top = rows.find((r) => r.key === 'home-top')!;
     expect(top.impressions).toBe(2);
     expect(top.viewable).toBe(2);
     expect(top.clicks).toBe(1);
     expect(top.ctr).toBe(0.5); // 1 click / 2 viewable
+    expect(top.expands).toBe(1);
     expect(top.avgDwellMs).toBe(3000);
     expect(top.aboveFoldPct).toBe(0.5);
   });

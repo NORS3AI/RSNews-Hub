@@ -16,7 +16,7 @@ import { brandKey } from './entitlements';
 
 export type Quarter = { label: string; start: Date; end: Date };
 
-const EMPTY_TOTALS = { key: '', impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
+const EMPTY_TOTALS = { key: '', impressions: 0, viewable: 0, clicks: 0, ctr: 0, expands: 0, avgDwellMs: 0, aboveFoldPct: 0 };
 
 export type ReportSnapshot = {
   brand: string;

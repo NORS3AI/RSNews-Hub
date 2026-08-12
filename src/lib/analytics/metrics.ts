@@ -42,12 +42,13 @@ export function splitDim(e: Ev, dim: string): string {
   }
 }
 
-type AdRow = { key: string; impressions: number; viewable: number; clicks: number; ctr: number; avgDwellMs: number; aboveFoldPct: number };
+type AdRow = { key: string; impressions: number; viewable: number; clicks: number; ctr: number; expands: number; avgDwellMs: number; aboveFoldPct: number };
 
-// Ads: exposure (impression/viewable/above-fold/dwell) + interaction (clicks).
+// Ads: exposure (impression/viewable/above-fold/dwell) + interaction (clicks) +
+// how often readers opened the zoom overlay (expands — a readability signal).
 export function aggregateAds(evs: Ev[], splitBy: string): AdRow[] {
-  const g = new Map<string, { imp: number; view: number; clk: number; dwell: number; dwellN: number; af: number }>();
-  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, view: 0, clk: 0, dwell: 0, dwellN: 0, af: 0 }; g.set(k, v); } return v; };
+  const g = new Map<string, { imp: number; view: number; clk: number; exp: number; dwell: number; dwellN: number; af: number }>();
+  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, view: 0, clk: 0, exp: 0, dwell: 0, dwellN: 0, af: 0 }; g.set(k, v); } return v; };
   for (const e of evs) {
     if (e.subjectType !== 'ad') continue;
     const row = ensure(splitDim(e, splitBy));
@@ -58,10 +59,12 @@ export function aggregateAds(evs: Ev[], splitBy: string): AdRow[] {
       const d = num(e.props.dwellMs ?? e.value);
       if (d > 0) { row.dwell += d; row.dwellN++; }
     } else if (e.type === 'click') row.clk++;
+    else if (e.type === 'ad_expand') row.exp++;
   }
   return [...g.entries()].map(([key, r]) => ({
     key, impressions: r.imp, viewable: r.view, clicks: r.clk,
-    ctr: ctr(r.clk, r.view || r.imp), avgDwellMs: r.dwellN ? Math.round(r.dwell / r.dwellN) : 0, aboveFoldPct: pct(r.af, r.imp),
+    ctr: ctr(r.clk, r.view || r.imp), expands: r.exp,
+    avgDwellMs: r.dwellN ? Math.round(r.dwell / r.dwellN) : 0, aboveFoldPct: pct(r.af, r.imp),
   })).sort((a, b) => b.impressions - a.impressions);
 }
 
@@ -200,7 +203,7 @@ export function advertiserReport(evs: Ev[], brand: string) {
   // Totals fold ALL of the brand's ad events into one bucket. (Splitting by
   // 'campaign' and taking [0] would keep only the largest spelling variant when a
   // brand was entered two ways — undercounting, and disagreeing with byCreative.)
-  const totals = aggregateAds(ads, 'all')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
+  const totals = aggregateAds(ads, 'all')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, expands: 0, avgDwellMs: 0, aboveFoldPct: 0 };
   return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
 }
 

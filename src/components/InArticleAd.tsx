@@ -1,6 +1,7 @@
 import type { AdRow } from '@/lib/ads';
 import AdSlot from '@/components/AdSlot';
 import VideoAd from '@/components/site/VideoAd';
+import AdExpand from '@/components/site/AdExpand';
 
 /**
  * Presentational house ad shown inside an article. The `ad` is already chosen
@@ -27,30 +28,36 @@ export default function InArticleAd({
 
   // Analytics: separate placement (slot) / creative (ad id) / campaign (brand)
   // identifiers + format + shape, so the same ad can be compared across slots.
+  const trkProps = { brand: ad.brand, campaignId: ad.brand, creativeId: ad.id, format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner' };
   const trk = {
     'data-trk-type': 'ad',
     'data-trk-id': ad.id,
     'data-trk-place': slot,
-    'data-trk-props': JSON.stringify({ brand: ad.brand, campaignId: ad.brand, creativeId: ad.id, format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner' }),
+    'data-trk-props': JSON.stringify(trkProps),
   } as const;
 
   // Image creative — render the artwork with a small "Ad" chip. On the homepage
   // the card is orange and pads the art into a frame; in-article stays neutral.
+  // A small zoom button (AdExpand) sits outside the anchor so tapping it enlarges
+  // the ad instead of navigating.
   if (image) {
     return (
-      <a
-        href={ad.href}
-        data-ad-slot={slot}
-        data-ad-brand={ad.brand}
-        {...trk}
-        aria-label={`Advertisement: ${ad.brand}`}
-        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect && !fill ? 'max-w-[360px]' : ''}`}
-        style={{ boxShadow: 'var(--shadow-card)' }}
-      >
-        <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={ad.brand} className={`block w-full ${orange ? 'rounded-lg' : ''}`} />
-      </a>
+      <div className={`relative mx-auto w-full ${rect && !fill ? 'max-w-[360px]' : ''}`}>
+        <a
+          href={ad.href}
+          data-ad-slot={slot}
+          data-ad-brand={ad.brand}
+          {...trk}
+          aria-label={`Advertisement: ${ad.brand}`}
+          className={`relative block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'}`}
+          style={{ boxShadow: 'var(--shadow-card)' }}
+        >
+          <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt={ad.brand} className={`block w-full ${orange ? 'rounded-lg' : ''}`} />
+        </a>
+        <AdExpand kind="image" brand={ad.brand} href={ad.href} cta={ad.cta} subjectId={ad.id} placement={slot} trkProps={trkProps} src={image} />
+      </div>
     );
   }
 
@@ -60,7 +67,7 @@ export default function InArticleAd({
       data-ad-brand={ad.brand}
       {...trk}
       aria-label="Advertisement"
-      className={`mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect && !fill ? 'max-w-[340px]' : ''}`}
+      className={`relative mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect && !fill ? 'max-w-[340px]' : ''}`}
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="h-1" style={{ background: ad.accent }} />
@@ -75,6 +82,7 @@ export default function InArticleAd({
           {ad.cta} →
         </a>
       </div>
+      <AdExpand kind="text" brand={ad.brand} href={ad.href} cta={ad.cta} subjectId={ad.id} placement={slot} trkProps={trkProps} headline={ad.headline} accent={ad.accent} />
     </div>
   );
 }
