@@ -3,11 +3,16 @@ import { normalizeSavedItem, normalizeClipping } from './saved';
 
 describe('normalizeSavedItem', () => {
   it('accepts a valid item and defaults a missing title', () => {
-    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: null });
-    expect(normalizeSavedItem({ id: 'a1' })).toEqual({ id: 'a1', title: 'Untitled', slug: '', folder: null });
+    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: null, href: null });
+    expect(normalizeSavedItem({ id: 'a1' })).toEqual({ id: 'a1', title: 'Untitled', slug: '', folder: null, href: null });
   });
   it('carries a folder id when provided', () => {
-    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1' });
+    expect(normalizeSavedItem({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1' })).toEqual({ id: 'a1', title: 'Hello', slug: 'hello', folder: 'f1', href: null });
+  });
+  it('keeps a safe external href but strips a dangerous one', () => {
+    expect(normalizeSavedItem({ id: 'i1', title: 'Ext', slug: '', href: '/api/industry/i1/go' })!.href).toBe('/api/industry/i1/go');
+    expect(normalizeSavedItem({ id: 'i2', title: 'Ext', slug: '', href: 'https://example.com' })!.href).toBe('https://example.com');
+    expect(normalizeSavedItem({ id: 'i3', title: 'Ext', slug: '', href: 'javascript:alert(1)' })!.href).toBeNull();
   });
   it('rejects items without an id', () => {
     expect(normalizeSavedItem({ title: 'x' })).toBeNull();

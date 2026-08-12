@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSaved } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
-import { Pin, X, ExpandLR, CollapseLR, ChevronRight } from '@/components/icons';
+import { safeLinkHref } from '@/lib/utils';
+import { Pin, X, ExpandLR, CollapseLR, ChevronRight, ExternalLink } from '@/components/icons';
 
 /**
  * The pinned strip at the very top shows the reader's "Pinned" list (saved via
@@ -77,6 +78,7 @@ export default function StarStrip() {
         <div ref={scrollRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto scrollbar-none">
           {toRead.map((s) => {
             const open = expanded || tapped === s.id;
+            const external = safeLinkHref(s.href, ''); // '' for in-house articles
             return (
             <div key={s.id}
               className={`group/chip flex h-9 shrink-0 items-center overflow-hidden rounded-md border border-brand-500 bg-[var(--card)] transition-[max-width] duration-200 ease-out ${open ? 'max-w-[320px]' : 'max-w-[38px] hover:max-w-[320px]'}`}>
@@ -84,10 +86,15 @@ export default function StarStrip() {
                 onClick={(e) => {
                   // Touch + collapsed + not yet revealed → reveal instead of opening.
                   if (!canHover && !open) { e.preventDefault(); setTapped(s.id); return; }
-                  openArticle(s.slug);
+                  // External pins (Industry News) open their source in a new tab;
+                  // in-house articles open the reader modal.
+                  if (external) window.open(external, '_blank', 'noopener,noreferrer');
+                  else openArticle(s.slug);
                 }}
-                className="flex h-full min-w-0 items-center gap-1.5 pl-2 pr-1" title={s.title}>
-                <Pin width={18} height={18} strokeWidth={2.4} className="shrink-0 text-brand-600" />
+                className="flex h-full min-w-0 items-center gap-1.5 pl-2 pr-1" title={external ? `${s.title} (opens in a new tab)` : s.title}>
+                {external
+                  ? <ExternalLink width={16} height={16} strokeWidth={2.2} className="shrink-0 text-brand-600" />
+                  : <Pin width={18} height={18} strokeWidth={2.4} className="shrink-0 text-brand-600" />}
                 <span className={`truncate text-sm font-medium text-[var(--fg)] transition-opacity duration-150 ${open ? 'opacity-100' : 'opacity-0 group-hover/chip:opacity-100'}`}>
                   {s.title}
                 </span>

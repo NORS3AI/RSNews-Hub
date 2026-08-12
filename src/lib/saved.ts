@@ -5,8 +5,9 @@
 // here — never trusted verbatim.
 
 import { prisma } from './db';
+import { safeLinkHref } from './utils';
 
-export type SavedItem = { id: string; title: string; slug: string; folder?: string | null };
+export type SavedItem = { id: string; title: string; slug: string; folder?: string | null; href?: string | null };
 export type Clipping = {
   id: string; ts: number; title: string;
   kind?: 'quote' | 'comic'; quote?: string; author?: string | null; slug?: string; image?: string | null;
@@ -26,7 +27,10 @@ export function normalizeSavedItem(raw: unknown): SavedItem | null {
   const r = raw as Record<string, unknown>;
   const id = s(r.id, 64).trim();
   if (!id) return null;
-  return { id, title: s(r.title, 300).trim() || 'Untitled', slug: s(r.slug, 300).trim(), folder: sOrNull(r.folder, 64) };
+  // href is only for external pins; sanitized to http(s) or a site-relative path
+  // (drops javascript:/data:/'//host'), and null when absent.
+  const href = safeLinkHref(r.href, '', 500) || null;
+  return { id, title: s(r.title, 300).trim() || 'Untitled', slug: s(r.slug, 300).trim(), folder: sOrNull(r.folder, 64), href };
 }
 
 /** Validate a clipping from the client, or null if unusable. Pure. */
@@ -60,7 +64,7 @@ export async function getSaved(userId: string): Promise<SavedBundle> {
   ]);
   // Favorites carry their folder id; to-read never does.
   const favorites = items.filter((i) => i.kind === 'favorite').map((i) => ({ id: i.articleId, title: i.title, slug: i.slug, folder: i.folderId }));
-  const toRead = items.filter((i) => i.kind === 'toread').map((i) => ({ id: i.articleId, title: i.title, slug: i.slug }));
+  const toRead = items.filter((i) => i.kind === 'toread').map((i) => ({ id: i.articleId, title: i.title, slug: i.slug, href: i.href }));
   return {
     favorites,
     toRead,
@@ -81,7 +85,7 @@ async function toggle(userId: string, kind: 'favorite' | 'toread', item: SavedIt
     await prisma.savedItem.deleteMany({ where: { userId, kind, articleId: item.id } });
   } else {
     try {
-      await prisma.savedItem.create({ data: { userId, kind, articleId: item.id, title: item.title, slug: item.slug } });
+      await prisma.savedItem.create({ data: { userId, kind, articleId: item.id, title: item.title, slug: item.slug, href: item.href ?? null } });
     } catch (e: unknown) {
       if (!(e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002')) throw e;
     }
@@ -192,7 +196,7 @@ export async function mergeLocal(userId: string, local: Partial<SavedBundle>) {
     }
     await Promise.all([
       ...favs.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'favorite', articleId: i.id } }, update: {}, create: { userId, kind: 'favorite', articleId: i.id, title: i.title, slug: i.slug, folderId: (i.folder && idMap.get(i.folder)) || null } })),
-      ...reads.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'toread', articleId: i.id } }, update: {}, create: { userId, kind: 'toread', articleId: i.id, title: i.title, slug: i.slug } })),
+      ...reads.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'toread', articleId: i.id } }, update: {}, create: { userId, kind: 'toread', articleId: i.id, title: i.title, slug: i.slug, href: i.href ?? null } })),
       ...clips.map((c) => tx.clipping.upsert({ where: { userId_clientId: { userId, clientId: c.id } }, update: {}, create: { userId, clientId: c.id, kind: c.kind ?? 'quote', title: c.title, quote: c.quote ?? null, author: c.author ?? null, slug: c.slug ?? null, image: c.image ?? null } })),
     ]);
   });

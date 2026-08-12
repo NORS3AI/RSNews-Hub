@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-export type SavedItem = { id: string; title: string; slug: string; folder?: string | null };
+export type SavedItem = { id: string; title: string; slug: string; folder?: string | null; href?: string | null };
 export type FavFolder = { id: string; name: string };
 export type HistoryItem = { id: string; title: string; slug: string; ts: number };
 // A clipping is either a highlighted quote (turned into a quote image) or a
@@ -146,7 +146,7 @@ export function StarProvider({ children }: { children: React.ReactNode }) {
 
   const toggleToRead = useCallback((s: SavedItem) => {
     persist(READ_KEY, isToRead(s.id) ? toRead.filter((x) => x.id !== s.id)
-      : [{ id: s.id, title: s.title, slug: s.slug }, ...toRead], setToRead);
+      : [{ id: s.id, title: s.title, slug: s.slug, href: s.href ?? null }, ...toRead], setToRead);
     pushOp({ op: 'toggleToRead', item: s });
   }, [toRead, isToRead, persist, pushOp]);
 

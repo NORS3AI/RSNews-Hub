@@ -599,6 +599,9 @@ model SavedItem {
   articleId String
   title     String
   slug      String
+  // For an external pin (e.g. an Industry News link) — the destination to open
+  // instead of the in-site article modal. Null for normal in-house articles.
+  href      String?
   // Optional favorite folder (only meaningful for kind='favorite'). Nulled when
   // the folder is deleted so the item falls back to "Unfiled".
   folderId  String?
