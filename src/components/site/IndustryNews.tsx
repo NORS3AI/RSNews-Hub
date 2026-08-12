@@ -14,8 +14,8 @@ const MODAL_LIMIT = 50;
  *  it pins/unpins instead of opening the source. External pins carry the tracked
  *  go-path as their href, so the top strip opens (and counts) them like a click. */
 function PinButton({ l, variant }: { l: IndustryItem; variant: 'card' | 'modal' }) {
-  const { isToRead, toggleToRead } = useSaved();
-  const pinned = isToRead(l.id);
+  const { isToRead, toggleToRead, ready } = useSaved();
+  const pinned = ready && isToRead(l.id); // avoid a pressed-state flicker before the cache hydrates
   const cls = variant === 'card'
     ? `h-9 w-9 ${pinned ? 'bg-white text-brand-700' : 'text-white/75 hover:bg-white/15 hover:text-white'}`
     : `h-10 w-10 ${pinned ? 'bg-brand-600 text-white' : 'text-[var(--muted)] hover:bg-[var(--bg-soft)] hover:text-brand-600'}`;
