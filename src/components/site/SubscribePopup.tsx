@@ -25,6 +25,7 @@ export default function SubscribePopup() {
   const [checked, setChecked] = useState<Set<string>>(new Set(['industry']));
   const [notifyOn, setNotifyOn] = useState(true);
   const [emailOn, setEmailOn] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true); // master email-digest switch (admin)
   const [emailAddr, setEmailAddr] = useState('');
   const [emailLocked, setEmailLocked] = useState(false);
   const [emails, setEmails] = useState<EmailRow[]>([]);
@@ -47,6 +48,7 @@ export default function SubscribePopup() {
       load().then((d) => {
         if (!d) { setNote({ ok: false, text: 'Please sign in to subscribe.' }); return; }
         setMenu(d.menu); setEmails(d.emails); setAccountEmail(d.accountEmail);
+        setEmailEnabled(d.emailDigestEnabled !== false);
         if (detail.email) {
           // "Customize" an existing digest email — edit just that address.
           setMode('editEmail'); setEmailLocked(true); setEmailOn(true);
@@ -143,7 +145,9 @@ export default function SubscribePopup() {
           <p className="mb-3 text-sm text-[var(--muted)]">
             {mode === 'editEmail'
               ? <>Choose what <strong>{emailAddr}</strong> receives.</>
-              : 'Pick the topics you care about, then choose how you want them.'}
+              : emailEnabled
+                ? 'Pick the topics you care about, then choose how you want them.'
+                : 'Pick the topics you care about to get them in your on-site notifications.'}
           </p>
 
           {/* Topic checklist — Industry News pinned first, then categories. */}
@@ -177,6 +181,9 @@ export default function SubscribePopup() {
                 <span className={`ml-auto grid h-5 w-5 place-items-center rounded-md border ${notifyOn ? 'border-brand-600 bg-brand-600 text-white' : 'border-[var(--border)]'}`}>{notifyOn && <Check width={13} height={13} />}</span>
               </button>
 
+              {/* Email digest — hidden entirely when an admin has turned the
+                  feature off (on-site notifications above still work). */}
+              {emailEnabled && (
               <div className={`rounded-xl border px-3 py-2.5 ${emailOn ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30' : 'border-[var(--border)]'}`}>
                 <button type="button" onClick={() => setEmailOn((v) => !v)} className="flex w-full items-center gap-3 text-left">
                   <Mail width={19} height={19} className="text-brand-600" />
@@ -193,13 +200,15 @@ export default function SubscribePopup() {
                   </div>
                 )}
               </div>
+              )}
             </div>
           ) : null}
 
           {note && <p className={`mt-3 text-sm font-semibold ${note.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{note.text}</p>}
 
-          {/* Manage: emails this account has added (default mode only). */}
-          {mode === 'default' && emails.length > 0 && (
+          {/* Manage: emails this account has added (default mode only, and only
+              while the digest feature is on). */}
+          {mode === 'default' && emailEnabled && emails.length > 0 && (
             <div className="mt-5 border-t border-[var(--border)] pt-4">
               <div className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Your emails subscribed to RS News Hub ({emails.length})</div>
               <div className="space-y-1.5">

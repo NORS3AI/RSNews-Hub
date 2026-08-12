@@ -14,7 +14,20 @@ import { linkSource } from './industry';
 import { parseTopics, gatherSince, ALL, INDUSTRY, type TopicKey } from './subscriptions';
 
 const LAST_DIGEST_KEY = 'newsletter:lastDigestAt';
+const ENABLED_KEY = 'newsletter:enabled';
 function base(): string { return (siteUrl || '').replace(/\/$/, ''); }
+
+/** Master on/off for the whole email-digest feature (admin-controlled). Default
+ *  ON; only an explicit 'false' disables it. When off, no digests send and the
+ *  subscribe UI hides the email option. On-site notifications are unaffected. */
+export async function isNewsletterEnabled(): Promise<boolean> {
+  const row = await prisma.setting.findUnique({ where: { key: ENABLED_KEY } });
+  return row?.value !== 'false';
+}
+export async function setNewsletterEnabled(on: boolean): Promise<void> {
+  const value = on ? 'true' : 'false';
+  await prisma.setting.upsert({ where: { key: ENABLED_KEY }, update: { value }, create: { key: ENABLED_KEY, value } });
+}
 
 async function lastDigestAt(): Promise<Date> {
   const row = await prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } });
@@ -59,7 +72,10 @@ function digestHtml(g: Gathered, unsubUrl: string): string {
 
 /** Send each active subscriber their own digest for their own topics. Skips a
  *  subscriber with nothing new; records the checkpoint once at the end. */
-export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; skippedEmpty: number; subscribers: number }> {
+export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; skippedEmpty: number; subscribers: number; disabled?: boolean }> {
+  // Master switch: when the digest feature is turned off, send nothing and don't
+  // move the checkpoint (so re-enabling picks up where it left off).
+  if (!(await isNewsletterEnabled())) return { sent: 0, failed: 0, skippedEmpty: 0, subscribers: 0, disabled: true };
   const since = await lastDigestAt();
   const now = new Date();
   const subs = await prisma.newsletterSubscriber.findMany({ where: { active: true }, select: { email: true, token: true, topics: true } });
@@ -103,12 +119,13 @@ export async function sendTestTo(emailRaw: string): Promise<{ ok: boolean; error
 
 export async function newsletterStatus() {
   const now = new Date();
-  const [total, active, last] = await Promise.all([
+  const [total, active, last, enabled] = await Promise.all([
     prisma.newsletterSubscriber.count(),
     prisma.newsletterSubscriber.count({ where: { active: true } }),
     prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } }),
+    isNewsletterEnabled(),
   ]);
   const since = last?.value ? new Date(last.value) : new Date(now.getTime() - 24 * 3600 * 1000);
   const g = await gatherSince([ALL], since, now, 40); // everything new — the max any subscriber could receive
-  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: itemCount(g), emailReady: isEmailConfigured() };
+  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: itemCount(g), emailReady: isEmailConfigured(), enabled };
 }

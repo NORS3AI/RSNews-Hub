@@ -20,6 +20,7 @@ import { updateVendorContact, vendorIdForBrand } from './vendors';
 import { entitlementsOf, isVendor } from './entitlements';
 import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
+import { setNewsletterEnabled } from './newsletter';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
 
@@ -32,6 +33,15 @@ async function ensureAdmin() {
   const u = await getCurrentUser();
   if (!u || u.role !== 'ADMIN') throw new Error('Admin only');
   return u;
+}
+
+/** Admin: turn the whole email-digest feature on or off. When off, no digests
+ *  send and the reader subscribe UI hides the email option (on-site
+ *  notifications keep working). */
+export async function setDigestEnabled(on: boolean): Promise<void> {
+  await ensureStaff();
+  await setNewsletterEnabled(on);
+  revalidatePath('/admin/subscribers');
 }
 
 async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' | 'tag', ignoreId?: string) {

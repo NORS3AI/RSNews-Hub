@@ -6,19 +6,21 @@ import {
   topicMenu, getAccountTopics, setAccountTopics,
   getAccountEmails, upsertDigestEmail, removeDigestEmail, parseTopics,
 } from '@/lib/subscriptions';
+import { isNewsletterEnabled } from '@/lib/newsletter';
 
 // Current subscription state for the popup: the topic menu, the account-wide
 // notification topics, and the digest emails this account has added.
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
-  const [menu, notifyTopics, emails] = await Promise.all([
-    topicMenu(), getAccountTopics(user.id), getAccountEmails(user.id),
+  const [menu, notifyTopics, emails, emailDigestEnabled] = await Promise.all([
+    topicMenu(), getAccountTopics(user.id), getAccountEmails(user.id), isNewsletterEnabled(),
   ]);
   return NextResponse.json({
     menu, notifyTopics,
     emails: emails.map((e) => ({ id: e.id, email: e.email, topics: parseTopics(e.topics) })),
     accountEmail: user.email,
+    emailDigestEnabled,
   });
 }
 
@@ -40,6 +42,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
   if (d.action === 'email') {
+    // Don't accept new digest signups while the feature is turned off.
+    if (!(await isNewsletterEnabled())) return NextResponse.json({ error: 'The email digest is currently paused.' }, { status: 403 });
     const r = await upsertDigestEmail(user.id, d.email, d.topics);
     return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: r.error }, { status: 400 });
   }
