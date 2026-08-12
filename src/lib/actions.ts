@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
-import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
+import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
@@ -364,7 +364,8 @@ export async function saveAd(formData: FormData) {
   const headline = ((formData.get('headline') as string) || '').trim();
   const label = ((formData.get('label') as string) || '').trim();
   const cta = ((formData.get('cta') as string) || '').trim() || 'Learn more';
-  const href = ((formData.get('href') as string) || '').trim() || '#';
+  // Only http(s) or a site-relative path — never javascript:/data:/'//host'.
+  const href = safeLinkHref(formData.get('href'), '#');
   const accent = ((formData.get('accent') as string) || '').trim() || '#E97D34';
   const keywords = ((formData.get('keywords') as string) || '').trim();
   const competitors = ((formData.get('competitors') as string) || '').trim();

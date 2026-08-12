@@ -34,4 +34,4 @@ export const MAILING_ADDRESS =
 
 // Bump on every pushed update. Shown in the footer; keep in sync with the
 // static preview footer in docs/index.html.
-export const APP_VERSION = 'v0.134.0';
+export const APP_VERSION = 'v0.135.0';

@@ -41,3 +41,19 @@ export function formatDateUTC(date: Date | string | null | undefined): string {
 export function classNames(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+/**
+ * Sanitize a user/staff-entered link for rendering in an <a href>. Allows ONLY
+ * an http(s) URL or a single-slash site-relative path ("/path"); everything else
+ * — javascript:/data:/vbscript: (script execution) and protocol-relative "//host"
+ * (silent offsite) — collapses to `fallback`. Reused by any surface that stores a
+ * link a lower-trust editor can set (announcement bar, ads, …). React does NOT
+ * strip javascript: hrefs in production, so this is the guard that does.
+ */
+export function safeLinkHref(v: unknown, fallback = '', max = 500): string {
+  const s = (typeof v === 'string' ? v.trim() : '').slice(0, max);
+  if (!s) return fallback;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^\/(?!\/)/.test(s)) return s; // "/path" but not "//host"
+  return fallback;
+}
