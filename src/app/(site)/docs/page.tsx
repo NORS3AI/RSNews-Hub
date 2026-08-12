@@ -44,7 +44,7 @@ export const dynamic = 'force-dynamic';
 
 const cardSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, coverVideo: true, coverFocus: true, publishedAt: true,
-  views: true, readMinutes: true, requirement: true, breakingUntil: true,
+  views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },

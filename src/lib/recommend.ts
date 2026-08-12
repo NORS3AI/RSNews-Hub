@@ -18,6 +18,7 @@ export type ArticleCard = {
   breakingUntil: Date | null;
   tags: { name: string; slug: string }[];
   requirement?: string;
+  genre?: string;
 };
 
 const cardSelect = {
@@ -32,6 +33,7 @@ const cardSelect = {
   views: true,
   readMinutes: true,
   requirement: true,
+  genre: true,
   breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },

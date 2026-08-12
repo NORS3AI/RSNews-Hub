@@ -23,6 +23,7 @@ type ModalArticle = {
   category: { name: string; slug: string; color: string } | null;
   extraCategories?: { name: string; slug: string; color: string }[];
   breakingUntil?: string | null;
+  genre?: string;
   tags: { name: string; slug: string }[];
   audioUrl?: string | null;
 };
@@ -178,7 +179,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                 {loading && !a && <ModalSkeleton />}
                 {a && (
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
-                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} />
+                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">

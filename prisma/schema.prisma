@@ -691,6 +691,10 @@ model Article {
   // against the viewer (premium | vendor | staff | member | an affiliation key
   // like 'packagehub'). Enforced server-side on the article page. See lib/entitlements.
   requirement String    @default("")
+  // Optional editorial genre — the NATURE of the piece (opinion | sponsored |
+  // press_release | update), a separate axis from topic categories. '' = none.
+  // See lib/genre. Shown as a small badge; sponsored doubles as ad disclosure.
+  genre       String    @default("")
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)

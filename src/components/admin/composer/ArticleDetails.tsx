@@ -3,12 +3,13 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
+import { GENRES } from '@/lib/genre';
 import { suggestTags } from '@/lib/suggestTags';
 import { useComposer } from './context';
 
 type Cat = { id: string; name: string };
 type Article = {
-  status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
+  status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   byline?: string | null;
   coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
@@ -152,6 +153,14 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
             <option value="vendor">Vendors</option><option value="staff">Staff</option>
           </datalist>
           <p className="mt-1 text-xs text-[var(--muted)]">Blank/<code>public</code> = everyone. Or a tier / account type / affiliation key.</p>
+        </div>
+        <div>
+          <label className="label" htmlFor="genre">Genre <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+          <select id="genre" name="genre" defaultValue={article?.genre ?? ''} className="input">
+            <option value="">None</option>
+            {GENRES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.</p>
         </div>
       </Section>
 

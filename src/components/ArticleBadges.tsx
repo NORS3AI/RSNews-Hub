@@ -1,4 +1,5 @@
 import { requirementLabel } from '@/lib/entitlements';
+import { genreLabel, genreBadgeClass } from '@/lib/genre';
 
 type Cat = { name: string; slug: string; color: string };
 
@@ -18,20 +19,26 @@ export default function ArticleBadges({
   extraCategories = [],
   breakingUntil,
   requirement,
+  genre,
   className = '',
 }: {
   category?: Cat | null;
   extraCategories?: Cat[];
   breakingUntil?: Date | string | null;
   requirement?: string;
+  genre?: string;
   className?: string;
 }) {
   const breaking = isBreaking(breakingUntil);
-  if (!breaking && !category && extraCategories.length === 0 && !requirement) return null;
+  const gLabel = genreLabel(genre);
+  if (!breaking && !category && extraCategories.length === 0 && !requirement && !gLabel) return null;
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {breaking && (
         <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>
+      )}
+      {gLabel && (
+        <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(genre!)}`}>{gLabel}</span>
       )}
       {category && (
         <span className="badge cat-badge" style={{ '--c': category.color } as React.CSSProperties}>{category.name}</span>

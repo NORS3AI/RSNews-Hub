@@ -20,6 +20,7 @@ import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlem
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
+import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -110,6 +111,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <div className="card p-6 sm:p-9 lg:p-10">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
+          {genreLabel(article.genre) && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
               style={{ '--c': article.category.color } as React.CSSProperties}>

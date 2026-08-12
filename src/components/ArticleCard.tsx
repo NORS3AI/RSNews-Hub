@@ -40,6 +40,7 @@ export default function ArticleCard({ article, compact = false, trk, hpId = true
             extraCategories={article.extraCategories}
             breakingUntil={article.breakingUntil}
             requirement={article.requirement}
+            genre={article.genre}
           />
           {/* Title is never truncated — the card grows to fit it. */}
           <h3 className={`pr-[76px] font-extrabold leading-tight tracking-tight text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-lg' : 'text-[22px]'}`}>

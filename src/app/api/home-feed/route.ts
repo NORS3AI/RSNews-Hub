@@ -11,7 +11,7 @@ const PAGE = 12;
 // row to detect the end without a second query.
 const cardSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true,
-  publishedAt: true, views: true, readMinutes: true, requirement: true, breakingUntil: true,
+  publishedAt: true, views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },

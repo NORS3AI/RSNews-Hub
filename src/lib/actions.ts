@@ -8,6 +8,7 @@ import { prisma } from './db';
 import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
+import { normalizeGenre } from './genre';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
@@ -139,6 +140,8 @@ export async function saveArticle(formData: FormData) {
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
   const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
+  // Optional editorial genre — whitelisted to a known token or '' (none).
+  const genre = normalizeGenre(formData.get('genre'));
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
   // Optional display byline (overrides the author account name in the reader).
   const byline = ((formData.get('byline') as string) || '').trim().slice(0, 120);
@@ -195,7 +198,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -210,7 +213,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,
