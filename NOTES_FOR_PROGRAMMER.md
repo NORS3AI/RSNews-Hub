@@ -51,7 +51,7 @@ reading, analytics) to that account id.
 | 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Done** — now on PostgreSQL: provider switched, real migrations in `prisma/migrations/`, Docker + `docker-compose.example.yml` set up. 🟠 dev provisions the prod DB. |
 | 3 | **Set real environment secrets** — `DATABASE_URL`, `AUTH_SECRET`. | ✅ **Enforced in code** — `src/lib/env.ts` refuses weak/placeholder `AUTH_SECRET` in prod (login 500s, `/api/health` flags it). 🟠 dev sets the values. |
 | 4 | **No default admin login in prod.** | ✅ **Done** — seed reads `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` and **refuses to run in production** without them. 🟠 dev sets them. |
-| 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Ready** — `db:migrate` / `db:migrate:deploy` scripts + init SQL; DEPLOYMENT.md Step 4. 🟠 dev runs `migrate dev --name init` against Postgres once. |
+| 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Done** — a full migration history (`_init` + 15 more) is committed in `prisma/migrations/`; verified to apply cleanly on a fresh DB with zero drift. 🟠 on deploy the dev runs `npm run db:migrate:deploy` (`prisma migrate deploy`) against the prod DB — **not** `migrate dev` (that authors new migrations). DEPLOYMENT.md Step 4. |
 | 6 | **Confirm `docs/` preview deploy** (Pages) & whether it stays public. | 🟠 dev — covered in DEPLOYMENT.md §9. |
 | 7 | **Health check** for the host. | ✅ **Done** — `GET /api/health` (DB up/down + config report). |
 | 8 | ✅ **Dependency security — `npm audit` is clean (0 vulnerabilities).** Upgraded to **Next 15** + **React 19** (v0.34.0) and pinned Next's bundled `sharp`/`postcss` to patched versions via `overrides`. | ✅ done |
@@ -94,7 +94,7 @@ reading, analytics) to that account id.
 | 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
 | 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
 | 11 | ✅ **SEO basics** — `robots.ts`, `sitemap.ts` (dynamic, from published content), per-article canonical + Open Graph/Twitter metadata. Domain/DNS/TLS/CDN remain 🟠 dev. | ✅ done · 🟠 dev does DNS/TLS/CDN |
-| 12 | ✅ **Content moderation** — reusable `moderateText` (`src/lib/moderation.ts`, pure + tested): ok/flag/block with cleaned text + reasons, env-tunable blocklist. Applied to the one persisted user-authored field today (registration name). **Note:** the hub has **no public UGC** yet (no comments/reviews); this is defense-in-depth + the ready gate for when member-authored public content is added — drop `moderateText()` in front of it. | ✅ done |
+| 12 | ✅ **Content moderation** — reusable `moderateText` (`src/lib/moderation.ts`, pure + tested): ok/flag/block with cleaned text + reasons, env-tunable blocklist. Applied to the registration name on submit. **Member-authored public content today = supplier testimonials**, which are gated by **admin approval** (submit → `PENDING`; only `APPROVED` + opted-in testimonials ever display — `setTestimonialStatus` / `testimonials.ts`), so nothing member-written goes public unreviewed. `moderateText()` is not yet wired into the testimonial submit path; adding it there is the obvious next defense-in-depth step if the review queue grows. No comments/reviews/forums exist. | ✅ done · 🔵 optional: moderate testimonial body on submit |
 | 13 | **Analytics phase 2+** — see the roadmap just below. | 🔵 Claude can extend · 🟠 dev sizes the DB |
 
 ### Analytics roadmap (phase 2+)
@@ -279,8 +279,10 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   limited to **one per account**, enforced by DB unique constraints (`PollVote`,
   `QuizResponse (quizId,userId)`), not just client-side. Routes return
   401 (anon) / 409 (duplicate). _(v0.26.0)_
-- ✅ **Automated tests** — Vitest suite (37 tests): pure logic + API-route tests
-  that lock the auth/one-per-account behavior. Run `npm test`. _(v0.26.0)_
+- ✅ **Automated tests** — Vitest suite (**370 tests** as of v0.121.0, grown from
+  37 at v0.26.0): pure logic, API-route auth/one-per-account behavior, and
+  DB-backed integration tests (ad-sales money/gate/reminder paths). Run
+  `npm test`. _(started v0.26.0)_
 - ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`): install → prisma
   generate → type-check → test → build, on every PR and push to main. _(v0.26.0)_
 - ✅ **Smart in-article ads** — competitor ads are suppressed inside articles
@@ -347,12 +349,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ## 4. Repo facts & gotchas the dev needs to know
 
-- **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma · Tailwind. DB is
-  PostgreSQL (`prisma/schema.prisma` provider=postgresql; local via `docker compose up db`).
-- **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required in
-  prod (validated in `src/lib/env.ts` — a weak `AUTH_SECRET` is rejected at
-  runtime, not silently accepted). Admin seed needs `SEED_ADMIN_EMAIL` /
-  `SEED_ADMIN_PASSWORD` in prod. Full deploy: `DEPLOYMENT.md`.
+- **Stack:** Next.js 15.5 (App Router) · React 19 · TypeScript · Prisma 5.22 ·
+  Tailwind. DB is PostgreSQL in every environment (`prisma/schema.prisma`
+  provider=postgresql — no SQLite mode); local via
+  `docker compose -f docker-compose.example.yml up db`.
+- **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required
+  outside local dev (validated in `src/lib/env.ts` — the committed dev
+  `AUTH_SECRET` is rejected at runtime in prod/staging, not silently accepted).
+  Admin seed needs `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in prod. Email
+  compliance needs `MAILING_ADDRESS` / `ORG_LEGAL_NAME` (see §1b). Full deploy:
+  `DEPLOYMENT.md`.
 - **Two front-ends in one repo:**
   - `src/` — the real Next.js app (dynamic, DB-backed).
   - `docs/` — a **static** snapshot for the GitHub Pages preview (`app.js`,
@@ -360,11 +366,20 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
     `scripts/build-static.mjs` (`npm run build:static`). It has **no backend or
     login**, so interactive features there (poll/quiz) are localStorage demos
     only. Don't confuse it with production behavior.
-- **Version badge** lives in the footer in two places: `docs/index.html` and
-  `src/lib/constants.ts` (kept in sync on each shipped change).
-- **Data collected by new features:** quiz responses + poll votes (low
-  sensitivity). Accounts already existed on the site, so this feature does **not**
-  introduce new account/PII collection.
+- **Version badge** lives in two places. `src/lib/constants.ts` (`APP_VERSION`)
+  is the **authoritative** app version, bumped each shipped change. The static
+  preview's badge in `docs/index.html` is only refreshed when
+  `npm run build:static` is run, so it lags the app (currently v0.97.3 vs the
+  app's v0.121.0) — regenerate it if the Pages preview needs to match.
+- **Data collected (privacy-relevant — reflect in the Privacy Policy):** the hub
+  now stores more than the original poll/quiz responses. Members' logins come
+  from the parent site (no new password store here), but the hub collects:
+  **newsletter subscriber email addresses** (`NewsletterSubscriber` — PII, with
+  unsubscribe), **first-party usage analytics** (`AnalyticsEvent` / reading logs —
+  gathered under a notice + opt-out, no third-party trackers), **per-account
+  saves** (favorites / to-read / clippings), and **supplier phone-book entries +
+  testimonials**. All are covered by the Privacy Policy (§1b L1) and the consent
+  notice; none use third-party ad/tracking cookies.
 
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
