@@ -1,23 +1,30 @@
 'use client';
+import { useState, useTransition } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { RANGES, rangeLabel, type Viz } from '@/lib/reportData';
+import { saveReportTemplateAction, deleteReportTemplateAction } from '@/lib/actions';
 import { ExternalLink } from '@/components/icons';
 
 type SectionMeta = { id: string; title: string; allowed: Viz[] };
+export type TemplateMeta = { id: string; name: string; query: string };
 const VIZ_LABEL: Record<Viz, string> = { stats: 'Stat tiles', bar: 'Bar chart', pie: 'Pie chart', table: 'Table', trend: 'Trend line' };
 
 /** The report builder's control panel. Every change re-navigates with the new
  *  querystring so the server re-renders the preview; the same querystring feeds
- *  the printable export. */
+ *  the printable export and any saved template. */
 export default function ReportControls({
-  scope, days, brand, advertisers, sections, hide, vizMap, exportHref,
+  scope, days, brand, advertisers, sections, hide, vizMap, exportHref, templates, currentQuery,
 }: {
   scope: 'site' | 'advertiser'; days: number; brand: string; advertisers: string[];
   sections: SectionMeta[]; hide: string[]; vizMap: Record<string, string>; exportHref: string;
+  templates: TemplateMeta[]; currentQuery: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const hidden = new Set(hide);
+  const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
 
   function go(next: { scope?: string; brand?: string; days?: number; hide?: Set<string>; viz?: Record<string, string> }) {
     const p = new URLSearchParams();
@@ -34,8 +41,43 @@ export default function ReportControls({
     router.push(`${pathname}?${p.toString()}`);
   }
 
+  function saveTemplate() {
+    const n = name.trim();
+    if (!n) return;
+    startTransition(async () => {
+      await saveReportTemplateAction(n, currentQuery);
+      setName(''); setSaving(false); router.refresh();
+    });
+  }
+  function removeTemplate(id: string) {
+    startTransition(async () => { await deleteReportTemplateAction(id); router.refresh(); });
+  }
+
   return (
     <div className="card mb-6 p-4">
+      {/* Saved templates — one press re-opens this report with fresh numbers. */}
+      <div className="mb-4 border-b border-[var(--border)] pb-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Saved templates</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {templates.length === 0 && <span className="text-sm text-[var(--muted)]">None yet — set up a report below, then save it to reuse in one click.</span>}
+          {templates.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-2)] pl-3 text-sm">
+              <button type="button" onClick={() => router.push(`${pathname}?${t.query}`)} disabled={pending} className="py-1 font-semibold hover:text-brand-600" title="Load this report with current numbers">{t.name}</button>
+              <button type="button" onClick={() => removeTemplate(t.id)} disabled={pending} aria-label={`Delete ${t.name}`} className="px-2 py-1 text-[var(--muted)] hover:text-red-600">×</button>
+            </span>
+          ))}
+          {saving ? (
+            <span className="inline-flex items-center gap-1">
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveTemplate(); if (e.key === 'Escape') { setSaving(false); setName(''); } }} maxLength={80} placeholder="Template name…" className="input h-8 w-44 py-0.5 text-sm" />
+              <button type="button" onClick={saveTemplate} disabled={pending || !name.trim()} className="btn-primary btn-sm">Save</button>
+              <button type="button" onClick={() => { setSaving(false); setName(''); }} className="btn-ghost btn-sm">Cancel</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setSaving(true)} className="btn-outline btn-sm">+ Save this as a template</button>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-end gap-3">
         <label className="block">
           <span className="label !mb-1 text-xs">Report</span>

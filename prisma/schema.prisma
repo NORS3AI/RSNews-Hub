@@ -35,6 +35,18 @@ model Announcement {
   updatedAt     DateTime  @updatedAt
 }
 
+// A saved Report-builder configuration: press one to re-open the builder with
+// the chosen scope / range / sections / charts and get freshly-computed numbers.
+// `query` is the builder querystring (scope, days, brand, hide, viz) — nothing
+// is frozen; every open recomputes live from analytics events.
+model ReportTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  query     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Open newsletter signups — anyone (owner, manager or employee) can subscribe
 // with just an email; the daily Industry News digest goes to these addresses.
 // A personal EMAIL digest signup. Identity is the email address, NOT a hub

@@ -22,6 +22,7 @@ import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { setNewsletterEnabled } from './newsletter';
 import { upsertAnnouncement, deleteAnnouncement, toggleStar as toggleAnnouncementStarLib, setLiveAnnouncement, setAnnouncementEnabled, type AnnouncementInput } from './announcement';
+import { saveReportTemplate, renameReportTemplate, deleteReportTemplate } from './reportTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
 
@@ -74,6 +75,31 @@ export async function setAnnouncementBarEnabled(on: boolean): Promise<void> {
   await ensureStaff();
   await setAnnouncementEnabled(on);
   revalidatePath('/admin/announcement');
+}
+
+/* --------------------- Report builder templates -------------------------- */
+// Save/delete a named Report-builder configuration. A template stores only the
+// querystring; regenerating always recomputes live numbers, so there's nothing
+// to refresh — pressing a template just re-opens the builder with fresh data.
+
+export async function saveReportTemplateAction(name: string, query: string): Promise<string> {
+  await ensureStaff();
+  const id = await saveReportTemplate(name, query);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
+  return id;
+}
+export async function renameReportTemplateAction(id: string, name: string): Promise<void> {
+  await ensureStaff();
+  await renameReportTemplate(id, name);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
+}
+export async function deleteReportTemplateAction(id: string): Promise<void> {
+  await ensureStaff();
+  await deleteReportTemplate(id);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
 }
 
 async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' | 'tag', ignoreId?: string) {

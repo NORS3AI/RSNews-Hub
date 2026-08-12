@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { generatePerformanceReport } from '@/lib/actions';
 import { recentQuarters } from '@/lib/reports';
+import { listReportTemplates } from '@/lib/reportTemplates';
 import { formatDate, formatDateUTC } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -12,9 +13,10 @@ const statusChip: Record<string, string> = {
 };
 
 export default async function AdminReports() {
-  const [vendors, reports] = await Promise.all([
+  const [vendors, reports, templates] = await Promise.all([
     prisma.vendor.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     prisma.performanceReport.findMany({ orderBy: [{ periodStart: 'desc' }, { createdAt: 'desc' }], include: { vendor: { select: { name: true } } } }),
+    listReportTemplates(),
   ]);
   const quarters = recentQuarters(new Date(), 6);
 
@@ -27,6 +29,17 @@ export default async function AdminReports() {
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
         Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports. For a custom, exportable report (whole-site or one advertiser, your choice of charts) use the <strong>Report builder</strong>.
       </p>
+
+      {templates.length > 0 && (
+        <div className="card mb-6 p-4">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Saved report templates · one press for fresh numbers</div>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <Link key={t.id} href={`/admin/reports/builder?${t.query}`} className="btn-outline btn-sm">📊 {t.name}</Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Generate */}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { buildReport, reportAdvertisers, parseReportParams, reportQuery, type Viz } from '@/lib/reportData';
+import { listReportTemplates } from '@/lib/reportTemplates';
 import ReportControls from '@/components/admin/ReportControls';
 import ReportSectionView from '@/components/admin/ReportSectionView';
 import { ArrowLeft } from '@/components/icons';
@@ -10,7 +11,7 @@ export const metadata = { title: 'Report builder' };
 export default async function ReportBuilderPage(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await props.searchParams;
   const params = parseReportParams(sp);
-  const advertisers = await reportAdvertisers(params.days);
+  const [advertisers, templates] = await Promise.all([reportAdvertisers(params.days), listReportTemplates()]);
 
   // Default the advertiser scope to the first brand so there's always a preview.
   if (params.scope === 'advertiser' && !params.brand && advertisers.length) params.brand = advertisers[0];
@@ -20,7 +21,8 @@ export default async function ReportBuilderPage(props: { searchParams: Promise<R
     : await buildReport(params.scope, params.days, params.brand);
 
   const hidden = new Set(params.hide);
-  const exportHref = `/report-export?${reportQuery(params)}`;
+  const currentQuery = reportQuery(params);
+  const exportHref = `/report-export?${currentQuery}`;
 
   return (
     <div className="max-w-4xl">
@@ -37,6 +39,8 @@ export default async function ReportBuilderPage(props: { searchParams: Promise<R
         hide={params.hide}
         vizMap={params.vizMap}
         exportHref={exportHref}
+        templates={templates}
+        currentQuery={currentQuery}
       />
 
       {!report ? (
