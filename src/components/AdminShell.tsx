@@ -20,6 +20,7 @@ const groups: NavGroup[] = [
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
     { href: '/admin/homepage/inventory', label: 'On-page inventory', icon: Layers },
+    { href: '/admin/announcement', label: 'Announcement bar', icon: Megaphone },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   ] },
   { title: 'Create content', links: [

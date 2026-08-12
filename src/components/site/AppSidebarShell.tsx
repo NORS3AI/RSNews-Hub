@@ -59,7 +59,7 @@ function ThemeItem({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export default function AppSidebarShell({ user, children }: { user: U; children: React.ReactNode }) {
+export default function AppSidebarShell({ user, children, announcement }: { user: U; children: React.ReactNode; announcement?: React.ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -165,6 +165,8 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* Site-wide announcement strip (dismissible; scrolls away above the nav). */}
+        {announcement}
         <header className="sticky top-0 z-30 flex items-center gap-3 bg-[color-mix(in_srgb,var(--bg)_70%,#000_6%)] px-4 py-3 backdrop-blur lg:px-7 lg:py-4">
           <button onClick={() => setMobileOpen(true)} className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[10px] bg-[var(--card)] text-[var(--fg)] shadow-[var(--shadow-card)] lg:hidden" aria-label="Open menu">
             <Menu width={22} height={22} />

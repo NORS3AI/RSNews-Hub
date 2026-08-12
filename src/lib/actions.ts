@@ -21,6 +21,7 @@ import { entitlementsOf, isVendor } from './entitlements';
 import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
 import { setNewsletterEnabled } from './newsletter';
+import { setAnnouncement } from './announcement';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
 
@@ -42,6 +43,21 @@ export async function setDigestEnabled(on: boolean): Promise<void> {
   await ensureStaff();
   await setNewsletterEnabled(on);
   revalidatePath('/admin/subscribers');
+}
+
+/** Admin: save the site-wide announcement bar (top strip + optional countdown).
+ *  normalizeAnnouncement (inside setAnnouncement) validates/clamps the input. */
+export async function saveAnnouncement(formData: FormData): Promise<void> {
+  await ensureStaff();
+  await setAnnouncement({
+    enabled: formData.get('enabled') === 'on',
+    message: String(formData.get('message') || ''),
+    href: String(formData.get('href') || ''),
+    hrefLabel: String(formData.get('hrefLabel') || ''),
+    targetAt: String(formData.get('targetAt') || '') || null,
+    showCountdown: formData.get('showCountdown') === 'on',
+  });
+  revalidatePath('/admin/announcement');
 }
 
 async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' | 'tag', ignoreId?: string) {
