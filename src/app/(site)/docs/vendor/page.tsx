@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { entitlementsOf, isVendor, brandKey } from '@/lib/entitlements';
+import { activeViewAs } from '@/lib/viewAsServer';
+import { applyViewAs } from '@/lib/viewAs';
 import { vendorIdForBrand } from '@/lib/vendors';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
 import { listPublishedReports, parseSnapshot } from '@/lib/reports';
@@ -23,7 +25,10 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const { tab: tabParam } = await props.searchParams;
   const tab = TABS.some((t) => t[0] === tabParam) ? tabParam! : 'current';
   const user = await getCurrentUser();
-  const ent = entitlementsOf(user ?? {});
+  // Admin "View as vendor" surfaces that vendor's real dashboard (campaigns,
+  // creatives, reports) so an admin can see exactly what the advertiser sees.
+  const viewingAs = await activeViewAs(user);
+  const ent = entitlementsOf(viewingAs ? applyViewAs(user, viewingAs) : (user ?? {}));
 
   if (!user) return <Shell><Notice title="Sign in to view your vendor dashboard" body="Log in on the main RS News site to see your ad campaigns." /></Shell>;
   if (!isVendor(ent)) return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;

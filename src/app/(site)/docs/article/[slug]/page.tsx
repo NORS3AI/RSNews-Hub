@@ -17,6 +17,8 @@ import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
 import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
+import { activeViewAs } from '@/lib/viewAsServer';
+import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
@@ -58,10 +60,14 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
 
   const user = await getCurrentUser();
+  // Admin "View as": preview the gate through the impersonated audience so an
+  // admin can confirm what a basic member (vs. premium/Package Hub) actually sees.
+  const viewingAs = await activeViewAs(user);
+  const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
 
   // Access gate (e.g. Package Hub–only content). Enforced here, server-side,
   // before any content is read or a view is tracked.
-  if (!canViewContent(user, article.requirement)) {
+  if (!canViewContent(gateAccount, article.requirement)) {
     return <LockedArticle article={article} />;
   }
 
@@ -79,8 +85,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // Competitor suppression matches the article's TAGS (+ title) — curated business
   // names — not the full body, so a stray word can't hide an ad.
   const adSafeContext = `${article.title} ${adTagText}`;
-  // A visiting vendor sees their own brand's ads surfaced first.
-  const favorBrand = entitlementsOf(user ?? {}).vendorBrand;
+  // A visiting vendor sees their own brand's ads surfaced first (and an admin
+  // viewing "as" a vendor sees the same).
+  const favorBrand = entitlementsOf(gateAccount ?? {}).vendorBrand;
   const [ads, embeds, slotAds, supplierAdMap, savedSupplierIds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext),
     resolveArticleEmbeds(article.content, user?.id),

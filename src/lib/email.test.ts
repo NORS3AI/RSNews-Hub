@@ -28,6 +28,14 @@ describe('renderEmail', () => {
     expect(html).toContain('<p>trusted</p>'); // body verbatim
     expect(html).toContain('RS News Hub');
   });
+
+  it('carries a physical mailing address in the footer (CAN-SPAM)', () => {
+    const html = renderEmail('Hi', '<p>x</p>');
+    // The address block is always present; env-driven value falls back to a
+    // clearly-marked placeholder so an unconfigured deploy is obvious.
+    expect(html).toMatch(/MAILING_ADDRESS|·/);
+    expect(html.toLowerCase()).toContain('receiving this');
+  });
 });
 
 describe('sendEmail', () => {

@@ -6,6 +6,8 @@ import { getHomeLayout, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, 
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
 import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/lib/entitlements';
+import { activeViewAs } from '@/lib/viewAsServer';
+import { applyViewAs } from '@/lib/viewAs';
 import { Lock } from '@/components/icons';
 import { sweepExpiredModulePolls, sweepExpiredModules, sweepExpiredQuizzes } from '@/lib/studioPolls';
 import { sweepAutoArchivedArticles } from '@/lib/autoArchive';
@@ -98,6 +100,10 @@ export default async function DocsHome() {
 
   const user = await getSessionUser();
   const isAdmin = !!user && (user.role === 'ADMIN' || user.role === 'EDITOR');
+  // Admin "View as": when an admin is previewing the site as a member/vendor, the
+  // preset overrides their entitlements for content gating (below) and — for a
+  // vendor preset — drives the same on-homepage ad preview a vendor sees.
+  const viewingAs = await activeViewAs(user);
   // Which premium suppliers this reader has already saved — powers the "in your
   // phone book" state on each ad's options menu.
   const savedSupplierIds = user ? await savedVendorIds(user.id) : [];
@@ -124,6 +130,15 @@ export default async function DocsHome() {
       previewWide = !!mine?.wide;
       previewRect = !!mine?.rect;
     }
+  }
+  // An admin viewing the site "as" a vendor sees that vendor's ad preview too,
+  // even without the vendor-side preview cookie (identity is already verified as
+  // admin by activeViewAs).
+  if (!previewBrand && viewingAs?.group === 'Vendor' && viewingAs.account.vendorBrand) {
+    previewBrand = viewingAs.account.vendorBrand;
+    const mine = (await listAdvertisers()).find((a) => a.key === brandKey(previewBrand));
+    previewWide = !!mine?.wide;
+    previewRect = !!mine?.rect;
   }
   // `brand` locks the slot to one advertiser (a sponsor spotlight). If that
   // advertiser has no live creative, we fall back to an RS house ad (our own —
@@ -156,9 +171,12 @@ export default async function DocsHome() {
   };
   // The viewer's entitlement attributes, for element audience gates. Null when
   // signed out (gated elements then tease/hide for everyone unless public).
-  const account: AccountLike | null = user
+  const realAccount: AccountLike | null = user
     ? await prisma.user.findUnique({ where: { id: user.id }, select: { accountType: true, tier: true, affiliations: true, vendorBrand: true } })
     : null;
+  // View-as impersonates the entitlement attributes for gating; real identity is
+  // untouched. When not impersonating, this is just the real account.
+  const account: AccountLike | null = viewingAs ? applyViewAs(realAccount, viewingAs) : realAccount;
   const sessionId = await getReaderSessionId();
   const [feed, trending] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),

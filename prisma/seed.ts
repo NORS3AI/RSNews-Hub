@@ -226,6 +226,34 @@ async function main() {
 <p>Questions? Email <a href="mailto:[legal@yourdomain.com]">[legal@yourdomain.com]</a>.</p>`,
     },
   });
+  await prisma.page.upsert({
+    where: { slug: 'copyright' },
+    update: {},
+    create: {
+      title: 'Copyright & DMCA', slug: 'copyright', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<h2>Copyright</h2>
+<p>© ${new Date().getFullYear()} [Your business name]. All articles, images, branding and other content on RS News Hub are protected by copyright and owned by us or our licensors, except for third-party material (such as advertisements or linked industry news) which remains the property of its respective owners. You may not copy, reproduce, republish or redistribute our content without written permission, except as the site's built-in sharing and clipping features expressly allow.</p>
+<h2>Using our content</h2>
+<p>Short quotations with attribution and a link back are generally welcome. For anything more — reprints, syndication, commercial use — contact <a href="mailto:[legal@yourdomain.com]">[legal@yourdomain.com]</a>.</p>
+<h2>Copyright complaints (DMCA)</h2>
+<p>We respect the intellectual-property rights of others and respond to notices of alleged infringement that comply with the U.S. Digital Millennium Copyright Act (DMCA) and comparable laws. If you believe content on this site infringes your copyright, send a written notice to our designated agent that includes all of the following:</p>
+<ul>
+<li>Your physical or electronic signature.</li>
+<li>Identification of the copyrighted work you claim has been infringed.</li>
+<li>Identification of the material you claim is infringing, with enough detail (such as a URL) for us to locate it.</li>
+<li>Your name, mailing address, telephone number and email address.</li>
+<li>A statement that you have a good-faith belief the use is not authorized by the copyright owner, its agent or the law.</li>
+<li>A statement, under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner's behalf.</li>
+</ul>
+<h2>Designated agent</h2>
+<p>Send DMCA notices to our copyright agent:<br>[Agent name]<br>[Your business name]<br>[Mailing address]<br>Email: <a href="mailto:[dmca@yourdomain.com]">[dmca@yourdomain.com]</a></p>
+<h2>Counter-notice</h2>
+<p>If you believe material you posted was removed in error, you may send a counter-notice to the same agent with the information required by the DMCA. We may restore the material unless the original complainant files a court action.</p>
+<h2>Repeat infringers</h2>
+<p>We may, in appropriate circumstances, disable or terminate accounts of users who are repeat infringers.</p>`,
+    },
+  });
 
   // Smart in-article ads (idempotent by id).
   for (const ad of DEFAULT_ADS) {

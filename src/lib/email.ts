@@ -9,6 +9,7 @@
 // EMAIL_PROVIDER (resend|sendgrid) picks the transport when both keys exist.
 
 import { log } from './logger';
+import { ORG_LEGAL_NAME, MAILING_ADDRESS } from './constants';
 
 export type EmailMessage = { to: string; subject: string; html: string; text?: string };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,7 +43,11 @@ export function renderEmail(title: string, bodyHtml: string): string {
     `<table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)"><tr>` +
     `<td style="background:#232a36;padding:18px 24px"><span style="color:#E97D34;font-weight:800;font-size:18px">RS News Hub</span></td></tr>` +
     `<tr><td style="padding:24px;color:#232a36"><h1 style="font-size:20px;margin:0 0 12px">${escapeHtml(title)}</h1>${bodyHtml}</td></tr>` +
-    `<tr><td style="padding:16px 24px;color:#8a8f98;font-size:12px;border-top:1px solid #eee">You're receiving this because you have an RS News Hub account.</td></tr></table></body></html>`;
+    `<tr><td style="padding:16px 24px;color:#8a8f98;font-size:12px;border-top:1px solid #eee">` +
+    `You're receiving this because you have an RS News Hub account.` +
+    // CAN-SPAM: a valid physical postal address must appear in every commercial email.
+    `<br><span style="color:#a7abb2">${escapeHtml(ORG_LEGAL_NAME)} · ${escapeHtml(MAILING_ADDRESS)}</span>` +
+    `</td></tr></table></body></html>`;
 }
 
 async function deliverResend(msg: EmailMessage): Promise<{ ok: boolean; error?: string }> {

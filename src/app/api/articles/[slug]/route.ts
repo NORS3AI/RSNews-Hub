@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
+import { activeViewAs } from '@/lib/viewAsServer';
+import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
 import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
@@ -32,7 +34,10 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // Access gate — same rule as the page. Never return a gated body here; the
   // modal falls back to the full page (which renders the locked teaser) on 403.
   const user = await getCurrentUser();
-  if (!canViewContent(user, article.requirement)) {
+  // Honor admin "View as" so the modal locks/unlocks the same way the page does.
+  const viewingAs = await activeViewAs(user);
+  const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
+  if (!canViewContent(gateAccount, article.requirement)) {
     return NextResponse.json({ error: 'Locked', requirement: article.requirement }, { status: 403 });
   }
 

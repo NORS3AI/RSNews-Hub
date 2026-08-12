@@ -36,6 +36,7 @@ export default function SiteFooter() {
                 <li><Link href="/docs/page/about" className="hover:text-[var(--fg)]">About</Link></li>
                 <li><Link href="/docs/page/privacy" className="hover:text-[var(--fg)]">Privacy Policy</Link></li>
                 <li><Link href="/docs/page/terms" className="hover:text-[var(--fg)]">Terms of Service</Link></li>
+                <li><Link href="/docs/page/copyright" className="hover:text-[var(--fg)]">Copyright &amp; DMCA</Link></li>
                 <li><Link href="/admin" className="hover:text-[var(--fg)]">Admin</Link></li>
               </ul>
             </div>
