@@ -1,6 +1,7 @@
 import SiteProviders from '@/components/site/SiteProviders';
 import AppSidebarShell from '@/components/site/AppSidebarShell';
 import ConsentBanner from '@/components/site/ConsentBanner';
+import { AdPreviewBanner } from '@/components/site/AdPreview';
 import { getCurrentUser } from '@/lib/auth';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         {children}
       </AppSidebarShell>
       <ConsentBanner />
+      <AdPreviewBanner />
     </SiteProviders>
   );
 }

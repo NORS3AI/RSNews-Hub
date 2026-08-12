@@ -15,7 +15,9 @@ import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
 import AdSlot from '@/components/AdSlot';
 import AdWithOptions from '@/components/site/AdWithOptions';
-import { loadAds } from '@/lib/adsServer';
+import { loadAds, listAdvertisers } from '@/lib/adsServer';
+import { cookies } from 'next/headers';
+import { AD_PREVIEW_COOKIE } from '@/components/site/AdPreview';
 import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import ArticleLink from '@/components/site/ArticleLink';
 import SaveButtons from '@/components/site/StarButton';
@@ -104,14 +106,38 @@ export default async function DocsHome() {
   // through the image creatives so the real ads show on the home page too.
   const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
   let homeAdCursor = 0;
+
+  // Vendor ad-preview: when a signed-in vendor toggled "Preview my ads" from
+  // their dashboard, a cookie carries their normalized brand. We honor it ONLY
+  // when the viewer IS that vendor, and fill each homepage slot they have a LIVE
+  // creative for with their own ad (competitor-safe house fallback otherwise) —
+  // a labeled demo so they see their placement + the slots they're missing.
+  const previewCookie = (await cookies()).get(AD_PREVIEW_COOKIE)?.value || '';
+  let previewBrand = '';
+  let previewWide = false;
+  let previewRect = false;
+  if (previewCookie && user) {
+    const acct = await prisma.user.findUnique({ where: { id: user.id }, select: { vendorBrand: true } });
+    if (acct?.vendorBrand && brandKey(previewCookie) === brandKey(acct.vendorBrand)) {
+      previewBrand = acct.vendorBrand;
+      const mine = (await listAdvertisers()).find((a) => a.key === brandKey(previewBrand));
+      previewWide = !!mine?.wide;
+      previewRect = !!mine?.rect;
+    }
+  }
   // `brand` locks the slot to one advertiser (a sponsor spotlight). If that
   // advertiser has no live creative, we fall back to an RS house ad (our own —
   // never another advertiser, so a sold slot can never show a competitor); only
   // if we have no house image ad either does it fall through (null).
   const homeAd = (size: 'leaderboard' | 'rectangle', slot: string, brand?: string): React.ReactNode | null => {
-    let pool = brand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(brand)) : homeImageAds;
-    if (brand && pool.length === 0) pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
-    if (brand && pool.length === 0) return null;
+    // In vendor preview, an auto slot the vendor can fill is locked to their brand.
+    const previewLock = !brand && !!previewBrand && ((size === 'leaderboard' && previewWide) || (size === 'rectangle' && previewRect));
+    const lockBrand = brand || (previewLock ? previewBrand : undefined);
+    let pool = lockBrand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(lockBrand)) : homeImageAds;
+    // A preview slot must show a creative that actually fits the slot's shape.
+    if (previewLock) pool = pool.filter((a) => (size === 'leaderboard' ? a.imageWide : a.imageRect));
+    if (lockBrand && pool.length === 0) pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
+    if (lockBrand && pool.length === 0) return null;
     if (!pool.length) return <AdSlot size={size} slot={slot} className="max-w-none" />;
     const ad = pool[homeAdCursor++ % pool.length];
     // Homepage ads fill their slot: rectangles fill their grid column, banners

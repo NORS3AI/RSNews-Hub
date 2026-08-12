@@ -9,10 +9,11 @@ import { testimonialsForVendorDashboard } from '@/lib/testimonials';
 import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from '@/lib/vendorReports';
 import TestimonialAttribution from '@/components/site/TestimonialAttribution';
 import RequestReportForm from '@/components/site/RequestReportForm';
-import { loadAds } from '@/lib/adsServer';
+import { loadAds, listAdvertisers } from '@/lib/adsServer';
+import { AdPreviewButton } from '@/components/site/AdPreview';
 import ReportView from '@/components/ReportView';
 import { formatDate } from '@/lib/utils';
-import { ExternalLink, Megaphone } from '@/components/icons';
+import { ExternalLink, Megaphone, Check, X } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,14 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
 
   // The vendor's creatives on file (any with an image), for "view your current ads".
   const creatives = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && (a.imageWide || a.imageRect));
+  // Which ad-slot shapes they currently have a LIVE creative for — powers the
+  // preview + the "coverage" checklist (what you have vs. what you're missing).
+  const shapes = (await listAdvertisers()).find((a) => a.key === brandKey(ent.vendorBrand));
+  const coverage: { label: string; where: string; has: boolean }[] = [
+    { label: 'Wide banner', where: 'Homepage banners & article leaderboards', has: !!shapes?.wide },
+    { label: 'Rectangle', where: 'Homepage rectangle row & in-article boxes', has: !!shapes?.rect },
+    { label: 'Video', where: 'In-article video ad slots', has: !!shapes?.video },
+  ];
   const liveFlights = current.flatMap((c) => c.flights).filter((f) => f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt);
   const liveSince = liveFlights.length ? liveFlights.map((f) => f.startAt).sort((a, b) => a.getTime() - b.getTime())[0] : null;
 
@@ -82,10 +91,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
         </div>
 
         {tab === 'current' && (
-          current.length === 0
-            ? <div className="p-6"><Notice title="No live campaigns" body="When a campaign of yours is active, it shows here with your creatives and timeline." /></div>
-            : (
-              <div className="divide-y divide-[var(--border)]">
+          <div className="divide-y divide-[var(--border)]">
                 {liveSince && (
                   <div className="p-5 sm:p-6">
                     <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30">
@@ -95,13 +101,18 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                   </div>
                 )}
 
-                {/* View your current ads (what's on file) */}
+                {/* View your current ads — shown whenever creatives exist, even
+                    between campaigns, so the vendor can always preview + see coverage. */}
+                {creatives.length > 0 && (
                 <section className="p-5 sm:p-6">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-lg font-black">View your current ads</h2>
-                    {updateUrl
-                      ? <a href={updateUrl} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">Update your ads <ExternalLink width={13} height={13} /></a>
-                      : <span className="text-xs text-[var(--muted)]">To refresh your creatives, contact the RS News team.</span>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {creatives.length > 0 && <AdPreviewButton brandKey={brandKey(ent.vendorBrand)} />}
+                      {updateUrl
+                        ? <a href={updateUrl} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">Update your ads <ExternalLink width={13} height={13} /></a>
+                        : <span className="text-xs text-[var(--muted)]">To refresh your creatives, contact the RS News team.</span>}
+                    </div>
                   </div>
                   {creatives.length === 0
                     ? <p className="text-sm text-[var(--muted)]">No creatives on file yet.</p>
@@ -118,10 +129,33 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                         })}
                       </div>
                     )}
-                </section>
 
-                {/* Current campaign(s) */}
-                {current.map((c) => <CampaignSection key={c.id} c={c} now={now} />)}
+                  {/* Coverage checklist — what slot shapes they can fill, and the
+                      ones they're missing (an upsell hint, not a control). */}
+                  <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">Where your ads can appear</div>
+                    <ul className="space-y-2">
+                      {coverage.map((c) => (
+                        <li key={c.label} className="flex items-start gap-2.5 text-sm">
+                          <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full ${c.has ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300' : 'bg-[var(--bg-soft)] text-[var(--muted)]'}`}>
+                            {c.has ? <Check width={13} height={13} /> : <X width={13} height={13} />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="font-semibold text-[var(--fg)]">{c.label}</span>
+                            <span className="text-[var(--muted)]"> — {c.where}</span>
+                            {!c.has && <span className="block text-xs font-semibold text-brand-600">You don&apos;t have this creative yet — a spot you could fill.</span>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+                )}
+
+                {/* Current campaign(s), or a note when none are live. */}
+                {current.length === 0
+                  ? <div className="p-5 sm:p-6"><Notice title="No live campaigns" body="When a campaign of yours is active, it shows here with its timeline. Any creatives on file are shown above." /></div>
+                  : current.map((c) => <CampaignSection key={c.id} c={c} now={now} />)}
 
                 {/* Testimonials */}
                 {testimonials.length > 0 && (
@@ -142,7 +176,6 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                   </section>
                 )}
               </div>
-            )
         )}
 
         {tab === 'performance' && (
