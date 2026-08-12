@@ -108,27 +108,23 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-lg font-black">View your current ads</h2>
                     <div className="flex flex-wrap items-center gap-2">
-                      {creatives.length > 0 && <AdPreviewButton brandKey={brandKey(ent.vendorBrand)} />}
+                      <AdPreviewButton brandKey={brandKey(ent.vendorBrand)} />
                       {updateUrl
                         ? <a href={updateUrl} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm">Update your ads <ExternalLink width={13} height={13} /></a>
                         : <span className="text-xs text-[var(--muted)]">To refresh your creatives, contact the RS News team.</span>}
                     </div>
                   </div>
-                  {creatives.length === 0
-                    ? <p className="text-sm text-[var(--muted)]">No creatives on file yet.</p>
-                    : (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {creatives.map((a) => {
-                          const img = a.imageWide || a.imageRect!;
-                          return (
-                            <div key={a.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={img} alt={`${a.brand} ad`} className="block w-full" />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {creatives.map((a) => {
+                      const img = a.imageWide || a.imageRect!;
+                      return (
+                        <div key={a.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img} alt={`${a.brand} ad`} className="block w-full" />
+                        </div>
+                      );
+                    })}
+                  </div>
 
                   {/* Coverage checklist — what slot shapes they can fill, and the
                       ones they're missing (an upsell hint, not a control). */}

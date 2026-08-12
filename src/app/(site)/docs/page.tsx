@@ -135,8 +135,12 @@ export default async function DocsHome() {
     const lockBrand = brand || (previewLock ? previewBrand : undefined);
     let pool = lockBrand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(lockBrand)) : homeImageAds;
     // A preview slot must show a creative that actually fits the slot's shape.
-    if (previewLock) pool = pool.filter((a) => (size === 'leaderboard' ? a.imageWide : a.imageRect));
-    if (lockBrand && pool.length === 0) pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
+    const shapeOk = (a: typeof homeImageAds[number]) => (size === 'leaderboard' ? a.imageWide : a.imageRect);
+    if (previewLock) pool = pool.filter(shapeOk);
+    if (lockBrand && pool.length === 0) {
+      pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
+      if (previewLock) pool = pool.filter(shapeOk); // keep the house fallback shape-correct too
+    }
     if (lockBrand && pool.length === 0) return null;
     if (!pool.length) return <AdSlot size={size} slot={slot} className="max-w-none" />;
     const ad = pool[homeAdCursor++ % pool.length];
