@@ -295,12 +295,14 @@ export default async function DocsHome() {
   // future refinement can let admins hand-pick specific articles). Poll blocks
   // are skipped on the live site until the Phase 5 timer/archive lifecycle is
   // wired to real Poll records.
-  // Global de-dup across the WHOLE homepage: a poll / quiz / article shows at
-  // most once, so a piece placed in a dedicated module can't also reappear in a
-  // generic "latest" slot (e.g. a Package Hub poll pinned in its own element AND
-  // the council aside). Explicitly-pinned poll/quiz ids win over the generic
-  // aside — the aside yields them to the module that named them; among modules,
-  // first in layout order wins and a duplicate falls through its fallback chain.
+  // Global de-dup across the homepage. Polls/quizzes show at most once anywhere:
+  // explicitly-pinned poll/quiz ids win over the generic council aside (which
+  // yields them to the module that named them), and among modules first in
+  // layout order wins — a duplicate falls through its fallback chain. Articles
+  // are deduped across custom modules AND the generic "Latest" list (a story
+  // featured above won't reappear in Latest). The curated ranking views
+  // (Trending, Rediscover) and carousels are intentional standalone selections
+  // and may re-surface a story by design — they don't consume this set.
   const pinnedPollIds = new Set(allBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
   const pinnedQuizIds = new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
   const shownArticleIds = new Set<string>();
@@ -483,7 +485,11 @@ export default async function DocsHome() {
         case 'poll': {
           const pid = typeof b.settings.pollId === 'string' ? b.settings.pollId : null;
           const p = pid ? modulePollById.get(pid) : null;
-          if (!p) return null; // not materialized, or closed (timer elapsed) → hidden
+          if (!p) return null; // not materialized → hidden
+          // Once its timer ends (or an admin deactivates it), the poll leaves the
+          // slot so the block falls through to its fallback — mirroring the quiz
+          // rung. Without this a closed poll stayed stuck in its module forever.
+          if (!p.active || (p.closesAt && new Date(p.closesAt) < new Date())) return null;
           if (shownPollIds.has(p.id)) return null; // already shown elsewhere → fall through
           shownPollIds.add(p.id);
           return (
@@ -671,7 +677,13 @@ export default async function DocsHome() {
             </div>
           </section>
         );
-      case 'latest':
+      case 'latest': {
+        // The generic "Latest" list yields any story already shown in a module
+        // above it (global de-dup) so the same card never appears twice on the
+        // page. Drawn from the full pool, so skipping a few still fills 7.
+        const latestItems = latest.filter((a) => !shownArticleIds.has(a.id)).slice(0, 7);
+        if (latestItems.length === 0) return null;
+        latestItems.forEach((a) => shownArticleIds.add(a.id));
         return (
           <section key={id} className="module">
             <div className="mb-4 flex items-center justify-between">
@@ -679,7 +691,7 @@ export default async function DocsHome() {
               <Link href="/docs/archive" className="text-sm font-semibold text-brand-600 hover:underline">View archive</Link>
             </div>
             <div className="divide-y divide-[var(--border)]">
-              {latest.slice(0, 7).map((a, i) => (
+              {latestItems.map((a, i) => (
                 <div key={a.id} data-hp-id={a.id} className="group relative">
                   <div className="absolute right-0 top-4 z-10"><SaveButtons item={{ id: a.id, title: a.title, slug: a.slug }} /></div>
                   <AdminArticleEdit id={a.id} pos="right-[88px] top-4" />
@@ -698,6 +710,7 @@ export default async function DocsHome() {
             </div>
           </section>
         );
+      }
       case 'ad-leaderboard':
         return <div key={id} className="flex justify-center">{homeAd('leaderboard', 'home-leaderboard')}</div>;
       case 'ad-rectangles':

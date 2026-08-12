@@ -14,6 +14,21 @@ export function deviceFromUA(ua: string | null): string {
 
 type Ctx = { visitorId: string | null; userId: string | null; device: string };
 
+const MAX_PROPS_CHARS = 4000;
+// Serialize event props to a string that is ALWAYS valid JSON (or null). The old
+// code byte-sliced the serialized string at a cap, which could cut mid-token and
+// produce invalid JSON — readers then `JSON.parse`-failed and silently dropped
+// EVERY prop (skewing aggregates: a read losing `milestone` counted as finished,
+// an impression losing `campaignId` dropped its brand attribution). We instead
+// drop oversized props wholesale rather than store corrupt JSON.
+export function serializeProps(props: unknown): string | null {
+  if (!props) return null;
+  let s: string;
+  try { s = JSON.stringify(props); } catch { return null; }
+  if (!s) return null;
+  return s.length <= MAX_PROPS_CHARS ? s : null;
+}
+
 // Validate + persist a batch of client events. Unknown/invalid rows are dropped
 // rather than failing the whole batch (analytics must never break a page).
 export async function recordEvents(events: unknown, ctx: Ctx): Promise<number> {
@@ -35,7 +50,7 @@ export async function recordEvents(events: unknown, ctx: Ctx): Promise<number> {
         path: str(e.path, 400),
         device: ctx.device,
         value: typeof e.value === 'number' && isFinite(e.value) ? e.value : null,
-        props: props ? JSON.stringify(props).slice(0, 4000) : null,
+        props: serializeProps(props),
       };
     });
   if (!rows.length) return 0;

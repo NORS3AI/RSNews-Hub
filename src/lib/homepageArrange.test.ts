@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyLiveReorder, type HomeModule } from './homepage';
+import { applyLiveReorder, applyReorder, type HomeModule } from './homepage';
 
 const m = (id: string, over: Partial<HomeModule> = {}): HomeModule => ({ id, enabled: true, locked: false, ...over });
 
@@ -46,5 +46,19 @@ describe('applyLiveReorder', () => {
   it('is a no-op when the order matches', () => {
     const cur = [m('a'), m('b'), m('c')];
     expect(applyLiveReorder(cur, ['a', 'b', 'c']).map((x) => x.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('applyReorder (admin drag, honors locks)', () => {
+  it('reorders unlocked modules, keeps locked ones pinned', () => {
+    const cur = [m('a'), m('b', { locked: true }), m('c')];
+    expect(applyReorder(cur, ['c', 'a']).map((x) => x.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('is robust to a duplicated id (no drop, no dupe)', () => {
+    const cur = [m('a'), m('b'), m('c')];
+    const out = applyReorder(cur, ['a', 'a', 'b']); // 'a' repeated
+    expect(new Set(out.map((x) => x.id)).size).toBe(3); // no duplicate module
+    expect(out.map((x) => x.id).sort()).toEqual(['a', 'b', 'c']); // none dropped
   });
 });

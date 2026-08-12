@@ -32,10 +32,12 @@ export async function resolveArticleEmbeds(html: string, userId?: string | null)
 
   const [polls, quizzes, pollVotes, quizResponses] = await Promise.all([
     pollIds.length
-      ? prisma.poll.findMany({ where: { id: { in: pollIds } }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
+      // `active` too, not just closesAt: an admin-deactivated poll must not render
+      // as an open, votable card (the vote route rejects it → confusing 403).
+      ? prisma.poll.findMany({ where: { id: { in: pollIds }, active: true }, include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } } })
       : Promise.resolve([]),
     quizIds.length
-      ? prisma.quiz.findMany({ where: { id: { in: quizIds } }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
+      ? prisma.quiz.findMany({ where: { id: { in: quizIds }, active: true }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
       : Promise.resolve([]),
     userId && pollIds.length
       ? prisma.pollVote.findMany({ where: { userId, pollId: { in: pollIds } }, select: { pollId: true, optionId: true } })

@@ -174,4 +174,19 @@ describe('toCsv', () => {
     const csv = toCsv(['name', 'note'], [['home-top', 'a,b'], ['x', 'has "quote"'], ['y', 'two\nlines']]);
     expect(csv).toBe('name,note\r\nhome-top,"a,b"\r\nx,"has ""quote"""\r\ny,"two\nlines"');
   });
+
+  it('neutralizes spreadsheet formula injection in text cells', () => {
+    const csv = toCsv(['name', 'clicks'], [['=HYPERLINK("http://evil")', 5], ['+cmd', 2], ['@SUM(A1)', 1], ['-1x', 0]]);
+    // Each dangerous text cell is prefixed with a single quote so Excel/Sheets
+    // shows it literally instead of evaluating it.
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+cmd");
+    expect(csv).toContain("'@SUM(A1)");
+    expect(csv).toContain("'-1x");
+  });
+
+  it('never prefixes numeric cells (real negatives stay numbers)', () => {
+    const csv = toCsv(['name', 'delta'], [['ok', -5]]);
+    expect(csv).toBe('name,delta\r\nok,-5');
+  });
 });

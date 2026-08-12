@@ -167,7 +167,12 @@ export async function hasDraftChanges(): Promise<boolean> {
 // order only rearranges the unlocked ones among the remaining slots.
 export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeModule[] {
   const byId = new Map(current.map((m) => [m.id, m]));
+  // Dedupe first (as applyLiveReorder does): a repeated id would make
+  // proposedUnlocked longer than the unlocked slots, writing one module into two
+  // slots and dropping another. Keep first occurrence only.
+  const seen = new Set<string>();
   const proposedUnlocked = orderedIds
+    .filter((id) => (seen.has(id) ? false : (seen.add(id), true)))
     .map((id) => byId.get(id as ModuleId))
     .filter((m): m is HomeModule => !!m && !m.locked);
   const out: HomeModule[] = [];
