@@ -11,14 +11,28 @@ import { articleStatus } from '@/lib/contentStatus';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminArticles(props: { searchParams: Promise<{ status?: string }> }) {
+const SORTS = {
+  updated: { label: 'Recently edited', orderBy: [{ updatedAt: 'desc' as const }] },
+  'pub-new': { label: 'Date published — newest', orderBy: [{ publishedAt: { sort: 'desc' as const, nulls: 'last' as const } }, { createdAt: 'desc' as const }] },
+  'pub-old': { label: 'Date published — oldest', orderBy: [{ publishedAt: { sort: 'asc' as const, nulls: 'last' as const } }, { createdAt: 'asc' as const }] },
+} as const;
+type SortKey = keyof typeof SORTS;
+
+export default async function AdminArticles(props: { searchParams: Promise<{ status?: string; q?: string; sort?: string }> }) {
   const searchParams = await props.searchParams;
   const status = searchParams.status && CONTENT_STATUSES.includes(searchParams.status as any) ? searchParams.status : undefined;
+  const q = (searchParams.q ?? '').trim();
+  const sort: SortKey = (searchParams.sort && searchParams.sort in SORTS ? searchParams.sort : 'updated') as SortKey;
+
+  // Case-insensitive title/excerpt match (Postgres `contains` is case-sensitive).
+  const qClause = q
+    ? { OR: [{ title: { contains: q, mode: 'insensitive' as const } }, { excerpt: { contains: q, mode: 'insensitive' as const } }] }
+    : {};
 
   const [articles, counts] = await Promise.all([
     prisma.article.findMany({
-      where: status ? { status } : {},
-      orderBy: { updatedAt: 'desc' },
+      where: { AND: [status ? { status } : {}, qClause] },
+      orderBy: [...SORTS[sort].orderBy],
       include: { category: { select: { name: true, color: true } }, author: { select: { name: true } } },
     }),
     prisma.article.groupBy({ by: ['status'], _count: true }),
@@ -56,14 +70,34 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
         <span className="w-full text-xs text-[var(--muted)] sm:w-auto sm:flex-1">Published articles older than this move to Archived on their own. They stay recommendable — they just leave Latest / hero / Published this week.</span>
       </form>
 
+      {/* Search + sort. GET form so it's shareable/bookmarkable and needs no JS. */}
+      <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+        {status && <input type="hidden" name="status" value={status} />}
+        <input name="q" defaultValue={q} placeholder="Search title or summary…" aria-label="Search articles"
+          className="input h-9 min-w-[200px] flex-1 py-1 text-sm sm:max-w-xs" />
+        <select name="sort" defaultValue={sort} aria-label="Sort" className="input h-9 w-auto py-1 text-sm">
+          {(Object.keys(SORTS) as SortKey[]).map((k) => <option key={k} value={k}>{SORTS[k].label}</option>)}
+        </select>
+        <button type="submit" className="btn-primary btn-sm">Search</button>
+        {(q || sort !== 'updated') && <Link href={status ? `/admin/articles?status=${status}` : '/admin/articles'} className="btn-outline btn-sm">Clear</Link>}
+      </form>
+
       <div className="mb-5 flex flex-wrap gap-2">
-        {filters.map((f) => (
-          <Link key={f.label} href={f.key ? `/admin/articles?status=${f.key}` : '/admin/articles'}
-            className={`badge border px-3 py-1.5 ${status === f.key ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950' : 'border-[var(--border)] hover:bg-[var(--bg-soft)]'}`}>
-            {f.label} <span className="ml-1 text-[var(--muted)]">{f.n}</span>
-          </Link>
-        ))}
+        {filters.map((f) => {
+          const params = new URLSearchParams();
+          if (f.key) params.set('status', f.key);
+          if (q) params.set('q', q);
+          if (sort !== 'updated') params.set('sort', sort);
+          const href = params.toString() ? `/admin/articles?${params.toString()}` : '/admin/articles';
+          return (
+            <Link key={f.label} href={href}
+              className={`badge border px-3 py-1.5 ${status === f.key ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950' : 'border-[var(--border)] hover:bg-[var(--bg-soft)]'}`}>
+              {f.label} <span className="ml-1 text-[var(--muted)]">{f.n}</span>
+            </Link>
+          );
+        })}
       </div>
+      {q && <p className="mb-4 text-sm text-[var(--muted)]">{articles.length} result{articles.length === 1 ? '' : 's'} for &ldquo;{q}&rdquo;{status ? ` in ${status.toLowerCase()}` : ''}.</p>}
 
       <div className="card overflow-hidden">
         {/* Desktop table */}

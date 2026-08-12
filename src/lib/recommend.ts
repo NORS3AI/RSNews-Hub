@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { RECOMMENDABLE_STATUSES } from './constants';
+import { expandQuery } from './searchSynonyms';
 
 export type ArticleCard = {
   id: string;
@@ -267,17 +268,22 @@ export async function rediscoverArticles(limit = 5, excludeIds: string[] = [], s
 export async function smartSearch(query: string, limit = 20): Promise<ArticleCard[]> {
   const q = query.trim();
   if (!q) return [];
-  const terms = q.split(/\s+/).filter(Boolean).slice(0, 8);
+  // Expand with curated synonyms (the reader's words at full weight, synonyms at
+  // half) so "post office" can find a "USPS" story, etc. Purely lexical, no AI.
+  const weighted = expandQuery(q, 8);
+  if (!weighted.length) return [];
 
   const rows = await prisma.article.findMany({
     where: {
       status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() },
-      OR: terms.flatMap((t) => [
-        { title: { contains: t } },
-        { excerpt: { contains: t } },
-        { content: { contains: t } },
-        { category: { name: { contains: t } } },
-        { tags: { some: { tag: { name: { contains: t } } } } },
+      // `mode: insensitive` matters on PostgreSQL, where `contains` is otherwise
+      // case-SENSITIVE (SQLite's LIKE was not) — without it "usps" misses "USPS".
+      OR: weighted.flatMap(({ term: t }) => [
+        { title: { contains: t, mode: 'insensitive' as const } },
+        { excerpt: { contains: t, mode: 'insensitive' as const } },
+        { content: { contains: t, mode: 'insensitive' as const } },
+        { category: { name: { contains: t, mode: 'insensitive' as const } } },
+        { tags: { some: { tag: { name: { contains: t, mode: 'insensitive' as const } } } } },
       ]),
     },
     select: { ...cardSelect, content: true },
@@ -291,14 +297,14 @@ export async function smartSearch(query: string, limit = 20): Promise<ArticleCar
       const excerpt = (a.excerpt ?? '').toLowerCase();
       const content = (a.content ?? '').toLowerCase();
       const tagNames = (a.tags as any[]).map((t) => t.tag.name.toLowerCase());
-      for (const term of terms) {
-        const t = term.toLowerCase();
-        if (title.includes(t)) score += 10;
-        if (title.startsWith(t)) score += 5;
-        if (excerpt.includes(t)) score += 4;
-        if (tagNames.some((n) => n.includes(t))) score += 4;
-        if (a.category?.name.toLowerCase().includes(t)) score += 3;
-        if (content.includes(t)) score += 1;
+      for (const { term, weight } of weighted) {
+        const t = term; // already normalized + lowercased by expandQuery
+        if (title.includes(t)) score += 10 * weight;
+        if (title.startsWith(t)) score += 5 * weight;
+        if (excerpt.includes(t)) score += 4 * weight;
+        if (tagNames.some((n) => n.includes(t))) score += 4 * weight;
+        if (a.category?.name.toLowerCase().includes(t)) score += 3 * weight;
+        if (content.includes(t)) score += 1 * weight;
       }
       score += Math.min(3, Math.log10((a.views ?? 0) + 1));
       return { a, score };
