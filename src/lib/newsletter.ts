@@ -87,6 +87,10 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
     // to everyone already emailed on the next run.
     try {
       const keys: TopicKey[] = parseTopics(s.topics);
+      // No viewer → only open articles. A broadcast email can't verify each
+      // address's tier, so tier-gated pieces (Premium, Package Hub, …) never
+      // ride out to the list; recipients still click through to the gated page,
+      // which enforces access there.
       const g = await gatherSince(keys.length ? keys : [INDUSTRY], since, now, 40);
       if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
       const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;

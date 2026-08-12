@@ -16,6 +16,7 @@
 import { prisma } from './db';
 import { linkSource } from './industry';
 import { testimonialNudges } from './testimonials';
+import { canViewContent, type AccountLike } from './entitlements';
 
 export const INDUSTRY = 'industry';
 export const ALL = 'all';
@@ -62,7 +63,12 @@ function resolveFilter(keys: TopicKey[]) {
 
 /** Gather new content in the given topics between `since` and `now`. Shared by
  *  the email digest and the on-site notification feed. */
-export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take = 40) {
+// `viewer` decides which gated articles are visible. Default `null` = only
+// open ('' / public) articles — the safe choice for the broadcast email digest,
+// which reaches unverified addresses and can't check any single recipient's
+// tier. The on-site feed passes the signed-in account so a member sees exactly
+// what they're entitled to (never a Premium/Package-Hub headline they can't open).
+export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take = 40, viewer: AccountLike | null = null) {
   const f = resolveFilter(keys);
   const wantIndustry = f.industry;
   const wantArticles = f.all || f.slugs.length > 0;
@@ -78,11 +84,16 @@ export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take
             ...(f.all ? {} : { OR: [{ category: { slug: { in: f.slugs } } }, { extraCategories: { some: { slug: { in: f.slugs } } } }] }),
           },
           orderBy: { publishedAt: 'desc' }, take,
-          select: { title: true, slug: true, publishedAt: true, category: { select: { name: true, color: true } } },
+          select: { title: true, slug: true, publishedAt: true, requirement: true, category: { select: { name: true, color: true } } },
         })
       : Promise.resolve([]),
   ]);
-  return { industry, articles };
+  // Drop gated articles the viewer can't open, then project to exactly the fields
+  // callers consume (the gate token itself never leaves this function).
+  const visible = articles
+    .filter((a) => canViewContent(viewer, a.requirement))
+    .map((a) => ({ title: a.title, slug: a.slug, publishedAt: a.publishedAt, category: a.category }));
+  return { industry, articles: visible };
 }
 
 // ─────────────────────────── Account notifications ──────────────────────────
@@ -124,7 +135,7 @@ export type FeedItem = {
 export async function notificationFeed(userId: string, limit = 50): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
   const [keys, user, nudges] = await Promise.all([
     getAccountTopics(userId),
-    prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true } }),
     testimonialNudges(userId),
   ]);
   const now = new Date();
@@ -149,7 +160,8 @@ export async function notificationFeed(userId: string, limit = 50): Promise<{ it
   const since = new Date(now.getTime() - 60 * 24 * 3600 * 1000); // last 60 days of activity
   // Gather generously so the unread count reflects everything recent, not just
   // what fits the display slice (each source is capped, so pull extra).
-  const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100));
+  // Pass the signed-in account so the bell shows only what this member can open.
+  const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100), user);
 
   const all: FeedItem[] = [
     ...nudgeItems,
