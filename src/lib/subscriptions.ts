@@ -81,6 +81,10 @@ export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take
       ? prisma.article.findMany({
           where: {
             status: 'PUBLISHED', publishedAt: { gt: since, lte: now },
+            // No viewer (broadcast digest) → let the DB return only open articles
+            // so gated posts don't consume the `take` window and push public ones
+            // out of range. The canViewContent pass below still guards every row.
+            ...(viewer ? {} : { requirement: { in: ['', 'public', 'all'] } }),
             ...(f.all ? {} : { OR: [{ category: { slug: { in: f.slugs } } }, { extraCategories: { some: { slug: { in: f.slugs } } } }] }),
           },
           orderBy: { publishedAt: 'desc' }, take,

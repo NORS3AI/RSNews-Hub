@@ -32,6 +32,16 @@ export type AnnouncementRecord = {
 };
 
 const clampStr = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+// Button links are reader-facing and set by staff (incl. lower-trust EDITORs), so
+// allow ONLY an http(s) URL or a single-slash site-relative path — never
+// javascript:/data: (stored XSS) or a protocol-relative '//host' (offsite).
+const sanitizeHref = (v: unknown): string => {
+  const s = clampStr(v, 500);
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^\/(?!\/)/.test(s)) return s; // '/path' but not '//host'
+  return '';
+};
 const asSize = (v: unknown): AnnSize => (v === 'sm' || v === 'lg' ? v : 'md');
 function normTarget(v: unknown): Date | null {
   if (typeof v === 'string' && v.trim()) { const d = new Date(v); if (!isNaN(d.getTime())) return d; }
@@ -98,7 +108,7 @@ export async function upsertAnnouncement(input: AnnouncementInput): Promise<stri
   const data = {
     name: clampStr(input.name, 80),
     message: clampStr(input.message, 200),
-    href: clampStr(input.href, 500),
+    href: sanitizeHref(input.href),
     hrefLabel: clampStr(input.hrefLabel, 40),
     targetAt,
     showCountdown: !!input.showCountdown && !!targetAt,

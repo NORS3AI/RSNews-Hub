@@ -20,7 +20,6 @@ const AUDIENCES: { value: string; label: string }[] = [
   { value: 'premium', label: 'RS Premium members only' },
   { value: 'member', label: 'Signed-in members only' },
   { value: 'vendor', label: 'Vendors only' },
-  { value: 'staff', label: 'Staff only' },
 ];
 const audienceLabel = (v: string) => AUDIENCES.find((a) => a.value === v)?.label ?? v;
 

@@ -45,11 +45,13 @@ export function parseReportParams(sp: Record<string, string | string[] | undefin
   const d = Number(one(sp.days));
   const days = (RANGES as readonly number[]).includes(d) ? d : 30;
   const brand = one(sp.brand);
+  // Bound token counts so a hand-crafted URL saved as a template can't store an
+  // unbounded string (there are only a handful of real sections either way).
   const hideStr = one(sp.hide);
-  const hide = hideStr ? hideStr.split(',').filter(Boolean) : [];
+  const hide = hideStr ? hideStr.split(',').filter(Boolean).slice(0, 40) : [];
   const vizMap: Record<string, string> = {};
   const vizStr = one(sp.viz);
-  if (vizStr) for (const pair of vizStr.split(',')) { const [k, v] = pair.split(':'); if (k && v) vizMap[k] = v; }
+  if (vizStr) for (const pair of vizStr.split(',').slice(0, 40)) { const [k, v] = pair.split(':'); if (k && v) vizMap[k] = v; }
   return { scope, days, brand, hide, vizMap };
 }
 

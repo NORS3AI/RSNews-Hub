@@ -59,4 +59,19 @@ describe('announcement audience gate', () => {
     await setAnnouncementEnabled(false);
     expect(await getLiveAnnouncement(null)).toBeNull();
   });
+
+  it('strips a dangerous button href but keeps safe http(s) and relative links', async () => {
+    for (const [input, expected] of [
+      ['javascript:alert(1)', ''],
+      ['data:text/html,x', ''],
+      ['//evil.example.com', ''],
+      ['/docs/page/expo', '/docs/page/expo'],
+      ['https://example.com/x', 'https://example.com/x'],
+    ] as const) {
+      const id = await upsertAnnouncement({ message: 'href test', href: input });
+      made.push(id);
+      await setLiveAnnouncement(id); await setAnnouncementEnabled(true);
+      expect((await getLiveAnnouncement(null))?.href).toBe(expected);
+    }
+  });
 });
