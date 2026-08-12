@@ -31,6 +31,7 @@ import SubscribeLauncher from '@/components/site/SubscribeLauncher';
 import PollCard from '@/components/site/PollCard';
 import HomeArrangeGrid from '@/components/site/HomeArrangeGrid';
 import CoverVideo from '@/components/site/CoverVideo';
+import Countdown from '@/components/site/Countdown';
 import SectionWidth from '@/components/site/SectionWidth';
 import AdminArticleEdit, { AdminEditProvider } from '@/components/site/AdminArticleEdit';
 import HomepageHighlight from '@/components/site/HomepageHighlight';
@@ -402,6 +403,20 @@ export default async function DocsHome() {
           const w = Number(b.settings.widthPct) || 100;
           const radius = b.settings.radius !== false;
           return <CoverVideo src={url} poster={String(b.settings.poster ?? '') || null} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+        }
+        case 'countdown': {
+          const target = String(b.settings.targetAt ?? '');
+          if (!target) return null; // no date set → fall through
+          const cdTitle = String(b.settings.title ?? '');
+          const cdHref = String(b.settings.href ?? '');
+          const doneLabel = String(b.settings.doneLabel ?? '') || "It's here!";
+          return (
+            <div className="studio-fill flex flex-col items-center gap-4 py-2" style={style}>
+              {cdTitle && <h2 className="text-center text-2xl font-black tracking-tight sm:text-3xl">{cdTitle}</h2>}
+              <Countdown target={target} variant="big" doneLabel={doneLabel} />
+              {cdHref && <Link href={cdHref} className="btn-primary btn-sm">Learn more →</Link>}
+            </div>
+          );
         }
         case 'quiz': {
           const qid = b.settings.quizId ? String(b.settings.quizId) : '';

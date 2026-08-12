@@ -25,7 +25,7 @@ export function isShape(v: unknown): v is Shape {
 export type BlockType =
   | 'article' | 'article-image' | 'article-headline'
   | 'spotlight' | 'split' | 'mosaic'
-  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image' | 'video';
+  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image' | 'video' | 'countdown';
 
 // Palette groups — let the builder collapse whole categories of blocks.
 export type BlockGroup = 'Articles' | 'Media' | 'Interactive' | 'Content';
@@ -103,6 +103,11 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     label: 'Text', group: 'Content',
     description: 'Freeform rich text.',
     defaults: { body: '' },
+  },
+  countdown: {
+    label: 'Countdown', group: 'Content',
+    description: 'A big countdown timer to a date (e.g. an expo). Ticks live.',
+    defaults: { targetAt: '', title: '', href: '' },
   },
 };
 export const BLOCK_IDS = Object.keys(BLOCKS) as BlockType[];
@@ -384,6 +389,14 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
     }
     case 'text':
       return { body: str(s.body, 4000) };
+    case 'countdown': {
+      let targetAt = '';
+      if (typeof s.targetAt === 'string' && s.targetAt.trim()) {
+        const dt = new Date(s.targetAt);
+        if (!isNaN(dt.getTime())) targetAt = dt.toISOString();
+      }
+      return { targetAt, title: str(s.title, 120), href: str(s.href, 500), doneLabel: str(s.doneLabel, 40) };
+    }
     default:
       return { ...d };
   }

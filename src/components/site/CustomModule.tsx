@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
 import { isHexColor, rsTextureUrl } from '@/lib/studio';
 import CoverVideo from '@/components/site/CoverVideo';
+import Countdown from '@/components/site/Countdown';
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -128,6 +129,20 @@ function blockInner(block: Block) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Video — upload one in settings</div>;
       }
       return <CoverVideo src={url} poster={String(s.poster ?? '') || null} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+    }
+    case 'countdown': {
+      const target = String(s.targetAt ?? '');
+      if (!target) return <div className="grid min-h-[90px] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Countdown — set a date in settings</div>;
+      const title = String(s.title ?? '');
+      const href = String(s.href ?? '');
+      const doneLabel = String(s.doneLabel ?? '') || "It's here!";
+      return (
+        <div className="flex flex-col items-center gap-4 py-2">
+          {title && <h2 className="text-center text-2xl font-black tracking-tight sm:text-3xl">{title}</h2>}
+          <Countdown target={target} variant="big" doneLabel={doneLabel} />
+          {href && <span className="btn-primary btn-sm">Learn more →</span>}
+        </div>
+      );
     }
     case 'ad': {
       const format = String(s.format ?? 'rectangle');

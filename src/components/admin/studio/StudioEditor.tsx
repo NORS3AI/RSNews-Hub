@@ -690,6 +690,13 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       {block.type === 'text' && (
         <Field label="Body"><textarea className="input min-h-[120px]" value={String(s.body ?? '')} onChange={(e) => set('body', e.target.value)} /></Field>
       )}
+      {block.type === 'countdown' && (
+        <>
+          <Field label="Title (above the timer)"><input className="input" value={String(s.title ?? '')} onChange={(e) => set('title', e.target.value)} placeholder="RS Expo 2026" /></Field>
+          <Field label="Count down to"><input type="datetime-local" className="input" value={String(s.targetAt ?? '').slice(0, 16)} onChange={(e) => set('targetAt', e.target.value)} /></Field>
+          <Field label="Button link (optional)"><input className="input" value={String(s.href ?? '')} onChange={(e) => set('href', e.target.value)} placeholder="/docs/page/expo" /></Field>
+        </>
+      )}
       </div>
 
       <div className={tab === 'style' ? '' : 'hidden'}>
