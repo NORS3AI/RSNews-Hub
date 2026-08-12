@@ -18,8 +18,16 @@ function getSession(): string {
   return sessionId;
 }
 
+// Cookie/analytics consent (set by the ConsentBanner). We use first-party
+// analytics only, so the model is notice + opt-out: we track unless the reader
+// has explicitly declined. 'declined' → collect nothing.
+function consentDeclined(): boolean {
+  try { return localStorage.getItem('rsnews_consent') === 'declined'; } catch { return false; }
+}
+
 export function track(ev: ClientEvent): void {
   if (typeof window === 'undefined') return;
+  if (consentDeclined()) return; // reader opted out — do not collect
   queue.push({ ...ev, sessionId: ev.sessionId || getSession(), path: ev.path || location.pathname });
   if (queue.length >= 20) { flush(); return; }
   if (!flushTimer) flushTimer = setTimeout(() => flush(), 2500);

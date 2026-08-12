@@ -34,6 +34,8 @@ export default function SiteFooter() {
               <div className="mb-2 font-medium">More</div>
               <ul className="space-y-1.5 text-[var(--muted)]">
                 <li><Link href="/docs/page/about" className="hover:text-[var(--fg)]">About</Link></li>
+                <li><Link href="/docs/page/privacy" className="hover:text-[var(--fg)]">Privacy Policy</Link></li>
+                <li><Link href="/docs/page/terms" className="hover:text-[var(--fg)]">Terms of Service</Link></li>
                 <li><Link href="/admin" className="hover:text-[var(--fg)]">Admin</Link></li>
               </ul>
             </div>

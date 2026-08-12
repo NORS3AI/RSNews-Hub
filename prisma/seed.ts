@@ -166,6 +166,67 @@ async function main() {
     },
   });
 
+  // Legal pages — starting TEMPLATES. Edit them in Admin → Pages and have them
+  // reviewed by counsel before public launch; fill the [bracketed] blanks with
+  // your real business name, address, jurisdiction and contact addresses.
+  // `update: {}` keeps any admin edits on re-seed.
+  await prisma.page.upsert({
+    where: { slug: 'privacy' },
+    update: {},
+    create: {
+      title: 'Privacy Policy', slug: 'privacy', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<p>This Privacy Policy explains how RS News Hub ("we", "us") collects, uses and protects information when you use this site.</p>
+<h2>Information we collect</h2>
+<ul><li><strong>Account information</strong> — if you sign in as a member, we keep your name, email and account preferences.</li><li><strong>Content you submit</strong> — newsletter sign-ups, poll and quiz responses, saved articles and clippings.</li><li><strong>Usage information</strong> — pages viewed, articles read and general device/browser details, collected with first-party analytics to understand what readers find useful.</li><li><strong>Cookies</strong> — small files used to keep you signed in, remember your preferences (like theme) and measure readership.</li></ul>
+<h2>How we use information</h2>
+<p>To operate the site, keep you signed in, remember your preferences, send the newsletter you asked for, understand what content is valuable, and keep the service secure.</p>
+<h2>Cookies &amp; analytics</h2>
+<p>We use first-party analytics only. You can decline analytics cookies from the notice shown on your first visit; declining does not affect signing in or your saved preferences.</p>
+<h2>How information is shared</h2>
+<p>We do not sell your personal information. We share it only with service providers who help us run the site (for example hosting and email delivery), and where required by law.</p>
+<h2>Your choices</h2>
+<p>You can unsubscribe from the newsletter at any time using the link in each email, update or delete your account, and request a copy of your data by contacting us. To exercise these rights, email <a href="mailto:[privacy@yourdomain.com]">[privacy@yourdomain.com]</a>.</p>
+<h2>Data retention</h2>
+<p>We keep information for as long as your account is active or as needed to provide the service, then delete or anonymize it.</p>
+<h2>Children</h2>
+<p>This site is not directed to children under [13/16], and we do not knowingly collect their information.</p>
+<h2>Changes</h2>
+<p>We may update this policy; material changes will be posted here with a new "last updated" date.</p>
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:[privacy@yourdomain.com]">[privacy@yourdomain.com]</a> or write to [Your business name and address].</p>`,
+    },
+  });
+  await prisma.page.upsert({
+    where: { slug: 'terms' },
+    update: {},
+    create: {
+      title: 'Terms of Service', slug: 'terms', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<p>These Terms of Service ("Terms") govern your use of RS News Hub. By using the site, you agree to these Terms.</p>
+<h2>The service</h2>
+<p>RS News Hub provides news, articles and related content. We may add, change or remove features at any time.</p>
+<h2>Accounts</h2>
+<p>If you create or sign in to an account, you are responsible for keeping your credentials secure and for activity under your account. You must provide accurate information and be old enough to form a binding contract.</p>
+<h2>Acceptable use</h2>
+<p>Don't misuse the service: no unlawful activity, no attempts to breach security, no scraping or overloading the site, and no infringing or harmful content in anything you submit.</p>
+<h2>Content &amp; intellectual property</h2>
+<p>Articles, branding and site content are owned by us or our licensors and may not be copied or redistributed without permission, except as the site's sharing features allow. Anything you submit, you grant us permission to display in connection with the service.</p>
+<h2>Advertising &amp; third-party links</h2>
+<p>The site may show advertising and link to third-party sites. We are not responsible for third-party content or practices.</p>
+<h2>Disclaimers</h2>
+<p>The service is provided "as is" without warranties of any kind. We do not guarantee the site will be uninterrupted, error-free or that content is complete or accurate.</p>
+<h2>Limitation of liability</h2>
+<p>To the fullest extent permitted by law, we are not liable for indirect, incidental or consequential damages arising from your use of the service.</p>
+<h2>Changes to these Terms</h2>
+<p>We may update these Terms; continued use after changes means you accept them.</p>
+<h2>Governing law</h2>
+<p>These Terms are governed by the laws of [State/Country], without regard to conflict-of-laws rules.</p>
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:[legal@yourdomain.com]">[legal@yourdomain.com]</a>.</p>`,
+    },
+  });
+
   // Smart in-article ads (idempotent by id).
   for (const ad of DEFAULT_ADS) {
     await prisma.ad.upsert({

@@ -1,5 +1,6 @@
 import SiteProviders from '@/components/site/SiteProviders';
 import AppSidebarShell from '@/components/site/AppSidebarShell';
+import ConsentBanner from '@/components/site/ConsentBanner';
 import { getCurrentUser } from '@/lib/auth';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -9,6 +10,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <AppSidebarShell user={user ? { id: user.id, name: user.name, role: user.role } : null}>
         {children}
       </AppSidebarShell>
+      <ConsentBanner />
     </SiteProviders>
   );
 }
