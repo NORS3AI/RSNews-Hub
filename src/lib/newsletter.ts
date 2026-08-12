@@ -28,11 +28,19 @@ async function setCheckpoint(now: Date): Promise<void> {
 type Gathered = Awaited<ReturnType<typeof gatherSince>>;
 function itemCount(g: Gathered) { return g.industry.length + g.articles.length; }
 
+// Only http(s) links belong in the digest. An editor-authored industry URL with
+// a javascript:/data: scheme is escaped anyway (no attribute breakout), but we
+// also drop the href entirely as defense-in-depth so nothing odd rides into a
+// reader's mail client.
+function safeHref(href: string): string {
+  return /^https?:\/\//i.test(href) ? href : '#';
+}
+
 function digestHtml(g: Gathered, unsubUrl: string): string {
   const b = base();
   const row = (title: string, href: string, meta: string) =>
     `<tr><td style="padding:10px 0;border-bottom:1px solid #eee">` +
-    `<a href="${escapeHtml(href)}" style="color:#232a36;font-weight:700;font-size:16px;text-decoration:none">${escapeHtml(title)}</a>` +
+    `<a href="${escapeHtml(safeHref(href))}" style="color:#232a36;font-weight:700;font-size:16px;text-decoration:none">${escapeHtml(title)}</a>` +
     (meta ? `<div style="color:#8a8f98;font-size:13px;margin-top:2px">${escapeHtml(meta)}</div>` : '') + `</td></tr>`;
   let body = '';
   if (g.industry.length) {

@@ -7,7 +7,11 @@ import { BrandLockup } from './BrandLogo';
 export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get('next') || '/docs';
+  // Only follow an INTERNAL path after auth — never an absolute/scheme-relative
+  // URL — so a crafted ?next=https://evil.example can't turn a real login into an
+  // open-redirect to a phishing origin. Must start with a single "/".
+  const nextRaw = params.get('next') || '/docs';
+  const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.startsWith('/\\') ? nextRaw : '/docs';
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

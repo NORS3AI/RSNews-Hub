@@ -8,19 +8,30 @@ const PLACEHOLDER_SECRETS = new Set([DEV_AUTH_SECRET, 'change-me-to-a-long-rando
 export const isProd = process.env.NODE_ENV === 'production';
 export const inProduction = () => process.env.NODE_ENV === 'production';
 
+// The public dev secret is only acceptable in true local development (or tests).
+// Any other environment — production, and also staging/preview, which set
+// NODE_ENV to something that isn't 'development' — must supply a real secret, or
+// its sessions would be forgeable with a value that's committed to the repo.
+// An unset NODE_ENV is treated as development so bare `node` scripts still run.
+function devSecretAllowed(): boolean {
+  const env = process.env.NODE_ENV;
+  return !env || env === 'development' || env === 'test';
+}
+
 export function secretIsWeak(v: string | undefined): boolean {
   return !v || PLACEHOLDER_SECRETS.has(v) || v.length < 24;
 }
 
 /**
- * The JWT signing secret, as bytes. In production a missing/placeholder/short
- * secret throws (sessions would be forgeable); in dev it falls back to a fixed
- * dev value. Evaluated lazily at request time, so `next build` never trips it.
+ * The JWT signing secret, as bytes. Outside local dev/test a missing/
+ * placeholder/short secret throws (sessions would be forgeable); in dev it falls
+ * back to a fixed dev value. Evaluated lazily at request time, so `next build`
+ * never trips it.
  */
 export function getAuthSecret(): Uint8Array {
   const v = process.env.AUTH_SECRET;
   if (secretIsWeak(v)) {
-    if (inProduction()) throw new Error('AUTH_SECRET must be set to a strong, unique value in production. Generate one with:  openssl rand -base64 48');
+    if (!devSecretAllowed()) throw new Error('AUTH_SECRET must be set to a strong, unique value outside local development. Generate one with:  openssl rand -base64 48');
     return new TextEncoder().encode(DEV_AUTH_SECRET);
   }
   return new TextEncoder().encode(v!);

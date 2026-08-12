@@ -79,6 +79,16 @@ describe('withAutoAds', () => {
       if (out[i].kind === 'ad') expect(out[i + 1].kind).not.toBe('h');
     }
   });
+
+  it('still places both ads when a heading sits at the first target (defers, not drops)', () => {
+    // n=7 content blocks → targets [2,5]. A heading right after block 2 must not
+    // starve the second ad: regression guard for the withAutoAds drop bug.
+    const blocks: ImportBlock[] = [p('a'), p('b'), { kind: 'h', text: 'Section' }, p('c'), p('d'), p('e'), p('f')];
+    const ads = withAutoAds(blocks).filter((b) => b.kind === 'ad');
+    expect(ads).toHaveLength(2);
+    // Content is preserved (7 non-ad blocks in, 7 out).
+    expect(withAutoAds(blocks).filter((b) => b.kind !== 'ad')).toHaveLength(7);
+  });
 });
 
 describe('blocksToHtml', () => {

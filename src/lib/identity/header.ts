@@ -5,17 +5,35 @@
 // through that proxy AND the proxy strips any client-supplied copies of these
 // headers — otherwise a caller could spoof them. Prefer the JWT provider unless
 // you control the proxy. Enable with AUTH_MODE=header.
+//
+// Defense-in-depth: set PARENT_PROXY_SECRET and have the proxy send it as
+// `x-proxy-secret`. When it's set, any request missing/ mismatching that shared
+// secret is treated as unauthenticated — so even if a spoofed x-member-* header
+// slips through, it can't mint an identity (let alone a staff one). Compared in
+// constant time. Leaving it unset preserves the original behavior.
 
 import { headers } from 'next/headers';
+import { timingSafeEqual } from 'crypto';
 import type { IdentityProvider, Member } from './types';
 
 const str = (v: string | null): string | null => (v && v.trim() ? v.trim() : null);
+
+function proxySecretOk(given: string | null): boolean {
+  const want = process.env.PARENT_PROXY_SECRET;
+  if (!want) return true; // opt-in: not configured → no extra gate
+  const a = Buffer.from(given || '');
+  const b = Buffer.from(want);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 export class HeaderIdentityProvider implements IdentityProvider {
   readonly mode = 'header';
   async resolve(): Promise<Member | null> {
     const h = await headers();
     const p = (name: string) => str(h.get(name));
+    // When a shared proxy secret is configured, reject anything that doesn't
+    // carry it before trusting a single member header.
+    if (!proxySecretOk(p('x-proxy-secret'))) return null;
     const externalId = p(process.env.PARENT_HEADER_ID || 'x-member-id');
     if (!externalId) return null;
     const accountType = p(process.env.PARENT_HEADER_ACCOUNT_TYPE || 'x-member-type');

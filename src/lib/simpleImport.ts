@@ -93,16 +93,27 @@ export function withAutoAds(blocks: ImportBlock[]): ImportBlock[] {
   const out: ImportBlock[] = [];
   let seen = 0;
   let ti = 0;
+  // When a target lands right before a heading, we don't drop the ad — we DEFER
+  // it to just after the heading run. Advancing `ti` unconditionally at each
+  // target is what keeps a heading at the first target from starving the second.
+  let pending: 'wide' | 'rectangle' | null = null;
   const src = blocks.filter((b) => b.kind !== 'ad');
   for (let i = 0; i < src.length; i++) {
-    out.push(src[i]);
+    const b = src[i];
+    // Flush a deferred ad once we're past the heading(s) it was waiting on.
+    if (pending && b.kind !== 'h') { out.push({ kind: 'ad', size: pending }); pending = null; }
+    out.push(b);
     seen++;
     const next = src[i + 1];
-    if (ti < targets.length && seen === targets[ti] && (!next || next.kind !== 'h')) {
-      out.push({ kind: 'ad', size: sizes[ti] ?? 'wide' });
+    if (ti < targets.length && seen >= targets[ti]) {
+      const size = sizes[ti] ?? 'wide';
+      if (!next || next.kind !== 'h') out.push({ kind: 'ad', size });
+      else pending = size; // hold it until after the upcoming heading
       ti++;
     }
   }
+  // A pending ad with only headings to the end is dropped (an ad after nothing
+  // reads worse than one fewer ad).
   return out;
 }
 

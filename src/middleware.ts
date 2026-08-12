@@ -18,6 +18,7 @@ export function middleware(req: NextRequest) {
     const id = crypto.randomUUID();
     res.cookies.set('rsnews_reader', id, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 365,
       path: '/',
