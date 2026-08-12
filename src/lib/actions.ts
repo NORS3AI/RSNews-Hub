@@ -456,17 +456,22 @@ export async function createQuiz(formData: FormData): Promise<{ ok: boolean; id?
   // Timer: an explicit close time wins; otherwise now + N hours (default 48).
   const closesAt = resolveClosesAt({ explicit: closesRaw ? new Date(closesRaw) : null, hours: hoursRaw ? Number(hoursRaw) : null });
 
-  if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
-  const quiz = await prisma.quiz.create({
-    data: {
-      title, active, closesAt,
-      questions: {
-        create: questions.map((q, qi) => ({
-          prompt: q.prompt, order: qi,
-          options: { create: q.options.map((o, oi) => ({ label: o.label, correct: o.correct, order: oi })) },
-        })),
+  // Retire the previous active quiz and create the new one in ONE transaction so
+  // a failure can't leave the site with zero (or, under a race, two) active
+  // quizzes — mirroring updateQuiz.
+  const quiz = await prisma.$transaction(async (tx) => {
+    if (active) await tx.quiz.updateMany({ where: { active: true }, data: { active: false } });
+    return tx.quiz.create({
+      data: {
+        title, active, closesAt,
+        questions: {
+          create: questions.map((q, qi) => ({
+            prompt: q.prompt, order: qi,
+            options: { create: q.options.map((o, oi) => ({ label: o.label, correct: o.correct, order: oi })) },
+          })),
+        },
       },
-    },
+    });
   });
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');

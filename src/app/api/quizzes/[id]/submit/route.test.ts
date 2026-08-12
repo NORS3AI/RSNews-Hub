@@ -29,7 +29,8 @@ beforeEach(() => {
   getSessionUser.mockResolvedValue({ id: 'u1', email: 'a@b.c', name: 'A', role: 'USER', status: 'ACTIVE' });
   prisma.quiz.findUnique.mockResolvedValue(openQuiz);
   prisma.quizResponse.create.mockResolvedValue({ id: 'r1' });
-  prisma.$transaction.mockResolvedValue([]);
+  // Interactive transaction: run the callback with the mocked client as `tx`.
+  prisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(prisma));
 });
 
 describe('POST /api/quizzes/[id]/submit', () => {
@@ -65,6 +66,8 @@ describe('POST /api/quizzes/[id]/submit', () => {
     prisma.quizResponse.create.mockRejectedValue(Object.assign(new Error('unique'), { code: 'P2002' }));
     const res = await POST(makeReq({ answers: { q1: 'o1' } }), params);
     expect(res.status).toBe(409);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    // The unique-row reservation now lives inside the transaction; a duplicate
+    // trips P2002 there and the whole thing rolls back.
+    expect(prisma.quizOption.update).not.toHaveBeenCalled();
   });
 });

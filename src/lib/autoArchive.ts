@@ -30,8 +30,11 @@ export async function sweepAutoArchivedArticles(): Promise<number> {
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - months);
 
+  // Never auto-archive a story an admin explicitly pinned or featured to keep it
+  // prominent — the pin is a deliberate override of the age rule. (Scheduled
+  // future-dated rows are already safe: their publishedAt is > cutoff.)
   const res = await prisma.article.updateMany({
-    where: { status: 'PUBLISHED', publishedAt: { lt: cutoff } },
+    where: { status: 'PUBLISHED', publishedAt: { lt: cutoff }, pinned: false, featured: false },
     data: { status: 'ARCHIVED' },
   });
   const nowIso = new Date().toISOString();

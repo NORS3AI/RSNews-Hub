@@ -25,10 +25,19 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     return NextResponse.json({ error: 'Poll closed' }, { status: 403 });
   }
 
-  // One vote per account. Reserve the slot first so a duplicate (or a race) is
-  // rejected by the unique constraint before we increment the tally.
+  // One vote per account, tallied atomically. The unique-constrained PollVote
+  // insert and the denormalized-count increment commit together in one
+  // transaction, so a crash between them can't leave a recorded vote whose tally
+  // was never counted (permanent undercount, since the user can't re-vote). A
+  // duplicate/race trips the unique constraint (P2002) and rolls the whole thing
+  // back → 409.
   try {
-    await prisma.pollVote.create({ data: { pollId: params.id, userId: user.id, optionId } });
+    await prisma.$transaction(async (tx) => {
+      // Reserve the unique vote row first; a duplicate throws P2002 here and
+      // aborts the tx before the increment, so a rejected vote never counts.
+      await tx.pollVote.create({ data: { pollId: params.id, userId: user.id, optionId } });
+      await tx.pollOption.update({ where: { id: optionId }, data: { votes: { increment: 1 } } });
+    });
   } catch (e: unknown) {
     if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002') {
       return NextResponse.json({ error: 'Already voted' }, { status: 409 });
@@ -36,7 +45,6 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
     throw e;
   }
 
-  await prisma.pollOption.update({ where: { id: optionId }, data: { votes: { increment: 1 } } });
   const options = await prisma.pollOption.findMany({ where: { pollId: params.id }, orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } });
   return NextResponse.json({ options, total: options.reduce((n, o) => n + o.votes, 0) });
 }

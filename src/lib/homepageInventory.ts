@@ -141,7 +141,7 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
   // here — but only when NOT already pinned inside a custom module (the page yields
   // them via pinnedPollIds/pinnedQuizIds). Mirrors docs/page.tsx 'industry' case.
   if (enabled.has('industry')) {
-    const poll = await prisma.poll.findFirst({ where: { active: true, kind: 'council' }, orderBy: { createdAt: 'desc' }, select: { id: true, question: true } });
+    const poll = await prisma.poll.findFirst({ where: { active: true, kind: 'council', OR: [{ closesAt: null }, { closesAt: { gt: now } }] }, orderBy: { createdAt: 'desc' }, select: { id: true, question: true } });
     if (poll && !pinnedPollIds.has(poll.id)) occ.push({ id: poll.id, title: poll.question, slug: '', kind: 'poll', place: 'Industry aside' });
     const quiz = await prisma.quiz.findFirst({ where: { active: true, closesAt: { gt: now } }, orderBy: { createdAt: 'desc' }, select: { id: true, title: true } });
     if (quiz && !pinnedQuizIds.has(quiz.id)) occ.push({ id: quiz.id, title: quiz.title, slug: '', kind: 'quiz', place: 'Industry aside' });

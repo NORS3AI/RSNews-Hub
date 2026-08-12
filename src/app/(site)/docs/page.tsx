@@ -61,8 +61,11 @@ export default async function DocsHome() {
     getSupplierAdMap(),
   ]);
 
+  // Council polls aren't swept to inactive on expiry (only module polls are), so
+  // the query must itself exclude a poll past its timer — otherwise an expired
+  // council poll stays pinned in the aside forever.
   const activePoll = await prisma.poll.findFirst({
-    where: { active: true, kind: 'council' },
+    where: { active: true, kind: 'council', OR: [{ closesAt: null }, { closesAt: { gt: new Date() } }] },
     orderBy: { createdAt: 'desc' },
     include: { options: { orderBy: { order: 'asc' }, select: { id: true, label: true, votes: true } } },
   });
@@ -235,7 +238,10 @@ export default async function DocsHome() {
   const years = [...new Set(artBlocks.filter((b) => b.settings.mode === 'year' && Number(b.settings.year) > 0).map((b) => Number(b.settings.year)))];
   const cats = [...new Set(artBlocks.filter((b) => b.settings.mode === 'category' && b.settings.categorySlug).map((b) => String(b.settings.categorySlug).trim().toLowerCase()))];
 
-  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: { in: RECOMMENDABLE_STATUSES } }, select: cardSelect }) : [];
+  // Hand-picked stories must still honor the schedule: a PUBLISHED article dated
+  // in the future is not yet public even when an admin pins it. The OR keeps
+  // ARCHIVED rows whose publishedAt is null (archived straight from draft).
+  const pickRows = pickIds.length ? await prisma.article.findMany({ where: { id: { in: pickIds }, status: { in: RECOMMENDABLE_STATUSES }, OR: [{ publishedAt: null }, { publishedAt: { lte: new Date() } }] }, select: cardSelect }) : [];
   const pickById = new Map(pickRows.map((a) => [a.id, toCard(a)]));
   const byTag = new Map<string, Card[]>();
   await Promise.all(tags.map(async (t) => {
@@ -247,8 +253,11 @@ export default async function DocsHome() {
   }));
   const byYear = new Map<number, Card[]>();
   await Promise.all(years.map(async (y) => {
+    // Cap the window at "now" so a story scheduled for later THIS year can't
+    // surface early in the current-year throwback module.
+    const upper = Math.min(new Date(y + 1, 0, 1).getTime(), Date.now());
     const rows = await prisma.article.findMany({
-      where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { gte: new Date(y, 0, 1), lt: new Date(y + 1, 0, 1) } },
+      where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { gte: new Date(y, 0, 1), lt: new Date(upper) } },
       orderBy: { publishedAt: 'desc' }, take: 12, select: cardSelect,
     });
     byYear.set(y, rows.map(toCard));
@@ -269,7 +278,10 @@ export default async function DocsHome() {
   // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
   const quizIds = [...new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)))];
   const pickedQuizzes = quizIds.length
-    ? await prisma.quiz.findMany({ where: { id: { in: quizIds } }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
+    // `active: true` so a retired quiz (auto-deactivated when a newer one goes
+    // live) with a still-future closesAt can't render as an open, votable card
+    // that then 403s on submit — mirrors the activeQuiz query and the poll rung.
+    ? await prisma.quiz.findMany({ where: { id: { in: quizIds }, active: true }, include: { questions: { orderBy: { order: 'asc' }, select: { id: true, prompt: true, options: { orderBy: { order: 'asc' }, select: { id: true, label: true } } } } } })
     : [];
   const quizById = new Map(pickedQuizzes.map((q) => [q.id, q]));
   const myQuizDone = user && quizIds.length
@@ -303,8 +315,15 @@ export default async function DocsHome() {
   // featured above won't reappear in Latest). The curated ranking views
   // (Trending, Rediscover) and carousels are intentional standalone selections
   // and may re-surface a story by design — they don't consume this set.
-  const pinnedPollIds = new Set(allBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
-  const pinnedQuizIds = new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
+  // The generic council aside yields (hides its poll/quiz) only to a module that
+  // will ACTUALLY render it — i.e. a PRIMARY (top-level) block, not a fallback.
+  // A fallback that names the active poll may never be reached; if we let those
+  // ids suppress the aside too, the poll would render nowhere. So build these
+  // "pinned" sets from primary blocks only (allBlocks above includes fallbacks
+  // for pre-fetching, which is still what we want for the pool queries).
+  const primaryBlocks = customRows.flatMap((r) => parseTree(r.tree).children);
+  const pinnedPollIds = new Set(primaryBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
+  const pinnedQuizIds = new Set(primaryBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
   const shownArticleIds = new Set<string>();
   const shownPollIds = new Set<string>();
   const shownQuizIds = new Set<string>();

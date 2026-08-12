@@ -6,6 +6,8 @@ const { getSessionUser, prisma } = vi.hoisted(() => ({
     poll: { findUnique: vi.fn() },
     pollOption: { findFirst: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     pollVote: { create: vi.fn() },
+    // Interactive transaction: run the callback with the mocked client as `tx`.
+    $transaction: vi.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
   },
 }));
 vi.mock('@/lib/auth', () => ({ getSessionUser }));

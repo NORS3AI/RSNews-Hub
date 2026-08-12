@@ -11,8 +11,11 @@ export async function POST(req: Request) {
   if (!parsed.ok) return parsed.res;
   const { articleId } = parsed.data;
 
-  const article = await prisma.article.findUnique({ where: { id: articleId }, select: { id: true, status: true, requirement: true } });
+  const article = await prisma.article.findUnique({ where: { id: articleId }, select: { id: true, status: true, requirement: true, publishedAt: true } });
   if (!article || article.status !== 'PUBLISHED') return NextResponse.json({ ok: false }, { status: 404 });
+  // A scheduled (future-dated) article is not yet public — a raw POST must not
+  // bump its view count before it goes live.
+  if (article.publishedAt && article.publishedAt > new Date()) return NextResponse.json({ ok: false }, { status: 404 });
 
   // Don't log a read or bump views for content the caller can't actually access
   // (keeps the "no read tracked for gated content" invariant, and stops a locked

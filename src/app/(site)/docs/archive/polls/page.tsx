@@ -25,8 +25,11 @@ export default async function PollsArchive() {
             <section key={poll.id} className="card p-5">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <h2 className="text-lg font-extrabold leading-snug">{poll.question}</h2>
-                {poll.active ? <span className="badge shrink-0 bg-green-100 text-green-700">Live</span>
-                  : closed ? <span className="badge shrink-0 bg-amber-100 text-amber-700">Closed</span>
+                {/* `closed` (past its timer) wins over `active`: a council poll is
+                    never swept to inactive, so an expired one can still be
+                    active=true — it must read "Closed", not "Live". */}
+                {closed ? <span className="badge shrink-0 bg-amber-100 text-amber-700">Closed</span>
+                  : poll.active ? <span className="badge shrink-0 bg-green-100 text-green-700">Live</span>
                   : <span className="badge shrink-0 bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Past</span>}
               </div>
               <div className="space-y-2">
