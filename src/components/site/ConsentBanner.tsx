@@ -1,23 +1,25 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CONSENT_KEY } from '@/lib/consent';
 
 // First-visit cookie/analytics notice. We use first-party analytics only, so the
 // model is notice + opt-out: the banner shows once, the choice is remembered in
-// localStorage ('rsnews_consent' = 'accepted' | 'declined'), and lib/analytics
-// stops collecting when the reader declines. Signed-in state / preferences are
-// essential and unaffected either way.
-const KEY = 'rsnews_consent';
+// localStorage AND a cookie (so server routes — e.g. click counters — can honor
+// it too), and analytics stops collecting when the reader declines. Signed-in
+// state / preferences are essential and unaffected either way.
 
 export default function ConsentBanner() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    try { if (!localStorage.getItem(KEY)) setShow(true); } catch { /* private mode: don't nag */ }
+    try { if (!localStorage.getItem(CONSENT_KEY)) setShow(true); } catch { /* private mode: don't nag */ }
   }, []);
 
   function choose(value: 'accepted' | 'declined') {
-    try { localStorage.setItem(KEY, value); } catch { /* ignore */ }
+    try { localStorage.setItem(CONSENT_KEY, value); } catch { /* ignore */ }
+    // Mirror to a cookie so server-side counters can respect the opt-out.
+    try { document.cookie = `${CONSENT_KEY}=${value}; path=/; max-age=31536000; SameSite=Lax`; } catch { /* ignore */ }
     setShow(false);
   }
 

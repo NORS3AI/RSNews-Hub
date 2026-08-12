@@ -63,6 +63,13 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
+          {mode === 'register' && (
+            <p className="text-center text-xs text-[var(--muted)]">
+              By creating an account you agree to our{' '}
+              <Link href="/docs/page/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
+              <Link href="/docs/page/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>.
+            </p>
+          )}
         </form>
 
         <p className="mt-4 text-center text-sm text-[var(--muted)]">

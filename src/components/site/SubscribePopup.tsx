@@ -189,6 +189,7 @@ export default function SubscribePopup() {
                     {accountEmail && emailAddr !== accountEmail && (
                       <button type="button" onClick={() => setEmailAddr(accountEmail)} className="btn-outline btn-sm whitespace-nowrap">Use account email</button>
                     )}
+                    <p className="w-full text-xs text-[var(--muted)]">We&apos;ll only use it for the updates you pick. See our <a href="/docs/page/privacy" className="text-brand-600 hover:underline">Privacy Policy</a>.</p>
                   </div>
                 )}
               </div>

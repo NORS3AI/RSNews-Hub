@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: a ? [{ id: a.id, label: a.title }] : [] });
   }
   const rows = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', ...(q ? { title: { contains: q } } : {}) },
+    where: { status: 'PUBLISHED', ...(q ? { title: { contains: q, mode: 'insensitive' as const } } : {}) },
     orderBy: { publishedAt: 'desc' },
     take: 15,
     select,

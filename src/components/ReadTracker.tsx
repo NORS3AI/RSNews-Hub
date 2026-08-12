@@ -1,14 +1,19 @@
 'use client';
 import { useEffect } from 'react';
 import { useSaved } from './site/StarProvider';
+import { analyticsDeclined } from '@/lib/consent';
 
 // Records a read + drives the reading-progress bar, and adds the article to the
 // client-side history (so a directly-visited article page is findable too).
 export default function ReadTracker({ articleId, title, slug }: { articleId: string; title?: string; slug?: string }) {
   const { recordHistory } = useSaved();
   useEffect(() => {
+    // The reader's OWN on-device history is a convenience, not analytics we
+    // collect — it stays. The /api/reading POST (server reading-log + view
+    // count) is analytics, so it respects the opt-out.
     if (title && slug) recordHistory({ id: articleId, title, slug });
     const t = setTimeout(() => {
+      if (analyticsDeclined()) return;
       fetch('/api/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

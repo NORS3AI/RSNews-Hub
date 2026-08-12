@@ -12,6 +12,7 @@ import ListenButton from './ListenButton';
 import CoverVideo from './CoverVideo';
 import { useSaved } from './StarProvider';
 import { track } from '@/lib/analytics/track';
+import { analyticsDeclined } from '@/lib/consent';
 
 type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null; coverVideo?: string | null;
@@ -56,8 +57,10 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
       const json: Payload = await res.json();
       setData(json);
       recordHistory({ id: json.article.id, title: json.article.title, slug: json.article.slug });
-      // Record the read (bumps views + feeds recommendations) after a short dwell.
+      // Record the read (bumps views + feeds recommendations) after a short
+      // dwell — analytics, so it respects the reader's consent opt-out.
       setTimeout(() => {
+        if (analyticsDeclined()) return;
         fetch('/api/reading', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ articleId: json.article.id }), keepalive: true,

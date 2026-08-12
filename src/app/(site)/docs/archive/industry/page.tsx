@@ -12,7 +12,7 @@ export default async function IndustryArchive({ searchParams }: { searchParams: 
   const links = await prisma.industryLink.findMany({
     where: {
       active: true,
-      ...(q ? { OR: [{ title: { contains: q } }, { source: { contains: q } }, { author: { contains: q } }] } : {}),
+      ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' as const } }, { source: { contains: q, mode: 'insensitive' as const } }, { author: { contains: q, mode: 'insensitive' as const } }] } : {}),
     },
     orderBy: [{ postedAt: 'desc' }],
   });

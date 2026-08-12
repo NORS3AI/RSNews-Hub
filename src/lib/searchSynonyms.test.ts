@@ -33,6 +33,14 @@ describe('expandQuery', () => {
     expect(new Set(terms).size).toBe(terms.length); // no dupes
   });
 
+  it('expands multi-word phrases bidirectionally (post office → usps)', () => {
+    const out = expandQuery('post office');
+    const terms = out.map((t) => t.term);
+    expect(terms).toContain('post office'); // phrase kept as a search term
+    expect(terms).toContain('usps'); // synonym of the phrase
+    expect(out.find((t) => t.term === 'usps')?.weight).toBe(0.5);
+  });
+
   it('returns nothing for an empty/punctuation-only query', () => {
     expect(expandQuery('   ')).toEqual([]);
     expect(expandQuery('!!!')).toEqual([]);

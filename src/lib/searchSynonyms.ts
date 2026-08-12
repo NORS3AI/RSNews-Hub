@@ -45,7 +45,7 @@ export function normalizeTerm(raw: string): string {
  * above synonym matches. Deduped, keeping the highest weight per term.
  */
 export function expandQuery(query: string, maxTerms = 8): WeightedTerm[] {
-  const originals = (query || '')
+  const words = (query || '')
     .split(/\s+/)
     .map(normalizeTerm)
     .filter(Boolean)
@@ -57,9 +57,24 @@ export function expandQuery(query: string, maxTerms = 8): WeightedTerm[] {
     if (cur === undefined || w > cur) weights.set(term, w);
   };
 
-  for (const t of originals) {
+  // Single words: the reader's own term at full weight, its synonyms at half.
+  for (const t of words) {
     bump(t, 1);
     for (const syn of MAP.get(t) ?? []) bump(syn, 0.5);
   }
+
+  // Multi-word PHRASES (e.g. "post office", "point of sale"): match the whole
+  // query and adjacent word-pairs against phrase keys so expansion is
+  // bidirectional — "post office" finds "usps", not just the reverse. The phrase
+  // itself stays a full-weight search term; its synonyms come in at half.
+  const phrases = new Set<string>();
+  if (words.length >= 2) phrases.add(words.join(' '));
+  for (let i = 0; i < words.length - 1; i++) phrases.add(`${words[i]} ${words[i + 1]}`);
+  for (const p of phrases) {
+    if (!MAP.has(p)) continue;
+    bump(p, 1);
+    for (const syn of MAP.get(p) ?? []) bump(syn, 0.5);
+  }
+
   return [...weights.entries()].map(([term, weight]) => ({ term, weight }));
 }
