@@ -7,6 +7,7 @@
 // Pure signature helper so dismissal can be keyed on both client and server.
 
 import { prisma } from './db';
+import { canViewContent, type AccountLike } from './entitlements';
 
 const ENABLED_KEY = 'announcement:enabled';
 const LIVE_KEY = 'announcement:liveId';
@@ -26,6 +27,7 @@ export type AnnouncementRecord = {
   size: AnnSize;
   ticker: boolean;
   order: AnnElement[];        // the render order of the three elements
+  audience: string;           // entitlement gate: '' = everyone; else a token
   starred: boolean;
 };
 
@@ -49,14 +51,14 @@ export function parseOrder(raw: string | null | undefined): AnnElement[] {
 
 type Row = {
   id: string; name: string; message: string; href: string; hrefLabel: string;
-  targetAt: Date | null; showCountdown: boolean; size: string; ticker: boolean; order: string; starred: boolean;
+  targetAt: Date | null; showCountdown: boolean; size: string; ticker: boolean; order: string; audience: string; starred: boolean;
 };
 function toRecord(r: Row): AnnouncementRecord {
   return {
     id: r.id, name: r.name, message: r.message, href: r.href, hrefLabel: r.hrefLabel,
     targetAt: r.targetAt ? r.targetAt.toISOString() : null,
     showCountdown: r.showCountdown && !!r.targetAt,
-    size: asSize(r.size), ticker: r.ticker, order: parseOrder(r.order), starred: r.starred,
+    size: asSize(r.size), ticker: r.ticker, order: parseOrder(r.order), audience: r.audience, starred: r.starred,
   };
 }
 
@@ -77,8 +79,12 @@ async function setSetting(key: string, value: string): Promise<void> {
 
 export type AnnouncementInput = {
   id?: string; name?: string; message?: string; href?: string; hrefLabel?: string;
-  targetAt?: string | null; showCountdown?: boolean; size?: string; ticker?: boolean; order?: string;
+  targetAt?: string | null; showCountdown?: boolean; size?: string; ticker?: boolean; order?: string; audience?: string;
 };
+
+// The gate token is a lower-case key ('' = everyone). Kept short + normalized so
+// only a sane value ever reaches canViewContent.
+const asAudience = (v: unknown): string => (typeof v === 'string' ? v.trim().toLowerCase().slice(0, 40) : '');
 
 /** The whole library, starred first then most-recently-edited. */
 export async function listAnnouncements(): Promise<AnnouncementRecord[]> {
@@ -99,6 +105,7 @@ export async function upsertAnnouncement(input: AnnouncementInput): Promise<stri
     size: asSize(input.size),
     ticker: !!input.ticker,
     order: parseOrder(input.order).join(','),
+    audience: asAudience(input.audience),
   };
   if (input.id) return (await prisma.announcement.update({ where: { id: input.id }, data, select: { id: true } })).id;
   return (await prisma.announcement.create({ data, select: { id: true } })).id;
@@ -124,10 +131,15 @@ export async function getAnnouncementState(): Promise<{ enabled: boolean; liveId
   return { enabled: enabled === 'true', liveId };
 }
 
-/** The message the reader bar should show right now, or null (off / none chosen). */
-export async function getLiveAnnouncement(): Promise<AnnouncementRecord | null> {
+/** The message the reader bar should show `viewer` right now, or null (off, none
+ *  chosen, or the live message is gated to an audience this viewer isn't in).
+ *  Gating is enforced HERE, server-side, so a bar the viewer can't see is never
+ *  sent to their browser. */
+export async function getLiveAnnouncement(viewer: AccountLike | null = null): Promise<AnnouncementRecord | null> {
   const { enabled, liveId } = await getAnnouncementState();
   if (!enabled || !liveId) return null;
   const row = await prisma.announcement.findUnique({ where: { id: liveId } });
-  return row && row.message ? toRecord(row) : null;
+  if (!row || !row.message) return null;
+  if (!canViewContent(viewer, row.audience)) return null;
+  return toRecord(row);
 }

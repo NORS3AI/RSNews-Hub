@@ -1,5 +1,5 @@
 // Integration test for the digest / notification gate filter. gatherSince must
-// never surface a tier-gated article (Premium, Package Hub, …) to a viewer who
+// never surface a tier-gated article (Premium, PackageHub, …) to a viewer who
 // can't open it — most importantly the broadcast email digest, which passes no
 // viewer and so must see ONLY open articles. Hits the real dev/CI DB; rows are
 // namespaced by a unique slug prefix and cleaned up.
@@ -46,14 +46,14 @@ describe('gatherSince gate filter', () => {
     expect(slugs.has(gated.slug)).toBe(false);
   });
 
-  it('a Package Hub member sees the Package-Hub-gated article', async () => {
+  it('a PackageHub member sees the PackageHub-gated article', async () => {
     const gated = await mkArticle('packagehub');
     const viewer: AccountLike = { accountType: 'MEMBER', affiliations: 'packagehub' };
     const { articles } = await gatherSince([ALL], since, now, 100, viewer);
     expect(articles.some((a) => a.slug === gated.slug)).toBe(true);
   });
 
-  it('a basic member does NOT see a Package-Hub-only article', async () => {
+  it('a basic member does NOT see a PackageHub-only article', async () => {
     const gated = await mkArticle('packagehub');
     const viewer: AccountLike = { accountType: 'MEMBER', tier: 'basic', affiliations: '' };
     const { articles } = await gatherSince([ALL], since, now, 100, viewer);

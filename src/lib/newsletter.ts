@@ -88,7 +88,7 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
     try {
       const keys: TopicKey[] = parseTopics(s.topics);
       // No viewer → only open articles. A broadcast email can't verify each
-      // address's tier, so tier-gated pieces (Premium, Package Hub, …) never
+      // address's tier, so tier-gated pieces (Premium, PackageHub, …) never
       // ride out to the list; recipients still click through to the gated page,
       // which enforces access there.
       const g = await gatherSince(keys.length ? keys : [INDUSTRY], since, now, 40);

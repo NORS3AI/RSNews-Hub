@@ -61,11 +61,11 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
   const user = await getCurrentUser();
   // Admin "View as": preview the gate through the impersonated audience so an
-  // admin can confirm what a basic member (vs. premium/Package Hub) actually sees.
+  // admin can confirm what a basic member (vs. premium/PackageHub) actually sees.
   const viewingAs = await activeViewAs(user);
   const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
 
-  // Access gate (e.g. Package Hub–only content). Enforced here, server-side,
+  // Access gate (e.g. PackageHub–only content). Enforced here, server-side,
   // before any content is read or a view is tracked.
   if (!canViewContent(gateAccount, article.requirement)) {
     return <LockedArticle article={article} />;

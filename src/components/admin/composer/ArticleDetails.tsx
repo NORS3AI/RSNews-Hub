@@ -148,7 +148,7 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
           <input id="requirement" name="requirement" list="requirement-opts" defaultValue={article?.requirement ?? ''} className="input" placeholder="public" autoComplete="off" />
           <datalist id="requirement-opts">
             <option value="public">Everyone (public)</option><option value="member">Any signed-in member</option>
-            <option value="premium">RS Premium</option><option value="packagehub">Package Hub</option>
+            <option value="premium">RS Premium</option><option value="packagehub">PackageHub</option>
             <option value="vendor">Vendors</option><option value="staff">Staff</option>
           </datalist>
           <p className="mt-1 text-xs text-[var(--muted)]">Blank/<code>public</code> = everyone. Or a tier / account type / affiliation key.</p>

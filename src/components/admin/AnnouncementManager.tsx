@@ -9,10 +9,20 @@ import type { AnnouncementRecord, AnnSize, AnnElement } from '@/lib/announcement
 
 type Draft = {
   id?: string; name: string; message: string; href: string; hrefLabel: string;
-  size: AnnSize; ticker: boolean; showCountdown: boolean; targetAt: string; order: AnnElement[];
+  size: AnnSize; ticker: boolean; showCountdown: boolean; targetAt: string; order: AnnElement[]; audience: string;
 };
-const EMPTY: Draft = { name: '', message: '', href: '', hrefLabel: '', size: 'md', ticker: false, showCountdown: false, targetAt: '', order: ['message', 'countdown', 'button'] };
+const EMPTY: Draft = { name: '', message: '', href: '', hrefLabel: '', size: 'md', ticker: false, showCountdown: false, targetAt: '', order: ['message', 'countdown', 'button'], audience: '' };
 const LABEL: Record<AnnElement, string> = { message: 'Message', countdown: 'Countdown', button: 'Button' };
+// Audience gate options — value is the entitlement token stored on the record.
+const AUDIENCES: { value: string; label: string }[] = [
+  { value: '', label: 'Everyone' },
+  { value: 'packagehub', label: 'PackageHub members only' },
+  { value: 'premium', label: 'RS Premium members only' },
+  { value: 'member', label: 'Signed-in members only' },
+  { value: 'vendor', label: 'Vendors only' },
+  { value: 'staff', label: 'Staff only' },
+];
+const audienceLabel = (v: string) => AUDIENCES.find((a) => a.value === v)?.label ?? v;
 
 export default function AnnouncementManager({ list, enabled, liveId }: { list: AnnouncementRecord[]; enabled: boolean; liveId: string }) {
   const router = useRouter();
@@ -21,7 +31,7 @@ export default function AnnouncementManager({ list, enabled, liveId }: { list: A
 
   async function run(fn: () => Promise<unknown>) { setBusy(true); try { await fn(); router.refresh(); } finally { setBusy(false); } }
   function editExisting(r: AnnouncementRecord) {
-    setDraft({ id: r.id, name: r.name, message: r.message, href: r.href, hrefLabel: r.hrefLabel, size: r.size, ticker: r.ticker, showCountdown: r.showCountdown, targetAt: r.targetAt ? r.targetAt.slice(0, 16) : '', order: r.order });
+    setDraft({ id: r.id, name: r.name, message: r.message, href: r.href, hrefLabel: r.hrefLabel, size: r.size, ticker: r.ticker, showCountdown: r.showCountdown, targetAt: r.targetAt ? r.targetAt.slice(0, 16) : '', order: r.order, audience: r.audience });
   }
   async function save() {
     if (!draft || !draft.message.trim()) return;
@@ -64,6 +74,8 @@ export default function AnnouncementManager({ list, enabled, liveId }: { list: A
             <Field label="Button link (optional)"><input className="input" value={draft.href} onChange={(e) => setDraft({ ...draft, href: e.target.value })} placeholder="/docs/page/expo" /></Field>
             <Field label="Button text"><input className="input" value={draft.hrefLabel} onChange={(e) => setDraft({ ...draft, hrefLabel: e.target.value })} maxLength={40} placeholder="Register" /></Field>
           </div>
+
+          <Field label="Who sees this"><select className="input" value={draft.audience} onChange={(e) => setDraft({ ...draft, audience: e.target.value })}>{AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select>{draft.audience && <span className="mt-1 block text-xs text-[var(--muted)]">Only {audienceLabel(draft.audience).replace(/ only$/, '')} will ever see this bar — everyone else gets nothing (it’s filtered server-side, never sent to their browser).</span>}</Field>
 
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-brand-600" checked={draft.showCountdown} onChange={(e) => setDraft({ ...draft, showCountdown: e.target.checked })} /> Show a live countdown</label>
           {draft.showCountdown && <Field label="Count down to"><input type="datetime-local" className="input max-w-xs" value={draft.targetAt} onChange={(e) => setDraft({ ...draft, targetAt: e.target.value })} /></Field>}
@@ -108,6 +120,7 @@ export default function AnnouncementManager({ list, enabled, liveId }: { list: A
                   {r.showCountdown && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">⏱ countdown</span>}
                   {r.ticker && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">ticker</span>}
                   {r.href && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">button</span>}
+                  {r.audience && <span className="rounded bg-brand-100 px-1.5 py-0.5 font-semibold text-brand-700">🔒 {audienceLabel(r.audience).replace(/ only$/, '')}</span>}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">

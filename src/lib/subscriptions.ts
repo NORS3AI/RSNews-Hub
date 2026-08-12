@@ -67,7 +67,7 @@ function resolveFilter(keys: TopicKey[]) {
 // open ('' / public) articles — the safe choice for the broadcast email digest,
 // which reaches unverified addresses and can't check any single recipient's
 // tier. The on-site feed passes the signed-in account so a member sees exactly
-// what they're entitled to (never a Premium/Package-Hub headline they can't open).
+// what they're entitled to (never a Premium/PackageHub headline they can't open).
 export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take = 40, viewer: AccountLike | null = null) {
   const f = resolveFilter(keys);
   const wantIndustry = f.industry;

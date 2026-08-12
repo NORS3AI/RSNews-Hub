@@ -30,6 +30,7 @@ model Announcement {
   size          String    @default("md")   // sm | md | lg
   ticker        Boolean   @default(false)  // scroll the message text
   order         String    @default("message,countdown,button") // element order
+  audience      String    @default("")   // entitlement gate: '' = everyone; else a token (premium|packagehub|…)
   starred       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

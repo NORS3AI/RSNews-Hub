@@ -84,7 +84,7 @@ export function requirementLabel(requirement: string): string {
   const r = norm(requirement).toLowerCase();
   const known: Record<string, string> = {
     premium: 'RS Premium', vendor: 'vendor', staff: 'staff', member: 'members',
-    packagehub: 'Package Hub',
+    packagehub: 'PackageHub',
   };
   if (!r || r === 'all' || r === 'public') return 'everyone';
   return known[r] ?? norm(requirement);

@@ -1,5 +1,5 @@
 // Admin "View as" — lets a staff/admin account preview the site through the
-// entitlements of another audience: a basic member, a Package Hub member, a
+// entitlements of another audience: a basic member, a PackageHub member, a
 // premium member, or a specific vendor. It overrides ONLY the four entitlement
 // attributes (accountType, tier, affiliations, vendorBrand) used for content
 // gating and ad targeting; the real identity, role and admin access are kept, so
@@ -29,7 +29,7 @@ export const MEMBER_PRESETS: ViewAsPreset[] = [
     account: { accountType: 'MEMBER', tier: '', affiliations: '', vendorBrand: '' },
   },
   {
-    key: 'member-packagehub', label: 'Package Hub member', group: 'Member',
+    key: 'member-packagehub', label: 'PackageHub member', group: 'Member',
     account: { accountType: 'MEMBER', tier: '', affiliations: 'packagehub', vendorBrand: '' },
   },
   {

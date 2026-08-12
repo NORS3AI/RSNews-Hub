@@ -11,7 +11,9 @@ import { getLiveAnnouncement, announcementSignature } from '@/lib/announcement';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  const liveAnnouncement = await getLiveAnnouncement();
+  // Gate the top bar by the viewer's entitlement: a PackageHub-only message is
+  // filtered out server-side for everyone else (never sent to their browser).
+  const liveAnnouncement = await getLiveAnnouncement(user);
   // Admin "View as": offer the switcher (and reflect the active impersonation)
   // only to real staff/admin accounts.
   const showViewAs = canViewAs(user);

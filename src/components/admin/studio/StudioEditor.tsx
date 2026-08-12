@@ -912,7 +912,7 @@ const AUDIENCES: { value: string; label: string }[] = [
   { value: '', label: 'Everyone (public)' },
   { value: 'member', label: 'Signed-in members' },
   { value: 'premium', label: 'RS Premium' },
-  { value: 'packagehub', label: 'Package Hub' },
+  { value: 'packagehub', label: 'PackageHub' },
   { value: 'vendor', label: 'Vendors' },
   { value: 'staff', label: 'Staff' },
 ];
