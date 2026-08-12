@@ -1048,6 +1048,9 @@ export async function generatePerformanceReport(formData: FormData) {
   if (isNaN(d.getTime())) throw new Error('A valid quarter is required');
   const id = await generateReportDraft(vendorId, quarterOf(d));
   revalidatePath('/admin/reports');
+  // Regenerating returns a PUBLISHED report to DRAFT, so it leaves the vendor
+  // dashboard — refresh that surface too.
+  revalidatePath('/docs/vendor');
   redirect(`/admin/reports/${id}`);
 }
 

@@ -162,6 +162,20 @@ describe('advertiser reporting (scoped to one brand)', () => {
     // no PostalMate leakage anywhere
     expect(JSON.stringify(r)).not.toMatch(/PostalMate|pm-1/);
   });
+  it('totals fold spelling variants of one brand (no undercount)', () => {
+    // Same advertiser entered two ways: normalized scoping catches both, and the
+    // totals bucket must sum ALL of them — not just the largest campaign variant.
+    const mixed: Ev[] = [
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'Acme', campaignId: 'Acme', creativeId: 'a1', viewable: true } }),
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'acme ', campaignId: 'acme ', creativeId: 'a2', viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', props: { brand: 'acme ', campaignId: 'acme ', creativeId: 'a2' } }),
+    ];
+    const r = advertiserReport(mixed, 'Acme');
+    expect(r.totals.impressions).toBe(2); // both variants, not 1
+    expect(r.totals.clicks).toBe(1);
+    // and totals never undercount the sum of the per-creative rows
+    expect(r.totals.impressions).toBe(r.byCreative.reduce((n, c) => n + c.impressions, 0));
+  });
   it('builds a daily trend', () => {
     const t = adTrend(evs.filter((e) => (e.props as { brand?: string }).brand === 'PackWise'));
     expect(t[0].impressions).toBe(2);

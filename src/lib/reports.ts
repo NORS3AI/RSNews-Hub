@@ -79,16 +79,30 @@ export async function computeSnapshot(vendorBrandKey: string, brandLabel: string
   const scoped = events.filter(
     (e) => e.subjectType === 'ad' && brandKey(String(e.props.campaignId ?? e.props.brand ?? '')) === vendorBrandKey,
   );
-  const totals = aggregateAds(scoped, 'campaign')[0] ?? { ...EMPTY_TOTALS, key: brandLabel };
+  // Totals fold ALL scoped ad events into one bucket (see advertiserReport) so a
+  // brand typed two ways can't drop a variant from the headline number.
+  const totals = { ...(aggregateAds(scoped, 'all')[0] ?? EMPTY_TOTALS), key: brandLabel };
+  const byCreative = await labelCreatives(aggregateAds(scoped, 'creative'));
   const days = Math.round((period.end.getTime() - period.start.getTime()) / 86_400_000);
   return {
     brand: brandLabel,
     totals,
-    byCreative: aggregateAds(scoped, 'creative'),
+    byCreative,
     byPlacement: aggregateAds(scoped, 'placement'),
     trend: adTrend(scoped),
     generatedForDays: days,
   };
+}
+
+/** Replace each creative row's raw id key with the ad's human headline/label,
+ *  resolved once at generation and frozen into the snapshot. A creative whose Ad
+ *  row was since deleted keeps a readable fallback instead of a bare cuid. */
+async function labelCreatives<T extends { key: string }>(rows: T[]): Promise<T[]> {
+  const ids = rows.map((r) => r.key).filter((k) => k && k !== '—');
+  if (!ids.length) return rows;
+  const ads = await prisma.ad.findMany({ where: { id: { in: ids } }, select: { id: true, headline: true, label: true } });
+  const byId = new Map(ads.map((a) => [a.id, (a.headline || a.label || 'Untitled creative').trim()]));
+  return rows.map((r) => ({ ...r, key: r.key === '—' ? '—' : (byId.get(r.key) ?? 'Removed creative') }));
 }
 
 /**

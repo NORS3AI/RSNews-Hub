@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { generatePerformanceReport } from '@/lib/actions';
 import { recentQuarters } from '@/lib/reports';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateUTC } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +65,7 @@ export default async function AdminReports() {
                 <span className={`badge ${statusChip[r.status] ?? ''}`}>{r.status}</span>
               </div>
               <div className="mt-1 text-sm text-[var(--muted)]">
-                {formatDate(r.periodStart)} → {formatDate(r.periodEnd)}
+                {formatDateUTC(r.periodStart)} → {formatDateUTC(r.periodEnd)}
                 {r.publishedAt && <> · published {formatDate(r.publishedAt)}</>}
               </div>
             </Link>

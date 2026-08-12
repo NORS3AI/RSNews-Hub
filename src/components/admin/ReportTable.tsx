@@ -17,6 +17,17 @@ function fmt(v: string | number, type?: ColType): string {
   return String(v);
 }
 
+// CSV wants RAW numbers (no thousands commas, no %/s units) so cells land in
+// Excel/Sheets as real numbers — summable and sortable. Percentages export as a
+// plain number (50, not "50%"); durations as seconds. Text passes through.
+function csvVal(v: string | number, type?: ColType): string | number {
+  if (v == null || v === '') return '';
+  if (type === 'pct01') return Math.round(Number(v) * 1000) / 10; // e.g. 50 or 12.5
+  if (type === 'ms') return Math.round(Number(v) / 1000); // seconds
+  if (type === 'int' || type === 'num') return Number(v);
+  return String(v);
+}
+
 /**
  * Sortable, CSV-exportable report table. Rows are raw values (numbers stay
  * numeric so sorting + export are correct); the column `type` drives display.
@@ -42,7 +53,7 @@ export default function ReportTable({ columns, rows, filename }: { columns: Col[
 
   function exportCsv() {
     const headers = columns.map((c) => c.label);
-    const body = sorted.map((r) => columns.map((c) => fmt(r[c.key], c.type)));
+    const body = sorted.map((r) => columns.map((c) => csvVal(r[c.key], c.type)));
     const csv = toCsv(headers, body);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);

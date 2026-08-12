@@ -14,7 +14,7 @@ import RequestReportForm from '@/components/site/RequestReportForm';
 import { loadAds, listAdvertisers } from '@/lib/adsServer';
 import { AdPreviewButton } from '@/components/site/AdPreview';
 import ReportView from '@/components/ReportView';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateUTC } from '@/lib/utils';
 import { ExternalLink, Megaphone, Check, X } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
@@ -197,7 +197,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                     <div key={r.id} className="tile p-4">
                       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <span className="font-bold">{r.periodLabel}</span>
-                        <span className="text-xs text-[var(--muted)]">{formatDate(r.periodStart)} → {formatDate(r.periodEnd)}</span>
+                        <span className="text-xs text-[var(--muted)]">{formatDateUTC(r.periodStart)} → {formatDateUTC(r.periodEnd)}</span>
                       </div>
                       {r.summary && <p className="mb-4 whitespace-pre-line text-sm text-[var(--fg)]">{r.summary}</p>}
                       <ReportView snapshot={parseSnapshot(r.metrics)} />

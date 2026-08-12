@@ -34,6 +34,7 @@ export function splitDim(e: Ev, dim: string): string {
     case 'position': return `slot ${num(e.props.pos)}`;
     case 'creative': return String(e.props.creativeId ?? e.subjectId ?? '—');
     case 'campaign': return String(e.props.campaignId ?? e.props.brand ?? '—');
+    case 'all': return 'all'; // fold everything into one bucket (for grand totals)
     case 'format': return String(e.props.format ?? '—');
     case 'shape': return String(e.props.shape ?? '—');
     case 'category': return String(e.props.category ?? '—');
@@ -196,7 +197,10 @@ export function adTrend(evs: Ev[]): { key: string; impressions: number; clicks: 
 export function advertiserReport(evs: Ev[], brand: string) {
   const key = brandMatchKey(brand);
   const ads = evs.filter((e) => e.subjectType === 'ad' && brandMatchKey(brandOf(e)) === key);
-  const totals = aggregateAds(ads, 'campaign')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
+  // Totals fold ALL of the brand's ad events into one bucket. (Splitting by
+  // 'campaign' and taking [0] would keep only the largest spelling variant when a
+  // brand was entered two ways — undercounting, and disagreeing with byCreative.)
+  const totals = aggregateAds(ads, 'all')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
   return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
 }
 

@@ -29,6 +29,15 @@ export function formatDate(date: Date | string | null | undefined): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** Like formatDate but pinned to UTC. Use for values that ARE UTC instants (e.g.
+ *  report quarter boundaries like 2025-01-01T00:00Z) so a non-UTC server doesn't
+ *  render them a day off (Jan 1 → "Dec 31"). */
+export function formatDateUTC(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
 export function classNames(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }
