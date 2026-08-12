@@ -34,9 +34,12 @@ export default async function SearchPage(props0: { searchParams: Promise<{ q?: s
       {q && <SearchTracker q={q} count={results.length} />}
 
       {results.length > 0 && (
+        <>
+        <h2 className="sr-only">Search results</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((a, i) => <ArticleCard key={a.id} article={a} trk={{ place: 'search', props: { module: 'search', moduleType: 'grid', pos: i } }} />)}
         </div>
+        </>
       )}
 
       {!q && <p className="text-[var(--muted)]">Type a query above to search across every article — titles, tags, categories and content.</p>}

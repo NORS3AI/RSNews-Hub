@@ -12,9 +12,9 @@ const LIGHT = { src: '/brand/rsnews-hub-logo-light.png', w: 412, h: 347 };
 const DARK = { src: '/brand/rsnews-hub-logo-dark.png', w: 412, h: 347 };
 
 /** The compact 2×2 icon mark. Give it a pixel height; width follows the ratio. */
-export function BrandMark({ size = 36, className = '', priority = false }: { size?: number; className?: string; priority?: boolean }) {
+export function BrandMark({ size = 36, className = '', priority = false, alt = 'RS News Hub' }: { size?: number; className?: string; priority?: boolean; alt?: string }) {
   return (
-    <Image src={ICON.src} alt="RS News Hub" width={Math.round((size * ICON.w) / ICON.h)} height={size}
+    <Image src={ICON.src} alt={alt} width={Math.round((size * ICON.w) / ICON.h)} height={size}
       priority={priority} className={className} style={{ height: size, width: 'auto' }} />
   );
 }

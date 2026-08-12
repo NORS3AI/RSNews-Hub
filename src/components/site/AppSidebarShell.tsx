@@ -96,6 +96,8 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
 
   return (
     <div className="flex min-h-screen">
+      {/* Skip link — first focusable element, for keyboard/screen-reader users. */}
+      <a href="#main-content" className="sr-only rounded-lg bg-brand-600 px-4 py-2 font-bold text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300]">Skip to content</a>
       {/* Sidebar */}
       <aside
         className={classNames(
@@ -106,8 +108,9 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
         )}
       >
         <div className={classNames('flex items-center px-2 pb-3 pt-1', collapsed ? 'justify-center' : 'justify-between')}>
-          <Link href="/docs" className="flex min-w-0 items-center gap-2 font-extrabold">
-            <BrandMark size={34} priority className="shrink-0 rounded-[8px]" />
+          <Link href="/docs" aria-label={`${SITE_NAME} — home`} className="flex min-w-0 items-center gap-2 font-extrabold">
+            {/* Decorative here — the link's aria-label + adjacent text name it. */}
+            <BrandMark size={34} priority alt="" className="shrink-0 rounded-[8px]" />
             {!collapsed && <span className="truncate whitespace-nowrap text-[16px]">{SITE_NAME}</span>}
           </Link>
           {!collapsed && (
@@ -162,16 +165,17 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex items-center gap-3 bg-[color-mix(in_srgb,var(--bg)_70%,#000_6%)] px-4 py-3 backdrop-blur lg:px-7 lg:py-4">
+        <header className="sticky top-0 z-30 flex items-center gap-3 bg-[color-mix(in_srgb,var(--bg)_70%,#000_6%)] px-4 py-3 backdrop-blur lg:px-7 lg:py-4">
           <button onClick={() => setMobileOpen(true)} className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[10px] bg-[var(--card)] text-[var(--fg)] shadow-[var(--shadow-card)] lg:hidden" aria-label="Open menu">
             <Menu width={22} height={22} />
           </button>
           <div className="w-full max-w-xl"><SearchBar /></div>
-        </div>
+        </header>
 
-        <div className="px-4 lg:px-7"><StarStrip /></div>
-
-        <main className="flex-1">{children}</main>
+        <main id="main-content" className="flex-1">
+          <div className="px-4 lg:px-7"><StarStrip /></div>
+          {children}
+        </main>
         <SiteFooter />
       </div>
 
