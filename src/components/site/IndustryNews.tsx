@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Eye, Newspaper, X } from '@/components/icons';
+import { useScrollLock } from '@/lib/useScrollLock';
 import { linkSource, shortSource, postedLabel } from '@/lib/industry';
 
 export type IndustryItem = { id: string; title: string; url: string; source: string | null; author?: string | null; views: number; postedAt: string | Date };
@@ -67,12 +68,12 @@ export default function IndustryNews({ links }: { links: IndustryItem[] }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const modalLinks = links.slice(0, MODAL_LIMIT);
 
+  useScrollLock(open);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.body.classList.add('modal-open');
     window.addEventListener('keydown', onKey);
-    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
   if (!links.length) return null;

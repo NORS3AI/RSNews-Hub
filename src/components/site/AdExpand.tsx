@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { track } from '@/lib/analytics/track';
+import { useScrollLock } from '@/lib/useScrollLock';
 import { Maximize, X } from '@/components/icons';
 
 // A small "expand" affordance shown on every ad. Tapping it opens the creative
@@ -26,13 +27,13 @@ type Props = {
 
 export default function AdExpand({ kind, brand, href, cta, subjectId, placement, trkProps, src, poster, headline, accent }: Props) {
   const [open, setOpen] = useState(false);
+  useScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.body.classList.add('modal-open');
     window.addEventListener('keydown', onKey);
-    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
   function expand() {

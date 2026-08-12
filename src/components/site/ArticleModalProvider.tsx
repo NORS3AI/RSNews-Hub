@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
+import { useScrollLock } from '@/lib/useScrollLock';
 import ArticleBadges from '@/components/ArticleBadges';
 import InArticleAd from '@/components/InArticleAd';
 import type { AdRow } from '@/lib/ads';
@@ -104,13 +105,14 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('popstate', onPop);
   }, [load, clear]);
 
-  // Escape closes; lock body scroll while open.
+  // Escape closes; lock body scroll while open (ref-counted, so a nested overlay
+  // like an in-article ad zoom closing doesn't unlock scroll behind this modal).
+  useScrollLock(!!slug);
   useEffect(() => {
-    if (!slug) { document.body.classList.remove('modal-open'); return; }
-    document.body.classList.add('modal-open');
+    if (!slug) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); document.body.classList.remove('modal-open'); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [slug, close]);
 
   const a = data?.article;

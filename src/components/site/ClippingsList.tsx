@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSaved, type Clipping } from './StarProvider';
 import { useArticleModal } from './ArticleModalProvider';
+import { useScrollLock } from '@/lib/useScrollLock';
 import { clipShareText } from './ReaderClipper';
 import { makeQuoteImage, preloadQuoteAssets, downloadDataUrl, downloadImage, type QuoteTheme } from '@/lib/quoteImage';
 import { track } from '@/lib/analytics/track';
@@ -62,12 +63,12 @@ export default function ClippingsList() {
   const openZoom = (z: { src: string; alt: string }, c: Clipping) => { clipEv('expand', c); setZoom(z); };
   const setViewTracked = (v: 'cards' | 'images') => { track({ type: 'clip', subjectType: 'clip', pageType: 'clippings', props: { action: 'view', view: v } }); setView(v); };
 
+  useScrollLock(!!zoom);
   useEffect(() => {
     if (!zoom) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setZoom(null); };
-    document.body.classList.add('modal-open');
     window.addEventListener('keydown', onKey);
-    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [zoom]);
 
   function urlFor(slug?: string) {
