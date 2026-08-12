@@ -56,7 +56,9 @@ export default async function DocsHome() {
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
     prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } } }),
     getHomeLayout(),
-    prisma.industryLink.findMany({ where: { active: true }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }], take: 50 }),
+    // postedAt<=now so a link edited to a future date can't surface early (the
+    // digest already gates this way); id tiebreaker keeps same-timestamp order stable.
+    prisma.industryLink.findMany({ where: { active: true, postedAt: { lte: new Date() } }, orderBy: [{ order: 'asc' }, { postedAt: 'desc' }, { id: 'desc' }], take: 50 }),
     loadAds(),
     getSupplierAdMap(),
   ]);
@@ -89,10 +91,12 @@ export default async function DocsHome() {
     select: { id: true, title: true, slug: true, content: true, publishedAt: true, author: { select: { name: true } } },
   });
 
-  // All homepage-eligible comics; one is picked at random per request so the
-  // module cycles through them on refresh.
-  const activeComics = await prisma.comic.findMany({ where: { active: true }, orderBy: { postedAt: 'desc' } });
-  const currentComic = activeComics.length ? activeComics[Math.floor(Math.random() * activeComics.length)] : null;
+  // The most-recent already-posted active comic shows on the homepage — matching
+  // what the admin panel states ("Currently featured: X"). (Previously a random
+  // pick per request, which both flickered on every refresh and contradicted the
+  // admin's stated featured comic.) The postedAt<=now gate keeps a comic edited
+  // to a future date from appearing early.
+  const currentComic = await prisma.comic.findFirst({ where: { active: true, postedAt: { lte: new Date() } }, orderBy: { postedAt: 'desc' } });
 
   // Widths for the two pinned top sections (Hero, "Published this week"). Only
   // Full (3) or ⅔ (2); default full.

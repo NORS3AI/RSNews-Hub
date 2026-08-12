@@ -79,7 +79,12 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
       if (r.ok) sent++; else failed++;
     } catch { failed++; }
   }
-  await setCheckpoint(now);
+  // Advance the checkpoint UNLESS the whole batch failed (e.g. the email provider
+  // is down): otherwise a total outage would mark this window delivered and that
+  // day's items would be silently dropped for everyone with no retry. A partial
+  // failure still advances (the few failures miss this window) rather than
+  // re-sending to everyone who already received it.
+  if (!(sent === 0 && failed > 0)) await setCheckpoint(now);
   return { sent, failed, skippedEmpty, subscribers: subs.length };
 }
 

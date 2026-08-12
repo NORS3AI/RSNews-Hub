@@ -74,8 +74,18 @@ export async function getSaved(userId: string): Promise<SavedBundle> {
 async function toggle(userId: string, kind: 'favorite' | 'toread', item: SavedItem) {
   const where = { userId_kind_articleId: { userId, kind, articleId: item.id } };
   const existing = await prisma.savedItem.findUnique({ where });
-  if (existing) await prisma.savedItem.delete({ where });
-  else await prisma.savedItem.create({ data: { userId, kind, articleId: item.id, title: item.title, slug: item.slug } });
+  // Idempotent on both sides so a second tab/device toggling the same article
+  // concurrently doesn't 500: deleteMany no-ops on an already-removed row, and a
+  // duplicate create (both tabs saw "not saved") is swallowed as already-saved.
+  if (existing) {
+    await prisma.savedItem.deleteMany({ where: { userId, kind, articleId: item.id } });
+  } else {
+    try {
+      await prisma.savedItem.create({ data: { userId, kind, articleId: item.id, title: item.title, slug: item.slug } });
+    } catch (e: unknown) {
+      if (!(e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002')) throw e;
+    }
+  }
   return getSaved(userId);
 }
 
@@ -160,14 +170,25 @@ export async function mergeLocal(userId: string, local: Partial<SavedBundle>) {
   const localFolders = (Array.isArray(local.folders) ? local.folders.slice(0, FOLDER_MAX) : [])
     .map((f) => ({ id: s((f as FavFolder)?.id, 64).trim(), name: s((f as FavFolder)?.name, FOLDER_NAME_MAX).trim() }))
     .filter((f) => f.id && f.name);
-  // One atomic transaction: create the folders (mapping local id → new id), then
-  // upsert the items filed into them. Folders can't be left orphaned by a partial
-  // failure, and a retry won't duplicate them.
+  // One atomic transaction: reconcile the folders (mapping local id → server id),
+  // then upsert the items filed into them. Folder creation is made idempotent and
+  // capped: a local folder whose NAME already exists reuses that server folder
+  // (so a lost-response retry or a StrictMode double-fire can't duplicate them),
+  // and we never create past FOLDER_MAX total (so a crafted/replayed merge can't
+  // grow folders without bound).
   await prisma.$transaction(async (tx) => {
     const idMap = new Map<string, string>();
+    const existing = await tx.favoriteFolder.findMany({ where: { userId }, select: { id: true, name: true } });
+    const byName = new Map(existing.map((f) => [f.name, f.id]));
+    let room = FOLDER_MAX - existing.length;
     for (const f of localFolders) {
+      const hit = byName.get(f.name);
+      if (hit) { idMap.set(f.id, hit); continue; }
+      if (room <= 0) continue;
+      room--;
       const created = await tx.favoriteFolder.create({ data: { userId, name: f.name }, select: { id: true } });
       idMap.set(f.id, created.id);
+      byName.set(f.name, created.id);
     }
     await Promise.all([
       ...favs.map((i) => tx.savedItem.upsert({ where: { userId_kind_articleId: { userId, kind: 'favorite', articleId: i.id } }, update: {}, create: { userId, kind: 'favorite', articleId: i.id, title: i.title, slug: i.slug, folderId: (i.folder && idMap.get(i.folder)) || null } })),
