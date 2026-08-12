@@ -8,7 +8,7 @@
 > **Legend:** ✅ done · 🔵 Claude can do this in-repo · 🟠 needs a developer/infra ·
 > ❓ open question for the team
 >
-> _Last updated: 2026-08-04 (v0.30.0)_
+> _Last updated: 2026-08-12 (v0.121.0)_
 
 ---
 
@@ -66,6 +66,22 @@ reading, analytics) to that account id.
 > **15.5.x** line rather than bleeding-edge 16 — the overrides make 16 unnecessary
 > for a clean audit. When you eventually move to 16, drop the overrides and
 > re-audit.
+
+---
+
+## 1b. Legal & compliance — DO BEFORE LAUNCH _(added v0.121.0)_
+
+> These are the items most likely to be missed because the *code* is done but a
+> human still has to supply real values / wording. None block the app from
+> booting; all matter legally once real members and emails are live.
+
+| # | Item | Status | Who |
+|---|------|--------|-----|
+| L1 | **Fill the legal pages.** `Privacy Policy`, `Terms of Service`, and `Copyright & DMCA` ship as **starter templates with `[bracketed]` blanks** (business name, address, jurisdiction, contact + DMCA-agent emails). Edit them in **Admin → Pages** (or `prisma/seed.ts`) and have counsel review before public launch. | ✅ pages exist + linked in the footer · 🟠 owner/counsel fills the blanks |
+| L2 | **Set the CAN-SPAM mailing address.** `MAILING_ADDRESS` + `ORG_LEGAL_NAME` env vars feed the physical-address line every commercial email must carry. Until set, the email footer shows a visible `[Set MAILING_ADDRESS…]` placeholder. | ✅ enforced in `email.ts` (single footer) · 🟠 dev sets the env vars |
+| L3 | **Cookie consent + analytics opt-out** — a first-visit notice writes a choice to `localStorage` + a mirrored cookie; declining suppresses first-party analytics beacons and view-count bumps (verified end-to-end). No action needed unless your jurisdiction requires *opt-in* (this is notice + opt-out). | ✅ done · ❓ confirm opt-out is sufficient for your market |
+| L4 | **Newsletter digest is CAN-SPAM-shaped** — every issue has a working unsubscribe link + (once L2 is set) the physical address. The digest is already on the nightly cron (`/api/cron/newsletter`, needs `CRON_SECRET`). | ✅ done · 🟠 dev sets `CRON_SECRET` |
+| L5 | **Accessibility (ADA/WCAG)** — structural pass done (landmarks, skip link, alt text, labelled controls, heading order). **One open item:** brand-orange `#E97D34` with white text fails WCAG AA contrast (~2.1–2.9:1) across buttons/nav. Left as an **owner design decision** (recommended fix: dark-ink text on orange). See `ACCESSIBILITY.md`. | ✅ structure done · ❓ owner signs off on the contrast fix |
 
 ---
 
@@ -218,6 +234,20 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   400, not a possible 500. (3) **Postgres** — the schema is verified to generate
   clean Postgres DDL (validate + migrate diff); a live boot against a provisioned
   Postgres is the one remaining infra step (see DEPLOYMENT).
+- ✅ **Full security + bug audit** _(v0.121.0)_ — three-angle pass (authz,
+  injection/XSS/SSRF, correctness) over the whole codebase. Fixes: **SSRF** in
+  the Industry-News link-metadata fetcher (now routes through `src/lib/ssrf.ts`
+  — resolves the host, rejects all private/reserved IPv4+IPv6 ranges, and
+  re-validates every redirect hop); **open redirect** on the `?next=` login param
+  (internal paths only); login **user-enumeration timing** oracle (dummy bcrypt on
+  unknown email); newsletter link hrefs restricted to http(s); `rsnews_reader`
+  cookie gets `secure` in prod; the committed dev `AUTH_SECRET` is now rejected in
+  staging/preview too (not just `production`); optional `PARENT_PROXY_SECRET`
+  gate for header auth mode; **HSTS** header added. Also fixed a correctness bug
+  where the Simple-Upload auto-ad placer dropped both ads if a sub-heading sat at
+  the first target. **Verdict: no exploitable holes for an ordinary user**; the
+  "View as" admin preview was confirmed un-spoofable (honored only for real
+  admins). `npm audit` clean; 370 tests pass.
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API
@@ -344,6 +374,10 @@ campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-v
 `Setting` row for the homepage layout. See `prisma/schema.prisma`. `User` also
 gained cached entitlement columns mirrored from the SSO token — `accountType`,
 `tier`, `affiliations` (comma list), `vendorBrand`, `region`, `storeType`.
+Later phases added `NewsletterSubscriber`, `EmailTemplate`, `CustomModule`
+(Module Studio), the legal/CMS `Page` rows (`privacy` / `terms` / `copyright` /
+`about`), and the `Article.byline` + `Article.coverVideo` columns. All of these
+are covered by `prisma migrate deploy` + `npm run db:seed` — no manual DDL.
 
 ---
 
