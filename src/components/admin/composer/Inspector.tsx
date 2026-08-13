@@ -24,9 +24,13 @@ export default function Inspector({ article, categories, vendors = [] }: { artic
 
   return (
     <div>
-      <div className="mb-4 flex gap-1 rounded-xl border border-[var(--border)] p-1">
-        <button type="button" onClick={() => setTab('article')} className={btn(tab === 'article')}>Article details</button>
-        <button type="button" onClick={() => setTab('element')} className={btn(tab === 'element')}>Element{selected ? ' •' : ''}</button>
+      {/* Sticky within the panel's own scroll area, so the tabs stay reachable
+          while a long options list scrolls beneath them. */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 bg-[var(--composer-panel)] px-4 pb-2 pt-4">
+        <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+          <button type="button" onClick={() => setTab('article')} className={btn(tab === 'article')}>Article details</button>
+          <button type="button" onClick={() => setTab('element')} className={btn(tab === 'element')}>Element{selected ? ' •' : ''}</button>
+        </div>
       </div>
       <div className={tab === 'article' ? '' : 'hidden'}><ArticleDetails article={article} categories={categories} vendors={vendors} /></div>
       <div className={tab === 'element' ? '' : 'hidden'}><ElementInspector /></div>

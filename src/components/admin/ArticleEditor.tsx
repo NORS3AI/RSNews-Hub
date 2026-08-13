@@ -71,7 +71,7 @@ export default function ArticleEditor({
       <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers} reservedAds={reservedAds}>
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
           <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
-            <div className="card p-3">
+            <div className="card card-soft composer-panel p-3">
               <Palette />
             </div>
           </aside>
@@ -83,7 +83,9 @@ export default function ArticleEditor({
           </div>
 
           <aside className="order-3 lg:sticky lg:top-20 lg:self-start">
-            <div className="card p-4">
+            {/* The panel scrolls INTERNALLY (tabs stay pinned) when it's taller than
+                the viewport, so a long options list never runs off the page. */}
+            <div className="card card-soft composer-panel p-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
               <Inspector article={article} categories={categories} vendors={vendors} />
             </div>
           </aside>

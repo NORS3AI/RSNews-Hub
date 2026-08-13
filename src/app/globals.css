@@ -15,6 +15,7 @@
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
   --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
+  --composer-panel: #d7dde5;   /* admin editor side panels — a gray that breaks up the white */
 }
 .dark {
   --bg: #171310;
@@ -29,6 +30,7 @@
   --shadow-card: 0 3px 8px rgba(0,0,0,.55), 0 30px 60px rgba(0,0,0,.72);
   --shadow-hover: 0 6px 16px rgba(0,0,0,.6), 0 48px 88px rgba(0,0,0,.82);
   --shadow-soft: 0 1px 2px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.4);
+  --composer-panel: #20262f;
 }
 /* Explicit light palette (mirrors :root) so a subtree can force Light even when
    an ancestor is .dark — used by the article Preview's theme switch. */
@@ -38,6 +40,7 @@
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
   --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
+  --composer-panel: #d7dde5;
   --rs-cream-wash: 1;
 }
 
@@ -48,7 +51,7 @@
    an aged vintage-mailer (postmarks + RS stamps) on the cream surfaces. Module
    shapes are unchanged — a background image is clipped to the existing radius.
    `--rs-cream-wash` (0 = raw stamps, 1 = flat cream) is the readability dial. */
-.rs { --rs-cream-wash: 0.42; --fg: #3d2a19; }   /* body text = dark brown, not black */
+.rs { --rs-cream-wash: 0.42; --fg: #3d2a19; --composer-panel: #d8cdba; }   /* body text = dark brown, not black */
 
 /* Page surround: RS Mode keeps the default gray textured surround (unchanged). */
 
@@ -197,6 +200,17 @@ body::before {
   /* A far softer drop shadow — for cards nested INSIDE the reading card (Read next,
      related) so the shadow doesn't bleed over the article text. */
   .card-soft { box-shadow: var(--shadow-soft); }
+  /* Admin article-editor side panels (element palette + inspector): a flat gray
+     surface (no RS texture) that breaks up the white page. */
+  .composer-panel { background-color: var(--composer-panel) !important; background-image: none !important; }
+  /* Selected element in the article composer canvas gets a soft-orange highlight
+     box (like JotForm), so it's obvious which element the right panel is editing. */
+  .composer-surface .ProseMirror-selectednode {
+    outline: 2px solid rgba(233, 125, 52, .9);
+    outline-offset: 3px;
+    border-radius: 8px;
+    box-shadow: 0 0 0 4px rgba(233, 125, 52, .14);
+  }
   .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5; }
   .card-hover:hover { box-shadow: var(--shadow-hover); }
   /* Large framed panel that can hold nested cards (module-in-module). */
