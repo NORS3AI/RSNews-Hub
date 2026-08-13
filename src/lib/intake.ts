@@ -12,7 +12,7 @@
 import { prisma } from './db';
 import { log } from './logger';
 import { brandKey } from './entitlements';
-import { sendEmail } from './email';
+import { sendEmail, redact } from './email';
 import { renderTemplate } from './emailTemplates';
 
 /**
@@ -52,11 +52,12 @@ export async function resolveIntakeVendor(submissionId: string, vendorId: string
     const art = await prisma.article.findUnique({ where: { id: sub.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
     await prisma.article.update({ where: { id: sub.articleId }, data: { sponsorVendorId: resolvedId } });
     // On confirm, carry this article's submitter up to the vendor as their latest
-    // contact on file (only overwriting with non-empty values).
+    // ORDER contact on file (only overwriting with non-empty values). Never touches
+    // the admin-curated public phone-book contactName/contactEmail.
     if (art && (art.sponsorContactName || art.sponsorContactEmail)) {
       await prisma.vendor.update({
         where: { id: resolvedId },
-        data: { ...(art.sponsorContactName ? { contactName: art.sponsorContactName } : {}), ...(art.sponsorContactEmail ? { contactEmail: art.sponsorContactEmail } : {}) },
+        data: { ...(art.sponsorContactName ? { orderContactName: art.sponsorContactName } : {}), ...(art.sponsorContactEmail ? { orderContactEmail: art.sponsorContactEmail } : {}) },
       });
     }
   }
@@ -86,14 +87,14 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     const vendor = await prisma.vendor.findUnique({
       where: { id: a.sponsorVendorId },
-      select: { name: true, premium: true, contactEmail: true, contactName: true },
+      select: { name: true, premium: true, contactEmail: true, contactName: true, orderContactEmail: true, orderContactName: true },
     });
     if (!vendor) return;
 
     // Address THIS article's submitter first (pinned per-article), then the
-    // vendor's latest contact, then the company name / stored email.
-    const contactName = a.sponsorContactName || vendor.contactName || vendor.name;
-    const to = a.sponsorContactEmail || vendor.contactEmail;
+    // vendor's latest order contact, then the curated phone-book contact / name.
+    const contactName = a.sponsorContactName || vendor.orderContactName || vendor.contactName || vendor.name;
+    const to = a.sponsorContactEmail || vendor.orderContactEmail || vendor.contactEmail;
 
     // Claim the one-time notify ATOMICALLY, so two rapid/concurrent publishes can't
     // both read null and both send. Only the winner proceeds; on email failure we
@@ -109,7 +110,7 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     if (vendor.premium && to) {
       const r = await sendEmail({ to, subject, text, html });
-      if (r.ok) log.info('sponsor go-live email sent', { articleId: a.id, to });
+      if (r.ok) log.info('sponsor go-live email sent', { articleId: a.id, to: redact(to) });
       else await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: null } }); // release for retry
       return;
     }

@@ -90,18 +90,19 @@ export async function ingestContentSubmission(rawObj: Record<string, unknown>, s
     const v = await prisma.vendor.upsert({
       where: { brandKey: brandKey(parsed.vendorName) },
       update: {},
-      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true, contactEmail: parsed.email || null, contactName: parsed.contactName || null },
+      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true, orderContactEmail: parsed.email || null, orderContactName: parsed.contactName || null },
       select: { id: true },
     });
     vendorId = v.id;
     matchVendorId = v.id;
   }
-  // Keep the vendor's latest contact person + email on file (each submission can
-  // be a different rep). Only overwrite with non-empty values from this order.
+  // Keep the vendor's latest ORDER contact person + email on file (each submission
+  // can be a different rep). Writes only the order-contact fields — NEVER the
+  // admin-curated, publicly-rendered phone-book contactName/contactEmail.
   if (vendorId && (parsed.contactName || parsed.email)) {
     await prisma.vendor.update({
       where: { id: vendorId },
-      data: { ...(parsed.contactName ? { contactName: parsed.contactName } : {}), ...(parsed.email ? { contactEmail: parsed.email } : {}) },
+      data: { ...(parsed.contactName ? { orderContactName: parsed.contactName } : {}), ...(parsed.email ? { orderContactEmail: parsed.email } : {}) },
     });
   }
 

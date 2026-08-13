@@ -5,8 +5,9 @@
 // The COPY is admin-editable (see src/lib/emailTemplates + /admin/email-templates);
 // here we just find what's due, build the merge-tag values, render the chosen
 // template, and send. A reminder is marked sent ONLY after a successful (or safely
-// no-op'd) send, so we never mark done without notifying. Vendors with no
-// `contactEmail` are skipped (and left due) until one is known.
+// no-op'd) send, so we never mark done without notifying. Vendors with no address
+// on file (order contact, else the curated contactEmail) are skipped (and left
+// due) until one is known.
 
 import { prisma } from './db';
 import { sendEmail } from './email';
@@ -33,10 +34,10 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const freshLead = new Date(now.getTime() + FRESH_ADS_LEAD_DAYS * 86_400_000);
   const flights = await prisma.adFlight.findMany({
     where: { status: { in: ['AWAITING', 'REVIEW'] }, startAt: { gt: now, lte: freshLead }, remindedAt: null, campaign: { status: 'ACTIVE' } },
-    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, plan: true, vendor: { select: { contactEmail: true } } } } },
+    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, plan: true, vendor: { select: { contactEmail: true, orderContactEmail: true } } } } },
   });
   for (const f of flights) {
-    const to = f.campaign.vendor?.contactEmail;
+    const to = f.campaign.vendor?.orderContactEmail || f.campaign.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
     const vars: TemplateVars = {
       vendorName: f.campaign.vendorName,
@@ -54,10 +55,10 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const renewLead = new Date(now.getTime() + RENEWAL_LEAD_DAYS * 86_400_000);
   const campaigns = await prisma.adCampaign.findMany({
     where: { status: 'ACTIVE', endAt: { gt: now, lte: renewLead }, renewalRemindedAt: null },
-    select: { id: true, vendorName: true, plan: true, endAt: true, vendor: { select: { contactEmail: true } } },
+    select: { id: true, vendorName: true, plan: true, endAt: true, vendor: { select: { contactEmail: true, orderContactEmail: true } } },
   });
   for (const c of campaigns) {
-    const to = c.vendor?.contactEmail;
+    const to = c.vendor?.orderContactEmail || c.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
     const vars: TemplateVars = {
       vendorName: c.vendorName, packageLabel: packageLabel(c.plan),

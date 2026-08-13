@@ -80,15 +80,18 @@ describe('payment-confirmation go-live gate', () => {
   });
 });
 
-describe('vendor contact email (JotForm freshness)', () => {
-  it('a later order overwrites the email; a no-email call leaves it', async () => {
+describe('vendor order contact email (JotForm freshness)', () => {
+  it('a later order overwrites the ORDER email; a no-email call leaves it; the public contactEmail is never touched', async () => {
     const name = brand('FreshCo');
     const id = await findOrCreateVendor(name, prisma, 'first@v.com');
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('first@v.com');
+    let v = (await prisma.vendor.findUnique({ where: { id } }))!;
+    expect(v.orderContactEmail).toBe('first@v.com');
+    expect(v.contactEmail).toBeNull();                 // curated public field untouched by the order
     await findOrCreateVendor(name, prisma, 'second@v.com');
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('second@v.com');
+    v = (await prisma.vendor.findUnique({ where: { id } }))!;
+    expect(v.orderContactEmail).toBe('second@v.com');   // latest order wins
     await findOrCreateVendor(name); // no email → untouched
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('second@v.com');
+    expect((await prisma.vendor.findUnique({ where: { id } }))!.orderContactEmail).toBe('second@v.com');
     await purge(name);
   });
 });

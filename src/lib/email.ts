@@ -28,7 +28,7 @@ export function isEmailConfigured(): boolean {
   return !!(process.env.EMAIL_FROM && activeProvider());
 }
 
-function redact(email: string): string {
+export function redact(email: string): string {
   const [user, domain] = email.split('@');
   return domain ? `${user.slice(0, 2)}***@${domain}` : '***';
 }

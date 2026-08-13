@@ -358,8 +358,15 @@ model Vendor {
   id           String       @id @default(cuid())
   name         String                       // display name, as first entered
   brandKey     String       @unique         // normalized match key (see lib/vendors)
-  contactEmail String?                      // reminders / performance reports (later phases)
+  contactEmail String?                      // ADMIN-CURATED public "official" contact email (phone book); reminders/go-live fall back to it
   notes        String?
+  // The person on file from the vendor's LATEST JotForm order / sponsored-article
+  // submission — who WE email about that order (go-live, reminders). Each order can
+  // be a different rep ("latest wins"). Deliberately SEPARATE from contactName/
+  // contactEmail (the admin-curated, publicly-rendered phone-book contact) so an
+  // untrusted webhook can never overwrite/deface the public directory entry.
+  orderContactName  String?
+  orderContactEmail String?
   // Set when the hub auto-created this vendor from an intake submission with no
   // confident match — surfaced in the intake queue so an admin can review the
   // new record (merge a duplicate, fill contact details) rather than it landing

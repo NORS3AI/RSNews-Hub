@@ -124,16 +124,18 @@ export async function scheduleFlight(flightId: string): Promise<void> {
 async function notifyAdsLive(campaignId: string): Promise<void> {
   const c = await prisma.adCampaign.findUnique({
     where: { id: campaignId },
-    select: { vendorName: true, liveNotifiedAt: true, vendor: { select: { contactEmail: true, contactName: true } } },
+    select: { vendorName: true, liveNotifiedAt: true, vendor: { select: { contactEmail: true, contactName: true, orderContactEmail: true, orderContactName: true } } },
   });
   if (!c || c.liveNotifiedAt) return;
-  const to = c.vendor?.contactEmail;
+  // Email the person who placed the latest order first; fall back to the curated
+  // phone-book address.
+  const to = c.vendor?.orderContactEmail || c.vendor?.contactEmail;
   if (!to) return; // no address yet — leave unnotified so a later go-live can still send
   const dashboardUrl = `${process.env.SITE_URL || ''}/docs/vendor`;
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  // Greet the vendor's latest contact person (from their most recent ad order),
-  // falling back to the company name.
-  const contactName = c.vendor?.contactName || c.vendorName;
+  // Greet the vendor's latest order contact person, falling back to the curated
+  // contact, then the company name.
+  const contactName = c.vendor?.orderContactName || c.vendor?.contactName || c.vendorName;
   const { subject, text, html } = await renderTemplate('ads_live', { contactName, vendorName: c.vendorName, date, dashboardUrl });
   const r = await sendEmail({ to, subject, text, html });
   if (r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: new Date() } });

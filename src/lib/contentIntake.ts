@@ -120,8 +120,10 @@ const FIELD_KEYWORDS: Record<keyof ContentFieldMap, string[]> = {
   headline: ['headline', 'articletitle', 'title', 'subject', 'heading'],
   vendorName: ['companyname', 'company', 'businessname', 'business', 'vendor', 'advertiser', 'brand', 'organization', 'organisation'],
   // The submitting PERSON. Resolved AFTER vendorName so "companyName" is claimed
-  // as the company first; a bare "Name"/"Full Name"/"Contact" field is the person.
-  contactName: ['contactname', 'fullname', 'yourname', 'contactperson', 'submittername', 'repname', 'contact', 'name'],
+  // as the company first. NOTE: no bare "name" keyword — it is too broad and would
+  // mis-grab productName/fileName/userName; the specific person-field labels below
+  // cover every real "your name / contact person" field.
+  contactName: ['contactname', 'fullname', 'yourname', 'contactperson', 'submittername', 'repname'],
   body: ['articlebody', 'body', 'article', 'copy', 'content', 'story', 'writeup', 'submission', 'pressrelease', 'description'],
 };
 

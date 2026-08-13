@@ -28,23 +28,26 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * vendor, and the first-seen display name is preserved (a later spelling won't
  * clobber it).
  *
- * `contactEmail` (when provided — i.e. a JotForm order carried one) ALWAYS wins
- * and refreshes the vendor's contact, because the email on the latest order is
- * the most current person to reach for reminders. Omitting it (e.g. an
- * admin-created campaign) leaves any existing address untouched.
+ * A JotForm order's contact person + email (when provided) refresh the vendor's
+ * ORDER contact (orderContactName/orderContactEmail) — the latest rep to reach
+ * about their order — because each order can be a different person. These are
+ * DISTINCT from contactName/contactEmail, the admin-curated, publicly-rendered
+ * phone-book contact, which an untrusted webhook must never overwrite. Omitting
+ * them (e.g. an admin-created campaign) leaves the existing values untouched.
  */
 export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string, contactName?: string): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
   const email = contactEmail?.trim() || undefined;
   const person = contactName?.trim() || undefined;
-  // The latest submission's contact person + email win (each order can be a
-  // different rep); omitting either leaves the existing value untouched.
-  const update = { ...(email ? { contactEmail: email } : {}), ...(person ? { contactName: person } : {}) };
+  // The latest order's contact person + email win (each order can be a different
+  // rep); omitting either leaves the existing value untouched. Never touches the
+  // public phone-book contactName/contactEmail.
+  const update = { ...(email ? { orderContactEmail: email } : {}), ...(person ? { orderContactName: person } : {}) };
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
     update,
-    create: { name: name.trim(), brandKey: key, contactEmail: email, contactName: person },
+    create: { name: name.trim(), brandKey: key, orderContactEmail: email, orderContactName: person },
     select: { id: true },
   });
   return vendor.id;
