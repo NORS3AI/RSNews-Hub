@@ -20,6 +20,8 @@ export type VendorReviewCard = {
     publishedAt: Date | null;
     sponsoredUntil: Date | null;
     previewToken: string | null;
+    genre: string;
+    categoryName: string | null;
   };
 };
 
@@ -29,11 +31,15 @@ export async function listVendorReviews(vendorId: string): Promise<VendorReviewC
   const rows = await prisma.vendorReviewRequest.findMany({
     where: { vendorId },
     orderBy: { createdAt: 'desc' },
-    include: { article: { select: { id: true, title: true, slug: true, status: true, publishedAt: true, sponsoredUntil: true, previewToken: true } } },
+    include: { article: { select: { id: true, title: true, slug: true, status: true, publishedAt: true, sponsoredUntil: true, previewToken: true, genre: true, category: { select: { name: true } } } } },
   });
   return rows.map((r) => ({
     id: r.id, createdAt: r.createdAt, decision: r.decision, message: r.message, decidedAt: r.decidedAt,
-    article: r.article,
+    article: {
+      id: r.article.id, title: r.article.title, slug: r.article.slug, status: r.article.status,
+      publishedAt: r.article.publishedAt, sponsoredUntil: r.article.sponsoredUntil, previewToken: r.article.previewToken,
+      genre: r.article.genre, categoryName: r.article.category?.name ?? null,
+    },
   }));
 }
 

@@ -135,7 +135,7 @@ function seedFrom(s: string): number {
  * - Prefers an ad relevant to the article (its own brand is mentioned).
  * - Otherwise a neutral ad (no keywords and no competitors).
  */
-export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = '', safeText?: string): AdRow | null {
+export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = '', safeText?: string, lockBrand = ''): AdRow | null {
   const hay = normalize(articleText);
   // Competitor suppression checks the article's TAGS (curated business names) when
   // provided — precise, no body-text false positives. Relevance still uses the
@@ -143,6 +143,19 @@ export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: str
   const safeHay = safeText != null ? normalize(safeText) : hay;
   const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, safeHay));
   if (!safe.length) return null;
+
+  // HARD LOCK (a vendor-connected article, e.g. What's Hot): show ONLY that
+  // vendor's creative; if they have none for this slot, fall back to a true RS
+  // house ad (our own brands — no flight, no schedule window). NEVER another
+  // advertiser, so a competitor can never appear in a vendor's article.
+  const lock = lockBrand.trim().toLowerCase();
+  if (lock) {
+    const mine = safe.filter((a) => a.brand.trim().toLowerCase() === lock);
+    if (mine.length) return mine[seedFrom(slotSeed) % mine.length];
+    const house = safe.filter((a) => !a.flightId && !a.liveFrom && !a.liveUntil);
+    if (house.length) return house[seedFrom(slotSeed) % house.length];
+    return null; // nothing safe/ours to show — the slot collapses rather than risk a rival
+  }
 
   // Preference order:
   //  1. the VISITING VENDOR's own live ads (favorBrand) — show them their brand,
@@ -171,9 +184,12 @@ export function adsAreRivals(a: AdRow, b: AdRow): boolean {
 }
 
 /** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
-export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '', safeText?: string) {
-  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand, safeText);
-  const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
-  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand, safeText);
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '', safeText?: string, lockBrand = '') {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand, safeText, lockBrand);
+  // When locked to a vendor we WANT the same vendor in both slots, so don't apply
+  // the same-brand rivalry exclusion (which would otherwise push the bottom to a
+  // house ad). Unlocked, the bottom is still kept off a rival of the top.
+  const rest = top && !lockBrand ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand, safeText, lockBrand);
   return { top, bottom };
 }

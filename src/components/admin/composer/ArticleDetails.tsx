@@ -8,12 +8,13 @@ import { suggestTags } from '@/lib/suggestTags';
 import { useComposer } from './context';
 
 type Cat = { id: string; name: string };
+type Vendor = { id: string; name: string };
 type Article = {
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   byline?: string | null;
   coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
-  sponsoredUntil?: string | Date | null;
+  sponsoredUntil?: string | Date | null; sponsorVendorId?: string | null;
   publishedAt?: string | Date | null;
 };
 
@@ -39,8 +40,17 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </div>
 );
 
-export default function ArticleDetails({ article, categories }: { article?: Article; categories: Cat[] }) {
+export default function ArticleDetails({ article, categories, vendors = [] }: { article?: Article; categories: Cat[]; vendors?: Vendor[] }) {
   const { html } = useComposer();
+  // Connected vendor — the advertiser a sponsored or What's Hot piece belongs to.
+  // Setting it locks the article's in-article ads to that vendor (house fallback)
+  // and lets us push it to their dashboard for review. We nudge (but never force)
+  // picking one when the article is filed under What's Hot.
+  const whatsHotId = categories.find((c) => c.name === "What's Hot")?.id ?? '';
+  const [primaryCat, setPrimaryCat] = useState(article?.categoryId ?? '');
+  const [extraCatSet, setExtraCatSet] = useState<Set<string>>(new Set((article?.extraCategories ?? []).map((c) => c.id)));
+  const [vendorSel, setVendorSel] = useState(article?.sponsorVendorId ?? '');
+  const isWhatsHot = !!whatsHotId && (primaryCat === whatsHotId || extraCatSet.has(whatsHotId));
   const [cover, setCover] = useState(article?.coverImage as string ?? '');
   const [focus, setFocus] = useState((article?.coverFocus as string) || '50% 50%');
   const [imgError, setImgError] = useState<string | null>(null);
@@ -118,7 +128,7 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
       <Section title="Categories">
         <div>
           <label className="label" htmlFor="categoryId">Primary</label>
-          <select id="categoryId" name="categoryId" defaultValue={article?.categoryId ?? ''} className="input">
+          <select id="categoryId" name="categoryId" defaultValue={article?.categoryId ?? ''} onChange={(e) => setPrimaryCat(e.target.value)} className="input">
             <option value="">Uncategorized</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -128,11 +138,29 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
           <div className="grid max-h-40 grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto rounded-lg border border-[var(--border)] p-2.5">
             {categories.map((c) => (
               <label key={c.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="extraCategoryIds" value={c.id} defaultChecked={extraIds.has(c.id)} className="h-4 w-4 rounded border-[var(--border)]" />
+                <input type="checkbox" name="extraCategoryIds" value={c.id} defaultChecked={extraIds.has(c.id)}
+                  onChange={(e) => setExtraCatSet((prev) => { const n = new Set(prev); if (e.target.checked) n.add(c.id); else n.delete(c.id); return n; })}
+                  className="h-4 w-4 rounded border-[var(--border)]" />
                 <span className="truncate">{c.name}</span>
               </label>
             ))}
           </div>
+        </div>
+        {/* Connected vendor — the advertiser this piece belongs to. */}
+        <div>
+          <label className="label" htmlFor="sponsorVendorId">Connected vendor <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+          <select id="sponsorVendorId" name="sponsorVendorId" value={vendorSel} onChange={(e) => setVendorSel(e.target.value)} className="input">
+            <option value="">None</option>
+            {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Locks this article’s in-article ads to that vendor (RS house ads fill any gaps — never a competitor), and lets you send it to their dashboard for review.
+          </p>
+          {isWhatsHot && !vendorSel && (
+            <p className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800">
+              This is a <strong>What’s Hot</strong> article — connect the vendor it’s about so their ads run in it and they can review it. (Leave as None to override.)
+            </p>
+          )}
         </div>
       </Section>
 

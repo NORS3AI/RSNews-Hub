@@ -37,7 +37,7 @@ export default async function EditArticle(props: { params: Promise<{ id: string 
           preserves the TipTap client state across the redirect. */}
       <ArticleEditor key={`${a.id}:${new Date(a.updatedAt).getTime()}:${a.draftSavedAt ? new Date(a.draftSavedAt).getTime() : 0}`}
         article={eff} categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
-        advertisers={advertisers} reservedAds={reservedAds} authorName={a.author?.name || 'You'} />
+        advertisers={advertisers} reservedAds={reservedAds} vendors={vendors} authorName={a.author?.name || 'You'} />
       <ArticleReviews
         articleId={a.id} slug={a.slug} previewToken={a.previewToken ?? null}
         reviews={reviews.map((r) => ({ id: r.id, firstName: r.firstName, lastName: r.lastName, decision: r.decision, message: r.message, resolved: r.resolved, createdAt: r.createdAt }))} />

@@ -64,9 +64,14 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
   try {
     const a = await prisma.article.findUnique({
       where: { id: articleId },
-      select: { id: true, title: true, slug: true, status: true, sponsorVendorId: true, sponsorNotifiedAt: true },
+      select: { id: true, title: true, slug: true, status: true, genre: true, sponsoredUntil: true, sponsorVendorId: true, sponsorNotifiedAt: true },
     });
     if (!a || a.status !== 'PUBLISHED' || !a.sponsorVendorId || a.sponsorNotifiedAt) return;
+    // Only SPONSORED pieces get the "your sponsored article is live" message. A
+    // vendor's What's Hot article can also carry a sponsorVendorId (for the review
+    // flow + ad lock), but it isn't a paid placement — its go-live shows on the
+    // dashboard ("Posted …"), not as a sponsored email.
+    if (a.genre !== 'sponsored' && !a.sponsoredUntil) return;
 
     const vendor = await prisma.vendor.findUnique({
       where: { id: a.sponsorVendorId },

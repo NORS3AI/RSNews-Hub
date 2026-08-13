@@ -15,7 +15,7 @@ import ArticleContent from '@/components/site/ArticleContent';
 import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds } from '@/lib/adsServer';
 import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
-import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
+import { entitlementsOf, canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
@@ -99,8 +99,14 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // A visiting vendor sees their own brand's ads surfaced first (and an admin
   // viewing "as" a vendor sees the same).
   const favorBrand = entitlementsOf(gateAccount ?? {}).vendorBrand;
+  // If this article is CONNECTED to a vendor (a sponsored piece or a What's Hot
+  // article we tied to them), hard-lock every in-article ad to that vendor — house
+  // ads fill any slot they can't, and a competitor can never appear in their piece.
+  const lockBrand = (article as any).sponsorVendorId
+    ? brandKey((await prisma.vendor.findUnique({ where: { id: (article as any).sponsorVendorId }, select: { name: true } }))?.name || '')
+    : '';
   const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
-    pickArticleAds(adContext, 'article', favorBrand, adSafeContext),
+    pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
     loadBrandArticleAds(article.content),
     resolveReservedArticleAds(article.content),

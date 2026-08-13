@@ -38,8 +38,8 @@ type Article = {
 // tabbed inspector (right) for Article details vs the selected element — one
 // shared TipTap editor behind all three, via ComposerProvider.
 export default function ArticleEditor({
-  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], authorName = 'You',
-}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; authorName?: string }) {
+  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], authorName = 'You',
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; authorName?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   useUnsavedGuard(formRef);
   return (
@@ -84,7 +84,7 @@ export default function ArticleEditor({
 
           <aside className="order-3 lg:sticky lg:top-20 lg:self-start">
             <div className="card p-4">
-              <Inspector article={article} categories={categories} />
+              <Inspector article={article} categories={categories} vendors={vendors} />
             </div>
           </aside>
         </div>

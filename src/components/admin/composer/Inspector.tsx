@@ -9,7 +9,7 @@ type Cat = { id: string; name: string };
 // Right rail: Article details vs the selected element's options. Both stay
 // mounted (just hidden) so the article's form fields always submit — we only
 // flip which one is visible, auto-switching to Element when you select one.
-export default function Inspector({ article, categories }: { article?: any; categories: Cat[] }) {
+export default function Inspector({ article, categories, vendors = [] }: { article?: any; categories: Cat[]; vendors?: { id: string; name: string }[] }) {
   const { selected } = useComposer();
   const [tab, setTab] = useState<'article' | 'element'>('article');
   const had = useRef(false);
@@ -28,7 +28,7 @@ export default function Inspector({ article, categories }: { article?: any; cate
         <button type="button" onClick={() => setTab('article')} className={btn(tab === 'article')}>Article details</button>
         <button type="button" onClick={() => setTab('element')} className={btn(tab === 'element')}>Element{selected ? ' •' : ''}</button>
       </div>
-      <div className={tab === 'article' ? '' : 'hidden'}><ArticleDetails article={article} categories={categories} /></div>
+      <div className={tab === 'article' ? '' : 'hidden'}><ArticleDetails article={article} categories={categories} vendors={vendors} /></div>
       <div className={tab === 'element' ? '' : 'hidden'}><ElementInspector /></div>
     </div>
   );

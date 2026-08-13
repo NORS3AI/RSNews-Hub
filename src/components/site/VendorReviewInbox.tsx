@@ -14,8 +14,17 @@ export type VendorReviewCard = {
   article: {
     id: string; title: string; slug: string; status: string;
     publishedAt: Date | string | null; sponsoredUntil: Date | string | null; previewToken: string | null;
+    genre: string; categoryName: string | null;
   };
 };
+
+// The article-type prefix a vendor sees: "Sponsored" (genre, not a category) wins;
+// otherwise the primary category ("What's Hot", …). '' when neither applies.
+function typeLabel(a: VendorReviewCard['article']): string {
+  if (a.genre === 'sponsored') return 'Sponsored article';
+  if (a.categoryName) return `${a.categoryName} article`;
+  return '';
+}
 
 // The vendor's review inbox on their dashboard. Each card is one round the admin
 // pushed. A pending round is actionable (preview + Approve / Request changes);
@@ -62,6 +71,7 @@ function ReviewCard({ r }: { r: VendorReviewCard }) {
     <div className={`card p-4 ${locked && !published ? 'opacity-70' : ''}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
+          {typeLabel(a) && <div className="text-[11px] font-bold uppercase tracking-wide text-brand-600">{typeLabel(a)}</div>}
           <div className="font-semibold">{a.title}</div>
           <div className="text-xs text-[var(--muted)]">Sent for review {formatDateTimeUTC(r.createdAt)}</div>
         </div>

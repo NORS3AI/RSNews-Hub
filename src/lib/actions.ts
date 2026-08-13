@@ -145,6 +145,13 @@ export async function saveArticle(formData: FormData) {
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
   // Optional editorial genre — whitelisted to a known token or '' (none).
   const genre = normalizeGenre(formData.get('genre'));
+  // Optional connected vendor (the advertiser this piece belongs to — sponsored or
+  // a What's Hot article). Verified to be a real vendor id, else cleared. Drives the
+  // in-article ad lock + the "send to dashboard" default. '' → null (not connected).
+  const sponsorVendorIdRaw = ((formData.get('sponsorVendorId') as string) || '').trim();
+  const sponsorVendorId = sponsorVendorIdRaw
+    ? (await prisma.vendor.findUnique({ where: { id: sponsorVendorIdRaw }, select: { id: true } }))?.id ?? null
+    : null;
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
   // Optional display byline (overrides the author account name in the reader).
   const byline = ((formData.get('byline') as string) || '').trim().slice(0, 120);
@@ -205,7 +212,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -220,7 +227,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

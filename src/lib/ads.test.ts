@@ -79,6 +79,36 @@ const postalmate = ad({ id: 'pm', brand: 'PostalMate', keywords: 'PostalMate, po
 const shiprite = ad({ id: 'sr', brand: 'ShipRite', keywords: 'ShipRite, ship rite', competitors: 'PostalMate, postal mate' });
 const neutral = ad({ id: 'nz', brand: 'BrewCrate' });
 
+describe('pickInArticleAd — vendor lock (connected article)', () => {
+  it('serves ONLY the locked vendor’s ad, ignoring paid rivals', () => {
+    const mine = ad({ id: 'mine', brand: 'PackWise', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const rival = ad({ id: 'rival', brand: 'ShipRite', flightId: 'fl2', flightStatus: 'SCHEDULED', ...inWindow });
+    const house = ad({ id: 'house', brand: 'RS News' });
+    expect(pickInArticleAd([rival, house, mine], 'text', 'seed', NOW, '', undefined, 'packwise')?.id).toBe('mine');
+  });
+
+  it('falls back to a TRUE house ad (no flight, no window) when the vendor has none', () => {
+    const rival = ad({ id: 'rival', brand: 'ShipRite', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const house = ad({ id: 'house', brand: 'RS News' });
+    expect(pickInArticleAd([rival, house], 'text', 'seed', NOW, '', undefined, 'packwise')?.id).toBe('house');
+  });
+
+  it('never falls back to another advertiser — returns null rather than a rival', () => {
+    const rival = ad({ id: 'rival', brand: 'ShipRite', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const oneOff = ad({ id: 'oneoff', brand: 'OtherCo', liveFrom: '2026-06-01T00:00:00Z', liveUntil: '2026-09-01T00:00:00Z' });
+    expect(pickInArticleAd([rival, oneOff], 'text', 'seed', NOW, '', undefined, 'packwise')).toBeNull();
+  });
+
+  it('locks BOTH slots to the vendor (bottom is not pushed off by same-brand rivalry)', () => {
+    const wide = ad({ id: 'wide', brand: 'PackWise', imageWide: 'w.png' });
+    const rect = ad({ id: 'rect', brand: 'PackWise', imageRect: 'r.png' });
+    const rival = ad({ id: 'rival', brand: 'ShipRite', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
+    const { top, bottom } = pickTwoInArticleAds([wide, rect, rival], 'text', 'a', NOW, '', undefined, 'packwise');
+    expect(top?.brand).toBe('PackWise');
+    expect(bottom?.brand).toBe('PackWise');
+  });
+});
+
 describe('adIsSafe', () => {
   it('suppresses an ad whose competitor is named in the article', () => {
     expect(adIsSafe(shiprite, ' this article covers postalmate deeply. ')).toBe(false);
