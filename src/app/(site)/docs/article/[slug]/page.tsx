@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { getRelatedArticles } from '@/lib/recommend';
-import ArticleCard from '@/components/ArticleCard';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
@@ -183,32 +182,39 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             ))}
           </div>
         )}
-        </div>
 
-        {/* Next article */}
-        {next && (
-          <Link href={`/docs/article/${next.slug}`}
-            className="card mt-10 flex items-center justify-between gap-4 p-5 transition-shadow hover:shadow-md">
-            <div className="min-w-0">
-              <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</div>
-              <div className="mt-1 truncate font-semibold">{next.title}</div>
-            </div>
-            <ArrowRight className="shrink-0 text-brand-600" />
-          </Link>
-        )}
-      </div>
-
-      {/* Related — the recommendation engine */}
-      {related.length > 0 && (
-        <div className="border-t border-[var(--border)] bg-[var(--bg-soft)]">
-          <div className="container-page py-10">
-            <h2 className="mb-5 text-lg font-bold">If you read this, you might like…</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {related.map((a) => <ArticleCard key={a.id} article={a} />)}
-            </div>
+        {/* Read next + related — kept INSIDE the reading card at the bottom, compact,
+            so the full page matches the in-app reader modal (not a separate,
+            oversized full-width module). */}
+        {(next || related.length > 0) && (
+          <div className="mt-8 space-y-6 border-t border-[var(--border)] pt-6">
+            {next && (
+              <Link href={`/docs/article/${next.slug}`}
+                className="card card-hover flex items-center justify-between gap-4 p-5">
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</span>
+                  <span className="mt-1 block truncate font-semibold">{next.title}</span>
+                </span>
+                <ArrowRight className="shrink-0 text-brand-600" />
+              </Link>
+            )}
+            {related.length > 0 && (
+              <div>
+                <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">If you read this, you might like…</h2>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {related.slice(0, 3).map((r) => (
+                    <Link key={r.id} href={`/docs/article/${r.slug}`} className="card card-hover p-4">
+                      {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
+                      <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+        )}
         </div>
-      )}
+      </div>
     </>
   );
 }

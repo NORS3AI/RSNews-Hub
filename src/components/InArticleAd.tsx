@@ -61,33 +61,24 @@ export default function InArticleAd({
     );
   }
 
-  // Text card. AdExpand is a sibling OUTSIDE the data-trk-* element so overlay
-  // clicks don't bubble (capture-phase) to the ad's own click tracking.
+  // No image creative on file for this slot. We don't run word ads inside
+  // articles — instead show a themed, correctly-shaped placeholder (a horizontal
+  // banner for the in-article slot, a rectangle for the bottom slot) in the
+  // site's orange, awaiting the advertiser's image creative. No word/text layout.
   return (
-    <div className={`relative mx-auto w-full ${rect && !fill ? 'max-w-[340px]' : ''}`}>
+    <div className={`mx-auto w-full ${rect && !fill ? 'max-w-[340px]' : ''}`}>
       <div
         data-ad-slot={slot}
         data-ad-brand={ad.brand}
         {...trk}
-        aria-label="Advertisement"
-        className="w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
+        aria-label={`Advertisement: ${ad.brand}`}
+        className={`flex flex-col items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-6 text-center text-white ${rect ? 'min-h-[250px]' : 'min-h-[140px]'}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
-        <div className="h-1" style={{ background: ad.accent }} />
-        <div className="p-4">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white" style={{ background: ad.accent }}>Ad</span>
-            <span className="text-xs font-bold text-[var(--fg)]">{ad.brand}</span>
-            {ad.label && <span className="ml-auto text-[11px] text-[var(--muted)]">{ad.label}</span>}
-          </div>
-          <p className="text-[15px] font-semibold leading-snug text-[var(--fg)]">{ad.headline}</p>
-          {/* pr-10 keeps a long CTA clear of the corner ⤢ button */}
-          <a href={ad.href} className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 pr-10 text-sm font-bold text-white" style={{ background: ad.accent }}>
-            {ad.cta} →
-          </a>
-        </div>
+        <span className="rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]">Ad</span>
+        <span className="text-base font-extrabold">{ad.brand}</span>
+        {ad.label && <span className="text-[11px] font-medium text-white/80">{ad.label}</span>}
       </div>
-      <AdExpand kind="text" brand={ad.brand} href={ad.href} cta={ad.cta} subjectId={ad.id} placement={slot} trkProps={trkProps} headline={ad.headline} accent={ad.accent} />
     </div>
   );
 }

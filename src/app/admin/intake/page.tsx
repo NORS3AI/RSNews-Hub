@@ -89,24 +89,27 @@ export default async function AdminIntake() {
                   </div>
                 </div>
 
-                {/* Confirm-before-merge: only when a match is held pending. */}
-                {pending && (
+                {/* Vendor control on every processed submission: a held match is
+                    CONFIRMED here (confirm-before-merge); an already-bound one can be
+                    swapped to the right advertiser at any time. */}
+                {s.status === 'PROCESSED' && (
                   <form action={confirmIntakeVendor} className="mt-3 flex flex-wrap items-end gap-2 border-t border-[var(--border)] pt-3">
                     <input type="hidden" name="submissionId" value={s.submissionId} />
                     <div className="min-w-56 flex-1">
                       <label className="label text-xs">
-                        Confirm the vendor for “{s.matchName}”
-                        {suggestedName ? <> — closest match: <strong>{suggestedName}</strong> ({s.confidence}%)</> : null}
+                        {pending
+                          ? <>Confirm the vendor for “{s.matchName}”{suggestedName ? <> — closest match: <strong>{suggestedName}</strong> ({s.confidence}%)</> : null}</>
+                          : <>Vendor: <strong>{boundName || 'unassigned'}</strong> — change it if this belongs to a different advertiser</>}
                       </label>
-                      <select name="vendorId" className="input h-9" defaultValue={s.matchVendorId ?? 'new'}>
-                        {s.matchVendorId && <option value={s.matchVendorId}>Use “{suggestedName}” (the suggested match)</option>}
+                      <select name="vendorId" className="input h-9" defaultValue={s.vendorId ?? s.matchVendorId ?? 'new'}>
+                        {pending && s.matchVendorId && <option value={s.matchVendorId}>Use “{suggestedName}” (the suggested match)</option>}
                         <option value="new">Create a new vendor “{s.matchName}”</option>
-                        <optgroup label="Assign to a different vendor">
+                        <optgroup label="Assign to a vendor">
                           {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                         </optgroup>
                       </select>
                     </div>
-                    <button className="btn-primary btn-sm">Confirm vendor</button>
+                    <button className={pending ? 'btn-primary btn-sm' : 'btn-outline btn-sm'}>{pending ? 'Confirm vendor' : 'Change vendor'}</button>
                   </form>
                 )}
               </div>
