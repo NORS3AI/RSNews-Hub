@@ -217,14 +217,6 @@ body::before {
     --bg-soft: #2b333e;
     color: #f1ece1;
   }
-  /* Selected element in the article composer canvas gets a soft-orange highlight
-     box (like JotForm), so it's obvious which element the right panel is editing. */
-  .composer-surface .ProseMirror-selectednode {
-    outline: 2px solid rgba(233, 125, 52, .9);
-    outline-offset: 3px;
-    border-radius: 8px;
-    box-shadow: 0 0 0 4px rgba(233, 125, 52, .14);
-  }
   .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5; }
   .card-hover:hover { box-shadow: var(--shadow-hover); }
   /* Large framed panel that can hold nested cards (module-in-module). */
@@ -313,7 +305,9 @@ body.modal-open { overflow: hidden; }
 .composer-surface p.is-editor-empty:first-child::before {
   content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none;
 }
-.composer-surface .ProseMirror-selectednode { border-radius: 12px; box-shadow: 0 0 0 2px #E97D34; }
+/* Selected element in the composer canvas: a single soft-orange highlight box
+   (JotForm-style), so it's obvious which element the right panel is editing. */
+.composer-surface .ProseMirror-selectednode { border-radius: 8px; outline: 2px solid rgba(233,125,52,.9); outline-offset: 3px; box-shadow: 0 0 0 4px rgba(233,125,52,.14); }
 
 /* Divider */
 .prose-article hr, .composer-surface hr { border: 0; border-top: 2px solid var(--border); margin: 2rem 0; }

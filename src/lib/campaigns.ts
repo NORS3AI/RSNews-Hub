@@ -40,6 +40,11 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
   // id, not by the free-text label.
   const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName, db));
 
+  // Store the order contact, but only a well-formed email (defense-in-depth: don't
+  // persist an unsendable string that could shadow the vendor's fallback address).
+  const emailRaw = input.contactEmail?.trim();
+  const contactEmail = emailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : null;
+
   const flights = generateFlights(input.startAt, endAt, plan.flightDays);
   const campaign = await db.adCampaign.create({
     data: {
@@ -51,7 +56,7 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
       allowsVideo: plan.allowsVideo,
       notes: input.notes || null,
       contactName: input.contactName?.trim() || null,
-      contactEmail: input.contactEmail?.trim() || null,
+      contactEmail,
       status: input.status === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
       flights: { create: flights.map((f) => ({ index: f.index, startAt: f.startAt, endAt: f.endAt })) },
     },

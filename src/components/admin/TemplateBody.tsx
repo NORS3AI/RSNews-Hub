@@ -13,8 +13,12 @@ export default function TemplateBody({ name, defaultValue, tags }: {
     const el = ref.current;
     const token = `{${tag}}`;
     if (!el) return;
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
+    // A textarea reports selectionStart 0 (not null) when it's never been focused,
+    // which would drop the tag at the very start of the body. Only honor the caret
+    // when the field actually has focus; otherwise append to the end.
+    const focused = document.activeElement === el;
+    const start = focused ? el.selectionStart : el.value.length;
+    const end = focused ? el.selectionEnd : el.value.length;
     el.value = el.value.slice(0, start) + token + el.value.slice(end);
     el.focus();
     const caret = start + token.length;

@@ -20,7 +20,7 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
   const { id } = await params;
   const campaign = await prisma.adCampaign.findUnique({
     where: { id },
-    include: { flights: { orderBy: { index: 'asc' }, include: { ads: true } }, payments: { orderBy: { createdAt: 'desc' } } },
+    include: { flights: { orderBy: { index: 'asc' }, include: { ads: true } } },
   });
   if (!campaign) notFound();
 
