@@ -942,7 +942,7 @@ export async function cancelAdCampaign(id: string) {
 // Save an admin override for an email template's copy (subject + body). Falls
 // back to the built-in default if the row is later reset/removed.
 export async function saveEmailTemplate(formData: FormData) {
-  await ensureStaff();
+  await ensureAdmin(); // vendor-facing email copy — admins only, not editors
   const key = ((formData.get('key') as string) || '').trim();
   if (!EMAIL_TEMPLATES[key]) throw new Error('Unknown template');
   const subject = ((formData.get('subject') as string) || '').trim().slice(0, 300);
@@ -954,7 +954,7 @@ export async function saveEmailTemplate(formData: FormData) {
 
 // Reset a template to its built-in default (drops the admin override).
 export async function resetEmailTemplate(key: string) {
-  await ensureStaff();
+  await ensureAdmin(); // vendor-facing email copy — admins only, not editors
   await prisma.emailTemplate.deleteMany({ where: { key } });
   revalidatePath('/admin/email-templates');
 }

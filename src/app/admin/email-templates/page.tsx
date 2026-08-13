@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { saveEmailTemplate, resetEmailTemplate } from '@/lib/actions';
 import { EMAIL_TEMPLATES, loadTemplateCopy, renderCopy, sampleVars } from '@/lib/emailTemplates';
 import { ActionButtons } from '@/components/admin/RowActions';
@@ -6,6 +7,20 @@ import { ActionButtons } from '@/components/admin/RowActions';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminEmailTemplates() {
+  // Vendor-facing email copy is admins-only — editors can reach /admin but not
+  // rewrite the emails vendors receive (matches the server-action guard).
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="max-w-4xl">
+        <h1 className="mb-1 text-2xl font-bold">Email templates</h1>
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-4 py-3 text-sm text-[var(--muted)]">
+          Editing the automated email copy is limited to administrators. Ask an admin if you need a template changed.
+        </p>
+      </div>
+    );
+  }
+
   const overridden = new Set((await prisma.emailTemplate.findMany({ select: { key: true } })).map((r) => r.key));
   const templates = await Promise.all(
     Object.values(EMAIL_TEMPLATES).map(async (def) => {
