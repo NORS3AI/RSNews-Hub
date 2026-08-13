@@ -14,6 +14,13 @@ export default function ArticleReviews({ articleId, slug, previewToken, reviews 
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null); // one change request open at a time
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  async function copyText(id: string, text: string) {
+    try { await navigator.clipboard.writeText(text); } catch { /* clipboard blocked */ }
+    setCopiedId(id); setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 2000);
+  }
 
   const openChanges = reviews.some((r) => r.decision === 'change' && !r.resolved);
   const status = openChanges ? 'changes' : reviews.some((r) => r.decision === 'approve') ? 'approved' : 'none';
@@ -49,19 +56,37 @@ export default function ArticleReviews({ articleId, slug, previewToken, reviews 
         <div className="mt-4 space-y-2">
           {reviews.map((r) => {
             const change = r.decision === 'change';
+            const expanded = openId === r.id;
             return (
-              <div key={r.id} className={`rounded-xl border p-3 ${change && !r.resolved ? 'border-amber-300 bg-amber-50/60' : 'border-[var(--border)]'}`}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className={`badge ${change ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}`}>{change ? '✎ Change' : '✓ Approved'}</span>
-                  <span className="font-semibold">{r.firstName} {r.lastName}</span>
-                  <span className="text-xs text-[var(--muted)]">{formatDate(r.createdAt)}</span>
+              <div key={r.id} className={`rounded-xl border ${change && !r.resolved ? 'border-amber-300 bg-amber-50/60' : 'border-[var(--border)]'}`}>
+                <div className="flex flex-wrap items-center gap-2 p-3">
+                  {/* A change request is a click-to-open row (one at a time); an approval is just a line. */}
+                  {change && r.message ? (
+                    <button onClick={() => setOpenId(expanded ? null : r.id)} className="flex flex-1 items-center gap-2 text-left" aria-expanded={expanded}>
+                      <span className="badge bg-amber-100 text-amber-800">✎ Change</span>
+                      <span className="font-semibold">{r.firstName} {r.lastName}</span>
+                      <span className="text-xs text-[var(--muted)]">{formatDate(r.createdAt)}</span>
+                      <span className="text-xs font-semibold text-brand-600">{expanded ? 'Hide' : 'Open'}</span>
+                    </button>
+                  ) : (
+                    <span className="flex flex-1 items-center gap-2">
+                      <span className={`badge ${change ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}`}>{change ? '✎ Change' : '✓ Approved'}</span>
+                      <span className="font-semibold">{r.firstName} {r.lastName}</span>
+                      <span className="text-xs text-[var(--muted)]">{formatDate(r.createdAt)}</span>
+                    </span>
+                  )}
                   {change && r.resolved && <span className="badge bg-[var(--card-2)] text-[var(--muted)]">resolved</span>}
-                  <span className="ml-auto flex items-center gap-1">
+                  <span className="flex items-center gap-1">
                     {change && !r.resolved && <button onClick={() => run(() => resolveArticleReview(r.id))} disabled={busy} className="btn-ghost btn-sm">Mark resolved</button>}
                     <button onClick={() => run(() => deleteArticleReview(r.id))} disabled={busy} aria-label="Delete review" className="grid h-7 w-7 place-items-center rounded text-[var(--muted)] hover:text-red-600"><X width={14} height={14} /></button>
                   </span>
                 </div>
-                {change && r.message && <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--fg)]">{r.message}</p>}
+                {change && r.message && expanded && (
+                  <div className="border-t border-amber-200 p-3">
+                    <p className="whitespace-pre-wrap text-sm text-[var(--fg)]">{r.message}</p>
+                    <button onClick={() => copyText(r.id, r.message)} className="btn-outline btn-sm mt-3">{copiedId === r.id ? <><Check width={14} height={14} /> Copied</> : 'Copy text'}</button>
+                  </div>
+                )}
               </div>
             );
           })}

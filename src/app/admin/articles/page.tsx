@@ -29,15 +29,24 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
     ? { OR: [{ title: { contains: q, mode: 'insensitive' as const } }, { excerpt: { contains: q, mode: 'insensitive' as const } }] }
     : {};
 
-  const [articles, counts] = await Promise.all([
+  const [articles, counts, reviewAgg] = await Promise.all([
     prisma.article.findMany({
       where: { AND: [status ? { status } : {}, qClause] },
       orderBy: [...SORTS[sort].orderBy],
       include: { category: { select: { name: true, color: true } }, author: { select: { name: true } } },
     }),
     prisma.article.groupBy({ by: ['status'], _count: true }),
+    // Review tallies per article: approvals, and OPEN (unresolved) change requests.
+    prisma.articleReview.groupBy({ by: ['articleId', 'decision', 'resolved'], _count: { _all: true } }),
   ]);
   const countBy = (s: string) => counts.find((c) => c.status === s)?._count ?? 0;
+  const reviewMap = new Map<string, { approvals: number; openChanges: number }>();
+  for (const r of reviewAgg) {
+    const cur = reviewMap.get(r.articleId) ?? { approvals: 0, openChanges: 0 };
+    if (r.decision === 'approve') cur.approvals += r._count._all;
+    else if (r.decision === 'change' && !r.resolved) cur.openChanges += r._count._all;
+    reviewMap.set(r.articleId, cur);
+  }
   const total = counts.reduce((n, c) => n + c._count, 0);
   const autoMonths = await getAutoArchiveMonths();
 
@@ -122,7 +131,7 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
                     <div className="text-xs text-[var(--muted)]">by {a.author?.name ?? 'Unknown'}</div>
                   </td>
                   <td className="px-4 py-3">{a.category ? <span style={{ color: a.category.color }}>{a.category.name}</span> : <span className="text-[var(--muted)]">—</span>}</td>
-                  <td className="px-4 py-3"><StatusChip status={articleStatus(a, Date.now())} /></td>
+                  <td className="px-4 py-3"><span className="flex flex-wrap items-center gap-1.5"><StatusChip status={articleStatus(a, Date.now())} /><ReviewBadges r={reviewMap.get(a.id)} /></span></td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1 text-[var(--muted)]"><Eye width={13} height={13} />{a.views}</span></td>
                   <td className="px-4 py-3 text-[var(--muted)]">{formatDate(a.updatedAt)}</td>
                   <td className="px-4 py-3"><ArticleActions id={a.id} status={a.status} /></td>
@@ -140,6 +149,7 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
                 <Link href={`/admin/articles/${a.id}`} className="font-medium hover:text-brand-600">{a.title}</Link>
                 <span className="flex shrink-0 flex-col items-end gap-1">
                   <StatusChip status={articleStatus(a, Date.now())} />
+                  <ReviewBadges r={reviewMap.get(a.id)} />
                 </span>
               </div>
               <div className="mt-1 text-xs text-[var(--muted)]">
@@ -153,6 +163,18 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
         {articles.length === 0 && <div className="p-8 text-center text-[var(--muted)]">No articles here.</div>}
       </div>
     </div>
+  );
+}
+
+// At-a-glance review state on the list: open change requests (amber) and/or
+// approvals (green), each with its count — both show when both exist.
+function ReviewBadges({ r }: { r?: { approvals: number; openChanges: number } }) {
+  if (!r || (!r.approvals && !r.openChanges)) return null;
+  return (
+    <>
+      {r.openChanges > 0 && <span className="badge bg-amber-100 text-amber-800" title={`${r.openChanges} open change request${r.openChanges > 1 ? 's' : ''}`}>✎ {r.openChanges}</span>}
+      {r.approvals > 0 && <span className="badge bg-green-100 text-green-700" title={`${r.approvals} approval${r.approvals > 1 ? 's' : ''}`}>✓ {r.approvals}</span>}
+    </>
   );
 }
 
