@@ -10,6 +10,8 @@ export async function loadAds(): Promise<AdRow[]> {
   try {
     const [rows, groups] = await Promise.all([
       prisma.ad.findMany({
+        // Reserved one-off creatives are hand-placed only — never in the rotation.
+        where: { reserved: false },
         orderBy: { createdAt: 'asc' },
         include: { flight: { select: { status: true, startAt: true, endAt: true } } },
       }),
@@ -81,6 +83,31 @@ export async function listAdvertisers(): Promise<AdvertiserOption[]> {
 // data-ad-brand="<brandKey>" data-ad-size="wide|rectangle">.
 const AD_SLOT_RE = /<div\b[^>]*\bdata-ad-slot\b[^>]*>/g;
 const attr = (tag: string, name: string) => tag.match(new RegExp(`${name}="([^"]*)"`))?.[1] || '';
+
+// ── Reserved one-off ads (hand-picked into a specific article) ──────────────
+
+/** Reserved creatives, for the editor's "Insert sponsor ad" picker. */
+export async function listReservedAds(): Promise<{ id: string; brand: string; headline: string }[]> {
+  try {
+    return await prisma.ad.findMany({ where: { reserved: true }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true } });
+  } catch { return []; }
+}
+
+const AD_ID_RE = /data-ad-id="([^"]+)"/g;
+
+/** Resolve `data-ad-id` markers in an article body to the exact ad BY ID. This is
+ *  a deliberate hand-pick, so it bypasses the rotation/reserved filter — it's the
+ *  one path that can serve a reserved creative. */
+export async function resolveReservedArticleAds(html: string): Promise<Record<string, AdRow>> {
+  const ids = [...new Set([...(html || '').matchAll(AD_ID_RE)].map((m) => m[1]))];
+  if (!ids.length) return {};
+  try {
+    const rows = await prisma.ad.findMany({ where: { id: { in: ids } }, include: { flight: { select: { status: true, startAt: true, endAt: true } } } });
+    const map: Record<string, AdRow> = {};
+    for (const r of rows) map[r.id] = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
+    return map;
+  } catch { return {}; }
+}
 
 /** Resolve the advertiser-locked ad slots in an article body to a live creative
  *  each, keyed by "<brandKey>::<size>". Picks a live ad of that advertiser that

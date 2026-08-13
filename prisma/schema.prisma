@@ -262,6 +262,10 @@ model Ad {
   video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
+  // A reserved one-off creative (e.g. a sponsor's custom ad for their article):
+  // NEVER enters the normal rotation — excluded at loadAds() — but is hand-pickable
+  // by id and rendered where an editor inserts an "Insert sponsor ad" block.
+  reserved    Boolean  @default(false)
   // Optional self-scheduling window for a manually-added (non-flighted) ad — lets
   // a one-off outside advertiser go live / come down on a date without a campaign.
   // Both null = always-on (house ad, for our own brands). Ignored for flighted ads.

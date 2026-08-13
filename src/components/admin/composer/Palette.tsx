@@ -36,6 +36,7 @@ export default function Palette() {
     { title: 'Media & blocks', items: [
       { label: 'Image', icon: <ImageIcon width={17} height={17} />, run: () => fileRef.current?.click() },
       { label: 'Ad slot', icon: <Megaphone width={17} height={17} />, run: () => insertBlock('adSlot') },
+      { label: 'Sponsor ad (reserved)', icon: <Megaphone width={17} height={17} />, run: () => insertBlock('reservedAd') },
       { label: 'Pull-quote', icon: <Quote width={17} height={17} />, run: () => editor.chain().focus().insertContent({ type: 'pullQuote', content: [{ type: 'text', text: 'Pull a punchy line here.' }] }).run() },
       { label: 'Button', icon: <CursorClick width={17} height={17} />, run: () => insertBlock('ctaButton', { label: 'Learn more', href: '' }) },
       { label: 'Author card', icon: <Users width={17} height={17} />, run: () => insertBlock('author', { name: '', title: '', avatar: '', bio: '', inhouse: false }) },

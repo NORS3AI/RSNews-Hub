@@ -9,7 +9,7 @@ import { BrandMark } from '@/components/BrandLogo';
 // stay simple). In the composer each shows a clean PREVIEW; you configure it in
 // the right-hand "Element" panel, and reorder by dragging. Selecting one rings it.
 
-export const CUSTOM_TYPES = ['adSlot', 'spacer', 'pollEmbed', 'quizEmbed', 'ctaButton', 'author'];
+export const CUSTOM_TYPES = ['adSlot', 'reservedAd', 'spacer', 'pollEmbed', 'quizEmbed', 'ctaButton', 'author'];
 
 function Card({ children, onDelete, tone = 'slate', selected }: { children: React.ReactNode; onDelete: () => void; tone?: 'slate' | 'orange'; selected?: boolean }) {
   return (
@@ -58,6 +58,29 @@ export const AdSlot = Node.create({
       <Card onDelete={p.deleteNode} tone="orange" selected={p.selected}>
         <Tag icon={<Megaphone width={14} height={14} className="text-brand-600" />} text={`Ad slot · ${AD_SIZE_LABEL[p.node.attrs.size] || 'Wide banner'}`} />
         <p className="mt-1 text-sm text-[var(--fg)]">{p.node.attrs.brand ? <>Advertiser: <strong>{p.node.attrs.adLabel || p.node.attrs.brand}</strong></> : <>Auto — best match, competitor-safe.</>}</p>
+      </Card>
+    ));
+  },
+});
+
+/* ── Reserved sponsor ad (a specific one-off creative, by id) ─────────────── */
+export const ReservedAd = Node.create({
+  name: 'reservedAd', group: 'block', atom: true, selectable: true, draggable: true,
+  // adId = the exact reserved Ad to render (rectangle); adLabel = its brand, for
+  // the editor card only.
+  addAttributes() { return { adId: { default: '' }, adLabel: { default: '' } }; },
+  parseHTML() {
+    return [{ tag: 'div[data-ad-id]', getAttrs: (el) => ({
+      adId: (el as HTMLElement).getAttribute('data-ad-id') || '',
+      adLabel: (el as HTMLElement).getAttribute('data-ad-label') || '',
+    }) }];
+  },
+  renderHTML({ node }) { return ['div', { 'data-ad-id': node.attrs.adId || '', 'data-ad-label': node.attrs.adLabel || '' }]; },
+  addNodeView() {
+    return ReactNodeViewRenderer((p: any) => (
+      <Card onDelete={p.deleteNode} tone="orange" selected={p.selected}>
+        <Tag icon={<Megaphone width={14} height={14} className="text-brand-600" />} text="Sponsor ad · Rectangle" />
+        <p className="mt-1 text-sm text-[var(--fg)]">{p.node.attrs.adId ? <>Creative: <strong>{p.node.attrs.adLabel || p.node.attrs.adId}</strong></> : <>Pick the sponsor&apos;s creative {hint}</>}</p>
       </Card>
     ));
   },

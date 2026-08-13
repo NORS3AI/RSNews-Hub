@@ -31,7 +31,7 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
   const paidLabel = paid ? money(paidTotalCents(campaign.payments), campaign.payments.find((p) => p.status === 'PAID')?.currency ?? 'usd') : null;
 
   // Ads not yet attached to any flight — the pool the admin assigns from.
-  const unassigned = await prisma.ad.findMany({ where: { flightId: null }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true, video: true } });
+  const unassigned = await prisma.ad.findMany({ where: { flightId: null, reserved: false }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true, video: true } });
   const now = new Date();
   const plan = planByKey(campaign.plan);
   const isOver = campaign.status === 'CANCELLED' || campaign.status === 'COMPLETED';

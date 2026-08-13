@@ -22,9 +22,9 @@ export type LiveQuiz = { data: QuizData; done: boolean };
 // votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
 // a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], ads = [], adBySlot = {}, pollData = [], quizData = [], loggedIn = false,
+  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], loggedIn = false,
 }: {
-  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>;
+  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>; adById?: Record<string, AdRow>;
   pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
 }) {
   let adIdx = 0;
@@ -41,6 +41,12 @@ export default function ArticleContent({
         if (locked) return <div className="my-6"><InArticleAd ad={locked} slot="article-inline" size={size} /></div>;
         if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} /></div>; }
         return <AdPlaceholder label={a['data-ad-label']} />;
+      }
+      // A hand-picked reserved sponsor creative — always a rectangle.
+      if ('data-ad-id' in a) {
+        const ad = adById[a['data-ad-id']];
+        if (ad) return <div className="my-6"><InArticleAd ad={ad} slot="article-sponsor" size="rectangle" /></div>;
+        return <AdPlaceholder label={a['data-ad-label'] || 'Sponsor ad'} />;
       }
       if ('data-poll' in a) {
         const live = pollData.find((p) => p.data.id === a['data-poll']);

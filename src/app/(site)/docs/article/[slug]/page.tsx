@@ -13,7 +13,7 @@ import ListenButton from '@/components/site/ListenButton';
 import CoverVideo from '@/components/site/CoverVideo';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
-import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds } from '@/lib/adsServer';
 import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
@@ -100,10 +100,11 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // A visiting vendor sees their own brand's ads surfaced first (and an admin
   // viewing "as" a vendor sees the same).
   const favorBrand = entitlementsOf(gateAccount ?? {}).vendorBrand;
-  const [ads, embeds, slotAds, supplierAdMap, savedSupplierIds] = await Promise.all([
+  const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext),
     resolveArticleEmbeds(article.content, user?.id),
     loadBrandArticleAds(article.content),
+    resolveReservedArticleAds(article.content),
     getSupplierAdMap(),
     user ? savedVendorIds(user.id) : Promise.resolve([]),
   ]);
@@ -168,7 +169,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.byline || article.author?.name || ''}>
-          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
+          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
         </article>
 
         <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-bottom" size="rectangle" /></div>

@@ -5,7 +5,7 @@ import { uploadImage } from '@/lib/uploadClient';
 import { Trash } from '@/components/icons';
 
 const LABELS: Record<string, string> = {
-  adSlot: 'Ad slot', spacer: 'Blank space', pollEmbed: 'Poll', quizEmbed: 'Pop quiz',
+  adSlot: 'Ad slot', reservedAd: 'Sponsor ad', spacer: 'Blank space', pollEmbed: 'Poll', quizEmbed: 'Pop quiz',
   ctaButton: 'Button', author: 'Author card', image: 'Image',
 };
 
@@ -30,7 +30,7 @@ const advHasSize = (adv: Adv | undefined, size: string) =>
 const advHasAnyImage = (adv: Adv | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
 
 function Fields({ sel }: { sel: NonNullable<Selected> }) {
-  const { updateSelected, deleteSelected, polls, quizzes, advertisers } = useComposer();
+  const { updateSelected, deleteSelected, polls, quizzes, advertisers, reservedAds } = useComposer();
   const a = sel.attrs as Record<string, any>;
   const [busy, setBusy] = useState(false);
   // Popup shown when the chosen advertiser has no live creative in the chosen size.
@@ -97,6 +97,25 @@ function Fields({ sel }: { sel: NonNullable<Selected> }) {
             </div>
           </div>
         )}
+      </div>
+    );
+  } else if (sel.type === 'reservedAd') {
+    body = (
+      <div className="space-y-3">
+        <div>
+          <label className="label">Sponsor creative</label>
+          <select className="input" value={a.adId || ''} onChange={(e) => {
+            const id = e.target.value; const ad = reservedAds.find((x) => x.id === id);
+            updateSelected({ adId: id, adLabel: ad ? ad.brand : '' });
+          }}>
+            <option value="">Choose a reserved ad…</option>
+            {reservedAds.map((x) => <option key={x.id} value={x.id}>{x.brand} — {x.headline.slice(0, 48)}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Only ads marked <strong>Reserved</strong> (in Ads admin) appear here. Renders as a rectangle exactly where this block sits, and never enters the normal rotation.
+            {reservedAds.length === 0 && <> No reserved ads yet — add one under <strong>Ads</strong> and tick “Reserved (one-off)”.</>}
+          </p>
+        </div>
       </div>
     );
   } else if (sel.type === 'image') {

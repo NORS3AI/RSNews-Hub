@@ -24,6 +24,7 @@ export type AdRow = {
   video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
+  reserved?: boolean;        // one-off hand-picked creative; never in rotation
   // Optional self-scheduling window for a manually-added (non-flighted) ad, so a
   // one-off outside advertiser can go live/come down on a date without a full
   // campaign. Both null = always-on (a house ad for our own brands). Ignored for

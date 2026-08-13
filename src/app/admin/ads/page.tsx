@@ -34,6 +34,7 @@ const FieldSet = ({ ad }: { ad?: any }) => (
     <div className="flex items-center gap-4">
       <div><label className="label">Accent</label><input name="accent" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
       <label className="mt-5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={ad ? ad.active : true} className="h-4 w-4" /> Active</label>
+      <label className="mt-5 flex items-center gap-2 text-sm font-medium" title="A one-off sponsor creative: never rotates; only shows where you insert it into a specific article."><input type="checkbox" name="reserved" defaultChecked={ad?.reserved ?? false} className="h-4 w-4" /> Reserved (one-off)</label>
     </div>
     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-soft)] p-3">
       <div className="grid grid-cols-2 gap-3">
@@ -79,6 +80,7 @@ export default async function AdminAds() {
                   <span className="h-3 w-3 rounded-full" style={{ backgroundColor: ad.accent }} />
                   {ad.brand}
                   {!ad.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">paused</span>}
+                  {ad.reserved && <span className="badge bg-violet-100 text-violet-700" title="One-off — not in rotation; inserted into a specific article">reserved</span>}
                 </span>
                 <span className="max-w-[45%] truncate text-xs text-[var(--muted)]">{ad.competitors ? `vs ${ad.competitors}` : 'no competitors set'}</span>
               </summary>
