@@ -39,10 +39,10 @@ export default function PreviewReviewBar({ slug, token }: { slug: string; token:
     <>
       {/* Unmissable "this is a draft" strip. */}
       <div className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-amber-950">
-        <span className="text-sm font-black uppercase tracking-wide">👁 Preview — not yet published</span>
+        <span className="text-sm font-black uppercase tracking-wide">Preview — not yet published</span>
         <span className="text-sm">This is a private draft shared with you for review.</span>
-        <button onClick={() => { setDone(null); setOpen(true); }} className="rounded-full bg-amber-950 px-3 py-1 text-sm font-bold text-amber-50 hover:bg-amber-900">
-          Approve or request changes
+        <button onClick={() => { setDone(null); setOpen(true); }} className="rounded-full bg-amber-950 px-4 py-1 text-sm font-bold text-amber-50 hover:bg-amber-900">
+          Click here to approve or request changes
         </button>
       </div>
 
