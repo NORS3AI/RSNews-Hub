@@ -11,6 +11,7 @@ import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils
 import { normalizeGenre } from './genre';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
+import { recordVendorDecision } from './vendorReview';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
@@ -268,6 +269,59 @@ export async function confirmIntakeVendor(formData: FormData) {
   if (!submissionId || !vendorId) throw new Error('Pick a vendor to confirm.');
   await resolveIntakeVendor(submissionId, vendorId);
   revalidatePath('/admin/intake');
+}
+
+/** Admin/editor: push an article to a vendor's dashboard for review. Each call is
+ *  a NEW round (a fresh pending item + a timestamped paper-trail row); a re-push
+ *  after edits does not disturb earlier rounds. Ensures a preview token so the
+ *  vendor can see the draft. Works for sponsored articles and What's Hot pieces. */
+export async function pushArticleToVendorReview(formData: FormData) {
+  await ensureStaff();
+  const articleId = String(formData.get('articleId') || '').trim();
+  const vendorId = String(formData.get('vendorId') || '').trim();
+  if (!articleId || !vendorId) throw new Error('Pick a vendor to send this to.');
+  const [article, vendor] = await Promise.all([
+    prisma.article.findUnique({ where: { id: articleId }, select: { id: true } }),
+    prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } }),
+  ]);
+  if (!article) throw new Error('Article not found');
+  if (!vendor) throw new Error('Vendor not found');
+  await ensurePreviewToken(articleId); // so the vendor can preview the draft on their dashboard
+  await prisma.vendorReviewRequest.create({ data: { articleId, vendorId } });
+  revalidatePath(`/admin/articles/${articleId}`);
+  revalidatePath('/docs/vendor');
+}
+
+/** Vendor: answer a review pushed to their dashboard — Approve or Request changes,
+ *  ONCE. The decision locks the row (no reopen/flip) and is mirrored into the admin
+ *  Hub feedback (an ArticleReview) so it shows alongside link-reviewer responses. */
+export async function submitVendorReviewDecision(formData: FormData) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  const requestId = String(formData.get('requestId') || '').trim();
+  const decision = String(formData.get('decision') || '').trim();
+  const message = String(formData.get('message') || '').trim().slice(0, 5000);
+  if (!requestId || (decision !== 'approve' && decision !== 'change')) throw new Error('Choose approve or request changes.');
+  if (decision === 'change' && !message) throw new Error('Add a note describing the changes you’d like.');
+
+  const req = await prisma.vendorReviewRequest.findUnique({ where: { id: requestId }, select: { vendorId: true, articleId: true } });
+  if (!req) throw new Error('Review not found');
+  // Ownership: the signed-in account must BE this vendor.
+  const ent = entitlementsOf(u);
+  if (!isVendor(ent)) throw new Error('This review is for the advertiser.');
+  const myVendorId = await vendorIdForBrand(ent.vendorBrand);
+  if (!myVendorId || myVendorId !== req.vendorId) throw new Error('This review isn’t yours.');
+
+  // Atomic lock + mirror into the admin Hub. Only the first response wins.
+  const vendor = await prisma.vendor.findUnique({ where: { id: req.vendorId }, select: { name: true } });
+  const ok = await recordVendorDecision({
+    requestId, articleId: req.articleId, decision, message,
+    firstName: u.name || vendor?.name || 'Vendor',
+    lastName: `(${vendor?.name || 'vendor'})`,
+  });
+  if (!ok) throw new Error('You’ve already responded to this review.');
+  revalidatePath('/docs/vendor');
+  revalidatePath(`/admin/articles/${req.articleId}`);
 }
 
 // Background autosave for an article being edited. Persists the easily-lost work

@@ -38,6 +38,14 @@ export function formatDateUTC(date: Date | string | null | undefined): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
+/** Date + time, pinned to UTC — stable across server/client render (no hydration
+ *  drift). Used for review "paper trail" timestamps (when a round was sent / answered). */
+export function formatDateTimeUTC(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
+}
+
 export function classNames(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
 }

@@ -791,9 +791,32 @@ model Article {
   readingLogs ReadingLog[]
   revisions   ArticleRevision[]
   reviews     ArticleReview[]
+  vendorReviews VendorReviewRequest[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// One "push this article to a vendor's dashboard for review" round. The admin
+// creates a row per push (so createdAt is the paper trail of when each round was
+// sent); the logged-in vendor answers Approve / Request changes ONCE, which
+// stamps decision + decidedAt and LOCKS it — they can't reopen or flip it. A
+// later push after edits is a NEW row (a fresh pending item; the old one stays
+// visible + locked). Used for sponsored articles AND for vendors' What's Hot
+// pieces. On the vendor's decision the app also writes an ArticleReview so the
+// response shows in the admin Hub alongside link-reviewer feedback.
+model VendorReviewRequest {
+  id        String    @id @default(cuid())
+  articleId String
+  article   Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  vendorId  String                              // whose dashboard it's pushed to
+  createdAt DateTime  @default(now())           // when the admin pushed it (paper trail)
+  decision  String?                             // null = pending; 'approve' | 'change'
+  message   String    @default("")              // the vendor's change-request text
+  decidedAt DateTime?                           // when the vendor answered (locks the row)
+
+  @@index([vendorId, createdAt])
+  @@index([articleId])
 }
 
 // A reviewer's response on a draft preview. Reviewers aren't logged in — they

@@ -12,6 +12,8 @@ import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from '@/lib/vendorReports';
 import TestimonialAttribution from '@/components/site/TestimonialAttribution';
 import RequestReportForm from '@/components/site/RequestReportForm';
 import { loadAds, listAdvertisers } from '@/lib/adsServer';
+import { listVendorReviews } from '@/lib/vendorReview';
+import VendorReviewInbox from '@/components/site/VendorReviewInbox';
 import { AdPreviewButton } from '@/components/site/AdPreview';
 import ReportView from '@/components/ReportView';
 import { formatDate, formatDateUTC } from '@/lib/utils';
@@ -46,11 +48,12 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const now = new Date();
   const current = mine.filter((c) => c.status === 'ACTIVE');
   const past = mine.filter((c) => c.status === 'COMPLETED' || c.status === 'CANCELLED');
-  const [reports, testimonials, updateUrlRow, latestReq] = await Promise.all([
+  const [reports, testimonials, updateUrlRow, latestReq, articleReviews] = await Promise.all([
     vendorId ? listPublishedReports(vendorId) : Promise.resolve([]),
     vendorId ? testimonialsForVendorDashboard(vendorId) : Promise.resolve([]),
     prisma.setting.findUnique({ where: { key: AD_UPDATE_URL_KEY } }),
     vendorId ? prisma.adReportRequest.findFirst({ where: { vendorId }, orderBy: { createdAt: 'desc' } }) : Promise.resolve(null),
+    vendorId ? listVendorReviews(vendorId) : Promise.resolve([]),
   ]);
   const updateUrl = updateUrlRow?.value || '';
 
@@ -78,6 +81,9 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
 
   return (
     <Shell>
+      {/* Articles we've shared with this vendor for review — always visible above
+          the ad dashboard so they don't miss a pending approval. */}
+      <VendorReviewInbox reviews={articleReviews} />
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
         <div className="border-b border-[var(--border)] bg-gradient-to-br from-brand-600/10 to-transparent p-5 sm:p-7">
           <div className="flex items-center gap-3">

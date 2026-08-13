@@ -104,27 +104,84 @@ const MAX_CTA_LABEL = 60;
 // DoS vector and a junk row. A real company name is well under this.
 const MAX_VENDOR_NAME = 120;
 
+// "Smart grab": keywords we look for in a field's name when the explicit map key
+// isn't present, so a form built with JotForm's own auto-names (e.g. "Company
+// Name", "Full Name", a bare file upload) still maps correctly without config.
+// Deliberately does NOT include generic money/plan words, so payment, package,
+// price, quantity, phone, address, etc. are never grabbed.
+const FIELD_KEYWORDS: Record<keyof ContentFieldMap, string[]> = {
+  email: ['email', 'mail'],
+  ctaHref: ['ctahref', 'buttonurl', 'buttonlink', 'ctalink', 'landingurl', 'landingpage', 'link', 'weburl', 'website', 'url'],
+  ctaLabel: ['ctalabel', 'buttontext', 'buttonlabel', 'buttoncaption', 'calltoaction', 'cta'],
+  images: ['creative', 'artwork', 'image', 'banner', 'graphic', 'logo', 'photo', 'upload', 'attachment', 'file'],
+  headline: ['headline', 'articletitle', 'title', 'subject', 'heading'],
+  vendorName: ['companyname', 'company', 'businessname', 'business', 'vendor', 'advertiser', 'brand', 'organization', 'organisation'],
+  body: ['articlebody', 'body', 'article', 'copy', 'content', 'story', 'writeup', 'submission', 'pressrelease', 'description'],
+};
+
+// Field priority: resolve the specific/unambiguous fields first so a generic
+// one (body) can't swallow a key a specific field wanted.
+const RESOLVE_ORDER: (keyof ContentFieldMap)[] = ['email', 'ctaHref', 'ctaLabel', 'images', 'headline', 'vendorName', 'body'];
+
+/** Normalize a JotForm field key for keyword matching: drop the qN_ prefix and
+ *  any punctuation, lowercase. "q5_companyName" → "companyname". */
+function normKey(k: string): string {
+  return k.replace(/^q\d+_/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+const hasText = (v: unknown): boolean => str(v).length > 0;
+
+/**
+ * Resolve each canonical field to a value in the raw payload. An explicit map key
+ * (from JOTFORM_CONTENT_FIELD_MAP) wins when it's present and non-empty; otherwise
+ * we keyword-match an as-yet-unused field name. `images` additionally requires the
+ * candidate to actually contain URL(s), so a stray text field can't pose as the
+ * creative upload. Each raw key is consumed once, so two fields can't collide.
+ */
+export function smartResolve(raw: Record<string, unknown>, map: ContentFieldMap): Record<keyof ContentFieldMap, unknown> {
+  const rawKeys = Object.keys(raw);
+  const used = new Set<string>();
+  const out = {} as Record<keyof ContentFieldMap, unknown>;
+  const usable = (field: keyof ContentFieldMap, v: unknown) => field === 'images' ? collectUrls(v).length > 0 : hasText(v);
+
+  // 1) Explicit map first (respects an admin-provided mapping exactly).
+  for (const field of RESOLVE_ORDER) {
+    const key = map[field];
+    if (key && key in raw && usable(field, raw[key])) { out[field] = raw[key]; used.add(key); }
+  }
+  // 2) Keyword fallback for anything still unresolved.
+  for (const field of RESOLVE_ORDER) {
+    if (out[field] !== undefined) continue;
+    const kws = FIELD_KEYWORDS[field];
+    const hit = rawKeys.find((k) => !used.has(k) && usable(field, raw[k]) && kws.some((kw) => normKey(k).includes(kw)));
+    if (hit) { out[field] = raw[hit]; used.add(hit); }
+  }
+  return out;
+}
+
 /** Parse a JotForm rawRequest object into the hub's canonical sponsored-draft shape. */
 export function parseContentSubmission(raw: Record<string, unknown>, map: ContentFieldMap): ParsedContent {
   const issues: string[] = [];
-  const vendorName = str(raw[map.vendorName]).slice(0, MAX_VENDOR_NAME);
+  const f = smartResolve(raw, map);
+
+  const vendorName = str(f.vendorName).slice(0, MAX_VENDOR_NAME);
   if (!vendorName) issues.push('No company name found — check the field map.');
 
-  const headline = str(raw[map.headline]).slice(0, MAX_HEADLINE);
+  const headline = str(f.headline).slice(0, MAX_HEADLINE);
   if (!headline) issues.push('No headline found — a placeholder was used.');
 
-  const bodyRaw = str(raw[map.body]).slice(0, MAX_BODY);
+  const bodyRaw = str(f.body).slice(0, MAX_BODY);
   const bodyHtml = textToParagraphs(bodyRaw);
   if (!bodyRaw) issues.push('No body copy found in the submission.');
 
-  const imageUrls = collectUrls(raw[map.images]);
+  const imageUrls = collectUrls(f.images);
   if (!imageUrls.length) issues.push('No creative image found — the reserved ad was skipped.');
 
-  const emailRaw = str(raw[map.email]);
+  const emailRaw = str(f.email);
   const email = EMAIL_RE.test(emailRaw) ? emailRaw : '';
 
-  const ctaHref = safeLinkHref(str(raw[map.ctaHref]), '');
-  const ctaLabelRaw = str(raw[map.ctaLabel]).slice(0, MAX_CTA_LABEL);
+  const ctaHref = safeLinkHref(str(f.ctaHref), '');
+  const ctaLabelRaw = str(f.ctaLabel).slice(0, MAX_CTA_LABEL);
   const ctaLabel = ctaHref ? (ctaLabelRaw || 'Learn more') : '';
 
   return { vendorName, email, headline, bodyHtml, ctaLabel, ctaHref, imageUrls, issues };
