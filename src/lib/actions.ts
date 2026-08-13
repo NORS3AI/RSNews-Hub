@@ -9,6 +9,7 @@ import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { normalizeGenre } from './genre';
+import { ensurePreviewToken } from './reviews';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
@@ -390,6 +391,23 @@ export async function saveAd(formData: FormData) {
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');
   revalidatePath('/docs');
+}
+
+/* ------------------- Draft preview links + approvals --------------------- */
+
+/** Generate (once) + return the article's private preview token. Staff only. */
+export async function ensureArticlePreviewLink(articleId: string): Promise<string> {
+  await ensureStaff();
+  return ensurePreviewToken(articleId);
+}
+/** Mark a change request handled so it stops holding "Changes requested". */
+export async function resolveArticleReview(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.articleReview.updateMany({ where: { id }, data: { resolved: true } });
+}
+export async function deleteArticleReview(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.articleReview.deleteMany({ where: { id } });
 }
 
 export async function deleteAd(id: string) {

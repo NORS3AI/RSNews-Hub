@@ -21,6 +21,7 @@ import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
+import PreviewReviewBar from '@/components/site/PreviewReviewBar';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -53,12 +54,21 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
   };
 }
 
-export default async function ArticlePage(props: { params: Promise<{ slug: string }> }) {
+export default async function ArticlePage(props: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string }> }) {
   const params = await props.params;
   const article = await getArticle(params.slug);
-  if (!article || (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED')) notFound();
-  // Scheduled (future-dated) articles are not yet public.
-  if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
+  if (!article) notFound();
+  // Private preview: a valid ?preview=<token> unlocks the full reader view of an
+  // UNPUBLISHED article (and bypasses the paywall + tracking below) so an invited
+  // reviewer can approve it. Any non-matching/absent token falls through to the
+  // normal public gates.
+  const previewParam = (await props.searchParams)?.preview;
+  const isPreview = !!previewParam && !!article.previewToken && previewParam === article.previewToken;
+  if (!isPreview) {
+    if (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED') notFound();
+    // Scheduled (future-dated) articles are not yet public.
+    if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
+  }
 
   const user = await getCurrentUser();
   // Admin "View as": preview the gate through the impersonated audience so an
@@ -67,8 +77,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
 
   // Access gate (e.g. PackageHub–only content). Enforced here, server-side,
-  // before any content is read or a view is tracked.
-  if (!canViewContent(gateAccount, article.requirement)) {
+  // before any content is read or a view is tracked. A valid preview link bypasses
+  // it — the invited reviewer sees the full piece.
+  if (!isPreview && !canViewContent(gateAccount, article.requirement)) {
     return <LockedArticle article={article} />;
   }
 
@@ -100,7 +111,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
   return (
     <>
-      <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />
+      {isPreview
+        ? <PreviewReviewBar slug={article.slug} token={article.previewToken!} />
+        : <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />}
       <div className="container-reader py-8 sm:py-12">
         <Link href="/docs" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
           <ArrowLeft width={16} height={16} /> All articles

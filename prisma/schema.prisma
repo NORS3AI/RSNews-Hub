@@ -737,12 +737,37 @@ model Article {
   authorId    String?
   author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
+  // A private, shareable draft-preview link secret. Anyone with
+  // /docs/article/<slug>?preview=<token> can see the unpublished article as a
+  // reader would (and leave an approval / change request). Null until generated.
+  previewToken String? @unique
+
   tags        ArticleTag[]
   readingLogs ReadingLog[]
   revisions   ArticleRevision[]
+  reviews     ArticleReview[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// A reviewer's response on a draft preview. Reviewers aren't logged in — they
+// self-identify by name; the preview token is the access control. Multiple
+// reviewers aggregate per article. A 'change' that isn't resolved keeps the
+// article in "Changes requested"; otherwise approvals show. Status strings are
+// validated in app code (house convention — no DB enums).
+model ArticleReview {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  decision  String   // 'approve' | 'change'
+  message   String   @default("") // free text, long for change requests
+  resolved  Boolean  @default(false) // admin marks a change request handled
+  createdAt DateTime @default(now())
+
+  @@index([articleId, createdAt])
 }
 
 // Point-in-time snapshots of an article's title/body, written on each meaningful
