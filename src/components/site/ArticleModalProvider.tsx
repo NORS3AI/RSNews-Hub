@@ -198,7 +198,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     ) : null}
 
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
-                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" /></div>
+                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" placeholder={false} /></div>
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.byline || a.author?.name || ''}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
@@ -215,7 +215,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     )}
 
                     {/* In-article ad #2 — contextually safe */}
-                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" /></div>
+                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} /></div>
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
