@@ -76,7 +76,7 @@ function ReviewCard({ r }: { r: VendorReviewCard }) {
           <div className="text-xs text-[var(--muted)]">Sent for review {formatDateTimeUTC(r.createdAt)}</div>
         </div>
         {!published && !locked && a.previewToken && (
-          <a href={`/docs/article/${a.slug}?preview=${a.previewToken}`} target="_blank" rel="noopener noreferrer"
+          <a href={`/docs/article/${a.slug}?preview=${a.previewToken}&dash=1`} target="_blank" rel="noopener noreferrer"
             className="btn-outline btn-sm inline-flex items-center gap-1.5 whitespace-nowrap">
             <ExternalLink width={14} height={14} /> Preview
           </a>

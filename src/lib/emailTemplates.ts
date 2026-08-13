@@ -52,6 +52,22 @@ See exactly how they look to readers (only your ads, in real article and homepag
 
 Thanks for advertising with RS News!`,
   },
+  sponsor_golive: {
+    key: 'sponsor_golive',
+    label: 'Sponsored article live',
+    description: 'Sent to a vendor when their sponsored article is first published, with a link to read it.',
+    tags: [VENDOR_TAG, { tag: 'articleTitle', desc: 'The published article’s title' }, { tag: 'url', desc: 'Link to the live article' }],
+    subject: 'Your sponsored article is live on RS News',
+    body:
+`Hi {vendorName},
+
+Your sponsored article “{articleTitle}” is now live on RS News:
+{url}
+
+It will be featured near the top of the homepage for the next few weeks. Thanks for partnering with us!
+
+— RS News`,
+  },
   renewal: {
     key: 'renewal',
     label: 'Renewal',
@@ -120,6 +136,7 @@ export async function renderTemplate(key: string, vars: TemplateVars): Promise<B
 export function sampleVars(key: string): TemplateVars {
   const submitUrl = process.env.AD_ORDER_URL || 'https://form.jotform.com/your-ad-form';
   if (key === 'ads_live') return { vendorName: 'PackWise', date: 'August 6, 2026', dashboardUrl: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/vendor` };
+  if (key === 'sponsor_golive') return { vendorName: 'PackWise', articleTitle: 'Ship Smarter This Holiday Season', url: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/article/ship-smarter` };
   if (key === 'renewal') return { vendorName: 'PackWise', packageLabel: '12-Month', date: 'December 31, 2026', daysUntil: '21', submitUrl };
   return { vendorName: 'PackWise', batchOrdinal: 'second', batchNumber: '2', packageLabel: '6-Month', date: 'September 1, 2026', daysUntil: '14', submitUrl };
 }

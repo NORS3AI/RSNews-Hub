@@ -25,7 +25,6 @@ const TABS = [['current', 'Current'], ['performance', 'Performance'], ['history'
 
 export default async function VendorDashboard(props: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: tabParam } = await props.searchParams;
-  const tab = TABS.some((t) => t[0] === tabParam) ? tabParam! : 'current';
   const user = await getCurrentUser();
   // Admin "View as vendor" surfaces that vendor's real dashboard (campaigns,
   // creatives, reports) so an admin can see exactly what the advertiser sees.
@@ -57,6 +56,13 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   ]);
   const updateUrl = updateUrlRow?.value || '';
 
+  // Article-review tab: shown only when the vendor has articles shared with them.
+  // Land on it by default when something is pending, so an approval isn't missed.
+  const pendingReviews = articleReviews.filter((r) => !r.decidedAt && r.article.status !== 'PUBLISHED').length;
+  const showReviewsTab = articleReviews.length > 0;
+  const TAB_LIST: readonly (readonly [string, string])[] = showReviewsTab ? [['reviews', 'Article reviews'], ...TABS] : TABS;
+  const tab = TAB_LIST.some((t) => t[0] === tabParam) ? tabParam! : (pendingReviews > 0 ? 'reviews' : 'current');
+
   // The vendor's creatives on file (any with an image), for "view your current ads".
   const creatives = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && (a.imageWide || a.imageRect));
   // Which ad-slot shapes they currently have a LIVE creative for — powers the
@@ -81,9 +87,6 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
 
   return (
     <Shell>
-      {/* Articles we've shared with this vendor for review — always visible above
-          the ad dashboard so they don't miss a pending approval. */}
-      <VendorReviewInbox reviews={articleReviews} />
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-card)]">
         <div className="border-b border-[var(--border)] bg-gradient-to-br from-brand-600/10 to-transparent p-5 sm:p-7">
           <div className="flex items-center gap-3">
@@ -93,13 +96,24 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
               <p className="text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--fg)]">{ent.vendorBrand || user.name}</span> · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
             </div>
           </div>
-          <div className="mt-5 inline-flex gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
-            {TABS.map(([key, label]) => (
+          <div className="mt-5 inline-flex flex-wrap gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-0.5">
+            {TAB_LIST.map(([key, label]) => (
               <Link key={key} href={`/docs/vendor?tab=${key}`}
-                className={`rounded-lg px-3.5 py-1.5 text-sm font-bold transition ${tab === key ? 'bg-brand-600 text-white shadow-sm' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>{label}</Link>
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-bold transition ${tab === key ? 'bg-brand-600 text-white shadow-sm' : 'text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                {label}
+                {key === 'reviews' && pendingReviews > 0 && (
+                  <span className={`grid h-5 min-w-5 place-items-center rounded-full px-1 text-[11px] font-black ${tab === key ? 'bg-white/25 text-white' : 'bg-amber-400 text-amber-950'}`}>{pendingReviews}</span>
+                )}
+              </Link>
             ))}
           </div>
         </div>
+
+        {tab === 'reviews' && (
+          <div className="p-5 sm:p-6">
+            <VendorReviewInbox reviews={articleReviews} />
+          </div>
+        )}
 
         {tab === 'current' && (
           <div className="divide-y divide-[var(--border)]">

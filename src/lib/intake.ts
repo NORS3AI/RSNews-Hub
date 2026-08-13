@@ -13,7 +13,7 @@ import { prisma } from './db';
 import { log } from './logger';
 import { brandKey } from './entitlements';
 import { sendEmail } from './email';
-import { escapeHtml } from './contentIntake';
+import { renderTemplate } from './emailTemplates';
 
 /**
  * Confirm which vendor a held submission belongs to, then bind it: link the draft
@@ -87,12 +87,11 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
     const claim = await prisma.article.updateMany({ where: { id: a.id, sponsorNotifiedAt: null }, data: { sponsorNotifiedAt: new Date() } });
     if (claim.count === 0) return;
 
+    // Admin-editable copy (/admin/email-templates → "Sponsored article live").
+    // renderTemplate HTML-escapes every {tag} value, so the untrusted title/name
+    // can't inject markup into the email.
     const url = `${process.env.SITE_URL || ''}/docs/article/${a.slug}`;
-    const subject = `Your sponsored article is live on RS News`;
-    const text = `Hi ${vendor.name},\n\nYour sponsored article “${a.title}” is now live on RS News:\n${url}\n\nIt will be featured on the homepage for the next few weeks. Thanks for partnering with us!\n\n— RS News`;
-    // Escape per line — the title comes from the sponsor's (untrusted) headline,
-    // so it must not inject markup into the HTML email we generate.
-    const html = text.split('\n').map((l) => l ? `<p>${escapeHtml(l)}</p>` : '<br/>').join('');
+    const { subject, text, html } = await renderTemplate('sponsor_golive', { vendorName: vendor.name, articleTitle: a.title, url });
 
     if (vendor.premium && vendor.contactEmail) {
       const r = await sendEmail({ to: vendor.contactEmail, subject, text, html });

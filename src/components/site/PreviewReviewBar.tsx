@@ -8,7 +8,7 @@ import { X, Check } from '@/components/icons';
 // their first + last name and either approves or requests changes (long free
 // text). Responses aggregate in the Hub. The link itself is the access control;
 // the name is for attribution.
-export default function PreviewReviewBar({ slug, token }: { slug: string; token: string }) {
+export default function PreviewReviewBar({ slug, token, hideReview = false }: { slug: string; token: string; hideReview?: boolean }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'approve' | 'change'>('approve');
   const [firstName, setFirst] = useState('');
@@ -41,12 +41,18 @@ export default function PreviewReviewBar({ slug, token }: { slug: string; token:
       <div className="sticky top-0 z-40 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-amber-950">
         <span className="text-sm font-black uppercase tracking-wide">Preview — not yet published</span>
         <span className="text-sm">This is a private draft shared with you for review.</span>
-        <button onClick={() => { setDone(null); setOpen(true); }} className="rounded-full bg-amber-950 px-4 py-1 text-sm font-bold text-amber-50 hover:bg-amber-900">
-          Click here to approve or request changes
-        </button>
+        {hideReview ? (
+          // Opened from the vendor's dashboard: they Approve / Request changes THERE
+          // (which locks once answered), so we don't duplicate the action here.
+          <span className="text-sm font-semibold">Use the Approve / Request changes buttons on your dashboard.</span>
+        ) : (
+          <button onClick={() => { setDone(null); setOpen(true); }} className="rounded-full bg-amber-950 px-4 py-1 text-sm font-bold text-amber-50 hover:bg-amber-900">
+            Click here to approve or request changes
+          </button>
+        )}
       </div>
 
-      {open && (
+      {!hideReview && open && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 animate-fade-in" role="dialog" aria-modal="true" aria-label="Review this draft" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-ink-950/70 backdrop-blur-sm" />
           <div className="relative z-10 w-full max-w-lg rounded-2xl bg-[var(--card)] p-6 shadow-modal" onClick={(e) => e.stopPropagation()}>

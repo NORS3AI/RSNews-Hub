@@ -53,7 +53,7 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
   };
 }
 
-export default async function ArticlePage(props: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string }> }) {
+export default async function ArticlePage(props: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string; dash?: string }> }) {
   const params = await props.params;
   const article = await getArticle(params.slug);
   if (!article) notFound();
@@ -61,8 +61,13 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // UNPUBLISHED article (and bypasses the paywall + tracking below) so an invited
   // reviewer can approve it. Any non-matching/absent token falls through to the
   // normal public gates.
-  const previewParam = (await props.searchParams)?.preview;
+  const sp = await props.searchParams;
+  const previewParam = sp?.preview;
   const isPreview = !!previewParam && !!article.previewToken && previewParam === article.previewToken;
+  // `&dash=1` means the vendor opened this from their dashboard — they respond
+  // there (which locks their round), so the in-preview review button is hidden to
+  // avoid a second, unlockable response path. Plain preview links keep the button.
+  const previewFromDashboard = sp?.dash === '1';
   if (!isPreview) {
     if (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED') notFound();
     // Scheduled (future-dated) articles are not yet public.
@@ -118,7 +123,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   return (
     <>
       {isPreview
-        ? <PreviewReviewBar slug={article.slug} token={article.previewToken!} />
+        ? <PreviewReviewBar slug={article.slug} token={article.previewToken!} hideReview={previewFromDashboard} />
         : <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />}
       <div className="container-reader py-8 sm:py-12">
         <Link href="/docs" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
