@@ -40,6 +40,7 @@ const groups: NavGroup[] = [
     { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
     { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
     { href: '/admin/vendors', label: 'Vendors', icon: Users },
+    { href: '/admin/intake', label: 'Sponsored intake', icon: Newspaper },
     { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
   ] },
   { title: 'System', links: [

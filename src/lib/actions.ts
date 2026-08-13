@@ -10,6 +10,7 @@ import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './au
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { normalizeGenre } from './genre';
 import { ensurePreviewToken } from './reviews';
+import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
 import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
@@ -240,9 +241,30 @@ export async function saveArticle(formData: FormData) {
     } catch { /* never let audio break a save */ }
   }
 
+  // Stage-two intake notify: when a sponsored, vendor-linked article first goes
+  // live, tell the vendor (premium → email push; else copy-paste note for the
+  // admin). notifySponsorLive self-guards on sponsorNotifiedAt + PUBLISHED, so
+  // this is a no-op for ordinary articles and for re-saves of an already-live one.
+  if (savedId && nowPublished) {
+    const liveId = savedId;
+    after(() => notifySponsorLive(liveId).catch(() => {}));
+  }
+
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
   redirect('/admin/articles');
+}
+
+/** Admin: confirm which vendor a held sponsored-intake submission belongs to
+ *  (confirm-before-merge), binding the draft article to it. `vendorId` is an
+ *  existing vendor id or the literal 'new' to create one from the submitted name. */
+export async function confirmIntakeVendor(formData: FormData) {
+  await ensureStaff();
+  const submissionId = String(formData.get('submissionId') || '').trim();
+  const vendorId = String(formData.get('vendorId') || '').trim();
+  if (!submissionId || !vendorId) throw new Error('Pick a vendor to confirm.');
+  await resolveIntakeVendor(submissionId, vendorId);
+  revalidatePath('/admin/intake');
 }
 
 // Background autosave for an article being edited. Persists the easily-lost work

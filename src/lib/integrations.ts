@@ -59,9 +59,16 @@ function checkStorage(): IntegrationResult {
 }
 
 async function checkJotform(): Promise<IntegrationResult> {
-  const base = { key: 'jotform', label: 'JotForm', detail: 'Inbound ad-order submissions (they call us — no live ping).' };
+  const base = { key: 'jotform', label: 'JotForm (ad orders)', detail: 'Inbound ad-order submissions (they call us — no live ping).' };
   if (!process.env.JOTFORM_WEBHOOK_SECRET) return { ...base, status: 'unconfigured', message: 'No webhook secret set.' };
   const last = await prisma.adSubmission.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+  return { ...base, status: 'inbound', message: last ? `Last submission ${ago(last.createdAt)}.` : 'Configured — no submissions received yet.' };
+}
+
+async function checkContentIntake(): Promise<IntegrationResult> {
+  const base = { key: 'content_intake', label: 'JotForm (sponsored content)', detail: 'Inbound sponsored-article submissions → draft articles (they call us — no live ping).' };
+  if (!process.env.JOTFORM_WEBHOOK_SECRET) return { ...base, status: 'unconfigured', message: 'No webhook secret set.' };
+  const last = await prisma.contentSubmission.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
   return { ...base, status: 'inbound', message: last ? `Last submission ${ago(last.createdAt)}.` : 'Configured — no submissions received yet.' };
 }
 
@@ -86,6 +93,6 @@ function checkSentry(): IntegrationResult {
 export async function checkIntegrations(): Promise<IntegrationResult[]> {
   return Promise.all([
     checkDatabase(), checkStorage(), Promise.resolve(checkSentry()),
-    checkEmail(), checkElevenLabs(), checkJotform(),
+    checkEmail(), checkElevenLabs(), checkJotform(), checkContentIntake(),
   ]);
 }

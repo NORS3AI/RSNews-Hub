@@ -310,6 +310,35 @@ model AdSubmission {
   @@index([status, createdAt])
 }
 
+// One sponsored-CONTENT submission (a vendor's article copy + creative) that a
+// JotForm delivers to the hub. Distinct from AdSubmission (which buys ad
+// inventory): this BUILDS a DRAFT article for review. Recorded first (audit +
+// raw), deduped on `submissionId`, then processed into a draft article + a
+// reserved creative. NEVER auto-published. The vendor is matched typo-tolerantly
+// (see lib/vendorMatch): a very close match auto-links; a plausible-but-uncertain
+// match is held as `suggested` for the admin to confirm BEFORE any merge; no
+// match creates a new (flagged) vendor. `confidence` is the 0–100 match score.
+model ContentSubmission {
+  id            String   @id @default(cuid())
+  submissionId  String   @unique                 // JotForm submission id (idempotency key)
+  formId        String?
+  status        String   @default("RECEIVED")     // RECEIVED | PROCESSED | FAILED
+  matchStatus   String   @default("new")          // auto | suggested | new | confirmed
+  matchName     String?                           // vendor name exactly as submitted
+  matchVendorId String?                           // the candidate vendor (auto/suggested/confirmed)
+  confidence    Int      @default(0)              // 0–100 fuzzy-match confidence
+  vendorId      String?                           // finally resolved Vendor (null while a suggestion is pending)
+  articleId     String?                           // draft Article created
+  adId          String?                           // reserved Ad created from the creative
+  headline      String?                           // submitted headline (queue display)
+  error         String?
+  raw           String                            // raw submission JSON (audit)
+  createdAt     DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([matchStatus])
+}
+
 // A vendor's purchase of an ad package. Everything runs in 3-month "flights";
 // packages just chain more flights (3mo = 1, 6mo = 2, 12mo = 4). No creative is
 // ever live longer than one flight — vendors submit fresh ads for each. `plan`
@@ -325,6 +354,11 @@ model Vendor {
   brandKey     String       @unique         // normalized match key (see lib/vendors)
   contactEmail String?                      // reminders / performance reports (later phases)
   notes        String?
+  // Set when the hub auto-created this vendor from an intake submission with no
+  // confident match — surfaced in the intake queue so an admin can review the
+  // new record (merge a duplicate, fill contact details) rather than it landing
+  // silently.
+  autoCreated  Boolean      @default(false)
   // Supplier fields. `premium` gates inclusion in the phone-book directory; the
   // rest populate the phone book. `phone` is the official sales line; `website`
   // is the advertiser's site; `supplierUrl` is their supplier page on our MAIN
@@ -704,6 +738,13 @@ model Article {
   // and auto-drops out when the date passes. Null = not sponsored. Set per deal
   // (default +30d). Independent of `genre`, though the two usually pair up.
   sponsoredUntil DateTime?
+  // When a sponsored article originated from (or is tied to) a vendor's intake
+  // submission, this links it to that Vendor so publishing can send the vendor a
+  // "you're live" message. Plain id link (no FK relation) — the article stands on
+  // its own if the vendor is later removed. sponsorNotifiedAt guards that
+  // go-live message to once. Both null for ordinary editorial articles.
+  sponsorVendorId  String?
+  sponsorNotifiedAt DateTime?
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)

@@ -18,6 +18,11 @@ import sanitizeHtml from 'sanitize-html';
 // image src (which never executes JS), so none of them is an XSS surface.
 const COMPOSER_DIV_ATTRS = [
   'data-ad-slot', 'data-ad-brand', 'data-ad-size', 'data-ad-label',
+  // A hand-picked reserved sponsor creative, addressed by ad id (Phase 2). The id
+  // is an opaque cuid rendered only as a lookup key (never as HTML/JS), so it's
+  // an inert data hook like the rest — but it must be allowlisted or the whole
+  // reserved-ad block is stripped on save and the ad silently vanishes.
+  'data-ad-id',
   'data-spacer', 'data-size',
   'data-poll', 'data-quiz', 'data-label',
   'data-author', 'data-name', 'data-title', 'data-avatar', 'data-bio', 'data-inhouse',
