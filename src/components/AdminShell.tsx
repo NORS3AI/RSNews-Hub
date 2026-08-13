@@ -19,7 +19,7 @@ const groups: NavGroup[] = [
   ] },
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
-    { href: '/admin/homepage/inventory', label: 'On-page inventory', icon: Layers },
+    { href: '/admin/homepage/inventory', label: 'Homepage inventory', icon: Layers },
     { href: '/admin/announcement', label: 'Announcement bar', icon: Megaphone },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   ] },
@@ -40,7 +40,7 @@ const groups: NavGroup[] = [
     { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
     { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
     { href: '/admin/vendors', label: 'Vendors', icon: Users },
-    { href: '/admin/intake', label: 'Sponsored intake', icon: Newspaper },
+    { href: '/admin/intake', label: 'Sponsored articles', icon: Newspaper },
     { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
   ] },
   { title: 'System', links: [

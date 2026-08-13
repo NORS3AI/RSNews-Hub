@@ -12,7 +12,7 @@ import AdOptionsMenu from '@/components/site/AdOptionsMenu';
  * of the ad's anchor (never nested inside it), so it can't hijack the direct click.
  */
 export default function AdWithOptions({
-  ad, suppliers, savedIds, signedIn, slot, size = 'in-article', tone = 'card', fill = false,
+  ad, suppliers, savedIds, signedIn, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true,
 }: {
   ad: AdRow | null;
   suppliers: Map<string, SupplierAdInfo>;
@@ -22,17 +22,20 @@ export default function AdWithOptions({
   size?: 'in-article' | 'rectangle';
   tone?: 'card' | 'orange';
   fill?: boolean;
+  // `placeholder=false` collapses to nothing when there's no image creative
+  // (live homepage) so a reader never sees an empty/filler ad box.
+  placeholder?: boolean;
 }) {
   const info = ad ? suppliers.get(brandKey(ad.brand)) : undefined;
   if (!ad || !info) {
-    return <InArticleAd ad={ad} slot={slot} size={size} tone={tone} fill={fill} />;
+    return <InArticleAd ad={ad} slot={slot} size={size} tone={tone} fill={fill} placeholder={placeholder} />;
   }
   // A centered rectangle (no `fill`) is capped narrower than its column, so the
   // wrapper must hug the ad — otherwise the ⋯ button floats at the column edge.
   const wrap = size === 'rectangle' && !fill ? 'relative mx-auto w-fit max-w-full' : 'relative w-full';
   return (
     <div className={wrap}>
-      <InArticleAd ad={ad} slot={slot} size={size} tone={tone} fill={fill} />
+      <InArticleAd ad={ad} slot={slot} size={size} tone={tone} fill={fill} placeholder={placeholder} />
       <AdOptionsMenu
         supplierUrl={info.supplierUrl}
         website={info.website || ad.href}

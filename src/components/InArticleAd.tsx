@@ -12,11 +12,15 @@ import AdExpand from '@/components/site/AdExpand';
  * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
-  ad, slot, size = 'in-article', tone = 'card', fill = false,
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean }) {
+  ad, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true,
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean }) {
+  // `placeholder=false` means "never show a filler box" — render nothing when
+  // there's no image creative to show. Used on the live homepage so a reader
+  // never sees an empty ad slot (dashed placeholder OR the orange no-image box);
+  // the slot simply collapses. In-article slots keep placeholder=true.
   // `fill` drops the rectangle's max-width cap so the ad fills its column
   // (used on the homepage grid) instead of floating centered at its native size.
-  if (!ad) return <AdSlot size={size} slot={slot} className={fill ? 'max-w-none' : undefined} />;
+  if (!ad) return placeholder ? <AdSlot size={size} slot={slot} className={fill ? 'max-w-none' : undefined} /> : null;
 
   const rect = size === 'rectangle';
   // A video creative is silent/looping and only fits the rectangle slot.
@@ -61,10 +65,12 @@ export default function InArticleAd({
     );
   }
 
-  // No image creative on file for this slot. We don't run word ads inside
-  // articles — instead show a themed, correctly-shaped placeholder (a horizontal
-  // banner for the in-article slot, a rectangle for the bottom slot) in the
-  // site's orange, awaiting the advertiser's image creative. No word/text layout.
+  // No image creative on file for this slot. On surfaces that opt out of fillers
+  // (the live homepage) collapse to nothing rather than show an empty box.
+  if (!placeholder) return null;
+  // Otherwise (in-article): we don't run word ads — show a themed, correctly-
+  // shaped placeholder (a horizontal banner for the in-article slot, a rectangle
+  // for the bottom slot) in the site's orange, awaiting the advertiser's image.
   return (
     <div className={`mx-auto w-full ${rect && !fill ? 'max-w-[340px]' : ''}`}>
       <div

@@ -15,7 +15,6 @@ import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
-import AdSlot from '@/components/AdSlot';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import { loadAds, listAdvertisers } from '@/lib/adsServer';
 import { cookies } from 'next/headers';
@@ -168,15 +167,18 @@ export default async function DocsHome() {
       if (previewLock) pool = pool.filter(shapeOk); // keep the house fallback shape-correct too
     }
     if (lockBrand && pool.length === 0) return null;
-    if (!pool.length) return <AdSlot size={size} slot={slot} className="max-w-none" />;
+    // No image ad to show → render nothing. A public homepage must never show an
+    // empty ad box (dashed slot or the in-article orange no-image placeholder).
+    if (!pool.length) return null;
     const ad = pool[homeAdCursor++ % pool.length];
     // Homepage ads fill their slot: rectangles fill their grid column, banners
     // stretch the full content width (no centered max-width cap). Premium
     // suppliers also get a small ⋯ options menu (supplier page · site · save).
+    // placeholder=false guarantees no filler box ever reaches a reader here.
     return (
       <AdWithOptions
         ad={ad} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user}
-        slot={slot} size={size === 'rectangle' ? 'rectangle' : 'in-article'} tone="orange" fill
+        slot={slot} size={size === 'rectangle' ? 'rectangle' : 'in-article'} tone="orange" fill placeholder={false}
       />
     );
   };

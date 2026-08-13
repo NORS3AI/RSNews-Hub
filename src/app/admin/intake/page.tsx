@@ -32,7 +32,7 @@ export default async function AdminIntake() {
 
   return (
     <div className="max-w-5xl">
-      <h1 className="mb-1 text-2xl font-bold">Sponsored intake</h1>
+      <h1 className="mb-1 text-2xl font-bold">Sponsored articles</h1>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
         Sponsored-article submissions arrive from JotForm and the Hub builds each into a <strong>draft</strong> — company copy becomes the article body, the uploaded creative becomes a reserved in-article ad, and the vendor is matched automatically. Nothing is ever published here: open the draft, confirm the vendor if asked, then publish it from the article editor.
       </p>
