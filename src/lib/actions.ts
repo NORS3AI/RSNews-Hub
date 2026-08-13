@@ -425,6 +425,10 @@ export async function setArticleStatus(id: string, status: string) {
     where: { id },
     data: { status, publishedAt: status === 'PUBLISHED' ? existing?.publishedAt ?? new Date() : existing?.publishedAt },
   });
+  // Publishing from the list quick-action must fire the sponsor go-live notify too
+  // (same as the full editor's saveArticle). notifySponsorLive self-guards on
+  // genre/sponsorVendorId/sponsorNotifiedAt, so it's a no-op for ordinary articles.
+  if (status === 'PUBLISHED') after(() => notifySponsorLive(id).catch(() => {}));
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
 }
