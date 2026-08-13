@@ -62,7 +62,7 @@ function ThemeItem({ collapsed }: { collapsed: boolean }) {
 export default function AppSidebarShell({ user, children, announcement, isVendor = false }: { user: U; children: React.ReactNode; announcement?: React.ReactNode; isVendor?: boolean }) {
   // Vendor accounts get a direct link to their dashboard, right under Home.
   const nav = isVendor
-    ? [NAV[0], { href: '/docs/vendor', label: 'Your dashboard', icon: Megaphone }, ...NAV.slice(1)]
+    ? [NAV[0], { href: '/docs/vendor', label: 'Your Dashboard', icon: Megaphone }, ...NAV.slice(1)]
     : NAV;
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);

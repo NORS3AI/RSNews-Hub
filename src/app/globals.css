@@ -203,6 +203,20 @@ body::before {
   /* Admin article-editor side panels (element palette + inspector): a flat gray
      surface (no RS texture) that breaks up the white page. */
   .composer-panel { background-color: var(--composer-panel) !important; background-image: none !important; }
+  /* RS mode: the editor/builder side panels go DARK SLATE with cream text. We just
+     re-point the palette vars on the panel, so every label/input/select/muted-text
+     inside cascades to the dark surface automatically (the middle canvas is left
+     light — this scopes only to .composer-panel). */
+  .rs .composer-panel {
+    --composer-panel: #333c4a;   /* dark slate panel */
+    --fg: #f1ece1;               /* cream text */
+    --muted: #b7b1a4;            /* muted cream */
+    --border: #4b5563;           /* visible slate border */
+    --card: #2b333e;             /* nested surfaces (tab pill) */
+    --card-2: #2b333e;           /* input fields */
+    --bg-soft: #2b333e;
+    color: #f1ece1;
+  }
   /* Selected element in the article composer canvas gets a soft-orange highlight
      box (like JotForm), so it's obvious which element the right panel is editing. */
   .composer-surface .ProseMirror-selectednode {

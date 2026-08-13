@@ -240,7 +240,7 @@ export default function StudioEditor({
 
       <div className="grid gap-4 lg:grid-cols-[180px_1fr_300px]">
         {/* ---- Palette ---- */}
-        <aside className="space-y-4">
+        <aside className="composer-panel space-y-4 self-start rounded-2xl p-3">
           <Panel title="Shape">
             <div className="grid grid-cols-2 gap-1.5">
               {SHAPE_IDS.map((s) => (
@@ -467,7 +467,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function InspectorShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card lg:sticky lg:top-4">
+    <div className="composer-panel card-soft rounded-xl border border-[var(--border)] p-4 lg:sticky lg:top-4">
       <div className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{title}</div>
       {children}
     </div>
