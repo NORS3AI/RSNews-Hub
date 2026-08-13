@@ -42,11 +42,14 @@ export default function ArticleContent({
         if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} /></div>; }
         return <AdPlaceholder label={a['data-ad-label']} />;
       }
-      // A hand-picked reserved sponsor creative — always a rectangle.
+      // A hand-picked reserved sponsor creative — always a rectangle. If it didn't
+      // resolve (deleted, or DROPPED because it belongs to a different vendor than
+      // this article is locked to), collapse to nothing — never print the missing
+      // ad's brand label, so a competitor's NAME can't surface in a locked article.
       if ('data-ad-id' in a) {
         const ad = adById[a['data-ad-id']];
         if (ad) return <div className="my-6"><InArticleAd ad={ad} slot="article-sponsor" size="rectangle" /></div>;
-        return <AdPlaceholder label={a['data-ad-label'] || 'Sponsor ad'} />;
+        return <></>;
       }
       if ('data-poll' in a) {
         const live = pollData.find((p) => p.data.id === a['data-poll']);

@@ -91,4 +91,17 @@ describe('notifySponsorLive', () => {
     const logs = await prisma.adminLog.findMany({ where: { kind: 'sponsor_golive' } });
     expect(logs.length).toBe(0);
   });
+
+  it('does NOT send the sponsored email for a What\'s Hot article, even with a featured window', async () => {
+    const name = `WhatsHotVendor ${tag()}`;
+    const v = await prisma.vendor.create({ data: { name, brandKey: brandKey(name), premium: false } });
+    madeVendors.push(v.id);
+    // genre 'update' (What's Hot piece), NOT sponsored, but has a connected vendor + a featured window.
+    const articleId = await mkDraft({ status: 'PUBLISHED', genre: 'update', sponsoredUntil: new Date(Date.now() + 1e9), sponsorVendorId: v.id });
+    await notifySponsorLive(articleId);
+    const logs = await prisma.adminLog.findMany({ where: { kind: 'sponsor_golive' } });
+    expect(logs.length).toBe(0); // gated on genre==='sponsored' alone
+    const art = await prisma.article.findUnique({ where: { id: articleId }, select: { sponsorNotifiedAt: true } });
+    expect(art?.sponsorNotifiedAt).toBeNull(); // not claimed either
+  });
 });

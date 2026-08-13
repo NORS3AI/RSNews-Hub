@@ -24,6 +24,7 @@ export type AdRow = {
   video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
+  house?: boolean;           // RS-owned house ad — the ONLY safe lock fallback
   reserved?: boolean;        // one-off hand-picked creative; never in rotation
   // Optional self-scheduling window for a manually-added (non-flighted) ad, so a
   // one-off outside advertiser can go live/come down on a date without a full
@@ -88,7 +89,7 @@ export const DEFAULT_ADS: AdRow[] = [
     keywords: 'Stripe', competitors: 'Square, PayPal, Adyen, Braintree', active: true },
   { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RS News Hub',
     headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.',
-    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '', active: true },
+    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '', active: true, house: true },
   { id: 'seed-clouddesk', brand: 'CloudDesk', label: 'Support software',
     headline: 'CloudDesk — the helpdesk your team will actually enjoy using.',
     cta: 'Try it free', href: '#', accent: '#2b7a8c', keywords: '', competitors: '', active: true },
@@ -152,9 +153,12 @@ export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: str
   if (lock) {
     const mine = safe.filter((a) => a.brand.trim().toLowerCase() === lock);
     if (mine.length) return mine[seedFrom(slotSeed) % mine.length];
-    const house = safe.filter((a) => !a.flightId && !a.liveFrom && !a.liveUntil);
+    // Fallback is EXPLICIT house ads only (a.house) — never "no flight/schedule",
+    // because an always-on outside advertiser has neither and would be a rival.
+    // If no house ad is on file, the slot collapses (null) rather than risk one.
+    const house = safe.filter((a) => a.house);
     if (house.length) return house[seedFrom(slotSeed) % house.length];
-    return null; // nothing safe/ours to show — the slot collapses rather than risk a rival
+    return null;
   }
 
   // Preference order:

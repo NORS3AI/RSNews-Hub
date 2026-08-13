@@ -177,7 +177,7 @@ export function parseContentSubmission(raw: Record<string, unknown>, map: Conten
   const imageUrls = collectUrls(f.images);
   if (!imageUrls.length) issues.push('No creative image found — the reserved ad was skipped.');
 
-  const emailRaw = str(f.email);
+  const emailRaw = str(f.email).slice(0, 254); // RFC max address length; also caps input
   const email = EMAIL_RE.test(emailRaw) ? emailRaw : '';
 
   const ctaHref = safeLinkHref(str(f.ctaHref), '');

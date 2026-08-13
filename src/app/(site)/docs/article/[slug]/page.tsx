@@ -108,8 +108,8 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
-    loadBrandArticleAds(article.content),
-    resolveReservedArticleAds(article.content),
+    loadBrandArticleAds(article.content, lockBrand),
+    resolveReservedArticleAds(article.content, lockBrand),
     getSupplierAdMap(),
     user ? savedVendorIds(user.id) : Promise.resolve([]),
   ]);

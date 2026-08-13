@@ -98,7 +98,7 @@ const AD_ID_RE = /data-ad-id="([^"]+)"/g;
 /** Resolve `data-ad-id` markers in an article body to the exact ad BY ID. This is
  *  a deliberate hand-pick, so it bypasses the rotation/reserved filter — it's the
  *  one path that can serve a reserved creative. */
-export async function resolveReservedArticleAds(html: string): Promise<Record<string, AdRow>> {
+export async function resolveReservedArticleAds(html: string, lockBrand = ''): Promise<Record<string, AdRow>> {
   const ids = [...new Set([...(html || '').matchAll(AD_ID_RE)].map((m) => m[1]))];
   if (!ids.length) return {};
   try {
@@ -107,8 +107,15 @@ export async function resolveReservedArticleAds(html: string): Promise<Record<st
     // an arbitrary flighted/competitor ad by id (which would bypass the rotation,
     // competitor-suppression, and flight-window logic in loadAds).
     const rows = await prisma.ad.findMany({ where: { id: { in: ids }, reserved: true }, include: { flight: { select: { status: true, startAt: true, endAt: true } } } });
+    const lock = lockBrand.trim().toLowerCase();
     const map: Record<string, AdRow> = {};
-    for (const r of rows) map[r.id] = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
+    for (const r of rows) {
+      // On a vendor-connected article, a reserved creative for a DIFFERENT vendor
+      // is dropped — only the connected vendor's own reserved ad may appear, so an
+      // editor can't embed a competitor's reserved ad by id in their piece.
+      if (lock && brandKey(r.brand) !== lock) continue;
+      map[r.id] = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
+    }
     return map;
   } catch { return {}; }
 }
@@ -117,7 +124,7 @@ export async function resolveReservedArticleAds(html: string): Promise<Record<st
  *  each, keyed by "<brandKey>::<size>". Picks a live ad of that advertiser that
  *  actually has the requested shape; an advertiser with nothing live in that
  *  size is omitted so the slot falls back to the Auto smart-cycle. */
-export async function loadBrandArticleAds(html: string): Promise<Record<string, AdRow>> {
+export async function loadBrandArticleAds(html: string, lockBrand = ''): Promise<Record<string, AdRow>> {
   const wanted = new Map<string, { brand: string; size: string }>();
   for (const m of (html || '').matchAll(AD_SLOT_RE)) {
     const brand = attr(m[0], 'data-ad-brand');
@@ -128,16 +135,23 @@ export async function loadBrandArticleAds(html: string): Promise<Record<string, 
   if (!wanted.size) return {};
   const now = new Date();
   const live = (await loadAds()).filter((a) => adIsLive(a, now));
-  // A slot sold to one advertiser must never fall back to another advertiser (a
-  // possible competitor). If the chosen advertiser has nothing live, we serve an
-  // RS house ad (our own — never a vendor flight) instead.
-  const house = live.filter((a) => !a.flightId);
+  const lock = lockBrand.trim().toLowerCase();
+  // A sold slot must never fall back to another advertiser (a possible competitor).
+  // "House" is now the EXPLICIT flag only — never "no flight" (an always-on outside
+  // advertiser has no flight and would be a rival). If nothing safe fits, the slot
+  // is omitted and falls back to the Auto smart-cycle (which is itself vendor-locked
+  // on a connected article).
+  const house = live.filter((a) => a.house);
   const map: Record<string, AdRow> = {};
   for (const [key, { brand, size }] of wanted) {
+    // On a vendor-connected article, a slot locked to a DIFFERENT advertiser is
+    // dropped entirely so it can never show a competitor — it falls to the
+    // vendor-locked Auto cycle instead.
+    if (lock && brand !== lock) continue;
     const fits = (a: AdRow) => size === 'rectangle' ? (!!a.imageRect || !!a.video) : !!a.imageWide;
     const brandLive = live.filter((a) => brandKey(a.brand) === brand);
-    // Prefer a creative that fits the shape; else the advertiser's other creative
-    // (a text ad renders anywhere); else an RS house ad; else Auto (omit).
+    // Prefer a creative that fits the shape; else the advertiser's other creative;
+    // else an RS house ad; else Auto (omit).
     const chosen = brandLive.find(fits) || brandLive[0] || house.find(fits) || house[0];
     if (chosen) map[key] = chosen;
   }

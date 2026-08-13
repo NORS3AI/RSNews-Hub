@@ -64,20 +64,28 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
   try {
     const a = await prisma.article.findUnique({
       where: { id: articleId },
-      select: { id: true, title: true, slug: true, status: true, genre: true, sponsoredUntil: true, sponsorVendorId: true, sponsorNotifiedAt: true },
+      select: { id: true, title: true, slug: true, status: true, genre: true, sponsorVendorId: true, sponsorNotifiedAt: true },
     });
     if (!a || a.status !== 'PUBLISHED' || !a.sponsorVendorId || a.sponsorNotifiedAt) return;
-    // Only SPONSORED pieces get the "your sponsored article is live" message. A
-    // vendor's What's Hot article can also carry a sponsorVendorId (for the review
-    // flow + ad lock), but it isn't a paid placement — its go-live shows on the
-    // dashboard ("Posted …"), not as a sponsored email.
-    if (a.genre !== 'sponsored' && !a.sponsoredUntil) return;
+    // Only genuinely SPONSORED pieces get the "your sponsored article is live"
+    // message — gate on genre ALONE. A vendor's What's Hot article can carry a
+    // sponsorVendorId (for the review flow + ad lock) AND a featured window
+    // (sponsoredUntil), but it isn't a paid placement, so it must NOT get the
+    // sponsored email — its go-live shows on the dashboard as "Posted …". Intake
+    // always stamps genre='sponsored', so no real sponsored article is missed.
+    if (a.genre !== 'sponsored') return;
 
     const vendor = await prisma.vendor.findUnique({
       where: { id: a.sponsorVendorId },
       select: { name: true, premium: true, contactEmail: true },
     });
     if (!vendor) return;
+
+    // Claim the one-time notify ATOMICALLY, so two rapid/concurrent publishes can't
+    // both read null and both send. Only the winner proceeds; on email failure we
+    // release the claim so a later publish can retry.
+    const claim = await prisma.article.updateMany({ where: { id: a.id, sponsorNotifiedAt: null }, data: { sponsorNotifiedAt: new Date() } });
+    if (claim.count === 0) return;
 
     const url = `${process.env.SITE_URL || ''}/docs/article/${a.slug}`;
     const subject = `Your sponsored article is live on RS News`;
@@ -88,21 +96,19 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     if (vendor.premium && vendor.contactEmail) {
       const r = await sendEmail({ to: vendor.contactEmail, subject, text, html });
-      if (r.ok) {
-        await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: new Date() } });
-        log.info('sponsor go-live email sent', { articleId: a.id });
-      }
+      if (r.ok) log.info('sponsor go-live email sent', { articleId: a.id });
+      else await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: null } }); // release for retry
       return;
     }
 
     // Non-premium (or no contact on file): leave the admin ready-to-send copy.
+    // (sponsorNotifiedAt was already claimed atomically above.)
     await prisma.adminLog.create({
       data: {
         kind: 'sponsor_golive',
         message: `Sponsored article “${a.title}” is live — send ${vendor.name} the go-live note:\n\n${text}`,
       },
     });
-    await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: new Date() } });
   } catch (e) {
     log.warn('sponsor go-live notify failed', { articleId, err: (e as Error).message });
   }

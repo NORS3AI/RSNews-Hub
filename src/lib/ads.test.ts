@@ -87,10 +87,16 @@ describe('pickInArticleAd — vendor lock (connected article)', () => {
     expect(pickInArticleAd([rival, house, mine], 'text', 'seed', NOW, '', undefined, 'packwise')?.id).toBe('mine');
   });
 
-  it('falls back to a TRUE house ad (no flight, no window) when the vendor has none', () => {
+  it('falls back to an explicit house ad (a.house) when the vendor has none', () => {
     const rival = ad({ id: 'rival', brand: 'ShipRite', flightId: 'fl', flightStatus: 'SCHEDULED', ...inWindow });
-    const house = ad({ id: 'house', brand: 'RS News' });
+    const house = ad({ id: 'house', brand: 'RS News', house: true });
     expect(pickInArticleAd([rival, house], 'text', 'seed', NOW, '', undefined, 'packwise')?.id).toBe('house');
+  });
+
+  it('NEVER falls back to an always-on third-party ad — house must be explicit (Q5 regression)', () => {
+    // An outside advertiser with no flight AND no window is NOT a house ad.
+    const alwaysOnRival = ad({ id: 'rival', brand: 'ShipRite' }); // active, no flight/window, house:false
+    expect(pickInArticleAd([alwaysOnRival], 'text', 'seed', NOW, '', undefined, 'packwise')).toBeNull();
   });
 
   it('never falls back to another advertiser — returns null rather than a rival', () => {

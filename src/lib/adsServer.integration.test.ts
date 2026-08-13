@@ -41,14 +41,29 @@ describe('loadBrandArticleAds — advertiser lock + house fallback', () => {
     expect(map[`${key}::wide`]?.brand).toBe(acme);
   });
 
-  it('falls back to an RS house ad (never a competitor) when the advertiser has nothing live', async () => {
-    // A house ad exists (no vendor flight = RS's own).
-    await mkAd({ brand: brand('RSHouse'), headline: 'House', imageWide: '/house.png', active: true });
+  it('falls back to an explicit RS house ad (never a competitor) when the advertiser has nothing live', async () => {
+    // Only an EXPLICIT house ad (house:true) qualifies as the fallback.
+    const houseAd = await mkAd({ brand: brand('RSHouse'), headline: 'House', imageWide: '/house.png', active: true, house: true });
     const ghost = brandKey(brand('GhostCo')); // an advertiser with zero ads
     const map = await loadBrandArticleAds(`<div data-ad-slot data-ad-brand="${ghost}" data-ad-size="wide"></div>`);
     const fb = map[`${ghost}::wide`];
-    expect(fb).toBeTruthy();
-    expect(fb.flightId ?? null).toBeNull(); // house ad, not a flighted competitor
+    expect(fb?.id).toBe(houseAd.id);
+  });
+
+  it('does NOT fall back to an always-on third-party ad (house must be explicit)', async () => {
+    // Active, no flight, no window, house:false — an outside advertiser, NOT house.
+    await mkAd({ brand: brand('RivalCo'), headline: 'Rival', imageWide: '/rival.png', active: true });
+    const ghost = brandKey(brand('GhostCo2'));
+    const map = await loadBrandArticleAds(`<div data-ad-slot data-ad-brand="${ghost}" data-ad-size="wide"></div>`);
+    expect(map[`${ghost}::wide`]).toBeUndefined(); // omitted → falls to Auto, never a rival
+  });
+
+  it('on a vendor-locked article, drops a competitor-locked slot so it falls to Auto', async () => {
+    await mkAd({ brand: brand('RivalCo3'), headline: 'Rival', imageWide: '/r.png', active: true });
+    const rivalKey = brandKey(brand('RivalCo3'));
+    // lockBrand is some other vendor; the rival-locked slot must not resolve.
+    const map = await loadBrandArticleAds(`<div data-ad-slot data-ad-brand="${rivalKey}" data-ad-size="wide"></div>`, 'packwise-locked-vendor');
+    expect(map[`${rivalKey}::wide`]).toBeUndefined();
   });
 });
 

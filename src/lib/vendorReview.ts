@@ -33,14 +33,21 @@ export async function listVendorReviews(vendorId: string): Promise<VendorReviewC
     orderBy: { createdAt: 'desc' },
     include: { article: { select: { id: true, title: true, slug: true, status: true, publishedAt: true, sponsoredUntil: true, previewToken: true, genre: true, category: { select: { name: true } } } } },
   });
-  return rows.map((r) => ({
-    id: r.id, createdAt: r.createdAt, decision: r.decision, message: r.message, decidedAt: r.decidedAt,
-    article: {
-      id: r.article.id, title: r.article.title, slug: r.article.slug, status: r.article.status,
-      publishedAt: r.article.publishedAt, sponsoredUntil: r.article.sponsoredUntil, previewToken: r.article.previewToken,
-      genre: r.article.genre, categoryName: r.article.category?.name ?? null,
-    },
-  }));
+  return rows.map((r) => {
+    // Only ship the draft-preview secret while the round is actually actionable
+    // (pending + unpublished) — the card only shows a Preview button then. Once
+    // answered or published, withhold the (non-rotating) token from the payload.
+    const stillPreviewable = !r.decidedAt && r.article.status !== 'PUBLISHED';
+    return {
+      id: r.id, createdAt: r.createdAt, decision: r.decision, message: r.message, decidedAt: r.decidedAt,
+      article: {
+        id: r.article.id, title: r.article.title, slug: r.article.slug, status: r.article.status,
+        publishedAt: r.article.publishedAt, sponsoredUntil: r.article.sponsoredUntil,
+        previewToken: stillPreviewable ? r.article.previewToken : null,
+        genre: r.article.genre, categoryName: r.article.category?.name ?? null,
+      },
+    };
+  });
 }
 
 /**

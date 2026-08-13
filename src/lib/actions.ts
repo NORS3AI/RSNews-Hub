@@ -278,12 +278,15 @@ export async function confirmIntakeVendor(formData: FormData) {
   revalidatePath('/admin/intake');
 }
 
-/** Admin/editor: push an article to a vendor's dashboard for review. Each call is
- *  a NEW round (a fresh pending item + a timestamped paper-trail row); a re-push
- *  after edits does not disturb earlier rounds. Ensures a preview token so the
- *  vendor can see the draft. Works for sponsored articles and What's Hot pieces. */
+/** Admin: push an article to a vendor's dashboard for review. Each call is a NEW
+ *  round (a fresh pending item + a timestamped paper-trail row); a re-push after
+ *  edits does not disturb earlier rounds. Ensures a preview token so the vendor can
+ *  see the draft. Works for sponsored articles and What's Hot pieces.
+ *  ADMIN-only (not EDITOR): pushing shares a private draft-preview link with an
+ *  external vendor, so — like confirmIntakeVendor — a lower-trust editor must not be
+ *  able to leak an arbitrary draft to an arbitrary advertiser. */
 export async function pushArticleToVendorReview(formData: FormData) {
-  await ensureStaff();
+  await ensureAdmin();
   const articleId = String(formData.get('articleId') || '').trim();
   const vendorId = String(formData.get('vendorId') || '').trim();
   if (!articleId || !vendorId) throw new Error('Pick a vendor to send this to.');
@@ -470,11 +473,14 @@ export async function saveAd(formData: FormData) {
   const active = formData.get('active') != null;
   // Reserved = a hand-placed one-off; kept out of rotation (see loadAds).
   const reserved = formData.get('reserved') != null;
+  // House = an RS-owned creative; the ONLY safe fallback inside a vendor-locked
+  // article (see pickInArticleAd). Never set this on an outside advertiser's ad.
+  const house = formData.get('house') != null;
   const parseDate = (v: string) => { const s = (v || '').trim(); if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; };
   const liveFrom = parseDate(formData.get('liveFrom') as string);
   const liveUntil = parseDate(formData.get('liveUntil') as string);
   if (!brand || !headline) throw new Error('Brand and headline are required');
-  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active, reserved, liveFrom, liveUntil };
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active, reserved, house, liveFrom, liveUntil };
   if (id) await prisma.ad.update({ where: { id }, data });
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');
