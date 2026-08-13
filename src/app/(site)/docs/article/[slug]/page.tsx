@@ -12,10 +12,10 @@ import ListenButton from '@/components/site/ListenButton';
 import CoverVideo from '@/components/site/CoverVideo';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
-import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds, resolveArticleLockBrand } from '@/lib/adsServer';
 import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
-import { entitlementsOf, canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
+import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
@@ -116,9 +116,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // If this article is CONNECTED to a vendor (a sponsored piece or a What's Hot
   // article we tied to them), hard-lock every in-article ad to that vendor — house
   // ads fill any slot they can't, and a competitor can never appear in their piece.
-  const lockBrand = (article as any).sponsorVendorId
-    ? brandKey((await prisma.vendor.findUnique({ where: { id: (article as any).sponsorVendorId }, select: { name: true } }))?.name || '')
-    : '';
+  // resolveArticleLockBrand keeps the lock ON even if the vendor was later removed
+  // (dangling id → house-only, never a rival) — see UNRESOLVED_LOCK.
+  const lockBrand = await resolveArticleLockBrand((article as any).sponsorVendorId);
   const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),

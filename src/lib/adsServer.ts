@@ -2,6 +2,24 @@ import { prisma } from './db';
 import { DEFAULT_ADS, pickTwoInArticleAds, adIsLive, type AdRow } from './ads';
 import { brandKey } from './entitlements';
 
+// A lock value no real brandKey can equal. Used when an article is connected to a
+// vendor (sponsorVendorId set) but that vendor no longer resolves — the link has
+// no FK by design, so a deleted/merged vendor leaves the id dangling. Without this
+// sentinel the lockBrand would be '' and every guard would read it as "no lock",
+// re-admitting competitors. With it, the hard-lock stays ON and matches nothing →
+// house-only / collapse, never a rival.
+export const UNRESOLVED_LOCK = '__unresolved_vendor__';
+
+/** Resolve the in-article ad lock for an article, identically for the full page
+ *  and the reader-modal API. '' → not connected (no lock); a brandKey → lock to
+ *  that vendor; UNRESOLVED_LOCK → connected but the vendor is gone (lock to
+ *  nothing so only house ads / collapse can fill a slot). */
+export async function resolveArticleLockBrand(sponsorVendorId: string | null | undefined): Promise<string> {
+  if (!sponsorVendorId) return '';
+  const v = await prisma.vendor.findUnique({ where: { id: sponsorVendorId }, select: { name: true } });
+  return brandKey(v?.name || '') || UNRESOLVED_LOCK;
+}
+
 /** Load the ad inventory (DB) with each ad's flight window/status for live
  *  filtering, falling back to the built-in house defaults. Competitor groups
  *  (admin-defined) are folded into every member ad's competitor terms, so an

@@ -5,8 +5,7 @@ import { canViewContent } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
-import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds } from '@/lib/adsServer';
-import { brandKey } from '@/lib/entitlements';
+import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds, resolveArticleLockBrand } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 
 export const dynamic = 'force-dynamic';
@@ -50,9 +49,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // If this article is CONNECTED to a vendor, hard-lock every in-article ad to
   // that vendor — MUST mirror the full page, or the modal (the primary reading
   // surface for logged-in readers) leaks a competitor's ad into their piece.
-  const lockBrand = article.sponsorVendorId
-    ? brandKey((await prisma.vendor.findUnique({ where: { id: article.sponsorVendorId }, select: { name: true } }))?.name || '')
-    : '';
+  const lockBrand = await resolveArticleLockBrand(article.sponsorVendorId);
   const [related, next, ads, embeds, slotAds, reservedAdMap] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
