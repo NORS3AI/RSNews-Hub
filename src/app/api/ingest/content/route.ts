@@ -38,13 +38,15 @@ export async function POST(req: Request) {
   if (!process.env.JOTFORM_WEBHOOK_SECRET) {
     return NextResponse.json({ ok: false, error: 'ingestion not configured' }, { status: 503 });
   }
+
+  // Rate-limit BEFORE the auth check so failed secret-guesses are throttled too
+  // (per-process, per-IP). A valid webhook stays well under 60/min.
+  const rl = rateLimit(`ingest-content:${clientIp(req)}`, 60, 60_000);
+  if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate limited' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+
   if (!authorized(req, url)) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
-
-  // Blunt flooding / secret-guessing (best-effort, per-process).
-  const rl = rateLimit(`ingest-content:${clientIp(req)}`, 60, 60_000);
-  if (!rl.ok) return NextResponse.json({ ok: false, error: 'rate limited' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
 
   // JotForm posts multipart/form-data with `rawRequest` (JSON), `submissionID`, `formID`.
   let rawRequest = '';

@@ -257,9 +257,12 @@ export async function saveArticle(formData: FormData) {
 
 /** Admin: confirm which vendor a held sponsored-intake submission belongs to
  *  (confirm-before-merge), binding the draft article to it. `vendorId` is an
- *  existing vendor id or the literal 'new' to create one from the submitted name. */
+ *  existing vendor id or the literal 'new' to create one from the submitted name.
+ *  ADMIN-only (not EDITOR): binding a sponsor to a vendor drives the go-live
+ *  email + sponsorship attribution, so a lower-trust editor must not be able to
+ *  re-point a draft to an arbitrary (e.g. competitor) premium vendor. */
 export async function confirmIntakeVendor(formData: FormData) {
-  await ensureStaff();
+  await ensureAdmin();
   const submissionId = String(formData.get('submissionId') || '').trim();
   const vendorId = String(formData.get('vendorId') || '').trim();
   if (!submissionId || !vendorId) throw new Error('Pick a vendor to confirm.');
