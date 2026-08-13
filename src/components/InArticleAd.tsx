@@ -1,4 +1,4 @@
-import type { AdRow } from '@/lib/ads';
+import type { AdRow, AdContext } from '@/lib/ads';
 import AdSlot from '@/components/AdSlot';
 import VideoAd from '@/components/site/VideoAd';
 import AdExpand from '@/components/site/AdExpand';
@@ -12,8 +12,8 @@ import AdExpand from '@/components/site/AdExpand';
  * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
-  ad, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true,
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean }) {
+  ad, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true, adContext,
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean; adContext?: AdContext }) {
   // `placeholder=false` means "never show a filler box" — render nothing when
   // there's no image creative to show. Used on the live homepage so a reader
   // never sees an empty ad slot (dashed placeholder OR the orange no-image box);
@@ -32,7 +32,16 @@ export default function InArticleAd({
 
   // Analytics: separate placement (slot) / creative (ad id) / campaign (brand)
   // identifiers + format + shape, so the same ad can be compared across slots.
-  const trkProps = { brand: ad.brand, campaignId: ad.brand, creativeId: ad.id, format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner' };
+  // When rendered inside an article we also carry the article id/slug + a
+  // `sponsored` flag, so an ad event is attributable to the exact (sponsored)
+  // article it ran in — see AnalyticsProvider → advertiserReport.bySponsoredArticle.
+  const trkProps = {
+    brand: ad.brand, campaignId: ad.brand, creativeId: ad.id,
+    format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner',
+    ...(adContext?.articleId ? { articleId: adContext.articleId } : {}),
+    ...(adContext?.articleSlug ? { articleSlug: adContext.articleSlug } : {}),
+    ...(adContext?.sponsored ? { sponsored: true } : {}),
+  };
   const trk = {
     'data-trk-type': 'ad',
     'data-trk-id': ad.id,

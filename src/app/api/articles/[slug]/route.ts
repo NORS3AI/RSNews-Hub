@@ -90,6 +90,9 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     embeds,
     slotAds,
     reservedAds: reservedAdMap,
+    // Vendor-connected sponsored piece? Drives per-sponsored-article ad attribution
+    // in the reader modal (mirrors the full page). See ArticleModalProvider.
+    sponsored: !!article.sponsorVendorId,
     loggedIn: !!user,
   });
 }

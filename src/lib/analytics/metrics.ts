@@ -34,6 +34,7 @@ export function splitDim(e: Ev, dim: string): string {
     case 'position': return `slot ${num(e.props.pos)}`;
     case 'creative': return String(e.props.creativeId ?? e.subjectId ?? '—');
     case 'campaign': return String(e.props.campaignId ?? e.props.brand ?? '—');
+    case 'article': return String(e.props.articleId ?? e.props.articleSlug ?? '—');
     case 'all': return 'all'; // fold everything into one bucket (for grand totals)
     case 'format': return String(e.props.format ?? '—');
     case 'shape': return String(e.props.shape ?? '—');
@@ -204,7 +205,17 @@ export function advertiserReport(evs: Ev[], brand: string) {
   // 'campaign' and taking [0] would keep only the largest spelling variant when a
   // brand was entered two ways — undercounting, and disagreeing with byCreative.)
   const totals = aggregateAds(ads, 'all')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, expands: 0, avgDwellMs: 0, aboveFoldPct: 0 };
-  return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
+  // Per-sponsored-article breakdown: how this brand's ads performed inside each
+  // vendor-connected sponsored piece (their embedded sponsor ad + any locked
+  // slots). Keyed by articleId; the dashboard resolves ids → titles for display.
+  const sponsored = ads.filter((e) => e.props.sponsored === true);
+  return {
+    brand, totals,
+    byCreative: aggregateAds(ads, 'creative'),
+    byPlacement: aggregateAds(ads, 'placement'),
+    bySponsoredArticle: aggregateAds(sponsored, 'article'),
+    trend: adTrend(ads),
+  };
 }
 
 export function tally<T>(items: T[], keyFn: (t: T) => string): { key: string; count: number }[] {

@@ -28,7 +28,7 @@ type ModalArticle = {
   audioUrl?: string | null;
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; loggedIn?: boolean };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; sponsored?: boolean; loggedIn?: boolean };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -117,6 +117,9 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
   }, [slug, close]);
 
   const a = data?.article;
+  // Per-sponsored-article ad attribution, mirroring the full page — so an ad seen
+  // in the reader modal is attributed to this article (and flagged sponsored).
+  const adCtx = a ? { articleId: a.id, articleSlug: a.slug, sponsored: !!data?.sponsored } : undefined;
 
   // Reading analytics: open event, active reading time (visible only), and
   // scroll-depth milestones (25/50/75/100). Finalized as a `read` event when the
@@ -198,11 +201,11 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     ) : null}
 
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
-                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" placeholder={false} /></div>
+                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" placeholder={false} adContext={adCtx} /></div>
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.byline || a.author?.name || ''}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
-                        adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} />
+                        adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} adContext={adCtx} />
                     </article>
 
                     {a.tags.length > 0 && (
@@ -215,7 +218,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     )}
 
                     {/* In-article ad #2 — contextually safe */}
-                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} /></div>
+                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} adContext={adCtx} /></div>
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}

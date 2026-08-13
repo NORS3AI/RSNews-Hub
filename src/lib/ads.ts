@@ -41,6 +41,12 @@ export type AdRow = {
   flightEndAt?: Date | string | null;
 };
 
+// Article context an in-article ad carries into analytics, so an ad impression/
+// click can be attributed to the specific article it ran in — and flagged when
+// that article is a vendor-connected sponsored piece. Threaded from the reader
+// (page + modal) down to InArticleAd, which folds it into the tracked props.
+export type AdContext = { articleId?: string | null; articleSlug?: string | null; sponsored?: boolean };
+
 /** Whether an ad may be served right now: house ad (active) vs flighted-in-window. Pure. */
 export function adIsLive(ad: AdRow, now: Date): boolean {
   if (ad.flightId) {

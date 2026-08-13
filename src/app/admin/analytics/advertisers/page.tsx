@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { prisma } from '@/lib/db';
 import { loadEvents } from '@/lib/analytics/query';
 import { advertiserList, advertiserReport } from '@/lib/analytics/metrics';
 import ReportTable from '@/components/admin/ReportTable';
@@ -17,6 +18,19 @@ export default async function AdvertiserReports(props: { searchParams: Promise<R
   const advertisers = advertiserList(events);
   const brand = advertisers.includes(searchParams.brand ?? '') ? searchParams.brand! : advertisers[0];
   const report = brand ? advertiserReport(events, brand) : null;
+
+  // Resolve the sponsored-article breakdown's articleId keys → readable titles.
+  // (bySponsoredArticle is keyed by id so a renamed article still aggregates.)
+  const sponsoredRows = report?.bySponsoredArticle ?? [];
+  const titleById = new Map<string, string>();
+  if (sponsoredRows.length) {
+    const arts = await prisma.article.findMany({
+      where: { id: { in: sponsoredRows.map((r) => r.key) } },
+      select: { id: true, title: true },
+    });
+    for (const a of arts) titleById.set(a.id, a.title);
+  }
+  const sponsoredArticleRows = sponsoredRows.map((r) => ({ ...r, key: titleById.get(r.key) ?? r.key }));
 
   const url = (b: string, d = days) => `/admin/analytics/advertisers?days=${d}&brand=${encodeURIComponent(b)}`;
 
@@ -77,6 +91,17 @@ export default async function AdvertiserReports(props: { searchParams: Promise<R
                   filename={`${brand}-placements-${days}d`}
                 />
               </div>
+
+              {sponsoredArticleRows.length > 0 && (
+                <div>
+                  <Head>Inside sponsored articles — their embedded ad, per piece</Head>
+                  <ReportTable
+                    columns={[{ key: 'key', label: 'Sponsored article' }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'viewable', label: 'Viewable', type: 'int' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+                    rows={sponsoredArticleRows}
+                    filename={`${brand}-sponsored-articles-${days}d`}
+                  />
+                </div>
+              )}
 
               <div>
                 <Head>Daily trend</Head>

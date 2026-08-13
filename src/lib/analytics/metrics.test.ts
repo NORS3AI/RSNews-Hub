@@ -183,6 +183,22 @@ describe('advertiser reporting (scoped to one brand)', () => {
     expect(t[0].impressions).toBe(2);
     expect(t[0].clicks).toBe(1);
   });
+  it('breaks the brand down per sponsored article (only sponsored events, keyed by articleId)', () => {
+    const attributed: Ev[] = [
+      // Two impressions of PackWise's ad inside a sponsored article, plus a click.
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-sponsor', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-r', articleId: 'art-1', articleSlug: 'pw-story', sponsored: true, viewable: true } }),
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', articleId: 'art-1', articleSlug: 'pw-story', sponsored: true, viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', placement: 'article-sponsor', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-r', articleId: 'art-1', sponsored: true } }),
+      // A non-sponsored article impression for the same brand — must be excluded.
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', articleId: 'art-2', viewable: true } }),
+    ];
+    const r = advertiserReport(attributed, 'PackWise');
+    expect(r.bySponsoredArticle).toHaveLength(1);          // only art-1 (art-2 not sponsored)
+    const row = r.bySponsoredArticle[0];
+    expect(row.key).toBe('art-1');                          // keyed by articleId
+    expect(row.impressions).toBe(2);                        // both sponsored impressions
+    expect(row.clicks).toBe(1);
+  });
 });
 
 describe('toCsv', () => {
