@@ -360,13 +360,6 @@ model Vendor {
   brandKey     String       @unique         // normalized match key (see lib/vendors)
   contactEmail String?                      // ADMIN-CURATED public "official" contact email (phone book); reminders/go-live fall back to it
   notes        String?
-  // The person on file from the vendor's LATEST JotForm order / sponsored-article
-  // submission — who WE email about that order (go-live, reminders). Each order can
-  // be a different rep ("latest wins"). Deliberately SEPARATE from contactName/
-  // contactEmail (the admin-curated, publicly-rendered phone-book contact) so an
-  // untrusted webhook can never overwrite/deface the public directory entry.
-  orderContactName  String?
-  orderContactEmail String?
   // Set when the hub auto-created this vendor from an intake submission with no
   // confident match — surfaced in the intake queue so an admin can review the
   // new record (merge a duplicate, fill contact details) rather than it landing
@@ -525,6 +518,13 @@ model AdCampaign {
   status      String     @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | CANCELLED
   allowsVideo Boolean    @default(false)
   notes       String?
+  // The person who placed THIS order (from their JotForm submission), archived
+  // with the order so the paper trail shows who to contact about it — each order
+  // can be a different rep. Distinct from the vendor's public phone-book contact.
+  // go-live + reminder emails address this person, falling back to the vendor's
+  // curated contactEmail.
+  contactName  String?
+  contactEmail String?
   createdAt   DateTime   @default(now())
   // Set once we've emailed the vendor to renew (campaign nearing its end), so the
   // nightly job never double-nudges. Cleared implies "renewal reminder still due".

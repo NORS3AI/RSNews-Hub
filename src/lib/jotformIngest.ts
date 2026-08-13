@@ -85,10 +85,12 @@ export async function ingestSubmission(rawObj: Record<string, unknown>, submissi
   // failure can't leave an orphaned campaign. Creatives are inactive/unassigned —
   // they don't serve until the admin assigns them to a flight and schedules it.
   const { vendorId, campaignId } = await prisma.$transaction(async (tx) => {
-    const vendorId = await findOrCreateVendor(parsed.vendorName, tx, parsed.email || undefined, parsed.contactName || undefined);
+    const vendorId = await findOrCreateVendor(parsed.vendorName, tx);
     const campaignId = await createCampaign({
       vendorName: parsed.vendorName, vendorId, plan: parsed.planKey,
       startAt, endAt: endAt ?? null, notes: parsed.notes || undefined, status: 'DRAFT',
+      // Archive who placed THIS order with the order itself.
+      contactName: parsed.contactName || undefined, contactEmail: parsed.email || undefined,
     }, tx);
     for (const slot of ads) {
       await tx.ad.create({

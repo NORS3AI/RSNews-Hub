@@ -23,6 +23,8 @@ export type CreateCampaignInput = {
   endAt?: Date | null;   // required for seasonal plans; else derived from the plan length
   notes?: string;
   status?: string;       // 'ACTIVE' (admin-created) | 'DRAFT' (e.g. JotForm — needs review)
+  contactName?: string;  // the person who placed THIS order (from their submission)
+  contactEmail?: string; // their email — who we contact about this order (go-live, reminders)
 };
 
 /** Create a campaign and its flights. Returns the campaign id. Pass `db` to run
@@ -48,6 +50,8 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
       endAt,
       allowsVideo: plan.allowsVideo,
       notes: input.notes || null,
+      contactName: input.contactName?.trim() || null,
+      contactEmail: input.contactEmail?.trim() || null,
       status: input.status === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
       flights: { create: flights.map((f) => ({ index: f.index, startAt: f.startAt, endAt: f.endAt })) },
     },
@@ -124,18 +128,17 @@ export async function scheduleFlight(flightId: string): Promise<void> {
 async function notifyAdsLive(campaignId: string): Promise<void> {
   const c = await prisma.adCampaign.findUnique({
     where: { id: campaignId },
-    select: { vendorName: true, liveNotifiedAt: true, vendor: { select: { contactEmail: true, contactName: true, orderContactEmail: true, orderContactName: true } } },
+    select: { vendorName: true, liveNotifiedAt: true, contactName: true, contactEmail: true, vendor: { select: { contactEmail: true } } },
   });
   if (!c || c.liveNotifiedAt) return;
-  // Email the person who placed the latest order first; fall back to the curated
+  // Email the person who placed THIS order; fall back to the vendor's curated
   // phone-book address.
-  const to = c.vendor?.orderContactEmail || c.vendor?.contactEmail;
+  const to = c.contactEmail || c.vendor?.contactEmail;
   if (!to) return; // no address yet — leave unnotified so a later go-live can still send
   const dashboardUrl = `${process.env.SITE_URL || ''}/docs/vendor`;
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  // Greet the vendor's latest order contact person, falling back to the curated
-  // contact, then the company name.
-  const contactName = c.vendor?.orderContactName || c.vendor?.contactName || c.vendorName;
+  // Greet the person who placed this order, falling back to the company name.
+  const contactName = c.contactName || c.vendorName;
   const { subject, text, html } = await renderTemplate('ads_live', { contactName, vendorName: c.vendorName, date, dashboardUrl });
   // Claim the one-time notify ATOMICALLY (mirrors notifySponsorLive) so two
   // concurrent go-lives can't both read null and both send. Release on failure.

@@ -185,13 +185,13 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           (<img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />)
         ) : null}
 
-        <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" /></div>
+        <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" placeholder={false} /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.byline || article.author?.name || ''}>
           <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
         </article>
 
-        <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-bottom" size="rectangle" /></div>
+        <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-bottom" size="rectangle" placeholder={false} /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">

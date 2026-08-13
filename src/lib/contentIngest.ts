@@ -90,21 +90,16 @@ export async function ingestContentSubmission(rawObj: Record<string, unknown>, s
     const v = await prisma.vendor.upsert({
       where: { brandKey: brandKey(parsed.vendorName) },
       update: {},
-      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true, orderContactEmail: parsed.email || null, orderContactName: parsed.contactName || null },
+      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true },
       select: { id: true },
     });
     vendorId = v.id;
     matchVendorId = v.id;
   }
-  // Keep the vendor's latest ORDER contact person + email on file (each submission
-  // can be a different rep). Writes only the order-contact fields — NEVER the
-  // admin-curated, publicly-rendered phone-book contactName/contactEmail.
-  if (vendorId && (parsed.contactName || parsed.email)) {
-    await prisma.vendor.update({
-      where: { id: vendorId },
-      data: { ...(parsed.contactName ? { orderContactName: parsed.contactName } : {}), ...(parsed.email ? { orderContactEmail: parsed.email } : {}) },
-    });
-  }
+  // The submitter's name + email are pinned on the Article itself (below) — that
+  // is the per-article paper trail of who to contact about this piece. We never
+  // write them to the vendor row (which carries only the admin-curated public
+  // phone-book contact).
 
   // 4) Create the reserved creative (out of rotation, hand-pickable — Phase 2),
   //    vendor-locked by brand so it can only ever serve for this advertiser.

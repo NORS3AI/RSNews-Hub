@@ -80,18 +80,20 @@ describe('payment-confirmation go-live gate', () => {
   });
 });
 
-describe('vendor order contact email (JotForm freshness)', () => {
-  it('a later order overwrites the ORDER email; a no-email call leaves it; the public contactEmail is never touched', async () => {
+describe('order contact lives on the campaign (per-order paper trail)', () => {
+  it('each order archives its own contact on the campaign; the vendor’s public contactEmail is never touched', async () => {
     const name = brand('FreshCo');
-    const id = await findOrCreateVendor(name, prisma, 'first@v.com');
-    let v = (await prisma.vendor.findUnique({ where: { id } }))!;
-    expect(v.orderContactEmail).toBe('first@v.com');
-    expect(v.contactEmail).toBeNull();                 // curated public field untouched by the order
-    await findOrCreateVendor(name, prisma, 'second@v.com');
-    v = (await prisma.vendor.findUnique({ where: { id } }))!;
-    expect(v.orderContactEmail).toBe('second@v.com');   // latest order wins
-    await findOrCreateVendor(name); // no email → untouched
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.orderContactEmail).toBe('second@v.com');
+    const vendorId = await findOrCreateVendor(name);
+    // Two orders on the same vendor by DIFFERENT people — John for one, Kelly for
+    // the next. Each contact stays with its own campaign.
+    const c1 = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT', contactName: 'John Smith', contactEmail: 'john@v.com' });
+    const c2 = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT', contactName: 'Kelly Green', contactEmail: 'kelly@v.com' });
+    const camp1 = await prisma.adCampaign.findUnique({ where: { id: c1 }, select: { contactName: true, contactEmail: true } });
+    const camp2 = await prisma.adCampaign.findUnique({ where: { id: c2 }, select: { contactName: true, contactEmail: true } });
+    expect(camp1).toMatchObject({ contactName: 'John Smith', contactEmail: 'john@v.com' });
+    expect(camp2).toMatchObject({ contactName: 'Kelly Green', contactEmail: 'kelly@v.com' });
+    // The vendor's public phone-book contact is never written by an order.
+    expect((await prisma.vendor.findUnique({ where: { id: vendorId } }))!.contactEmail).toBeNull();
     await purge(name);
   });
 });
@@ -123,11 +125,12 @@ describe('reminder emails', () => {
     const noName = brand('NoEmail');
 
     for (const [name, email] of [[withName, 'ads@hasemail.com'], [noName, null]] as const) {
-      const vendorId = await findOrCreateVendor(name, prisma, email ?? undefined);
+      const vendorId = await findOrCreateVendor(name);
       // Active campaign ending in ~20d (renewal due <30d). Replace the auto-split
       // flights with an explicit pair: flight 1 live, flight 2 AWAITING starting
-      // ~10d out (fresh-ads due <21d) — the two nudges the test exercises.
-      const campaign = await createCampaign({ vendorName: name, vendorId, plan: 'half', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 20 * day), status: 'ACTIVE' });
+      // ~10d out (fresh-ads due <21d) — the two nudges the test exercises. The
+      // order contact (who to remind) is on the campaign.
+      const campaign = await createCampaign({ vendorName: name, vendorId, plan: 'half', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 20 * day), status: 'ACTIVE', contactEmail: email ?? undefined });
       await prisma.adFlight.deleteMany({ where: { campaignId: campaign } });
       await prisma.adFlight.createMany({ data: [
         { campaignId: campaign, index: 1, status: 'SCHEDULED', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 10 * day) },

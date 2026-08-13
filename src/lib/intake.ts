@@ -49,17 +49,10 @@ export async function resolveIntakeVendor(submissionId: string, vendorId: string
     data: { vendorId: resolvedId, matchVendorId: resolvedId, matchStatus: 'confirmed' },
   });
   if (sub.articleId) {
-    const art = await prisma.article.findUnique({ where: { id: sub.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
+    // Bind the article to the confirmed vendor. The submitter's contact stays
+    // pinned on the article (sponsorContactName/Email) — the per-article paper
+    // trail — so nothing is copied onto the vendor's public directory row.
     await prisma.article.update({ where: { id: sub.articleId }, data: { sponsorVendorId: resolvedId } });
-    // On confirm, carry this article's submitter up to the vendor as their latest
-    // ORDER contact on file (only overwriting with non-empty values). Never touches
-    // the admin-curated public phone-book contactName/contactEmail.
-    if (art && (art.sponsorContactName || art.sponsorContactEmail)) {
-      await prisma.vendor.update({
-        where: { id: resolvedId },
-        data: { ...(art.sponsorContactName ? { orderContactName: art.sponsorContactName } : {}), ...(art.sponsorContactEmail ? { orderContactEmail: art.sponsorContactEmail } : {}) },
-      });
-    }
   }
 }
 
@@ -87,14 +80,14 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     const vendor = await prisma.vendor.findUnique({
       where: { id: a.sponsorVendorId },
-      select: { name: true, premium: true, contactEmail: true, contactName: true, orderContactEmail: true, orderContactName: true },
+      select: { name: true, premium: true, contactEmail: true, contactName: true },
     });
     if (!vendor) return;
 
-    // Address THIS article's submitter first (pinned per-article), then the
-    // vendor's latest order contact, then the curated phone-book contact / name.
-    const contactName = a.sponsorContactName || vendor.orderContactName || vendor.contactName || vendor.name;
-    const to = a.sponsorContactEmail || vendor.orderContactEmail || vendor.contactEmail;
+    // Address THIS article's submitter (pinned per-article — who placed this
+    // order), then fall back to the vendor's curated phone-book contact / name.
+    const contactName = a.sponsorContactName || vendor.contactName || vendor.name;
+    const to = a.sponsorContactEmail || vendor.contactEmail;
 
     // Claim the one-time notify ATOMICALLY, so two rapid/concurrent publishes can't
     // both read null and both send. Only the winner proceeds; on email failure we

@@ -41,6 +41,14 @@ export default async function EditArticle(props: { params: Promise<{ id: string 
       <ArticleReviews
         articleId={a.id} slug={a.slug} previewToken={a.previewToken ?? null}
         reviews={reviews.map((r) => ({ id: r.id, firstName: r.firstName, lastName: r.lastName, decision: r.decision, message: r.message, resolved: r.resolved, createdAt: r.createdAt }))} />
+      {(a.sponsorContactName || a.sponsorContactEmail) && (
+        <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4 text-sm">
+          <span className="font-semibold">Submitted by</span>{' '}
+          <span>{a.sponsorContactName || 'Unknown'}</span>
+          {a.sponsorContactEmail && <> · <a href={`mailto:${a.sponsorContactEmail}`} className="text-brand-600 hover:underline">{a.sponsorContactEmail}</a></>}
+          <span className="ml-1 text-xs text-[var(--muted)]">— the contact archived with this article (who to reach about it).</span>
+        </div>
+      )}
       <VendorReviewPush articleId={a.id} vendors={vendors} defaultVendorId={a.sponsorVendorId ?? null}
         trail={pushTrail.map((t) => ({ id: t.id, createdAt: t.createdAt, vendorName: t.vendorName, decision: t.decision, decidedAt: t.decidedAt, message: t.message }))} />
       <ArticleRevisions revisions={revisions.map((r) => ({ id: r.id, title: r.title, createdAt: r.createdAt, authorName: r.author?.name ?? null }))} />

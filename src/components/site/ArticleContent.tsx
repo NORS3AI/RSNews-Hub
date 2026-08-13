@@ -22,10 +22,15 @@ export type LiveQuiz = { data: QuizData; done: boolean };
 // votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
 // a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], loggedIn = false,
+  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], loggedIn = false, adminPreview = false,
 }: {
   html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>; adById?: Record<string, AdRow>;
   pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
+  // `adminPreview` = the admin composer preview, where an un-hooked ad slot SHOULD
+  // show a placeholder so the editor sees it. On every live reader surface (page,
+  // modal, shared preview link) this is false → an ad element with no live creative
+  // collapses to nothing. A reader must never see the orange/dashed placeholder.
+  adminPreview?: boolean;
 }) {
   let adIdx = 0;
   const content = parse(html || '', {
@@ -38,9 +43,11 @@ export default function ArticleContent({
         // A slot locked to an advertiser shows that advertiser's live creative in
         // the chosen shape; otherwise it auto-rotates the best-match, competitor-safe ads.
         const locked = a['data-ad-brand'] ? adBySlot[`${a['data-ad-brand']}::${a['data-ad-size'] || 'wide'}`] : undefined;
-        if (locked) return <div className="my-6"><InArticleAd ad={locked} slot="article-inline" size={size} /></div>;
-        if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} /></div>; }
-        return <AdPlaceholder label={a['data-ad-label']} />;
+        if (locked) return <div className="my-6"><InArticleAd ad={locked} slot="article-inline" size={size} placeholder={adminPreview} /></div>;
+        if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} placeholder={adminPreview} /></div>; }
+        // No live ad for this slot: show the placeholder only in the composer;
+        // on a live reader surface collapse to nothing.
+        return adminPreview ? <AdPlaceholder label={a['data-ad-label']} /> : <></>;
       }
       // A hand-picked reserved sponsor creative — always a rectangle. If it didn't
       // resolve (deleted, or DROPPED because it belongs to a different vendor than
@@ -48,7 +55,7 @@ export default function ArticleContent({
       // ad's brand label, so a competitor's NAME can't surface in a locked article.
       if ('data-ad-id' in a) {
         const ad = adById[a['data-ad-id']];
-        if (ad) return <div className="my-6"><InArticleAd ad={ad} slot="article-sponsor" size="rectangle" /></div>;
+        if (ad) return <div className="my-6"><InArticleAd ad={ad} slot="article-sponsor" size="rectangle" placeholder={adminPreview} /></div>;
         return <></>;
       }
       if ('data-poll' in a) {

@@ -46,11 +46,20 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
           <span className="badge">{campaign.status}</span>
         </div>
       </div>
-      <p className="mb-5 text-sm text-[var(--muted)]">
+      <p className="mb-1 text-sm text-[var(--muted)]">
         {plan?.label ?? campaign.plan}{campaign.allowsVideo ? ' · video allowed' : ''} · {formatDate(campaign.startAt)} → {formatDate(campaign.endAt)}
         {campaign.status === 'ACTIVE' && <> · {countdownLabel(campaign.endAt, now)}</>}
         {campaign.notes ? <> · {campaign.notes}</> : null}
       </p>
+      {/* Who placed THIS order — archived with the order (each order can be a
+          different person). This is who go-live + reminder emails address. */}
+      {(campaign.contactName || campaign.contactEmail) && (
+        <p className="mb-5 text-sm text-[var(--muted)]">
+          Ordered by <span className="font-semibold text-[var(--fg)]">{campaign.contactName || 'Unknown'}</span>
+          {campaign.contactEmail && <> · <a href={`mailto:${campaign.contactEmail}`} className="text-brand-600 hover:underline">{campaign.contactEmail}</a></>}
+        </p>
+      )}
+      {!campaign.contactName && !campaign.contactEmail && <div className="mb-5" />}
 
       {!isOver && !paid && (
         <div className="card mb-5 border border-red-200 bg-red-50 p-4">

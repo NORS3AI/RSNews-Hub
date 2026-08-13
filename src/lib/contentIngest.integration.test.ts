@@ -87,22 +87,21 @@ describe('ingestContentSubmission', () => {
     expect(v?.autoCreated).toBe(true);
   });
 
-  it('pins the submitter as the article contact AND records the vendor’s latest ORDER contact', async () => {
+  it('pins the submitter as the article contact (the per-article paper trail)', async () => {
     const company = `ContactCo ${tag()}`;
     const r = await run(company, tag(), { contactName: 'Jordan Lee', email: 'jordan@contactco.test' });
+    // The contact is archived ON THE ARTICLE — who to reach about this piece.
     const a = await prisma.article.findUnique({ where: { id: r.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
     expect(a?.sponsorContactName).toBe('Jordan Lee');
     expect(a?.sponsorContactEmail).toBe('jordan@contactco.test');
-    // new vendor was created + carries the latest ORDER contact on file — NOT the
-    // admin-curated public phone-book contact fields.
-    const v = await prisma.vendor.findUnique({ where: { id: r.vendorId! }, select: { orderContactName: true, orderContactEmail: true, contactName: true, contactEmail: true } });
-    expect(v?.orderContactName).toBe('Jordan Lee');
-    expect(v?.orderContactEmail).toBe('jordan@contactco.test');
-    expect(v?.contactName).toBeNull();   // public phone-book contact left for an admin to curate
+    // The new vendor's public phone-book contact is left blank for an admin to
+    // curate — the submitter is NOT copied onto the vendor directory row.
+    const v = await prisma.vendor.findUnique({ where: { id: r.vendorId! }, select: { contactName: true, contactEmail: true } });
+    expect(v?.contactName).toBeNull();
     expect(v?.contactEmail).toBeNull();
   });
 
-  it('NEVER overwrites an existing vendor’s admin-curated, publicly-shown contact', async () => {
+  it('NEVER touches an existing vendor’s admin-curated, publicly-shown contact', async () => {
     // A premium supplier with a curated phone-book contact (the sales rep).
     const name = `Curated Supplier ${tag()}`;
     const v = await prisma.vendor.create({
@@ -110,15 +109,16 @@ describe('ingestContentSubmission', () => {
     });
     madeVendors.push(v.id);
     // An auto-matching submission arrives naming a DIFFERENT submitter.
-    const r = await run(`${name} LLC`, tag(), { contactName: 'Attacker Name', email: 'evil@attacker.test' });
+    const r = await run(`${name} LLC`, tag(), { contactName: 'Someone Else', email: 'someone@else.test' });
     expect(r.matchStatus).toBe('auto');
     expect(r.vendorId).toBe(v.id);
-    const after = await prisma.vendor.findUnique({ where: { id: v.id }, select: { contactName: true, contactEmail: true, orderContactName: true, orderContactEmail: true } });
-    // Public fields are UNCHANGED — no defacement of the directory.
+    // Public directory fields are UNCHANGED — no defacement.
+    const after = await prisma.vendor.findUnique({ where: { id: v.id }, select: { contactName: true, contactEmail: true } });
     expect(after?.contactName).toBe('Dave Miller');
     expect(after?.contactEmail).toBe('dave@curated.test');
-    // The submitter is captured on the separate order-contact fields instead.
-    expect(after?.orderContactName).toBe('Attacker Name');
-    expect(after?.orderContactEmail).toBe('evil@attacker.test');
+    // The submitter is captured only on the article itself.
+    const a = await prisma.article.findUnique({ where: { id: r.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
+    expect(a?.sponsorContactName).toBe('Someone Else');
+    expect(a?.sponsorContactEmail).toBe('someone@else.test');
   });
 });

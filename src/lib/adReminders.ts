@@ -34,10 +34,10 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const freshLead = new Date(now.getTime() + FRESH_ADS_LEAD_DAYS * 86_400_000);
   const flights = await prisma.adFlight.findMany({
     where: { status: { in: ['AWAITING', 'REVIEW'] }, startAt: { gt: now, lte: freshLead }, remindedAt: null, campaign: { status: 'ACTIVE' } },
-    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, plan: true, vendor: { select: { contactEmail: true, orderContactEmail: true } } } } },
+    select: { id: true, index: true, startAt: true, campaign: { select: { vendorName: true, plan: true, contactEmail: true, vendor: { select: { contactEmail: true } } } } },
   });
   for (const f of flights) {
-    const to = f.campaign.vendor?.orderContactEmail || f.campaign.vendor?.contactEmail;
+    const to = f.campaign.contactEmail || f.campaign.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
     const vars: TemplateVars = {
       vendorName: f.campaign.vendorName,
@@ -55,10 +55,10 @@ export async function sendDueReminders(now: Date): Promise<ReminderSummary> {
   const renewLead = new Date(now.getTime() + RENEWAL_LEAD_DAYS * 86_400_000);
   const campaigns = await prisma.adCampaign.findMany({
     where: { status: 'ACTIVE', endAt: { gt: now, lte: renewLead }, renewalRemindedAt: null },
-    select: { id: true, vendorName: true, plan: true, endAt: true, vendor: { select: { contactEmail: true, orderContactEmail: true } } },
+    select: { id: true, vendorName: true, plan: true, endAt: true, contactEmail: true, vendor: { select: { contactEmail: true } } },
   });
   for (const c of campaigns) {
-    const to = c.vendor?.orderContactEmail || c.vendor?.contactEmail;
+    const to = c.contactEmail || c.vendor?.contactEmail;
     if (!to) { skippedNoEmail++; continue; }
     const vars: TemplateVars = {
       vendorName: c.vendorName, packageLabel: packageLabel(c.plan),

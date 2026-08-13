@@ -28,26 +28,17 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * vendor, and the first-seen display name is preserved (a later spelling won't
  * clobber it).
  *
- * A JotForm order's contact person + email (when provided) refresh the vendor's
- * ORDER contact (orderContactName/orderContactEmail) — the latest rep to reach
- * about their order — because each order can be a different person. These are
- * DISTINCT from contactName/contactEmail, the admin-curated, publicly-rendered
- * phone-book contact, which an untrusted webhook must never overwrite. Omitting
- * them (e.g. an admin-created campaign) leaves the existing values untouched.
+ * The per-ORDER contact person lives on the AdCampaign (the order), not here — so
+ * this only resolves identity and never touches the vendor's admin-curated,
+ * publicly-rendered phone-book contact.
  */
-export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string, contactName?: string): Promise<string> {
+export async function findOrCreateVendor(name: string, db: Db = prisma): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
-  const email = contactEmail?.trim() || undefined;
-  const person = contactName?.trim() || undefined;
-  // The latest order's contact person + email win (each order can be a different
-  // rep); omitting either leaves the existing value untouched. Never touches the
-  // public phone-book contactName/contactEmail.
-  const update = { ...(email ? { orderContactEmail: email } : {}), ...(person ? { orderContactName: person } : {}) };
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
-    update,
-    create: { name: name.trim(), brandKey: key, orderContactEmail: email, orderContactName: person },
+    update: {},
+    create: { name: name.trim(), brandKey: key },
     select: { id: true },
   });
   return vendor.id;
