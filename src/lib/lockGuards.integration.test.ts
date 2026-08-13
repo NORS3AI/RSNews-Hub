@@ -75,6 +75,10 @@ describe('AD LOCK — no competitor can appear in a vendor-connected article', (
     const rV = await prisma.ad.create({ data: { headline: 'H', brand: V, imageRect: '/vr.png', active: true, reserved: true } }); madeAds.push(rV.id);
     const rC = await prisma.ad.create({ data: { headline: 'H', brand: C, imageRect: '/cr.png', active: true, reserved: true } }); madeAds.push(rC.id);
     const rDead = await prisma.ad.create({ data: { headline: 'H', brand: V, imageRect: '/vd.png', active: false, reserved: true } }); madeAds.push(rDead.id);
+    // The reserved sponsor ad is EVERGREEN by default (rV: no liveUntil → stays).
+    // Setting an optional limited-time `liveUntil` makes it DROP once passed, on its
+    // own separate timer — independent of the article's sponsoredUntil/lifecycle.
+    const rExpired = await prisma.ad.create({ data: { headline: 'H', brand: V, imageRect: '/vx.png', active: true, reserved: true, liveUntil: new Date(Date.now() - 86_400_000) } }); madeAds.push(rExpired.id);
 
     // A competitor brand-locked slot — even with uppercase + surrounding spaces — is dropped.
     const cKeyMangled = ` ${C.toUpperCase()} `;
@@ -86,10 +90,11 @@ describe('AD LOCK — no competitor can appear in a vendor-connected article', (
     expect(brandKey(vSlot[`${lock}::wide`]?.brand ?? '')).toBe(lock);
 
     // Reserved: competitor id dropped, vendor id resolves, deactivated vendor id dropped.
-    const resMap = await resolveReservedArticleAds(`<div data-ad-id="${rV.id}"></div><div data-ad-id="${rC.id}"></div><div data-ad-id="${rDead.id}"></div>`, lock);
-    expect(resMap[rV.id]?.brand).toBe(V);
+    const resMap = await resolveReservedArticleAds(`<div data-ad-id="${rV.id}"></div><div data-ad-id="${rC.id}"></div><div data-ad-id="${rDead.id}"></div><div data-ad-id="${rExpired.id}"></div>`, lock);
+    expect(resMap[rV.id]?.brand).toBe(V);      // evergreen (no liveUntil) → stays
     expect(resMap[rC.id]).toBeUndefined();     // competitor reserved dropped
     expect(resMap[rDead.id]).toBeUndefined();  // deactivated dropped (liveness)
+    expect(resMap[rExpired.id]).toBeUndefined(); // limited-time window passed → dropped
   });
 
   it('empty lockBrand does NOT accidentally happen for a connected article (brandKey of a real name is non-empty)', () => {

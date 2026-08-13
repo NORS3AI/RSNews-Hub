@@ -42,7 +42,7 @@ const FieldSet = ({ ad }: { ad?: any }) => (
         <div><label className="label">Live from (optional)</label><input name="liveFrom" type="datetime-local" defaultValue={toLocalInput(ad?.liveFrom)} className="input" /></div>
         <div><label className="label">Live until (optional)</label><input name="liveUntil" type="datetime-local" defaultValue={toLocalInput(ad?.liveUntil)} className="input" /></div>
       </div>
-      <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Leave both blank for an always-on ad</strong> — that&apos;s the default for our own brands (Retail Shipping Associates, PackageHub). Set a window for a one-off outside advertiser who isn&apos;t going through JotForm.</p>
+      <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Leave both blank for an always-on ad</strong> — that&apos;s the default for our own brands (Retail Shipping Associates, PackageHub) and for a sponsor&apos;s <strong>reserved</strong> in-article creative, which stays evergreen. To make a reserved sponsor ad <em>limited-time</em>, set <strong>Live until</strong> — it drops out of the article on that date (on its own timer; the article itself is untouched). Also use a window for a one-off outside advertiser who isn&apos;t going through JotForm.</p>
     </div>
   </>
 );
