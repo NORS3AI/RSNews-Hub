@@ -1,14 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { assignFlightAds, scheduleAdFlight, pauseAdFlight, cancelAdCampaign, markAdCampaignPaid } from '@/lib/actions';
+import { assignFlightAds, scheduleAdFlight, pauseAdFlight, cancelAdCampaign } from '@/lib/actions';
 import { planByKey, countdownLabel } from '@/lib/adPlans';
-import { isPaid, paidTotalCents } from '@/lib/payments';
+import { brandKey } from '@/lib/entitlements';
 import { ActionButtons } from '@/components/admin/RowActions';
 import { formatDate } from '@/lib/utils';
-
-const money = (cents: number, currency: string) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: currency.toUpperCase() }).format(cents / 100);
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +24,11 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
   });
   if (!campaign) notFound();
 
-  const paid = isPaid(campaign.payments);
-  const paidLabel = paid ? money(paidTotalCents(campaign.payments), campaign.payments.find((p) => p.status === 'PAID')?.currency ?? 'usd') : null;
-
-  // Ads not yet attached to any flight — the pool the admin assigns from.
-  const unassigned = await prisma.ad.findMany({ where: { flightId: null, reserved: false }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true, video: true } });
+  // Ads not yet attached to any batch — and only THIS vendor's own creatives, so
+  // an admin can't accidentally attach another advertiser's ad to this campaign.
+  const vKey = brandKey(campaign.vendorName);
+  const unassigned = (await prisma.ad.findMany({ where: { flightId: null, reserved: false }, orderBy: { createdAt: 'desc' }, select: { id: true, brand: true, headline: true, video: true } }))
+    .filter((a) => brandKey(a.brand) === vKey);
   const now = new Date();
   const plan = planByKey(campaign.plan);
   const isOver = campaign.status === 'CANCELLED' || campaign.status === 'COMPLETED';
@@ -42,12 +39,13 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">{campaign.vendorName}</h1>
         <div className="flex items-center gap-2">
-          <span className={`badge ${paid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{paid ? `Payment confirmed${paidLabel ? ` · ${paidLabel}` : ''}` : 'Payment not confirmed'}</span>
+          {/* The package they purchased (JotForm plan) — shown up front. */}
+          <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300">{plan?.label ?? campaign.plan} package</span>
           <span className="badge">{campaign.status}</span>
         </div>
       </div>
       <p className="mb-1 text-sm text-[var(--muted)]">
-        {plan?.label ?? campaign.plan}{campaign.allowsVideo ? ' · video allowed' : ''} · {formatDate(campaign.startAt)} → {formatDate(campaign.endAt)}
+        {campaign.allowsVideo ? 'Video allowed · ' : ''}{formatDate(campaign.startAt)} → {formatDate(campaign.endAt)}
         {campaign.status === 'ACTIVE' && <> · {countdownLabel(campaign.endAt, now)}</>}
         {campaign.notes ? <> · {campaign.notes}</> : null}
       </p>
@@ -61,25 +59,6 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
       )}
       {!campaign.contactName && !campaign.contactEmail && <div className="mb-5" />}
 
-      {!isOver && !paid && (
-        <div className="card mb-5 border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-semibold text-red-800">Payment isn’t confirmed — flights can’t go live until it is.</p>
-          <p className="mb-3 text-xs text-red-700">Paying happens on JotForm, not here. JotForm confirms this automatically when the vendor pays; otherwise confirm it here (e.g. comped, or you verified the payment landed). The amount is just for your records.</p>
-          <form action={markAdCampaignPaid} className="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="campaignId" value={campaign.id} />
-            <div>
-              <label className="label text-xs">Amount (optional)</label>
-              <input name="amount" className="input h-9 w-32" placeholder="$300.00" />
-            </div>
-            <div className="min-w-40 flex-1">
-              <label className="label text-xs">Note (optional)</label>
-              <input name="note" className="input h-9" placeholder="PO#, comped, verified in JotForm…" />
-            </div>
-            <button className="btn-primary btn-sm">Confirm payment</button>
-          </form>
-        </div>
-      )}
-
       <div className="space-y-4">
         {campaign.flights.map((f) => {
           const live = f.status === 'SCHEDULED' && now >= f.startAt && now < f.endAt;
@@ -87,7 +66,7 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
             <div key={f.id} className="card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="font-semibold">
-                  Flight {f.index}
+                  Ad batch {f.index}
                   <span className="ml-2 text-sm font-normal text-[var(--muted)]">{formatDate(f.startAt)} → {formatDate(f.endAt)}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -99,7 +78,7 @@ export default async function CampaignDetail({ params }: { params: Promise<{ id:
               {/* Assigned creatives */}
               <div className="mt-3">
                 {f.ads.length === 0 ? (
-                  <p className="text-sm text-[var(--muted)]">No creatives yet — this flight needs fresh ads before it can go live.</p>
+                  <p className="text-sm text-[var(--muted)]">No creatives yet — this batch needs fresh ads before it can go live.</p>
                 ) : (
                   <ul className="space-y-1 text-sm">
                     {f.ads.map((a) => (

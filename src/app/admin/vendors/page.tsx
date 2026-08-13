@@ -25,7 +25,7 @@ export default async function AdminVendors() {
     <div className="max-w-4xl">
       <h1 className="mb-1 text-2xl font-bold">Vendors</h1>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        Every advertiser is one vendor record — campaigns and performance reports hang off it. The <strong>contact email</strong> is where flight (&ldquo;fresh ads needed&rdquo;) and renewal reminders are sent. <strong>Each new JotForm order refreshes it</strong> to the email on that order (always the current person); set or fix it here in between orders, or when a submission didn&apos;t include one.
+        Every advertiser is one vendor record — campaigns and performance reports hang off it. The <strong>contact email</strong> here is the vendor&apos;s official on-file address (also shown in the reader phone book). Each order&apos;s own contact (the person who submitted that JotForm) rides on the campaign; &ldquo;fresh ads needed&rdquo; and renewal reminders go to that order&apos;s contact first, falling back to this address. Set or fix this one here.
       </p>
 
       {missingEmail > 0 && (

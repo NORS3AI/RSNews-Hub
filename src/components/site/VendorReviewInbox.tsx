@@ -72,7 +72,10 @@ function ReviewCard({ r }: { r: VendorReviewCard }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           {typeLabel(a) && <div className="text-[11px] font-bold uppercase tracking-wide text-brand-600">{typeLabel(a)}</div>}
-          <div className="font-semibold">{a.title}</div>
+          {/* Once published, the title links straight to the live article. */}
+          {published
+            ? <a href={`/docs/article/${a.slug}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-700 hover:underline dark:text-brand-300">{a.title}</a>
+            : <div className="font-semibold">{a.title}</div>}
           <div className="text-xs text-[var(--muted)]">Sent for review {formatDateTimeUTC(r.createdAt)}</div>
         </div>
         {!published && !locked && a.previewToken && (
@@ -87,7 +90,10 @@ function ReviewCard({ r }: { r: VendorReviewCard }) {
       {published ? (
         <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-800">
           <div className="flex items-center gap-1.5 font-semibold"><Check width={15} height={15} /> Posted {a.publishedAt ? formatDateUTC(a.publishedAt) : ''}</div>
-          {a.sponsoredUntil && <div className="mt-0.5 text-[13px]">It will stay near the top of the homepage for about 30 days.</div>}
+          {a.sponsoredUntil && <div className="mt-0.5 text-[13px]">Guaranteed near the top of the homepage for 30 days.</div>}
+          <a href={`/docs/article/${a.slug}`} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-flex items-center gap-1.5 text-[13px] font-semibold text-green-800 hover:underline dark:text-green-300">
+            <ExternalLink width={13} height={13} /> View your live article
+          </a>
           {locked && <div className="mt-1 text-[12px] text-green-700/80">You {r.decision === 'approve' ? 'approved this' : 'requested changes'} on {formatDateTimeUTC(r.decidedAt)}.</div>}
         </div>
       ) : locked ? (

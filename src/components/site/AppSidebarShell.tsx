@@ -6,7 +6,7 @@ import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
 import SubscribePopup, { NOTIF_CHANGED } from './SubscribePopup';
-import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors, Star, Book } from '@/components/icons';
+import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors, Star, Book, Megaphone } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
@@ -59,7 +59,11 @@ function ThemeItem({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export default function AppSidebarShell({ user, children, announcement }: { user: U; children: React.ReactNode; announcement?: React.ReactNode }) {
+export default function AppSidebarShell({ user, children, announcement, isVendor = false }: { user: U; children: React.ReactNode; announcement?: React.ReactNode; isVendor?: boolean }) {
+  // Vendor accounts get a direct link to their dashboard, right under Home.
+  const nav = isVendor
+    ? [NAV[0], { href: '/docs/vendor', label: 'Your dashboard', icon: Megaphone }, ...NAV.slice(1)]
+    : NAV;
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -127,7 +131,7 @@ export default function AppSidebarShell({ user, children, announcement }: { user
         )}
 
         <nav className="flex flex-col gap-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Link key={n.href} href={n.href}
               className={classNames(
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',

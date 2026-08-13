@@ -63,8 +63,14 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const TAB_LIST: readonly (readonly [string, string])[] = showReviewsTab ? [['reviews', 'Article reviews'], ...TABS] : TABS;
   const tab = TAB_LIST.some((t) => t[0] === tabParam) ? tabParam! : (pendingReviews > 0 ? 'reviews' : 'current');
 
-  // The vendor's creatives on file (any with an image), for "view your current ads".
-  const creatives = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && (a.imageWide || a.imageRect));
+  // The vendor's creatives on file, for "view your current ads". One tile PER
+  // SHAPE the vendor has (an ad can carry both a wide banner and a rectangle), so
+  // they see every creative on file — not just the banner.
+  const vendorAds = (await loadAds()).filter((a) => brandKey(a.brand) === brandKey(ent.vendorBrand) && (a.imageWide || a.imageRect));
+  const creatives = vendorAds.flatMap((a) => [
+    ...(a.imageWide ? [{ id: `${a.id}-wide`, brand: a.brand, img: a.imageWide, shape: 'Wide banner' }] : []),
+    ...(a.imageRect ? [{ id: `${a.id}-rect`, brand: a.brand, img: a.imageRect, shape: 'Rectangle' }] : []),
+  ]);
   // Which ad-slot shapes they currently have a LIVE creative for — powers the
   // preview + the "coverage" checklist (what you have vs. what you're missing).
   const shapes = (await listAdvertisers()).find((a) => a.key === brandKey(ent.vendorBrand));
@@ -140,15 +146,13 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {creatives.map((a) => {
-                      const img = a.imageWide || a.imageRect!;
-                      return (
-                        <div key={a.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)]">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={img} alt={`${a.brand} ad`} className="block w-full" />
-                        </div>
-                      );
-                    })}
+                    {creatives.map((c) => (
+                      <div key={c.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)]">
+                        <div className="border-b border-[var(--border)] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--muted)]">{c.shape}</div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={c.img} alt={`${c.brand} ${c.shape} ad`} className="block w-full" />
+                      </div>
+                    ))}
                   </div>
 
                   {/* Coverage checklist — what slot shapes they can fill, and the
@@ -276,7 +280,7 @@ function CampaignSection({ c, now, past = false }: { c: CampaignWithFlights; now
           const upcoming = f.status !== 'ENDED' && now < f.startAt;
           return (
             <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="w-16 shrink-0 font-semibold">Flight {f.index}</span>
+              <span className="w-20 shrink-0 font-semibold">Batch {f.index}</span>
               <span className="text-[var(--muted)]">{formatDate(f.startAt)} → {formatDate(f.endAt)}</span>
               {isLive && <span className="badge bg-green-100 text-green-700">Live · {countdownLabel(f.endAt, now)}</span>}
               {upcoming && f.status === 'SCHEDULED' && <span className="badge bg-blue-100 text-blue-700">Starts {formatDate(f.startAt)}</span>}

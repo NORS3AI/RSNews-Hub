@@ -219,7 +219,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
-                        className="card card-hover flex w-full items-center justify-between gap-4 p-5 text-left">
+                        className="card card-soft card-hover flex w-full items-center justify-between gap-4 p-5 text-left">
                         <span className="min-w-0">
                           <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</span>
                           <span className="mt-1 block truncate font-semibold">{data.next.title}</span>
@@ -234,7 +234,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                         <div className="grid gap-3 sm:grid-cols-3">
                           {data.related.map((r) => (
                             <button key={r.id} onClick={() => openArticle(r.slug)}
-                              className="card card-hover p-4 text-left">
+                              className="card card-soft card-hover p-4 text-left">
                               {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
                               <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
                             </button>

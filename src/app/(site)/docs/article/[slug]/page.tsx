@@ -210,7 +210,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           <div className="mt-8 space-y-6 border-t border-[var(--border)] pt-6">
             {next && (
               <Link href={`/docs/article/${next.slug}`}
-                className="card card-hover flex items-center justify-between gap-4 p-5">
+                className="card card-soft card-hover flex items-center justify-between gap-4 p-5">
                 <span className="min-w-0">
                   <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</span>
                   <span className="mt-1 block truncate font-semibold">{next.title}</span>
@@ -223,7 +223,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
                 <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">If you read this, you might like…</h2>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {related.slice(0, 3).map((r) => (
-                    <Link key={r.id} href={`/docs/article/${r.slug}`} className="card card-hover p-4">
+                    <Link key={r.id} href={`/docs/article/${r.slug}`} className="card card-soft card-hover p-4">
                       {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
                       <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
                     </Link>

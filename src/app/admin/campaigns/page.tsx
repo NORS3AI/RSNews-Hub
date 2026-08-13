@@ -33,7 +33,7 @@ export default async function AdminCampaigns() {
     <div className="max-w-5xl">
       <h1 className="mb-1 text-2xl font-bold">Ad campaigns</h1>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        A campaign is a vendor&apos;s purchase. Every package runs in <strong>3-month flights</strong> — no creative is ever up longer than one flight, so multi-month packages need fresh ads each flight. Schedule a flight to put its ads live; they come down automatically at the flight&apos;s end.
+        A campaign is a vendor&apos;s purchase. Every package runs in <strong>3-month batches</strong> — no creative is ever up longer than one batch, so multi-month packages need fresh ads each batch. Schedule a batch to put its ads live; they come down automatically at the batch&apos;s end.
       </p>
 
       {(draftCount > 0 || failedSubs > 0) && (

@@ -14,6 +14,7 @@
   --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
+  --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
 }
 .dark {
   --bg: #171310;
@@ -27,6 +28,7 @@
   --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(0,0,0,.55), 0 30px 60px rgba(0,0,0,.72);
   --shadow-hover: 0 6px 16px rgba(0,0,0,.6), 0 48px 88px rgba(0,0,0,.82);
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.4);
 }
 /* Explicit light palette (mirrors :root) so a subtree can force Light even when
    an ancestor is .dark — used by the article Preview's theme switch. */
@@ -35,6 +37,7 @@
   --border: #e6dcc9; --card: #fdfaf4; --card-2: #f2ece0; --header: #22262e; --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
+  --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
   --rs-cream-wash: 1;
 }
 
@@ -191,6 +194,9 @@ body::before {
 
   /* Modular cards — cream surface with a dark drop shadow. */
   .card { @apply rounded-xl border border-[var(--border)] bg-[var(--card)]; box-shadow: var(--shadow-card); }
+  /* A far softer drop shadow — for cards nested INSIDE the reading card (Read next,
+     related) so the shadow doesn't bleed over the article text. */
+  .card-soft { box-shadow: var(--shadow-soft); }
   .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5; }
   .card-hover:hover { box-shadow: var(--shadow-hover); }
   /* Large framed panel that can hold nested cards (module-in-module). */
