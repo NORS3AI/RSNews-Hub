@@ -52,9 +52,12 @@ const cardSelect = {
 const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t.tag) });
 
 export default async function DocsHome() {
-  const [featuredRaw, latestRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
+  const [featuredRaw, latestRaw, sponsoredRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),
+    // Active sponsors: paid window still open. Newest sponsor first (later end date
+    // ≈ more recently started), then newest article — fair, stable ordering.
+    prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, sponsoredUntil: { gt: new Date() } }, orderBy: [{ sponsoredUntil: 'desc' }, { publishedAt: 'desc' }], take: 12, select: cardSelect }),
     prisma.category.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } } }),
     getHomeLayout(),
     // postedAt<=now so a link edited to a future date can't surface early (the
@@ -295,10 +298,15 @@ export default async function DocsHome() {
 
   const featured = featuredRaw.map(toCard);
   const all = latestRaw.map(toCard);
+  const sponsored = sponsoredRaw.map(toCard);
   const lead = featured[0] ?? all[0] ?? null;
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recent = all.filter((a) => a.publishedAt && new Date(a.publishedAt).getTime() >= weekAgo).slice(0, 8);
   const latest = all.filter((a) => a.id !== lead?.id);
+  // The Featured (sponsored) module shows an active sponsor ONLY once it has
+  // dropped out of the prominent top sections — hero, "this week", trending — so
+  // it never double-shows there and never crowds them. Built after trending.
+  const topSectionIds = new Set<string>([lead?.id, ...recent.map((a) => a.id), ...trending.map((t) => t.id)].filter(Boolean) as string[]);
 
   // Article pools for configurable modules (e.g. the feature showcase).
   const featurePool = (source?: string): Card[] => {
@@ -715,6 +723,29 @@ export default async function DocsHome() {
             </div>
           </section>
         );
+      case 'sponsored': {
+        // Featured (paid) placements. Show an active sponsor only once it has
+        // dropped out of the top sections (hero / this week / trending) and isn't
+        // already shown in a module above. Every card is the SAME fixed size —
+        // the row shrinks to fit one and grows sideways as sponsors are added, so
+        // no sponsor's placement changes because another bought in. Hides itself
+        // when there's nothing to show.
+        const items = sponsored.filter((a) => !topSectionIds.has(a.id) && !shownArticleIds.has(a.id));
+        if (items.length === 0) return null;
+        items.forEach((a) => shownArticleIds.add(a.id));
+        return (
+          <section key={id} className="module">
+            <h2 className="module-title mb-4">Featured</h2>
+            <div className="flex flex-wrap gap-4">
+              {items.map((a, i) => (
+                <div key={a.id} data-hp-id={a.id} className="w-full sm:w-[300px]">
+                  <ArticleCard article={a} trk={{ place: 'featured', props: { module: 'featured', moduleType: 'grid', pos: i } }} />
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      }
       case 'latest': {
         // The generic "Latest" list yields any story already shown in a module
         // above it (global de-dup) so the same card never appears twice on the

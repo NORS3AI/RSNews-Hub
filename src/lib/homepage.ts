@@ -3,6 +3,7 @@ import { isCustomModuleId } from './studio';
 
 export type ModuleId =
   | 'recommended'
+  | 'sponsored'
   | 'feature-carousel'
   | 'industry'
   | 'comic'
@@ -50,6 +51,7 @@ export const ARTICLE_SOURCES: ModuleSource[] = [
 
 export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
   recommended: { label: 'Recommended for you', description: 'Personalized picks from reading history.' },
+  sponsored: { label: 'Featured', description: 'Paid sponsor placements, live for their run (auto-appears when a sponsor is active, hides when none). Shows a sponsored article only once it drops out of the hero / this week / trending — never crowds those.' },
   'feature-carousel': { label: 'Feature showcase', description: 'Big split banner — one story (title + image) at a time, paged left/right.', sources: ARTICLE_SOURCES, defaultSource: 'featured' },
   industry: { label: 'Industry News', description: 'Curated external links, hand-picked by staff.' },
   comic: { label: 'Backroom Humor comic', description: 'The current comic; the rest live in the archive.' },
@@ -65,6 +67,10 @@ export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
 // The hero/headline block is intentionally NOT in this list — it is always
 // pinned to the very top and cannot be reordered.
 export const DEFAULT_LAYOUT: HomeModule[] = [
+  // Sits at the very top of the scrollable modules — just under the pinned hero
+  // and "Published this week" — so an active sponsor is high on the page. It
+  // renders nothing (and takes no space) when there are no live sponsors.
+  { id: 'sponsored', enabled: true, locked: false },
   { id: 'recommended', enabled: true, locked: false },
   { id: 'industry', enabled: true, locked: false },
   { id: 'feature-carousel', enabled: true, locked: false, source: 'featured' },
