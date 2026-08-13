@@ -179,6 +179,10 @@ export async function saveArticle(formData: FormData) {
     const hours = breakingRaw === 'custom' ? Number(formData.get('breakingCustomHours')) : Number(breakingRaw);
     breakingUntil = Number.isFinite(hours) && hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 365) * 3600 * 1000) : null;
   }
+  // Sponsored/Featured window end. Blank → null (not sponsored). Any valid date
+  // is accepted (an admin may set a past date to end a run early).
+  const sponsoredRaw = ((formData.get('sponsoredUntil') as string) || '').trim();
+  const sponsoredUntil = sponsoredRaw ? (isNaN(new Date(sponsoredRaw).getTime()) ? null : new Date(sponsoredRaw)) : null;
 
   let savedId = id;
   if (id) {
@@ -198,7 +202,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -213,7 +217,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

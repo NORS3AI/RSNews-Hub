@@ -30,6 +30,7 @@ type Article = {
   id: string; title: string; content: string; excerpt: string | null; byline?: string | null; coverImage: string | null;
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
+  sponsoredUntil?: string | Date | null;
   publishedAt?: string | Date | null; views?: number; draftSavedAt?: string | Date | null;
 };
 

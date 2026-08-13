@@ -13,6 +13,7 @@ type Article = {
   byline?: string | null;
   coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
+  sponsoredUntil?: string | Date | null;
   publishedAt?: string | Date | null;
 };
 
@@ -161,6 +162,11 @@ export default function ArticleDetails({ article, categories }: { article?: Arti
             {GENRES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
           </select>
           <p className="mt-1 text-xs text-[var(--muted)]">The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.</p>
+        </div>
+        <div>
+          <label className="label" htmlFor="sponsoredUntil">Featured (sponsored) until <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+          <input id="sponsoredUntil" name="sponsoredUntil" type="datetime-local" defaultValue={toLocalInput(article?.sponsoredUntil)} className="input" />
+          <p className="mt-1 text-xs text-[var(--muted)]">While this date is in the future, the article floats into the <strong>Featured</strong> homepage module (below the top three) and auto-drops out when it passes. A typical paid run is ~30 days. Blank = not sponsored.</p>
         </div>
       </Section>
 

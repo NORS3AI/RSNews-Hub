@@ -695,6 +695,11 @@ model Article {
   // press_release | update), a separate axis from topic categories. '' = none.
   // See lib/genre. Shown as a small badge; sponsored doubles as ad disclosure.
   genre       String    @default("")
+  // Paid-placement window: while this is in the future the article is an ACTIVE
+  // sponsor — it floats into the "Featured" homepage module (below the top three)
+  // and auto-drops out when the date passes. Null = not sponsored. Set per deal
+  // (default +30d). Independent of `genre`, though the two usually pair up.
+  sponsoredUntil DateTime?
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)
