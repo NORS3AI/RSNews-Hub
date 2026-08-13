@@ -73,6 +73,20 @@ describe('smartResolve (JotForm auto-name field grabbing)', () => {
     expect(r.images).toBeUndefined();
   });
 
+  it('separates the company from the contact PERSON (companyName ≠ Full Name)', () => {
+    const raw = { q1_companyName: 'PackWise LLC', q2_fullName: 'Jordan Lee', q3_email: 'j@packwise.com', q4_body: 'Copy.' };
+    const r = smartResolve(raw, map);
+    expect(r.vendorName).toBe('PackWise LLC');  // company field claimed first
+    expect(r.contactName).toBe('Jordan Lee');   // person field, not the company
+  });
+
+  it('does not mistake the company field for the contact name', () => {
+    const raw = { company: 'PackWise', headline: 'H', body: 'B' }; // no person field
+    const r = smartResolve(raw, map);
+    expect(r.vendorName).toBe('PackWise');
+    expect(r.contactName).toBeUndefined();
+  });
+
   it('an explicit map key wins over a keyword guess', () => {
     const custom = { ...map, headline: 'q7_pickThis' };
     const raw = { q7_pickThis: 'Right', q8_title: 'Wrong' };

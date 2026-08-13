@@ -49,7 +49,16 @@ export async function resolveIntakeVendor(submissionId: string, vendorId: string
     data: { vendorId: resolvedId, matchVendorId: resolvedId, matchStatus: 'confirmed' },
   });
   if (sub.articleId) {
+    const art = await prisma.article.findUnique({ where: { id: sub.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
     await prisma.article.update({ where: { id: sub.articleId }, data: { sponsorVendorId: resolvedId } });
+    // On confirm, carry this article's submitter up to the vendor as their latest
+    // contact on file (only overwriting with non-empty values).
+    if (art && (art.sponsorContactName || art.sponsorContactEmail)) {
+      await prisma.vendor.update({
+        where: { id: resolvedId },
+        data: { ...(art.sponsorContactName ? { contactName: art.sponsorContactName } : {}), ...(art.sponsorContactEmail ? { contactEmail: art.sponsorContactEmail } : {}) },
+      });
+    }
   }
 }
 
@@ -64,7 +73,7 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
   try {
     const a = await prisma.article.findUnique({
       where: { id: articleId },
-      select: { id: true, title: true, slug: true, status: true, genre: true, sponsorVendorId: true, sponsorNotifiedAt: true },
+      select: { id: true, title: true, slug: true, status: true, genre: true, sponsorVendorId: true, sponsorNotifiedAt: true, sponsorContactName: true, sponsorContactEmail: true },
     });
     if (!a || a.status !== 'PUBLISHED' || !a.sponsorVendorId || a.sponsorNotifiedAt) return;
     // Only genuinely SPONSORED pieces get the "your sponsored article is live"
@@ -77,9 +86,14 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     const vendor = await prisma.vendor.findUnique({
       where: { id: a.sponsorVendorId },
-      select: { name: true, premium: true, contactEmail: true },
+      select: { name: true, premium: true, contactEmail: true, contactName: true },
     });
     if (!vendor) return;
+
+    // Address THIS article's submitter first (pinned per-article), then the
+    // vendor's latest contact, then the company name / stored email.
+    const contactName = a.sponsorContactName || vendor.contactName || vendor.name;
+    const to = a.sponsorContactEmail || vendor.contactEmail;
 
     // Claim the one-time notify ATOMICALLY, so two rapid/concurrent publishes can't
     // both read null and both send. Only the winner proceeds; on email failure we
@@ -91,21 +105,22 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
     // renderTemplate HTML-escapes every {tag} value, so the untrusted title/name
     // can't inject markup into the email.
     const url = `${process.env.SITE_URL || ''}/docs/article/${a.slug}`;
-    const { subject, text, html } = await renderTemplate('sponsor_golive', { vendorName: vendor.name, articleTitle: a.title, url });
+    const { subject, text, html } = await renderTemplate('sponsor_golive', { contactName, vendorName: vendor.name, articleTitle: a.title, url });
 
-    if (vendor.premium && vendor.contactEmail) {
-      const r = await sendEmail({ to: vendor.contactEmail, subject, text, html });
-      if (r.ok) log.info('sponsor go-live email sent', { articleId: a.id });
+    if (vendor.premium && to) {
+      const r = await sendEmail({ to, subject, text, html });
+      if (r.ok) log.info('sponsor go-live email sent', { articleId: a.id, to });
       else await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: null } }); // release for retry
       return;
     }
 
-    // Non-premium (or no contact on file): leave the admin ready-to-send copy.
+    // Non-premium (or no email on file): leave the admin ready-to-send copy, with
+    // the contact person + address to send it to.
     // (sponsorNotifiedAt was already claimed atomically above.)
     await prisma.adminLog.create({
       data: {
         kind: 'sponsor_golive',
-        message: `Sponsored article “${a.title}” is live — send ${vendor.name} the go-live note:\n\n${text}`,
+        message: `Sponsored article “${a.title}” is live — send the go-live note to ${contactName}${to ? ` <${to}>` : ' (no email on file)'}:\n\n${text}`,
       },
     });
   } catch (e) {

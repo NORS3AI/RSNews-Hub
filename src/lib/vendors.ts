@@ -33,14 +33,18 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * the most current person to reach for reminders. Omitting it (e.g. an
  * admin-created campaign) leaves any existing address untouched.
  */
-export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string): Promise<string> {
+export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string, contactName?: string): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
   const email = contactEmail?.trim() || undefined;
+  const person = contactName?.trim() || undefined;
+  // The latest submission's contact person + email win (each order can be a
+  // different rep); omitting either leaves the existing value untouched.
+  const update = { ...(email ? { contactEmail: email } : {}), ...(person ? { contactName: person } : {}) };
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
-    update: email ? { contactEmail: email } : {},
-    create: { name: name.trim(), brandKey: key, contactEmail: email },
+    update,
+    create: { name: name.trim(), brandKey: key, contactEmail: email, contactName: person },
     select: { id: true },
   });
   return vendor.id;

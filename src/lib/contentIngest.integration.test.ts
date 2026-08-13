@@ -86,4 +86,16 @@ describe('ingestContentSubmission', () => {
     const v = await prisma.vendor.findUnique({ where: { id: r.vendorId! }, select: { autoCreated: true } });
     expect(v?.autoCreated).toBe(true);
   });
+
+  it('pins the submitter as the article contact AND updates the vendor’s latest contact', async () => {
+    const company = `ContactCo ${tag()}`;
+    const r = await run(company, tag(), { contactName: 'Jordan Lee', email: 'jordan@contactco.test' });
+    const a = await prisma.article.findUnique({ where: { id: r.articleId }, select: { sponsorContactName: true, sponsorContactEmail: true } });
+    expect(a?.sponsorContactName).toBe('Jordan Lee');
+    expect(a?.sponsorContactEmail).toBe('jordan@contactco.test');
+    // new vendor was created + carries the same latest contact on file
+    const v = await prisma.vendor.findUnique({ where: { id: r.vendorId! }, select: { contactName: true, contactEmail: true } });
+    expect(v?.contactName).toBe('Jordan Lee');
+    expect(v?.contactEmail).toBe('jordan@contactco.test');
+  });
 });

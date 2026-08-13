@@ -11,6 +11,7 @@ import { AD_PLANS } from './adPlans';
 
 export type JotformFieldMap = {
   vendorName: string;
+  contactName: string;
   email: string;
   plan: string;
   startDate: string;
@@ -26,6 +27,7 @@ export type JotformFieldMap = {
 // (e.g. "q5_package") via the JOTFORM_FIELD_MAP env var.
 export const DEFAULT_FIELD_MAP: JotformFieldMap = {
   vendorName: 'vendorName',
+  contactName: 'contactName',
   email: 'email',
   plan: 'package',
   startDate: 'startDate',
@@ -101,6 +103,7 @@ export type ParsedPayment = { amountRaw: string; externalId: string; statusRaw: 
 
 export type ParsedSubmission = {
   vendorName: string;
+  contactName: string; // the submitting person ('' if absent)
   email: string;      // vendor contact for reminders ('' if absent/invalid)
   planKey: string;
   startAt: Date | null;
@@ -118,6 +121,7 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
   const issues: string[] = [];
   const vendorName = str(raw[map.vendorName]);
   if (!vendorName) issues.push('No vendor name found — check the field map.');
+  const contactName = str(raw[map.contactName]).slice(0, 120);
   const imageUrls = collectUrls(raw[map.images]);
   if (!imageUrls.length) issues.push('No creative images found in the submission.');
   const emailRaw = str(raw[map.email]);
@@ -132,6 +136,7 @@ export function parseJotformSubmission(raw: Record<string, unknown>, map: Jotfor
 
   return {
     vendorName,
+    contactName,
     email,
     planKey: resolvePlanKey(raw[map.plan]),
     startAt,

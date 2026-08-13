@@ -751,6 +751,12 @@ model Article {
   // go-live message to once. Both null for ordinary editorial articles.
   sponsorVendorId  String?
   sponsorNotifiedAt DateTime?
+  // The CONTACT for THIS article — the person + email who submitted it via JotForm.
+  // Pinned per-article (not the vendor's general contact) because the submitter can
+  // differ each time; the go-live email is addressed here first, falling back to the
+  // vendor's latest contact, then the vendor name.
+  sponsorContactName  String?
+  sponsorContactEmail String?
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)

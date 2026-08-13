@@ -90,11 +90,19 @@ export async function ingestContentSubmission(rawObj: Record<string, unknown>, s
     const v = await prisma.vendor.upsert({
       where: { brandKey: brandKey(parsed.vendorName) },
       update: {},
-      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true, contactEmail: parsed.email || null },
+      create: { name: parsed.vendorName.trim(), brandKey: brandKey(parsed.vendorName), autoCreated: true, contactEmail: parsed.email || null, contactName: parsed.contactName || null },
       select: { id: true },
     });
     vendorId = v.id;
     matchVendorId = v.id;
+  }
+  // Keep the vendor's latest contact person + email on file (each submission can
+  // be a different rep). Only overwrite with non-empty values from this order.
+  if (vendorId && (parsed.contactName || parsed.email)) {
+    await prisma.vendor.update({
+      where: { id: vendorId },
+      data: { ...(parsed.contactName ? { contactName: parsed.contactName } : {}), ...(parsed.email ? { contactEmail: parsed.email } : {}) },
+    });
   }
 
   // 4) Create the reserved creative (out of rotation, hand-pickable — Phase 2),
@@ -140,6 +148,10 @@ export async function ingestContentSubmission(rawObj: Record<string, unknown>, s
       genre: 'sponsored',         // doubles as the paid-placement disclosure
       sponsoredUntil,             // floats into Featured for the window (Phase 1)
       sponsorVendorId: vendorId,  // may be null until a suggested match is confirmed
+      // The person who submitted THIS article — pinned here so the go-live email
+      // addresses them even if the vendor's contact later changes.
+      sponsorContactName: parsed.contactName || null,
+      sponsorContactEmail: parsed.email || null,
       readMinutes: estimateReadMinutes(content),
       previewToken: newPreviewToken(), // ready to share for approval (Phase 1b)
     },

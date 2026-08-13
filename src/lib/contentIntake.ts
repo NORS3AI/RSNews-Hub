@@ -15,6 +15,7 @@ import { safeLinkHref } from './utils';
 
 export type ContentFieldMap = {
   vendorName: string;
+  contactName: string;
   email: string;
   headline: string;
   body: string;
@@ -27,6 +28,7 @@ export type ContentFieldMap = {
 // (e.g. "q5_headline") via the JOTFORM_CONTENT_FIELD_MAP env var.
 export const DEFAULT_CONTENT_FIELD_MAP: ContentFieldMap = {
   vendorName: 'company',
+  contactName: 'contactName',
   email: 'email',
   headline: 'headline',
   body: 'body',
@@ -86,6 +88,7 @@ export function textToParagraphs(text: string): string {
 
 export type ParsedContent = {
   vendorName: string;
+  contactName: string;  // the submitting person; '' if absent
   email: string;        // '' if absent/invalid
   headline: string;
   bodyHtml: string;     // sanitized-safe paragraph HTML (plain text only)
@@ -116,12 +119,16 @@ const FIELD_KEYWORDS: Record<keyof ContentFieldMap, string[]> = {
   images: ['creative', 'artwork', 'image', 'banner', 'graphic', 'logo', 'photo', 'upload', 'attachment', 'file'],
   headline: ['headline', 'articletitle', 'title', 'subject', 'heading'],
   vendorName: ['companyname', 'company', 'businessname', 'business', 'vendor', 'advertiser', 'brand', 'organization', 'organisation'],
+  // The submitting PERSON. Resolved AFTER vendorName so "companyName" is claimed
+  // as the company first; a bare "Name"/"Full Name"/"Contact" field is the person.
+  contactName: ['contactname', 'fullname', 'yourname', 'contactperson', 'submittername', 'repname', 'contact', 'name'],
   body: ['articlebody', 'body', 'article', 'copy', 'content', 'story', 'writeup', 'submission', 'pressrelease', 'description'],
 };
 
 // Field priority: resolve the specific/unambiguous fields first so a generic
-// one (body) can't swallow a key a specific field wanted.
-const RESOLVE_ORDER: (keyof ContentFieldMap)[] = ['email', 'ctaHref', 'ctaLabel', 'images', 'headline', 'vendorName', 'body'];
+// one (body) can't swallow a key a specific field wanted. vendorName before
+// contactName so the company field is claimed before the person field.
+const RESOLVE_ORDER: (keyof ContentFieldMap)[] = ['email', 'ctaHref', 'ctaLabel', 'images', 'headline', 'vendorName', 'contactName', 'body'];
 
 /** Normalize a JotForm field key for keyword matching: drop the qN_ prefix and
  *  any punctuation, lowercase. "q5_companyName" → "companyname". */
@@ -167,6 +174,8 @@ export function parseContentSubmission(raw: Record<string, unknown>, map: Conten
   const vendorName = str(f.vendorName).slice(0, MAX_VENDOR_NAME);
   if (!vendorName) issues.push('No company name found — check the field map.');
 
+  const contactName = str(f.contactName).slice(0, MAX_VENDOR_NAME);
+
   const headline = str(f.headline).slice(0, MAX_HEADLINE);
   if (!headline) issues.push('No headline found — a placeholder was used.');
 
@@ -184,5 +193,5 @@ export function parseContentSubmission(raw: Record<string, unknown>, map: Conten
   const ctaLabelRaw = str(f.ctaLabel).slice(0, MAX_CTA_LABEL);
   const ctaLabel = ctaHref ? (ctaLabelRaw || 'Learn more') : '';
 
-  return { vendorName, email, headline, bodyHtml, ctaLabel, ctaHref, imageUrls, issues };
+  return { vendorName, contactName, email, headline, bodyHtml, ctaLabel, ctaHref, imageUrls, issues };
 }

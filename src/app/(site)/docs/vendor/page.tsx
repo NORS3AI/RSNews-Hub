@@ -21,7 +21,7 @@ import { ExternalLink, Megaphone, Check, X } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
-const TABS = [['current', 'Current'], ['performance', 'Performance'], ['history', 'History']] as const;
+const TABS = [['current', 'Current ads'], ['performance', 'Ad performance'], ['history', 'Ad history']] as const;
 
 export default async function VendorDashboard(props: { searchParams: Promise<{ tab?: string }> }) {
   const { tab: tabParam } = await props.searchParams;
@@ -92,7 +92,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm"><Megaphone width={22} height={22} /></span>
             <div className="min-w-0">
-              <h1 className="text-2xl font-black leading-tight">Your ad dashboard</h1>
+              <h1 className="text-2xl font-black leading-tight">Your dashboard</h1>
               <p className="text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--fg)]">{ent.vendorBrand || user.name}</span> · {mine.length} campaign{mine.length === 1 ? '' : 's'} on record</p>
             </div>
           </div>

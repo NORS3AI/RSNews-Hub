@@ -14,7 +14,8 @@ export type TemplateTag = { tag: string; desc: string };
 export type TemplateDef = { key: string; label: string; description: string; tags: TemplateTag[]; subject: string; body: string };
 
 const SUBMIT_TAG: TemplateTag = { tag: 'submitUrl', desc: 'Link to your JotForm ad-order form (set AD_ORDER_URL, or paste a link)' };
-const VENDOR_TAG: TemplateTag = { tag: 'vendorName', desc: 'The advertiser’s name' };
+const VENDOR_TAG: TemplateTag = { tag: 'vendorName', desc: 'The advertiser’s company name' };
+const CONTACT_TAG: TemplateTag = { tag: 'contactName', desc: 'The contact person from their submission (falls back to the company name)' };
 const PACKAGE_TAG: TemplateTag = { tag: 'packageLabel', desc: 'Their package, e.g. “6-Month”' };
 const DATE_TAG: TemplateTag = { tag: 'date', desc: 'The relevant date (flight start, or campaign end)' };
 const DAYS_TAG: TemplateTag = { tag: 'daysUntil', desc: 'Whole days until that date' };
@@ -41,12 +42,12 @@ Thanks for advertising with RS News!`,
     key: 'ads_live',
     label: 'Ads are live',
     description: 'Sent to a vendor the first time their campaign goes live, with a link to see their ads in the Hub.',
-    tags: [VENDOR_TAG, DATE_TAG, { tag: 'dashboardUrl', desc: 'Link to their vendor dashboard (their live ad preview)' }],
+    tags: [CONTACT_TAG, VENDOR_TAG, DATE_TAG, { tag: 'dashboardUrl', desc: 'Link to their vendor dashboard (their live ad preview)' }],
     subject: '🎉 Your RS News ads are live, {vendorName}',
     body:
-`Hi {vendorName},
+`Hi {contactName},
 
-Good news — your ads are now live on RS News Hub, as of {date}.
+Good news — your ads for {vendorName} are now live on RS News Hub, as of {date}.
 
 See exactly how they look to readers (only your ads, in real article and homepage layouts): {dashboardUrl}
 
@@ -56,12 +57,12 @@ Thanks for advertising with RS News!`,
     key: 'sponsor_golive',
     label: 'Sponsored article live',
     description: 'Sent to a vendor when their sponsored article is first published, with a link to read it.',
-    tags: [VENDOR_TAG, { tag: 'articleTitle', desc: 'The published article’s title' }, { tag: 'url', desc: 'Link to the live article' }],
+    tags: [CONTACT_TAG, VENDOR_TAG, { tag: 'articleTitle', desc: 'The published article’s title' }, { tag: 'url', desc: 'Link to the live article' }],
     subject: 'Your sponsored article is live on RS News',
     body:
-`Hi {vendorName},
+`Hi {contactName},
 
-Your sponsored article “{articleTitle}” is now live on RS News:
+Your sponsored article “{articleTitle}” for {vendorName} is now live on RS News:
 {url}
 
 It will be featured near the top of the homepage for the next few weeks. Thanks for partnering with us!
@@ -135,8 +136,8 @@ export async function renderTemplate(key: string, vars: TemplateVars): Promise<B
 /** Sample values for the admin preview. */
 export function sampleVars(key: string): TemplateVars {
   const submitUrl = process.env.AD_ORDER_URL || 'https://form.jotform.com/your-ad-form';
-  if (key === 'ads_live') return { vendorName: 'PackWise', date: 'August 6, 2026', dashboardUrl: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/vendor` };
-  if (key === 'sponsor_golive') return { vendorName: 'PackWise', articleTitle: 'Ship Smarter This Holiday Season', url: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/article/ship-smarter` };
+  if (key === 'ads_live') return { contactName: 'Jordan Lee', vendorName: 'PackWise', date: 'August 6, 2026', dashboardUrl: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/vendor` };
+  if (key === 'sponsor_golive') return { contactName: 'Jordan Lee', vendorName: 'PackWise', articleTitle: 'Ship Smarter This Holiday Season', url: `${process.env.SITE_URL || 'https://hub.rsnews.example'}/docs/article/ship-smarter` };
   if (key === 'renewal') return { vendorName: 'PackWise', packageLabel: '12-Month', date: 'December 31, 2026', daysUntil: '21', submitUrl };
   return { vendorName: 'PackWise', batchOrdinal: 'second', batchNumber: '2', packageLabel: '6-Month', date: 'September 1, 2026', daysUntil: '14', submitUrl };
 }
