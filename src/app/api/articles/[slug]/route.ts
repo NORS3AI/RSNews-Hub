@@ -5,7 +5,8 @@ import { canViewContent } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
-import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds } from '@/lib/adsServer';
+import { brandKey } from '@/lib/entitlements';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 
 export const dynamic = 'force-dynamic';
@@ -46,16 +47,23 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // Competitor suppression keys off the article's tags (+ title) — curated
   // business names — not the whole body (avoids stray-word false positives).
   const adSafeContext = `${article.title} ${adTagText}`;
-  const [related, next, ads, embeds, slotAds] = await Promise.all([
+  // If this article is CONNECTED to a vendor, hard-lock every in-article ad to
+  // that vendor — MUST mirror the full page, or the modal (the primary reading
+  // surface for logged-in readers) leaks a competitor's ad into their piece.
+  const lockBrand = article.sponsorVendorId
+    ? brandKey((await prisma.vendor.findUnique({ where: { id: article.sponsorVendorId }, select: { name: true } }))?.name || '')
+    : '';
+  const [related, next, ads, embeds, slotAds, reservedAdMap] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true },
     }),
-    pickArticleAds(adContext, 'modal', '', adSafeContext),
+    pickArticleAds(adContext, 'modal', '', adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
-    loadBrandArticleAds(article.content),
+    loadBrandArticleAds(article.content, lockBrand),
+    resolveReservedArticleAds(article.content, lockBrand),
   ]);
 
   return NextResponse.json({
@@ -84,6 +92,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     ads,
     embeds,
     slotAds,
+    reservedAds: reservedAdMap,
     loggedIn: !!user,
   });
 }

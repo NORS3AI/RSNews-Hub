@@ -137,8 +137,12 @@ async function notifyAdsLive(campaignId: string): Promise<void> {
   // contact, then the company name.
   const contactName = c.vendor?.orderContactName || c.vendor?.contactName || c.vendorName;
   const { subject, text, html } = await renderTemplate('ads_live', { contactName, vendorName: c.vendorName, date, dashboardUrl });
+  // Claim the one-time notify ATOMICALLY (mirrors notifySponsorLive) so two
+  // concurrent go-lives can't both read null and both send. Release on failure.
+  const claim = await prisma.adCampaign.updateMany({ where: { id: campaignId, liveNotifiedAt: null }, data: { liveNotifiedAt: new Date() } });
+  if (claim.count === 0) return;
   const r = await sendEmail({ to, subject, text, html });
-  if (r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: new Date() } });
+  if (!r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: null } });
 }
 
 /** Pull a scheduled flight back to review (stops it serving immediately). */

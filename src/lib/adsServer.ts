@@ -108,13 +108,18 @@ export async function resolveReservedArticleAds(html: string, lockBrand = ''): P
     // competitor-suppression, and flight-window logic in loadAds).
     const rows = await prisma.ad.findMany({ where: { id: { in: ids }, reserved: true }, include: { flight: { select: { status: true, startAt: true, endAt: true } } } });
     const lock = lockBrand.trim().toLowerCase();
+    const now = new Date();
     const map: Record<string, AdRow> = {};
     for (const r of rows) {
       // On a vendor-connected article, a reserved creative for a DIFFERENT vendor
       // is dropped — only the connected vendor's own reserved ad may appear, so an
       // editor can't embed a competitor's reserved ad by id in their piece.
       if (lock && brandKey(r.brand) !== lock) continue;
-      map[r.id] = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
+      const row: AdRow = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
+      // Honor liveness: a reserved creative the admin has deactivated (or whose
+      // optional self-scheduling window has passed) must stop serving.
+      if (!adIsLive(row, now)) continue;
+      map[r.id] = row;
     }
     return map;
   } catch { return {}; }

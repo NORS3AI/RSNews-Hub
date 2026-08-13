@@ -63,7 +63,16 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // normal public gates.
   const sp = await props.searchParams;
   const previewParam = sp?.preview;
-  const isPreview = !!previewParam && !!article.previewToken && previewParam === article.previewToken;
+  // A valid preview token bypasses the status gate + paywall — but ONLY while the
+  // article isn't yet publicly live. Otherwise the (non-rotating) token would be a
+  // permanent, shareable paywall bypass on a published gated article. Drafts and
+  // scheduled-but-not-yet-live pieces still preview; live/archived go through the
+  // normal public gates.
+  const nowTs = new Date();
+  const isLivePublic =
+    article.status === 'ARCHIVED' ||
+    (article.status === 'PUBLISHED' && (!article.publishedAt || article.publishedAt <= nowTs));
+  const isPreview = !!previewParam && !!article.previewToken && previewParam === article.previewToken && !isLivePublic;
   // `&dash=1` means the vendor opened this from their dashboard — they respond
   // there (which locks their round), so the in-preview review button is hidden to
   // avoid a second, unlockable response path. Plain preview links keep the button.

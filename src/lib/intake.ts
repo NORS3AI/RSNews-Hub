@@ -117,13 +117,20 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
 
     // Non-premium (or no email on file): leave the admin ready-to-send copy, with
     // the contact person + address to send it to.
-    // (sponsorNotifiedAt was already claimed atomically above.)
-    await prisma.adminLog.create({
-      data: {
-        kind: 'sponsor_golive',
-        message: `Sponsored article “${a.title}” is live — send the go-live note to ${contactName}${to ? ` <${to}>` : ' (no email on file)'}:\n\n${text}`,
-      },
-    });
+    // (sponsorNotifiedAt was already claimed atomically above — if recording the
+    // copy fails, RELEASE the claim so a later publish retries instead of the
+    // article being marked notified with no copy ever recorded.)
+    try {
+      await prisma.adminLog.create({
+        data: {
+          kind: 'sponsor_golive',
+          message: `Sponsored article “${a.title}” is live — send the go-live note to ${contactName}${to ? ` <${to}>` : ' (no email on file)'}:\n\n${text}`,
+        },
+      });
+    } catch (e) {
+      await prisma.article.update({ where: { id: a.id }, data: { sponsorNotifiedAt: null } });
+      throw e;
+    }
   } catch (e) {
     log.warn('sponsor go-live notify failed', { articleId, err: (e as Error).message });
   }

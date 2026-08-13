@@ -148,6 +148,12 @@ export async function saveArticle(formData: FormData) {
   // Optional connected vendor (the advertiser this piece belongs to — sponsored or
   // a What's Hot article). Verified to be a real vendor id, else cleared. Drives the
   // in-article ad lock + the "send to dashboard" default. '' → null (not connected).
+  // ADMIN-ONLY to change: connecting a piece to a vendor triggers a go-live email to
+  // that vendor's contact and locks the article's ads to their brand, so a lower-trust
+  // EDITOR must not be able to point an article at an arbitrary (e.g. competitor)
+  // premium vendor — the same rule confirmIntakeVendor enforces. Editors keep the
+  // existing connection untouched (resolved per create/edit branch below).
+  const isAdmin = staff.role === 'ADMIN';
   const sponsorVendorIdRaw = ((formData.get('sponsorVendorId') as string) || '').trim();
   const sponsorVendorId = sponsorVendorIdRaw
     ? (await prisma.vendor.findUnique({ where: { id: sponsorVendorIdRaw }, select: { id: true } }))?.id ?? null
@@ -196,8 +202,10 @@ export async function saveArticle(formData: FormData) {
 
   let savedId = id;
   if (id) {
-    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true, slug: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true, slug: true, sponsorVendorId: true } });
     if (!existing) throw new Error('Article not found');
+    // Editors can't change the vendor connection — keep whatever's already set.
+    const sponsorVendorIdResolved = isAdmin ? sponsorVendorId : existing.sponsorVendorId;
     // Snapshot the prior version before overwriting — only when the body actually
     // changed — so an editor can roll back. Capped per article.
     if (existing.content !== content) {
@@ -212,7 +220,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -227,7 +235,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,
@@ -455,7 +463,7 @@ export async function deleteCategory(id: string) {
 /* ----------------------------- Ad management ----------------------------- */
 
 export async function saveAd(formData: FormData) {
-  await ensureStaff();
+  const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
   const brand = ((formData.get('brand') as string) || '').trim();
   const headline = ((formData.get('headline') as string) || '').trim();
@@ -472,10 +480,19 @@ export async function saveAd(formData: FormData) {
   const videoPoster = ((formData.get('videoPoster') as string) || '').trim();
   const active = formData.get('active') != null;
   // Reserved = a hand-placed one-off; kept out of rotation (see loadAds).
-  const reserved = formData.get('reserved') != null;
   // House = an RS-owned creative; the ONLY safe fallback inside a vendor-locked
   // article (see pickInArticleAd). Never set this on an outside advertiser's ad.
-  const house = formData.get('house') != null;
+  // BOTH are cross-vendor-safety flags → ADMIN-only: a lower-trust EDITOR must not
+  // be able to flag an outside advertiser as `house` (which could then surface
+  // inside a competitor's locked article). Editors keep whatever's already set.
+  const isAdmin = staff.role === 'ADMIN';
+  let reserved = formData.get('reserved') != null;
+  let house = formData.get('house') != null;
+  if (!isAdmin) {
+    const cur = id ? await prisma.ad.findUnique({ where: { id }, select: { reserved: true, house: true } }) : null;
+    reserved = cur?.reserved ?? false;
+    house = cur?.house ?? false;
+  }
   const parseDate = (v: string) => { const s = (v || '').trim(); if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; };
   const liveFrom = parseDate(formData.get('liveFrom') as string);
   const liveUntil = parseDate(formData.get('liveUntil') as string);

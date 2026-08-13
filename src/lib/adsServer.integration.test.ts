@@ -8,7 +8,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { loadAds, loadBrandArticleAds, listAdvertisers } from './adsServer';
+import { loadAds, loadBrandArticleAds, listAdvertisers, resolveReservedArticleAds } from './adsServer';
 import { brandKey } from './entitlements';
 
 const day = 86_400_000;
@@ -64,6 +64,35 @@ describe('loadBrandArticleAds — advertiser lock + house fallback', () => {
     // lockBrand is some other vendor; the rival-locked slot must not resolve.
     const map = await loadBrandArticleAds(`<div data-ad-slot data-ad-brand="${rivalKey}" data-ad-size="wide"></div>`, 'packwise-locked-vendor');
     expect(map[`${rivalKey}::wide`]).toBeUndefined();
+  });
+});
+
+describe('resolveReservedArticleAds — reserved-only, vendor lock, liveness', () => {
+  it('resolves a reserved creative by data-ad-id', async () => {
+    const v = brand('Reserved');
+    const ad = await mkAd({ brand: v, headline: 'R', imageRect: '/r.png', active: true, reserved: true });
+    const map = await resolveReservedArticleAds(`<div data-ad-id="${ad.id}"></div>`);
+    expect(map[ad.id]?.brand).toBe(v);
+  });
+
+  it('never resolves a NON-reserved ad by id (no rotation/flight bypass)', async () => {
+    const ad = await mkAd({ brand: brand('NotReserved'), headline: 'N', imageRect: '/n.png', active: true, reserved: false });
+    const map = await resolveReservedArticleAds(`<div data-ad-id="${ad.id}"></div>`);
+    expect(map[ad.id]).toBeUndefined();
+  });
+
+  it('on a vendor-locked article, drops a DIFFERENT vendor’s reserved ad (no competitor leak)', async () => {
+    const rival = brand('RivalReserved');
+    const ad = await mkAd({ brand: rival, headline: 'RR', imageRect: '/rr.png', active: true, reserved: true });
+    const map = await resolveReservedArticleAds(`<div data-ad-id="${ad.id}"></div>`, 'some-other-locked-vendor');
+    expect(map[ad.id]).toBeUndefined();
+  });
+
+  it('drops a reserved creative the admin has DEACTIVATED (liveness gate)', async () => {
+    const v = brand('DeadReserved');
+    const ad = await mkAd({ brand: v, headline: 'D', imageRect: '/d.png', active: false, reserved: true });
+    const map = await resolveReservedArticleAds(`<div data-ad-id="${ad.id}"></div>`);
+    expect(map[ad.id]).toBeUndefined();
   });
 });
 

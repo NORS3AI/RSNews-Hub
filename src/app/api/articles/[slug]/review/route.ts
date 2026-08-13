@@ -28,11 +28,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const { token, decision } = parsed.data;
   const { slug } = await params;
 
-  const article = await prisma.article.findUnique({ where: { slug }, select: { id: true, title: true, previewToken: true } });
+  const article = await prisma.article.findUnique({ where: { slug }, select: { id: true, title: true, previewToken: true, status: true, publishedAt: true } });
   // Token is the gate — a wrong/absent token reveals nothing.
   if (!article || !article.previewToken || article.previewToken !== token) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
+  // Reviews are a PRE-publish step. Once the piece is publicly live (or archived),
+  // stop accepting token feedback — the non-rotating token would otherwise let a
+  // link-holder keep posting spoofed review rows against a live article forever.
+  const nowTs = new Date();
+  const isLivePublic =
+    article.status === 'ARCHIVED' ||
+    (article.status === 'PUBLISHED' && (!article.publishedAt || article.publishedAt <= nowTs));
+  if (isLivePublic) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const firstName = cleanName(parsed.data.firstName);
   const lastName = cleanName(parsed.data.lastName);
