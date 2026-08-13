@@ -99,11 +99,15 @@ export type ParsedContent = {
 const MAX_HEADLINE = 200;
 const MAX_BODY = 20_000;
 const MAX_CTA_LABEL = 60;
+// Cap the company name too — it's fuzzy-matched (Levenshtein) against every
+// known vendor and can become a Vendor record, so an unbounded value is both a
+// DoS vector and a junk row. A real company name is well under this.
+const MAX_VENDOR_NAME = 120;
 
 /** Parse a JotForm rawRequest object into the hub's canonical sponsored-draft shape. */
 export function parseContentSubmission(raw: Record<string, unknown>, map: ContentFieldMap): ParsedContent {
   const issues: string[] = [];
-  const vendorName = str(raw[map.vendorName]);
+  const vendorName = str(raw[map.vendorName]).slice(0, MAX_VENDOR_NAME);
   if (!vendorName) issues.push('No company name found — check the field map.');
 
   const headline = str(raw[map.headline]).slice(0, MAX_HEADLINE);

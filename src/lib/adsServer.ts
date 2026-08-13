@@ -102,7 +102,11 @@ export async function resolveReservedArticleAds(html: string): Promise<Record<st
   const ids = [...new Set([...(html || '').matchAll(AD_ID_RE)].map((m) => m[1]))];
   if (!ids.length) return {};
   try {
-    const rows = await prisma.ad.findMany({ where: { id: { in: ids } }, include: { flight: { select: { status: true, startAt: true, endAt: true } } } });
+    // reserved:true only — a data-ad-id block is exclusively for a hand-picked
+    // reserved sponsor creative. This stops a lower-trust editor from embedding
+    // an arbitrary flighted/competitor ad by id (which would bypass the rotation,
+    // competitor-suppression, and flight-window logic in loadAds).
+    const rows = await prisma.ad.findMany({ where: { id: { in: ids }, reserved: true }, include: { flight: { select: { status: true, startAt: true, endAt: true } } } });
     const map: Record<string, AdRow> = {};
     for (const r of rows) map[r.id] = { ...r, flightStatus: r.flight?.status ?? null, flightStartAt: r.flight?.startAt ?? null, flightEndAt: r.flight?.endAt ?? null };
     return map;

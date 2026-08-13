@@ -13,6 +13,7 @@ import { prisma } from './db';
 import { log } from './logger';
 import { brandKey } from './entitlements';
 import { sendEmail } from './email';
+import { escapeHtml } from './contentIntake';
 
 /**
  * Confirm which vendor a held submission belongs to, then bind it: link the draft
@@ -76,7 +77,9 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
     const url = `${process.env.SITE_URL || ''}/docs/article/${a.slug}`;
     const subject = `Your sponsored article is live on RS News`;
     const text = `Hi ${vendor.name},\n\nYour sponsored article “${a.title}” is now live on RS News:\n${url}\n\nIt will be featured on the homepage for the next few weeks. Thanks for partnering with us!\n\n— RS News`;
-    const html = text.split('\n').map((l) => l ? `<p>${l}</p>` : '<br/>').join('');
+    // Escape per line — the title comes from the sponsor's (untrusted) headline,
+    // so it must not inject markup into the HTML email we generate.
+    const html = text.split('\n').map((l) => l ? `<p>${escapeHtml(l)}</p>` : '<br/>').join('');
 
     if (vendor.premium && vendor.contactEmail) {
       const r = await sendEmail({ to: vendor.contactEmail, subject, text, html });

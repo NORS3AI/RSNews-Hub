@@ -79,6 +79,11 @@ describe('parseContentSubmission', () => {
     ]));
   });
 
+  it('caps an oversized company name (DoS / junk-row guard)', () => {
+    const p = parseContentSubmission({ company: 'X'.repeat(5000), headline: 'H', body: 'B' }, map);
+    expect(p.vendorName.length).toBe(120);
+  });
+
   it('defaults a missing CTA label when an href is present', () => {
     const p = parseContentSubmission({ company: 'X', headline: 'H', body: 'B', ctaHref: 'https://x.io' }, map);
     expect(p.ctaHref).toBe('https://x.io');
