@@ -178,7 +178,11 @@ export default async function DocsHome() {
     // homepage must never show an empty ad box, so an empty pool renders nothing.
     pool = pool.filter(shapeOk);
     if (lockBrand && pool.length === 0) {
-      pool = homeImageAds.filter((a) => !a.flightId).filter(shapeOk); // RS house ads, shape-correct
+      // Fallback is EXPLICIT house ads only (a.house) — NEVER "no flight" (!flightId),
+      // because an always-on outside advertiser has no flight and would be a rival
+      // in a vendor-locked slot. Mirrors pickInArticleAd's hard lock (ads.ts). If no
+      // shape-correct house ad exists, the slot collapses rather than risk a competitor.
+      pool = homeImageAds.filter((a) => a.house).filter(shapeOk);
     }
     if (pool.length === 0) return null;
     const ad = pool[homeAdCursor++ % pool.length];

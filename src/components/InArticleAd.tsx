@@ -49,7 +49,7 @@ export default function InArticleAd({
   // house ads have no flight, so they carry none (correctly excluded from batches).
   const trkProps = {
     brand: ad.brand, campaignId: ad.brand, creativeId: ad.id,
-    format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner',
+    format: image ? 'image' : 'text', shape: sky ? 'skyscraper' : video ? 'video' : rect ? 'rectangle' : 'banner',
     ...(ad.flightId ? { flightId: ad.flightId, flightIndex: ad.flightIndex ?? null } : {}),
     ...(adContext?.articleId ? { articleId: adContext.articleId } : {}),
     ...(adContext?.articleSlug ? { articleSlug: adContext.articleSlug } : {}),
