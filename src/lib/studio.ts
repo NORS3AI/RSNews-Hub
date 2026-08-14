@@ -325,6 +325,21 @@ function bool(v: unknown, dflt: boolean): boolean {
 
 // Per-type settings whitelist — only known keys survive, so the DB never stores
 // (and the renderer never reads) arbitrary attacker-controlled fields.
+// Admin-authored block links are rendered as real anchors on the PUBLIC homepage,
+// so restrict them to safe schemes — mirrors the article sanitizer's allowlist
+// (http/https/mailto + relative path/anchor). Blocks javascript:/data:/vbscript:
+// and protocol-relative (//host) URLs, which would otherwise execute or redirect.
+// Applied on normalize, which runs on every read (parseTree), so it also strips
+// any link stored before this guard existed.
+function safeHref(raw: unknown): string {
+  const v = str(raw, 500).trim();
+  if (!v) return '';
+  if (v.startsWith('//')) return '';                           // protocol-relative (//host) → drop
+  if (v.startsWith('/') || v.startsWith('#')) return v;        // relative path / anchor
+  if (/^https?:\/\//i.test(v) || /^mailto:/i.test(v)) return v; // explicit safe scheme
+  return '';                                                    // everything else dropped
+}
+
 function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
   const s = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const d = BLOCKS[type].defaults;
@@ -367,6 +382,17 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         radius: bool(s.radius, true),
       };
     }
+    case 'video': {
+      // Mirror the image case (no `case 'video'` here previously silently wiped a
+      // video block's settings on save via the default branch — losing the URL).
+      const w = Number(s.widthPct);
+      return {
+        url: str(s.url, 2000),
+        poster: str(s.poster, 2000),
+        widthPct: Number.isFinite(w) ? Math.min(Math.max(Math.round(w), 10), 200) : 100,
+        radius: bool(s.radius, true),
+      };
+    }
     case 'quiz': {
       const hours = Number(s.timerHours);
       return {
@@ -395,7 +421,7 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         const dt = new Date(s.targetAt);
         if (!isNaN(dt.getTime())) targetAt = dt.toISOString();
       }
-      return { targetAt, title: str(s.title, 120), href: str(s.href, 500), doneLabel: str(s.doneLabel, 40) };
+      return { targetAt, title: str(s.title, 120), href: safeHref(s.href), doneLabel: str(s.doneLabel, 40) };
     }
     default:
       return { ...d };

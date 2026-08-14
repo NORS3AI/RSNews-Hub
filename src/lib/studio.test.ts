@@ -97,6 +97,23 @@ describe('studio tree model', () => {
     expect(t.children[2].settings).toEqual({ mode: 'auto', source: 'trending' });
   });
 
+  it('video block preserves its settings on normalize (no data loss)', () => {
+    const t = normalizeTree({ children: [
+      { type: 'video', settings: { url: 'https://x/y.mp4', poster: 'https://x/p.png', widthPct: 500, radius: false } },
+    ] });
+    expect(t.children[0].settings).toMatchObject({ url: 'https://x/y.mp4', poster: 'https://x/p.png', widthPct: 200, radius: false });
+  });
+
+  it('countdown href only allows safe schemes (blocks javascript:/data:)', () => {
+    const mk = (href: string) => (normalizeTree({ children: [{ type: 'countdown', settings: { targetAt: '2030-01-01T00:00:00.000Z', href } }] }).children[0].settings as { href: string }).href;
+    expect(mk('javascript:alert(document.cookie)')).toBe(''); // stripped
+    expect(mk('data:text/html,<script>1</script>')).toBe(''); // stripped
+    expect(mk('//evil.com')).toBe('');                        // protocol-relative stripped
+    expect(mk('https://example.com/sale')).toBe('https://example.com/sale'); // kept
+    expect(mk('/docs/category/deals')).toBe('/docs/category/deals');         // relative kept
+    expect(mk('mailto:sales@x.com')).toBe('mailto:sales@x.com');             // kept
+  });
+
   it('round-trips through serialize/parse', () => {
     const t = normalizeTree({ shape: 'grid', children: [makeBlock('heading', 'h'), makeBlock('text', 't')] });
     expect(parseTree(serializeTree(t))).toEqual(t);
