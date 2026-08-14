@@ -7,8 +7,21 @@
 
 import { parseTree, blockChain, blockLabel, type Block } from './studio';
 
-export type ScheduleCategory = 'element' | 'module' | 'poll' | 'quiz' | 'campaign';
+export type ScheduleCategory = 'element' | 'module' | 'poll' | 'quiz' | 'campaign' | 'sponsored';
 export type ScheduleKind = 'up' | 'down' | 'expire' | 'close' | 'start' | 'end';
+
+// A multi-day span (Outlook-style bar): something that runs over a window, so the
+// calendar can draw a continuous bar from start to end. `status` drives styling:
+// running (live now), scheduled (starts in the future), past (already ended).
+export type SpanStatus = 'running' | 'scheduled' | 'past' | 'draft';
+export type ScheduleSpan = {
+  start: string;   // ISO 8601 — window opens
+  end: string;     // ISO 8601 — window closes
+  category: ScheduleCategory;
+  title: string;
+  detail?: string;
+  status: SpanStatus;
+};
 
 export type ScheduleEvent = {
   date: string;          // ISO 8601 (UTC) — the moment it happens
@@ -20,18 +33,60 @@ export type ScheduleEvent = {
 };
 
 export type ModuleRow = { id: string; name: string; published: boolean; tree: string; expiresAt: Date | null };
-export type PollRow = { question: string; closesAt: Date | null; kind: string };
-export type QuizRow = { title: string; closesAt: Date | null };
+export type PollRow = { question: string; createdAt: Date; closesAt: Date | null; kind: string };
+export type QuizRow = { title: string; createdAt: Date; closesAt: Date | null };
 export type CampaignRow = { vendorName: string; startAt: Date | null; endAt: Date | null; status: string };
+export type SponsoredRow = { title: string; publishedAt: Date | null; sponsoredUntil: Date | null };
 
 export type ScheduleInput = {
   modules?: ModuleRow[];
   polls?: PollRow[];
   quizzes?: QuizRow[];
   campaigns?: CampaignRow[];
+  sponsored?: SponsoredRow[];
 };
 
 const iso = (d: Date | string): string => (typeof d === 'string' ? d : d.toISOString());
+
+// Classify a [start,end] window relative to `now` for bar styling. `draft` (not
+// yet live — unpublished element / DRAFT campaign) overrides the time-based state.
+function spanStatus(start: string, end: string, now: Date, draft = false): SpanStatus {
+  if (draft) return 'draft';
+  const t = now.getTime();
+  if (Date.parse(start) > t) return 'scheduled';
+  if (Date.parse(end) <= t) return 'past';
+  return 'running';
+}
+
+// Collect every dated thing that RUNS OVER A WINDOW into spanning bars: poll &
+// quiz live windows (created → closes), sponsored-article featured windows
+// (published → sponsored-until), ad-campaign flights, and element show-from/until
+// windows. Single-moment changes (module auto-expiry, one-sided element windows)
+// stay as point events in collectScheduleEvents. Skips windows with a non-positive
+// duration (end <= start) so a bad row can't render a zero/negative bar.
+export function collectScheduleSpans(input: ScheduleInput, now: Date = new Date()): ScheduleSpan[] {
+  const spans: ScheduleSpan[] = [];
+  const add = (start: Date | string | null, end: Date | string | null, category: ScheduleCategory, title: string, detail: string, draft = false) => {
+    if (!start || !end) return;
+    const s = iso(start), e = iso(end);
+    if (!(Date.parse(e) > Date.parse(s))) return; // need a real forward window
+    spans.push({ start: s, end: e, category, title, detail, status: spanStatus(s, e, now, draft) });
+  };
+
+  for (const m of input.modules ?? []) {
+    const blocks: Block[] = parseTree(m.tree).children.flatMap(blockChain);
+    for (const b of blocks) {
+      // Only a two-sided window is a bar; a one-sided one stays a point event.
+      if (b.startAt && b.endAt) add(b.startAt, b.endAt, 'element', b.label || blockLabel(b.type), m.name, !m.published);
+    }
+  }
+  for (const p of input.polls ?? []) add(p.createdAt, p.closesAt, 'poll', p.question, p.kind === 'module' ? 'Module poll' : 'Poll');
+  for (const q of input.quizzes ?? []) add(q.createdAt, q.closesAt, 'quiz', q.title, 'Pop quiz');
+  for (const c of input.campaigns ?? []) add(c.startAt, c.endAt, 'campaign', c.vendorName, 'Ad campaign', c.status === 'DRAFT' || c.status === 'CANCELLED');
+  for (const a of input.sponsored ?? []) add(a.publishedAt, a.sponsoredUntil, 'sponsored', a.title, 'Sponsored article');
+
+  return spans.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+}
 
 export function collectScheduleEvents(input: ScheduleInput): ScheduleEvent[] {
   const events: ScheduleEvent[] = [];
