@@ -31,12 +31,14 @@ export default async function AdvertiserReports(props: { searchParams: Promise<R
     });
     for (const a of arts) titleById.set(a.id, a.title);
   }
-  const sponsoredArticleRows = sponsoredRows.map((r) => ({ ...r, key: titleById.get(r.key) ?? r.key }));
+  // Deleted-since article → a clean label, never a raw cuid (this table is exported
+  // to vendors); mirrors the frozen report's 'Removed article' fallback.
+  const sponsoredArticleRows = sponsoredRows.map((r) => ({ ...r, key: r.key === '—' ? '—' : (titleById.get(r.key) ?? 'Removed article') }));
 
   // Resolve the per-batch breakdown's flightId keys → "Batch N · dates" labels.
   const batchRowsRaw = report?.byBatch ?? [];
   const batchLabels = batchRowsRaw.length ? await flightLabels(batchRowsRaw.map((r) => r.key)) : new Map<string, string>();
-  const batchRows = batchRowsRaw.map((r) => ({ ...r, key: batchLabels.get(r.key) ?? r.key }));
+  const batchRows = batchRowsRaw.map((r) => ({ ...r, key: r.key === '—' ? '—' : (batchLabels.get(r.key) ?? 'Removed batch') }));
 
   const url = (b: string, d = days) => `/admin/analytics/advertisers?days=${d}&brand=${encodeURIComponent(b)}`;
 
