@@ -1,6 +1,5 @@
 import { prisma } from './db';
 import type { ModuleTree } from './studio';
-import { getHomeLayout, saveHomeLayout } from './homepage';
 
 // Server-only helpers for the Module Studio poll lifecycle. A poll block becomes
 // a real, votable Poll record (kind 'module') the moment its module is
@@ -66,9 +65,15 @@ export async function sweepExpiredModulePolls(): Promise<number> {
   return expired.length;
 }
 
-// Invisible module expiry: pull any published custom module whose timer elapsed
-// off the homepage (unpublish + remove from the live layout) and log it. Lazy
-// sweep — safe to call on any render. Returns the count removed.
+// Invisible module expiry: unpublish any custom module whose timer elapsed and
+// log it. The public homepage requires `published: true` to render a custom
+// module, so unpublishing removes it from the page immediately — we deliberately
+// do NOT rewrite the live-layout array here. That read-modify-write ran on every
+// public render and could lose-update a concurrent admin Go Live / reorder,
+// silently dropping a just-published module. The stale `custom:<id>` entry that
+// remains in the layout array is inert (filtered out by the published check), and
+// deleteCustomModule still prunes both live and draft arrays on real deletion.
+// Lazy sweep — safe to call on any render. Returns the count expired.
 export async function sweepExpiredModules(): Promise<number> {
   const now = new Date();
   const expired = await prisma.customModule.findMany({
@@ -76,14 +81,28 @@ export async function sweepExpiredModules(): Promise<number> {
     select: { id: true, name: true },
   });
   if (!expired.length) return 0;
-  const ids = expired.map((e) => e.id);
-  await prisma.customModule.updateMany({ where: { id: { in: ids } }, data: { published: false, expiresAt: null } });
-  const remove = new Set(ids.map((id) => `custom:${id}`));
-  const layout = await getHomeLayout();
-  const pruned = layout.filter((m) => !remove.has(m.id));
-  if (pruned.length !== layout.length) await saveHomeLayout(pruned);
+  await prisma.customModule.updateMany({ where: { id: { in: expired.map((e) => e.id) } }, data: { published: false, expiresAt: null } });
   await prisma.adminLog.createMany({
     data: expired.map((e) => ({ kind: 'module_expired', message: `Module timer ended — removed from homepage: “${e.name}”` })),
   });
   return expired.length;
+}
+
+// Run all three studio expiry sweeps, throttled so a burst of concurrent public
+// renders doesn't each re-run them (which duplicated the "timer ended" admin-log
+// entries). Claims the throttle window BEFORE sweeping to narrow the race, and
+// never throws — a sweep must not break the homepage render. Poll/quiz timers are
+// coarse (hours), so a ~1-minute detection lag is immaterial.
+const SWEEP_KEY = 'studio_sweep_last_run';
+const SWEEP_THROTTLE_MS = 60_000;
+export async function sweepStudioExpiries(): Promise<void> {
+  try {
+    const last = await prisma.setting.findUnique({ where: { key: SWEEP_KEY } });
+    const lastMs = last ? Date.parse(last.value) : NaN;
+    if (Number.isFinite(lastMs) && Date.now() - lastMs < SWEEP_THROTTLE_MS) return;
+    await prisma.setting.upsert({ where: { key: SWEEP_KEY }, update: { value: new Date().toISOString() }, create: { key: SWEEP_KEY, value: new Date().toISOString() } });
+    await sweepExpiredModulePolls();
+    await sweepExpiredQuizzes();
+    await sweepExpiredModules();
+  } catch { /* never break the render on a sweep failure */ }
 }

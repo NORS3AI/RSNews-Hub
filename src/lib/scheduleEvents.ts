@@ -82,8 +82,9 @@ export function collectScheduleSpans(input: ScheduleInput, now: Date = new Date(
   }
   for (const p of input.polls ?? []) add(p.createdAt, p.closesAt, 'poll', p.question, p.kind === 'module' ? 'Module poll' : 'Poll');
   for (const q of input.quizzes ?? []) add(q.createdAt, q.closesAt, 'quiz', q.title, 'Pop quiz');
-  for (const c of input.campaigns ?? []) add(c.startAt, c.endAt, 'campaign', c.vendorName, 'Ad campaign', c.status === 'DRAFT' || c.status === 'CANCELLED');
   for (const a of input.sponsored ?? []) add(a.publishedAt, a.sponsoredUntil, 'sponsored', a.title, 'Sponsored article');
+  // Ad campaigns are NOT bars — they show as start/end point markers instead (see
+  // collectScheduleEvents), so a long multi-month flight doesn't eat calendar rows.
 
   return spans.sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
 }

@@ -9,7 +9,7 @@ import { canViewContent, requirementLabel, brandKey, type AccountLike } from '@/
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { Lock } from '@/components/icons';
-import { sweepExpiredModulePolls, sweepExpiredModules, sweepExpiredQuizzes } from '@/lib/studioPolls';
+import { sweepStudioExpiries } from '@/lib/studioPolls';
 import { sweepAutoArchivedArticles } from '@/lib/autoArchive';
 import { sweepSponsorGoLiveNotifications } from '@/lib/intake';
 import { after } from 'next/server';
@@ -220,9 +220,7 @@ export default async function DocsHome() {
   // Poll lifecycle: close any module polls whose timer elapsed (hides them +
   // logs), then load the still-open ones referenced by these modules so they
   // render live and votable.
-  await sweepExpiredModulePolls();
-  await sweepExpiredQuizzes();
-  await sweepExpiredModules();
+  await sweepStudioExpiries();
   await sweepAutoArchivedArticles();
   // Low-latency trigger for the sponsor go-live email on SCHEDULED articles whose
   // publish time has passed — run after the response so a reader never waits on
@@ -343,9 +341,20 @@ export default async function DocsHome() {
   // "pinned" sets from primary blocks only (allBlocks above includes fallbacks
   // for pre-fetching, which is still what we want for the pool queries).
   const primaryBlocks = customRows.flatMap((r) => parseTree(r.tree).children);
-  const pinnedPollIds = new Set(primaryBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId).map((b) => b.settings.pollId as string));
-  const pinnedQuizIds = new Set(primaryBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)));
-  const shownArticleIds = new Set<string>();
+  // A poll/quiz id "pins" (suppresses the generic council aside) ONLY when its
+  // primary block will actually render it for THIS viewer — i.e. it's inside its
+  // schedule window and the viewer meets any audience gate. Otherwise the block
+  // renders nothing (future window) or a locked teaser (gated), and the poll must
+  // still surface in the aside instead of vanishing from the page entirely.
+  const nowPin = Date.now();
+  const pinnable = (b: Block) => inSchedule(b, nowPin) && (!b.requirement || canViewContent(account, b.requirement));
+  const pinnedPollIds = new Set(primaryBlocks.filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string' && b.settings.pollId && pinnable(b)).map((b) => b.settings.pollId as string));
+  const pinnedQuizIds = new Set(primaryBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId && pinnable(b)).map((b) => String(b.settings.quizId)));
+  // Seed the page-global article dedup with the stories already shown in the
+  // prominent top sections — the hero lead and the "Published this week" band —
+  // so they can't reappear in Latest or a custom module below. (Trending is a
+  // deliberate standalone ranking and intentionally does NOT consume this set.)
+  const shownArticleIds = new Set<string>([lead?.id, ...recent.map((a) => a.id)].filter(Boolean) as string[]);
   const shownPollIds = new Set<string>();
   const shownQuizIds = new Set<string>();
 

@@ -64,12 +64,15 @@ export default function ArticleContent({
       if ('data-poll' in a) {
         const live = pollData.find((p) => p.data.id === a['data-poll']);
         if (live) return <div className="my-6"><PollCard poll={live.data} loggedIn={loggedIn} votedOptionId={live.votedOptionId} /></div>;
-        return <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} />;
+        // Unresolved (deleted/closed/never-materialized) poll: show the static
+        // placeholder only in the composer preview; on a live reader surface
+        // collapse to nothing rather than a dead, non-interactive card.
+        return adminPreview ? <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} /> : <></>;
       }
       if ('data-quiz' in a) {
         const live = quizData.find((q) => q.data.id === a['data-quiz']);
         if (live) return <div className="my-6"><QuizCard quiz={live.data} loggedIn={loggedIn} initialDone={live.done} /></div>;
-        return <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} />;
+        return adminPreview ? <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} /> : <></>;
       }
       return undefined;
     },

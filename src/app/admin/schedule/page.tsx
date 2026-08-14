@@ -18,11 +18,12 @@ export default async function SchedulePage() {
   ]);
 
   const now = new Date();
-  // Bars for everything that runs over a window; the only remaining point marker
-  // is module auto-expiry (a single moment with no start), so bars and dots don't
-  // double up on the same poll/quiz/campaign/element.
-  const spans = collectScheduleSpans({ modules, polls, quizzes, campaigns, sponsored }, now);
-  const events = collectScheduleEvents({ modules }).filter((e) => e.kind === 'expire');
+  // Bars for things that RUN over a window (polls, quizzes, sponsored, element
+  // windows). Point markers for the rest: ad-campaign start/end (kept as markers,
+  // by request, so a multi-month flight doesn't eat calendar rows) and module
+  // auto-expiry (a single moment). Bars and markers never cover the same item.
+  const spans = collectScheduleSpans({ modules, polls, quizzes, sponsored }, now);
+  const events = collectScheduleEvents({ modules, campaigns }).filter((e) => e.kind === 'expire' || e.category === 'campaign');
 
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
@@ -30,7 +31,7 @@ export default async function SchedulePage() {
     <div className="max-w-5xl">
       <h1 className="text-2xl font-bold">Schedule</h1>
       <p className="mb-6 mt-1 text-[var(--muted)]">
-        Everything dated on one calendar. Bars run across the days something is live — <strong>polls</strong>, <strong>quizzes</strong>, <strong>sponsored articles</strong>, ad campaigns, and element windows — so you can see at a glance what&apos;s running now and what&apos;s coming up. Module auto-expiry shows as a single marker.
+        Everything dated on one calendar. Bars run across the days something is live — <strong>polls</strong>, <strong>quizzes</strong>, <strong>sponsored articles</strong>, and element windows — so you can see at a glance what&apos;s running now and what&apos;s coming up. Ad-campaign start/end and module auto-expiry show as single markers.
       </p>
       <ScheduleCalendar events={events} spans={spans} initialYear={now.getFullYear()} initialMonth={now.getMonth()} todayKey={todayKey} />
     </div>

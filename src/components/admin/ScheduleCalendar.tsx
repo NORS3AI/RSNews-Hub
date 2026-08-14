@@ -103,14 +103,16 @@ export default function ScheduleCalendar({ events, spans, initialYear, initialMo
         </div>
         <h2 className="text-lg font-black tracking-tight">{MONTHS[month]} {year}</h2>
         <span className="text-sm text-[var(--muted)]">{monthCount} running or scheduled this month</span>
-        {/* Legend */}
+        {/* Legend — bars for windows, dots for point markers (campaign start/end, module retire) */}
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {(['poll', 'quiz', 'sponsored', 'campaign', 'element'] as ScheduleCategory[]).map((c) => (
+          {(['poll', 'quiz', 'sponsored', 'element'] as ScheduleCategory[]).map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 text-[var(--muted)]">
               <span className={`h-2.5 w-4 rounded-full ${CAT[c].bar}`} /> {CAT[c].label}
             </span>
           ))}
           <span className="inline-flex items-center gap-1.5 text-[var(--muted)]"><span className="h-2.5 w-4 rounded-full border border-dashed border-[var(--muted)] bg-transparent" /> scheduled</span>
+          <span className="inline-flex items-center gap-1.5 text-[var(--muted)]"><span className={`h-2.5 w-2.5 rounded-full ${CAT.campaign.dot}`} /> Campaign ↑start ↓end</span>
+          <span className="inline-flex items-center gap-1.5 text-[var(--muted)]"><span className={`h-2.5 w-2.5 rounded-full ${CAT.module.dot}`} /> Module retires</span>
         </div>
       </div>
 
@@ -138,7 +140,9 @@ export default function ScheduleCalendar({ events, spans, initialYear, initialMo
                     <div className="flex items-center justify-end gap-1">
                       {pts.map((e, k) => (
                         <span key={k} title={`${MARK[e.kind] ?? '•'} ${e.title}${e.detail ? ` — ${e.detail}` : ''}`}
-                          className="h-2 w-2 rounded-full bg-rose-500" />
+                          className={`inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[9px] font-black leading-none text-white ${CAT[e.category]?.dot ?? 'bg-slate-500'}`}>
+                          {MARK[e.kind] ?? '•'}
+                        </span>
                       ))}
                       <span className={`text-xs font-bold ${isToday ? 'text-brand-700 dark:text-brand-300' : 'text-[var(--muted)]'}`}>{d.getDate()}</span>
                     </div>

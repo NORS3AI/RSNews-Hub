@@ -56,9 +56,10 @@ describe('collectScheduleEvents', () => {
     const by = (cat: string) => spans.find((s) => s.category === cat)!;
     expect(by('poll').status).toBe('running');       // now inside [10th,20th]
     expect(by('quiz').status).toBe('past');           // ended in July
-    expect(by('campaign').status).toBe('scheduled');  // starts in September
     expect(by('sponsored').status).toBe('running');   // Aug 1–31 window
     expect(by('sponsored').title).toBe('PackWise piece');
+    // Ad campaigns are markers, not bars — they must NOT appear as spans.
+    expect(spans.some((s) => s.category === 'campaign')).toBe(false);
   });
 
   it('collectScheduleSpans drops zero/negative windows and missing bounds', () => {
@@ -71,10 +72,13 @@ describe('collectScheduleEvents', () => {
     expect(spans).toHaveLength(0);
   });
 
-  it('marks draft/cancelled campaigns and unpublished element windows as draft', () => {
+  it('marks an unpublished module element window as draft', () => {
     const spans = collectScheduleSpans({
-      campaigns: [{ vendorName: 'Draft Co', startAt: new Date('2026-08-01T00:00:00Z'), endAt: new Date('2026-09-01T00:00:00Z'), status: 'DRAFT' }],
+      modules: [{ id: 'm', name: 'Draft Mod', published: false, expiresAt: null,
+        tree: tree([{ type: 'ad', settings: {}, startAt: '2026-08-01T00:00:00Z', endAt: '2026-09-01T00:00:00Z' }]) }],
     }, new Date('2026-08-15T00:00:00Z'));
+    expect(spans).toHaveLength(1);
+    expect(spans[0].category).toBe('element');
     expect(spans[0].status).toBe('draft');
   });
 
