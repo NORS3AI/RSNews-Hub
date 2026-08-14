@@ -156,23 +156,33 @@ export default async function DocsHome() {
   // advertiser has no live creative, we fall back to an RS house ad (our own —
   // never another advertiser, so a sold slot can never show a competitor); only
   // if we have no house image ad either does it fall through (null).
-  const homeAd = (size: 'leaderboard' | 'rectangle', slot: string, brand?: string): React.ReactNode | null => {
-    // In vendor preview, an auto slot the vendor can fill is locked to their brand.
+  const homeAd = (size: 'leaderboard' | 'rectangle' | 'video' | 'skyscraper', slot: string, brand?: string): React.ReactNode | null => {
+    // In vendor preview, an auto banner/rectangle slot the vendor can fill is
+    // locked to their brand (video/skyscraper have no vendor-preview creatives).
     const previewLock = !brand && !!previewBrand && ((size === 'leaderboard' && previewWide) || (size === 'rectangle' && previewRect));
     const lockBrand = brand || (previewLock ? previewBrand : undefined);
     let pool = lockBrand ? homeImageAds.filter((a) => brandKey(a.brand) === brandKey(lockBrand)) : homeImageAds;
-    // A preview slot must show a creative that actually fits the slot's shape.
-    const shapeOk = (a: typeof homeImageAds[number]) => (size === 'leaderboard' ? a.imageWide : a.imageRect);
-    if (previewLock) pool = pool.filter(shapeOk);
+    // Which creative each slot shape needs. Video accepts a video creative OR a
+    // wide image (shown 16:9); skyscraper REQUIRES a tall creative.
+    const shapeOk = (a: typeof homeImageAds[number]) =>
+      size === 'leaderboard' ? !!a.imageWide
+        : size === 'video' ? (!!a.video || !!a.imageWide)
+          : size === 'skyscraper' ? !!a.imageTall
+            : !!a.imageRect;
+    // The shaped slots (video/skyscraper) have NO safe generic creative to fall
+    // back on, so only serve an ad that actually has that shape — else collapse.
+    const requireShape = size === 'video' || size === 'skyscraper' || previewLock;
+    if (requireShape) pool = pool.filter(shapeOk);
     if (lockBrand && pool.length === 0) {
       pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
-      if (previewLock) pool = pool.filter(shapeOk); // keep the house fallback shape-correct too
+      if (requireShape) pool = pool.filter(shapeOk); // keep the house fallback shape-correct too
     }
-    if (lockBrand && pool.length === 0) return null;
+    if ((lockBrand || requireShape) && pool.length === 0) return null;
     // No image ad to show → render nothing. A public homepage must never show an
     // empty ad box (dashed slot or the in-article orange no-image placeholder).
     if (!pool.length) return null;
     const ad = pool[homeAdCursor++ % pool.length];
+    const iaSize = size === 'leaderboard' ? 'in-article' : size; // rectangle|video|skyscraper pass through
     // Homepage ads fill their slot: rectangles fill their grid column, banners
     // stretch the full content width (no centered max-width cap). Premium
     // suppliers also get a small ⋯ options menu (supplier page · site · save).
@@ -180,7 +190,7 @@ export default async function DocsHome() {
     return (
       <AdWithOptions
         ad={ad} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user}
-        slot={slot} size={size === 'rectangle' ? 'rectangle' : 'in-article'} tone="orange" fill placeholder={false}
+        slot={slot} size={iaSize} tone="orange" fill placeholder={false}
       />
     );
   };
@@ -408,7 +418,8 @@ export default async function DocsHome() {
         case 'text':
           return <div className="prose-article text-[15px] leading-relaxed">{String(b.settings.body ?? '')}</div>;
         case 'ad': {
-          const fmt = b.settings.format === 'leaderboard' ? 'leaderboard' : 'rectangle';
+          const raw = String(b.settings.format ?? 'rectangle');
+          const fmt = raw === 'leaderboard' ? 'leaderboard' : raw === 'video' ? 'video' : raw === 'vertical' ? 'skyscraper' : 'rectangle';
           const brand = typeof b.settings.vendor === 'string' ? b.settings.vendor.trim() : '';
           const adNode = homeAd(fmt, `custom-${row.id}-${i}`, brand || undefined);
           if (!adNode) return null; // vendor-locked slot, advertiser has no live creative → fall through

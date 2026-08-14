@@ -29,6 +29,7 @@ const FieldSet = ({ ad }: { ad?: any }) => (
     </div>
     <AdImageInput name="imageWide" label="Banner image (wide ~3:1)" defaultValue={ad?.imageWide ?? ''} hint="Shown in the in-article slot. Leave blank to use the text card." />
     <AdImageInput name="imageRect" label="Rectangle image (~1.2:1)" defaultValue={ad?.imageRect ?? ''} hint="Shown in the bottom slot (300×250-ish)." />
+    <AdImageInput name="imageTall" label="Skyscraper image (tall ~1:3)" defaultValue={(ad as { imageTall?: string } | undefined)?.imageTall ?? ''} hint="Optional. Shown in a tall vertical module ad slot (160×600-ish). Leave blank if you don't run skyscrapers — the slot falls back to a house ad or hides." />
     <AdImageInput name="video" kind="video" label="Rectangle video (silent, ~1:1)" defaultValue={ad?.video ?? ''} hint="Optional mp4/webm — plays muted &amp; looping in the rectangle slot (overrides the rectangle image). Tracks 25/50/75/100% completion." />
     <AdImageInput name="videoPoster" label="Video poster (optional)" defaultValue={ad?.videoPoster ?? ''} hint="Still image shown before play and for reduced-motion viewers." />
     <div className="flex items-center gap-4">

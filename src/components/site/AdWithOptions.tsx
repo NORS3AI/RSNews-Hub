@@ -19,7 +19,7 @@ export default function AdWithOptions({
   savedIds: string[];
   signedIn: boolean;
   slot?: string;
-  size?: 'in-article' | 'rectangle';
+  size?: 'in-article' | 'rectangle' | 'video' | 'skyscraper';
   tone?: 'card' | 'orange';
   fill?: boolean;
   // `placeholder=false` collapses to nothing when there's no image creative

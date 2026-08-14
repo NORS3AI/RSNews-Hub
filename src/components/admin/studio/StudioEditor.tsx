@@ -28,7 +28,7 @@ const useCategories = () => useContext(CategoriesContext);
 // Advertisers (+ which image shapes each can fill) for the ad block's advertiser
 // picker and its "no creative in that shape" popup. Shared via context like
 // categories so it doesn't thread through every inspector level.
-export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
+export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean; tall: boolean };
 const AdvertisersContext = createContext<Advertiser[]>([]);
 const useAdvertisers = () => useContext(AdvertisersContext);
 
@@ -36,16 +36,15 @@ const useAdvertisers = () => useContext(AdvertisersContext);
 // slot (e.g. Square fits a sidebar; Leaderboard is a wide banner).
 const AD_VARIANTS: { label: string; format: string }[] = [
   { label: 'Ad — rectangle', format: 'rectangle' },
-  { label: 'Ad — square', format: 'square' },
-  { label: 'Ad — vertical', format: 'vertical' },
   { label: 'Ad — leaderboard', format: 'leaderboard' },
   { label: 'Ad — video', format: 'video' },
+  { label: 'Ad — skyscraper', format: 'vertical' },
 ];
 // Which image creative each ad format needs, and helpers for the advertiser
 // "no creative in that shape" popup (mirrors the article maker's ad slot).
-const AD_FORMAT_SHAPE: Record<string, 'wide' | 'rect' | 'video'> = { leaderboard: 'wide', video: 'video', rectangle: 'rect', square: 'rect', vertical: 'rect' };
-const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false : shape === 'wide' ? adv.wide : shape === 'video' ? adv.video : adv.rect;
-const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
+const AD_FORMAT_SHAPE: Record<string, 'wide' | 'rect' | 'video' | 'tall'> = { leaderboard: 'wide', video: 'video', rectangle: 'rect', vertical: 'tall' };
+const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false : shape === 'wide' ? adv.wide : shape === 'video' ? adv.video : shape === 'tall' ? adv.tall : adv.rect;
+const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video || adv.tall);
 
 export default function StudioEditor({
   id, name: initialName, published, initialTree, categories = [], advertisers = [],
@@ -596,15 +595,15 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         if (adv?.wide) alts.push({ format: 'leaderboard', label: 'Leaderboard' });
         if (adv?.rect) alts.push({ format: 'rectangle', label: 'Rectangle' });
         if (adv?.video) alts.push({ format: 'video', label: 'Video' });
+        if (adv?.tall) alts.push({ format: 'vertical', label: 'Skyscraper' });
         return (
           <>
             <Field label="Ad format">
               <select className="input" value={fmt} onChange={(e) => set('format', e.target.value)}>
                 <option value="rectangle">Rectangle (medium)</option>
-                <option value="square">Square (fits a sidebar)</option>
-                <option value="vertical">Vertical (skyscraper)</option>
                 <option value="leaderboard">Leaderboard (wide banner)</option>
-                <option value="video">Video</option>
+                <option value="video">Video (widescreen 16:9)</option>
+                <option value="vertical">Skyscraper (tall vertical)</option>
               </select>
             </Field>
             <Field label="Advertiser">

@@ -13,21 +13,30 @@ import AdExpand from '@/components/site/AdExpand';
  */
 export default function InArticleAd({
   ad, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true, adContext,
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean; adContext?: AdContext }) {
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle' | 'video' | 'skyscraper'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean; adContext?: AdContext }) {
   // `placeholder=false` means "never show a filler box" — render nothing when
   // there's no image creative to show. Used on the live homepage so a reader
   // never sees an empty ad slot (dashed placeholder OR the orange no-image box);
   // the slot simply collapses. In-article slots keep placeholder=true.
   // `fill` drops the rectangle's max-width cap so the ad fills its column
   // (used on the homepage grid) instead of floating centered at its native size.
-  if (!ad) return placeholder ? <AdSlot size={size} slot={slot} className={fill ? 'max-w-none' : undefined} /> : null;
-
+  // video (16:9) and skyscraper (tall ~1:3) are module-only shapes; AdSlot only
+  // knows in-article/rectangle, so map them for the (admin-only) placeholder.
   const rect = size === 'rectangle';
-  // A video creative is silent/looping and only fits the rectangle slot.
-  if (rect && ad.video) {
+  const video = size === 'video';
+  const sky = size === 'skyscraper';
+  if (!ad) return placeholder ? <AdSlot size={rect || sky ? 'rectangle' : 'in-article'} slot={slot} className={fill ? 'max-w-none' : undefined} /> : null;
+
+  // A silent looping video creative fits the rectangle and the widescreen video slot.
+  if ((rect || video) && ad.video) {
     return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} />;
   }
-  const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
+  // Pick the creative that best fits the slot shape. Skyscraper prefers the tall
+  // creative; the widescreen video slot (no video creative) uses a wide image.
+  const image = sky ? (ad.imageTall || ad.imageRect || ad.imageWide)
+    : video ? (ad.imageWide || ad.imageRect)
+    : rect ? (ad.imageRect || ad.imageWide)
+    : (ad.imageWide || ad.imageRect);
   const orange = tone === 'orange';
 
   // Analytics: separate placement (slot) / creative (ad id) / campaign (brand)
@@ -58,8 +67,12 @@ export default function InArticleAd({
   // A small zoom button (AdExpand) sits outside the anchor so tapping it enlarges
   // the ad instead of navigating.
   if (image) {
+    // Fixed aspect (cover-cropped) for the shaped module slots; natural height for
+    // the classic banner/rectangle so existing creatives are untouched.
+    const imgShape = video ? 'aspect-video object-cover' : sky ? 'aspect-[1/3] object-cover' : '';
+    const wrapMax = sky ? 'max-w-[220px]' : rect && !fill ? 'max-w-[360px]' : '';
     return (
-      <div className={`relative mx-auto w-full ${rect && !fill ? 'max-w-[360px]' : ''}`}>
+      <div className={`relative mx-auto w-full ${wrapMax}`}>
         <a
           href={ad.href}
           data-ad-slot={slot}
@@ -71,7 +84,7 @@ export default function InArticleAd({
         >
           <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt={ad.brand} className={`block w-full ${orange ? 'rounded-lg' : ''}`} />
+          <img src={image} alt={ad.brand} className={`block w-full ${imgShape} ${orange ? 'rounded-lg' : ''}`} />
         </a>
         <AdExpand kind="image" brand={ad.brand} href={ad.href} cta={ad.cta} subjectId={ad.id} placement={slot} trkProps={trkProps} src={image} />
       </div>

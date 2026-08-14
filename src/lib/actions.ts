@@ -480,6 +480,7 @@ export async function saveAd(formData: FormData) {
   const competitors = ((formData.get('competitors') as string) || '').trim();
   const imageWide = ((formData.get('imageWide') as string) || '').trim();
   const imageRect = ((formData.get('imageRect') as string) || '').trim();
+  const imageTall = ((formData.get('imageTall') as string) || '').trim();
   const video = ((formData.get('video') as string) || '').trim();
   const videoPoster = ((formData.get('videoPoster') as string) || '').trim();
   const active = formData.get('active') != null;
@@ -501,7 +502,7 @@ export async function saveAd(formData: FormData) {
   const liveFrom = parseDate(formData.get('liveFrom') as string);
   const liveUntil = parseDate(formData.get('liveUntil') as string);
   if (!brand || !headline) throw new Error('Brand and headline are required');
-  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active, reserved, house, liveFrom, liveUntil };
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, imageTall: imageTall || null, video: video || null, videoPoster: videoPoster || null, active, reserved, house, liveFrom, liveUntil };
   if (id) await prisma.ad.update({ where: { id }, data });
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');

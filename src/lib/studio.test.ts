@@ -97,6 +97,15 @@ describe('studio tree model', () => {
     expect(t.children[2].settings).toEqual({ mode: 'auto', source: 'trending' });
   });
 
+  it('ad formats: keeps the four real shapes; retired square → rectangle', () => {
+    const fmt = (f: string) => (normalizeTree({ children: [{ type: 'ad', settings: { format: f } }] }).children[0].settings as { format: string }).format;
+    expect(fmt('leaderboard')).toBe('leaderboard');
+    expect(fmt('rectangle')).toBe('rectangle');
+    expect(fmt('video')).toBe('video');
+    expect(fmt('vertical')).toBe('vertical');   // the skyscraper
+    expect(fmt('square')).toBe('rectangle');    // retired → collapses to rectangle
+  });
+
   it('video block preserves its settings on normalize (no data loss)', () => {
     const t = normalizeTree({ children: [
       { type: 'video', settings: { url: 'https://x/y.mp4', poster: 'https://x/p.png', widthPct: 500, radius: false } },
@@ -127,7 +136,7 @@ describe('studio tree model', () => {
   it('normalizes a fallback chain: one level deep, capped, bad rungs dropped', () => {
     const t = normalizeTree({ children: [
       { type: 'poll', settings: { pollId: 'p1' }, fallbacks: [
-        { type: 'ad', settings: { format: 'square' } },
+        { type: 'ad', settings: { format: 'leaderboard' } },
         { type: 'bogus', settings: {} },                                   // dropped (unknown type)
         { type: 'article-headline', settings: { source: 'latest' },
           fallbacks: [{ type: 'ad', settings: {} }] },                      // nested fallback stripped
@@ -137,7 +146,7 @@ describe('studio tree model', () => {
     const slot = t.children[0];
     expect(slot.type).toBe('poll');
     expect(slot.fallbacks!.length).toBeLessThanOrEqual(MAX_FALLBACKS);
-    expect(slot.fallbacks![0].settings).toEqual({ format: 'square', vendor: '' });
+    expect(slot.fallbacks![0].settings).toEqual({ format: 'leaderboard', vendor: '' });
     expect(slot.fallbacks![1].type).toBe('article-headline');             // bogus was dropped
     expect(slot.fallbacks![1].fallbacks).toBeUndefined();                 // no nesting
     expect(blockChain(slot)[0]).toBe(slot);                                // chain = primary + fallbacks

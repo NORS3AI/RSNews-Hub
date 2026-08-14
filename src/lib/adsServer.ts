@@ -78,7 +78,7 @@ export async function pickArticleAds(context: string, prefix: string, favorBrand
 // An advertiser the composer/module builder can lock a slot to, plus which slot
 // shapes it currently has a live creative for. `key` is the normalized brand
 // (data-ad-brand stores this), so the client can match without re-normalizing.
-export type AdvertiserOption = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
+export type AdvertiserOption = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean; tall: boolean };
 
 /** List every advertiser with at least one live creative, and which slot shapes
  *  each can currently fill. Feeds the ad-slot advertiser picker + its
@@ -89,10 +89,11 @@ export async function listAdvertisers(): Promise<AdvertiserOption[]> {
   for (const a of await loadAds()) {
     if (!adIsLive(a, now)) continue;
     const key = brandKey(a.brand);
-    const cur = byKey.get(key) ?? { key, brand: a.brand, wide: false, rect: false, video: false };
+    const cur = byKey.get(key) ?? { key, brand: a.brand, wide: false, rect: false, video: false, tall: false };
     if (a.imageWide) cur.wide = true;
     if (a.imageRect) cur.rect = true;
     if (a.video) cur.video = true;
+    if (a.imageTall) cur.tall = true;
     byKey.set(key, cur);
   }
   return [...byKey.values()].sort((x, y) => x.brand.localeCompare(y.brand));

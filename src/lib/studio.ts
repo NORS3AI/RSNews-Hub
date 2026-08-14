@@ -367,7 +367,10 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
       return { source: articleSource(s.source), count: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 3), 6) : 4 };
     }
     case 'ad': {
-      const ok = ['leaderboard', 'video', 'vertical', 'square', 'rectangle'];
+      // Four real formats: leaderboard (banner), rectangle, video (16:9), and
+      // vertical (the tall "skyscraper"). 'square' was retired — it collapsed to
+      // rectangle on the live page; an old stored 'square' normalizes to rectangle.
+      const ok = ['leaderboard', 'video', 'vertical', 'rectangle'];
       // `vendor` (an advertiser/brand key) locks the slot to that advertiser's
       // creatives only — a sponsor spotlight. '' = any advertiser.
       return { format: ok.includes(String(s.format)) ? String(s.format) : 'rectangle', vendor: str(s.vendor, 80).trim() };
