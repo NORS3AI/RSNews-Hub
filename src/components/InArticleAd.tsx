@@ -35,9 +35,13 @@ export default function InArticleAd({
   // When rendered inside an article we also carry the article id/slug + a
   // `sponsored` flag, so an ad event is attributable to the exact (sponsored)
   // article it ran in — see AnalyticsProvider → advertiserReport.bySponsoredArticle.
+  // A flighted (paid) ad also carries its batch identity (the AdFlight = one
+  // campaign batch), so a vendor's performance can be split per batch — evergreen
+  // house ads have no flight, so they carry none (correctly excluded from batches).
   const trkProps = {
     brand: ad.brand, campaignId: ad.brand, creativeId: ad.id,
     format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner',
+    ...(ad.flightId ? { flightId: ad.flightId, flightIndex: ad.flightIndex ?? null } : {}),
     ...(adContext?.articleId ? { articleId: adContext.articleId } : {}),
     ...(adContext?.articleSlug ? { articleSlug: adContext.articleSlug } : {}),
     ...(adContext?.sponsored ? { sponsored: true } : {}),

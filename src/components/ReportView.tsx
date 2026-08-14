@@ -12,7 +12,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Table({ title, rows }: { title: string; rows: ReportSnapshot['byCreative'] }) {
+function Table({ title, rows, firstCol = 'Name' }: { title: string; rows: ReportSnapshot['byCreative']; firstCol?: string }) {
   if (!rows.length) return null;
   return (
     <div>
@@ -21,7 +21,7 @@ function Table({ title, rows }: { title: string; rows: ReportSnapshot['byCreativ
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
-              <th className="py-1 pr-3 font-medium">Name</th>
+              <th className="py-1 pr-3 font-medium">{firstCol}</th>
               <th className="py-1 pr-3 text-right font-medium">Impressions</th>
               <th className="py-1 pr-3 text-right font-medium">Clicks</th>
               <th className="py-1 text-right font-medium">CTR</th>
@@ -63,6 +63,8 @@ export default function ReportView({ snapshot }: { snapshot: ReportSnapshot }) {
       )}
       <Table title="By creative" rows={snapshot.byCreative} />
       <Table title="By placement" rows={snapshot.byPlacement} />
+      <Table title="By campaign batch" rows={snapshot.byBatch ?? []} firstCol="Batch" />
+      <Table title="Inside sponsored articles" rows={snapshot.bySponsoredArticle ?? []} firstCol="Sponsored article" />
     </div>
   );
 }

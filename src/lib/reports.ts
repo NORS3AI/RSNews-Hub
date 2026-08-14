@@ -23,6 +23,11 @@ export type ReportSnapshot = {
   totals: typeof EMPTY_TOTALS;
   byCreative: ReturnType<typeof aggregateAds>;
   byPlacement: ReturnType<typeof aggregateAds>;
+  // Their embedded ad's performance inside each vendor-connected sponsored piece,
+  // and per individual campaign batch (AdFlight). Keys are frozen to readable
+  // labels (article title / "Batch N · dates") at generation time.
+  bySponsoredArticle: ReturnType<typeof aggregateAds>;
+  byBatch: ReturnType<typeof aggregateAds>;
   trend: ReturnType<typeof adTrend>;
   generatedForDays: number;
 };
@@ -63,11 +68,13 @@ export function parseSnapshot(json: string): ReportSnapshot {
       totals: { ...EMPTY_TOTALS, ...(o.totals ?? {}) },
       byCreative: Array.isArray(o.byCreative) ? o.byCreative : [],
       byPlacement: Array.isArray(o.byPlacement) ? o.byPlacement : [],
+      bySponsoredArticle: Array.isArray(o.bySponsoredArticle) ? o.bySponsoredArticle : [],
+      byBatch: Array.isArray(o.byBatch) ? o.byBatch : [],
       trend: Array.isArray(o.trend) ? o.trend : [],
       generatedForDays: Number(o.generatedForDays ?? 0),
     };
   } catch {
-    return { brand: '', totals: EMPTY_TOTALS, byCreative: [], byPlacement: [], trend: [], generatedForDays: 0 };
+    return { brand: '', totals: EMPTY_TOTALS, byCreative: [], byPlacement: [], bySponsoredArticle: [], byBatch: [], trend: [], generatedForDays: 0 };
   }
 }
 
@@ -83,15 +90,46 @@ export async function computeSnapshot(vendorBrandKey: string, brandLabel: string
   // brand typed two ways can't drop a variant from the headline number.
   const totals = { ...(aggregateAds(scoped, 'all')[0] ?? EMPTY_TOTALS), key: brandLabel };
   const byCreative = await labelCreatives(aggregateAds(scoped, 'creative'));
+  // Their ad's performance inside each sponsored article, and per campaign batch.
+  const articleRows = aggregateAds(scoped.filter((e) => e.props.sponsored === true), 'article');
+  const batchRows = aggregateAds(scoped.filter((e) => !!e.props.flightId), 'flight');
+  const bySponsoredArticle = relabel(articleRows, await articleTitles(articleRows.map((r) => r.key)), 'Removed article');
+  const byBatch = relabel(batchRows, await flightLabels(batchRows.map((r) => r.key)), 'Removed batch');
   const days = Math.round((period.end.getTime() - period.start.getTime()) / 86_400_000);
   return {
     brand: brandLabel,
     totals,
     byCreative,
     byPlacement: aggregateAds(scoped, 'placement'),
+    bySponsoredArticle,
+    byBatch,
     trend: adTrend(scoped),
     generatedForDays: days,
   };
+}
+
+/** Map a key→label lookup over aggregate rows, freezing the readable label into
+ *  each row's `key` (a since-deleted subject keeps `missing` instead of a cuid). */
+function relabel<T extends { key: string }>(rows: T[], labels: Map<string, string>, missing: string): T[] {
+  return rows.map((r) => ({ ...r, key: r.key === '—' ? '—' : (labels.get(r.key) ?? missing) }));
+}
+
+/** articleId → title, for the sponsored-article breakdown. */
+async function articleTitles(ids: string[]): Promise<Map<string, string>> {
+  const clean = ids.filter((k) => k && k !== '—');
+  if (!clean.length) return new Map();
+  const arts = await prisma.article.findMany({ where: { id: { in: clean } }, select: { id: true, title: true } });
+  return new Map(arts.map((a) => [a.id, (a.title || 'Untitled article').trim()]));
+}
+
+/** flightId → a readable batch label ("Batch N · Jan 1–Mar 31, 2026"). Exported
+ *  so the live advertiser dashboard labels batches the same way as the report. */
+export async function flightLabels(ids: string[]): Promise<Map<string, string>> {
+  const clean = ids.filter((k) => k && k !== '—');
+  if (!clean.length) return new Map();
+  const flights = await prisma.adFlight.findMany({ where: { id: { in: clean } }, select: { id: true, index: true, startAt: true, endAt: true } });
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  return new Map(flights.map((f) => [f.id, `Batch ${f.index} · ${fmt(f.startAt)}–${fmt(f.endAt)}`]));
 }
 
 /** Replace each creative row's raw id key with the ad's human headline/label,

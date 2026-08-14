@@ -31,7 +31,7 @@ export async function loadAds(): Promise<AdRow[]> {
         // Reserved one-off creatives are hand-placed only — never in the rotation.
         where: { reserved: false },
         orderBy: { createdAt: 'asc' },
-        include: { flight: { select: { status: true, startAt: true, endAt: true } } },
+        include: { flight: { select: { index: true, status: true, startAt: true, endAt: true } } },
       }),
       loadCompetitorGroups(),
     ]);
@@ -45,6 +45,7 @@ export async function loadAds(): Promise<AdRow[]> {
       return {
         ...r,
         competitors,
+        flightIndex: r.flight?.index ?? null,
         flightStatus: r.flight?.status ?? null,
         flightStartAt: r.flight?.startAt ?? null,
         flightEndAt: r.flight?.endAt ?? null,

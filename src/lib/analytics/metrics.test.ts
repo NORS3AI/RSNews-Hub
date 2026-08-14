@@ -199,6 +199,20 @@ describe('advertiser reporting (scoped to one brand)', () => {
     expect(row.impressions).toBe(2);                        // both sponsored impressions
     expect(row.clicks).toBe(1);
   });
+  it('breaks the brand down per campaign batch (flighted events only, keyed by flightId)', () => {
+    const batched: Ev[] = [
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', flightId: 'f1', flightIndex: 1, viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', flightId: 'f1', flightIndex: 1 } }),
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-9', flightId: 'f2', flightIndex: 2, viewable: true } }),
+      // An evergreen house-style impression with NO flight — must not appear as a batch.
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-x', viewable: true } }),
+    ];
+    const r = advertiserReport(batched, 'PackWise');
+    expect(r.byBatch.map((b) => b.key).sort()).toEqual(['f1', 'f2']);  // two batches, no unflighted bucket
+    const f1 = r.byBatch.find((b) => b.key === 'f1')!;
+    expect(f1.impressions).toBe(1);
+    expect(f1.clicks).toBe(1);
+  });
 });
 
 describe('toCsv', () => {

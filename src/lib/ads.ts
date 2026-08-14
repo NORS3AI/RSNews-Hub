@@ -36,6 +36,7 @@ export type AdRow = {
   // active; a flighted ad is live only when its flight is SCHEDULED and now is
   // inside the window — so it auto-comes-down at the flight's end.
   flightId?: string | null;
+  flightIndex?: number | null;       // 1-based batch number within the campaign
   flightStatus?: string | null;      // 'SCHEDULED' | 'AWAITING' | 'REVIEW' | 'ENDED'
   flightStartAt?: Date | string | null;
   flightEndAt?: Date | string | null;

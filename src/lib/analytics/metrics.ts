@@ -35,6 +35,7 @@ export function splitDim(e: Ev, dim: string): string {
     case 'creative': return String(e.props.creativeId ?? e.subjectId ?? '—');
     case 'campaign': return String(e.props.campaignId ?? e.props.brand ?? '—');
     case 'article': return String(e.props.articleId ?? e.props.articleSlug ?? '—');
+    case 'flight': return String(e.props.flightId ?? '—');
     case 'all': return 'all'; // fold everything into one bucket (for grand totals)
     case 'format': return String(e.props.format ?? '—');
     case 'shape': return String(e.props.shape ?? '—');
@@ -209,11 +210,15 @@ export function advertiserReport(evs: Ev[], brand: string) {
   // vendor-connected sponsored piece (their embedded sponsor ad + any locked
   // slots). Keyed by articleId; the dashboard resolves ids → titles for display.
   const sponsored = ads.filter((e) => e.props.sponsored === true);
+  // Per-batch: only flighted (paid campaign) events carry a flightId, so this is
+  // exactly the vendor's individual campaign batches — house/evergreen ads have none.
+  const flighted = ads.filter((e) => !!e.props.flightId);
   return {
     brand, totals,
     byCreative: aggregateAds(ads, 'creative'),
     byPlacement: aggregateAds(ads, 'placement'),
     bySponsoredArticle: aggregateAds(sponsored, 'article'),
+    byBatch: aggregateAds(flighted, 'flight'),
     trend: adTrend(ads),
   };
 }
