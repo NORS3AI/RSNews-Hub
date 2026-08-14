@@ -67,9 +67,14 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
   try {
     const a = await prisma.article.findUnique({
       where: { id: articleId },
-      select: { id: true, title: true, slug: true, status: true, genre: true, sponsorVendorId: true, sponsorNotifiedAt: true, sponsorContactName: true, sponsorContactEmail: true },
+      select: { id: true, title: true, slug: true, status: true, publishedAt: true, genre: true, sponsorVendorId: true, sponsorNotifiedAt: true, sponsorContactName: true, sponsorContactEmail: true },
     });
     if (!a || a.status !== 'PUBLISHED' || !a.sponsorVendorId || a.sponsorNotifiedAt) return;
+    // A scheduled (future-dated) piece isn't public yet — the page/modal hide it
+    // until publishedAt. Sending now would email a dead link AND burn the one-shot
+    // guard so the real go-live never notifies. Skip; sweepSponsorGoLiveNotifications
+    // fires it when the publish time actually arrives.
+    if (a.publishedAt && a.publishedAt.getTime() > Date.now()) return;
     // Only genuinely SPONSORED pieces get the "your sponsored article is live"
     // message — gate on genre ALONE. A vendor's What's Hot article can carry a
     // sponsorVendorId (for the review flow + ad lock) AND a featured window
@@ -127,4 +132,28 @@ export async function notifySponsorLive(articleId: string): Promise<void> {
   } catch (e) {
     log.warn('sponsor go-live notify failed', { articleId, err: (e as Error).message });
   }
+}
+
+/**
+ * Fire the sponsor go-live notification for any sponsored article that is now
+ * publicly live but hasn't been notified yet. This is what delivers the "your
+ * sponsored article is live" note for SCHEDULED pieces (published with a future
+ * publishedAt): notifySponsorLive deliberately skips them at save time (dead
+ * link + would burn the one-shot guard), so this sweep picks them up once their
+ * publish time has passed. Idempotent — notifySponsorLive claims the one-shot
+ * atomically, so re-running or overlapping calls can't double-send. Also a
+ * backstop for any live sponsor whose save-time notify was missed. Returns the
+ * number of articles it attempted to notify.
+ */
+export async function sweepSponsorGoLiveNotifications(): Promise<number> {
+  const now = new Date();
+  const due = await prisma.article.findMany({
+    where: {
+      status: 'PUBLISHED', genre: 'sponsored', sponsorVendorId: { not: null },
+      sponsorNotifiedAt: null, publishedAt: { lte: now },
+    },
+    select: { id: true },
+  });
+  for (const a of due) await notifySponsorLive(a.id);
+  return due.length;
 }

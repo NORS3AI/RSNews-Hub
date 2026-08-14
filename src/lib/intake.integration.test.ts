@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { prisma } from './db';
 import { brandKey } from './entitlements';
-import { resolveIntakeVendor, notifySponsorLive } from './intake';
+import { resolveIntakeVendor, notifySponsorLive, sweepSponsorGoLiveNotifications } from './intake';
 
 let seq = 0;
 const tag = () => `iit${Date.now().toString(36)}${seq++}`;
@@ -90,6 +90,36 @@ describe('notifySponsorLive', () => {
     await notifySponsorLive(draft);
     const logs = await prisma.adminLog.findMany({ where: { kind: 'sponsor_golive' } });
     expect(logs.length).toBe(0);
+  });
+
+  it('does NOT notify a SCHEDULED (future-dated) sponsored article, and does not burn the guard', async () => {
+    const name = `Scheduled ${tag()}`;
+    const v = await prisma.vendor.create({ data: { name, brandKey: brandKey(name), premium: false } });
+    madeVendors.push(v.id);
+    // Published with a FUTURE publishedAt = this app's scheduling mechanism.
+    const articleId = await mkDraft({ status: 'PUBLISHED', sponsorVendorId: v.id, publishedAt: new Date(Date.now() + 3 * 86_400_000) });
+
+    // Scope log lookups to THIS test's unique vendor name — the sweep scans all
+    // articles, so a parallel test's sponsored piece must not perturb the count.
+    const mine = { kind: 'sponsor_golive', message: { contains: name } };
+    await notifySponsorLive(articleId);
+    let logs = await prisma.adminLog.findMany({ where: mine });
+    expect(logs.length).toBe(0); // no dead-link email while not yet public
+    let art = await prisma.article.findUnique({ where: { id: articleId }, select: { sponsorNotifiedAt: true } });
+    expect(art?.sponsorNotifiedAt).toBeNull(); // guard NOT burned
+
+    // The sweep leaves a future-dated article alone…
+    await sweepSponsorGoLiveNotifications();
+    logs = await prisma.adminLog.findMany({ where: mine });
+    expect(logs.length).toBe(0);
+
+    // …then fires exactly once when its publish time has passed.
+    await prisma.article.update({ where: { id: articleId }, data: { publishedAt: new Date(Date.now() - 1000) } });
+    await sweepSponsorGoLiveNotifications();
+    logs = await prisma.adminLog.findMany({ where: mine });
+    expect(logs.length).toBe(1);
+    art = await prisma.article.findUnique({ where: { id: articleId }, select: { sponsorNotifiedAt: true } });
+    expect(art?.sponsorNotifiedAt).toBeTruthy();
   });
 
   it('does NOT send the sponsored email for a What\'s Hot article, even with a featured window', async () => {

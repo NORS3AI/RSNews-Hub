@@ -11,6 +11,8 @@ import { applyViewAs } from '@/lib/viewAs';
 import { Lock } from '@/components/icons';
 import { sweepExpiredModulePolls, sweepExpiredModules, sweepExpiredQuizzes } from '@/lib/studioPolls';
 import { sweepAutoArchivedArticles } from '@/lib/autoArchive';
+import { sweepSponsorGoLiveNotifications } from '@/lib/intake';
+import { after } from 'next/server';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
@@ -222,6 +224,10 @@ export default async function DocsHome() {
   await sweepExpiredQuizzes();
   await sweepExpiredModules();
   await sweepAutoArchivedArticles();
+  // Low-latency trigger for the sponsor go-live email on SCHEDULED articles whose
+  // publish time has passed — run after the response so a reader never waits on
+  // email delivery. The nightly ads-maintenance cron is the backstop.
+  after(() => sweepSponsorGoLiveNotifications().catch(() => {}));
   // Scans below flatten each block into its full priority stack (block +
   // fallbacks) so a poll/article/quiz that only appears as a *fallback* still
   // has its live content pre-fetched and can fill its slot when promoted.
