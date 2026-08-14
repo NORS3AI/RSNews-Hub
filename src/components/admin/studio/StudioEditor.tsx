@@ -962,7 +962,7 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
     case 'ad':
       return (
         <select className="input !h-8 !py-1 text-xs" value={String(s.format ?? 'rectangle')} onChange={(e) => onSet('format', e.target.value)}>
-          <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="vertical">Vertical</option><option value="leaderboard">Leaderboard</option><option value="video">Video</option>
+          <option value="rectangle">Rectangle</option><option value="leaderboard">Leaderboard</option><option value="video">Video</option><option value="vertical">Skyscraper</option>
         </select>
       );
     case 'image':

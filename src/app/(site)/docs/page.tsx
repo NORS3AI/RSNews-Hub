@@ -122,7 +122,10 @@ export default async function DocsHome() {
 
   // Homepage slots have no article context, so any advertiser is safe. Rotate
   // through the image creatives so the real ads show on the home page too.
-  const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect));
+  // Any active ad that carries at least one visual creative (banner, rectangle,
+  // tall skyscraper, or video). homeAd() shape-filters this per slot, so a
+  // tall-only or video-only creative never leaks into a banner/rectangle slot.
+  const homeImageAds = allAds.filter((a) => a.active && (a.imageWide || a.imageRect || a.imageTall || a.video));
   let homeAdCursor = 0;
 
   // Vendor ad-preview: when a signed-in vendor toggled "Preview my ads" from
@@ -168,19 +171,16 @@ export default async function DocsHome() {
       size === 'leaderboard' ? !!a.imageWide
         : size === 'video' ? (!!a.video || !!a.imageWide)
           : size === 'skyscraper' ? !!a.imageTall
-            : !!a.imageRect;
-    // The shaped slots (video/skyscraper) have NO safe generic creative to fall
-    // back on, so only serve an ad that actually has that shape — else collapse.
-    const requireShape = size === 'video' || size === 'skyscraper' || previewLock;
-    if (requireShape) pool = pool.filter(shapeOk);
+            : (!!a.imageRect || !!a.video); // rectangle also plays a video creative
+    // Every slot only serves a creative that actually fits its shape — the pool
+    // now mixes banner/rectangle/tall/video ads, and a mismatched creative would
+    // render blank or wrongly-cropped. So shape-filter unconditionally. A public
+    // homepage must never show an empty ad box, so an empty pool renders nothing.
+    pool = pool.filter(shapeOk);
     if (lockBrand && pool.length === 0) {
-      pool = homeImageAds.filter((a) => !a.flightId); // RS house ads only
-      if (requireShape) pool = pool.filter(shapeOk); // keep the house fallback shape-correct too
+      pool = homeImageAds.filter((a) => !a.flightId).filter(shapeOk); // RS house ads, shape-correct
     }
-    if ((lockBrand || requireShape) && pool.length === 0) return null;
-    // No image ad to show → render nothing. A public homepage must never show an
-    // empty ad box (dashed slot or the in-article orange no-image placeholder).
-    if (!pool.length) return null;
+    if (pool.length === 0) return null;
     const ad = pool[homeAdCursor++ % pool.length];
     const iaSize = size === 'leaderboard' ? 'in-article' : size; // rectangle|video|skyscraper pass through
     // Homepage ads fill their slot: rectangles fill their grid column, banners

@@ -97,7 +97,11 @@ export const DEFAULT_ADS: AdRow[] = [
     keywords: 'Stripe', competitors: 'Square, PayPal, Adyen, Braintree', active: true },
   { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RS News Hub',
     headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.',
-    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '', active: true, house: true },
+    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '',
+    // House skyscraper creative — the safe fallback for any tall (vertical) ad
+    // slot until a paying advertiser uploads their own, so a column skyscraper
+    // never collapses to empty. house:true keeps it competitor-safe everywhere.
+    imageTall: '/ads/rsnews-pro-tall.svg', active: true, house: true },
   { id: 'seed-clouddesk', brand: 'CloudDesk', label: 'Support software',
     headline: 'CloudDesk — the helpdesk your team will actually enjoy using.',
     cta: 'Try it free', href: '#', accent: '#2b7a8c', keywords: '', competitors: '', active: true },

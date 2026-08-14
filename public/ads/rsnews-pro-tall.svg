@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 600" width="200" height="600" role="img" aria-label="RSNews Pro — ad-free reading">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F08A3C"/>
+      <stop offset="1" stop-color="#D9661C"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="600" fill="url(#bg)"/>
+  <rect x="14" y="14" width="172" height="572" rx="14" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5"/>
+  <text x="28" y="70" font-family="Georgia, 'Times New Roman', serif" font-size="15" fill="#ffffff" fill-opacity="0.9" font-style="italic">RS News Hub</text>
+  <text x="28" y="150" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" fill="#ffffff">RSNews</text>
+  <text x="28" y="196" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="800" fill="#1f2937">Pro</text>
+  <line x1="28" y1="228" x2="88" y2="228" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+  <text x="28" y="300" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">Ad-free</text>
+  <text x="28" y="326" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">reading.</text>
+  <text x="28" y="372" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">Offline</text>
+  <text x="28" y="398" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">clippings.</text>
+  <text x="28" y="444" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">Daily</text>
+  <text x="28" y="470" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#ffffff">digests.</text>
+  <rect x="28" y="516" width="144" height="44" rx="22" fill="#1f2937"/>
+  <text x="100" y="544" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">Upgrade &#8594;</text>
+</svg>
