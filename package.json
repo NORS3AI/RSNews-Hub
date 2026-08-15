@@ -61,6 +61,7 @@
   },
   "overrides": {
     "sharp": "$sharp",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "nanoid": "^3.3.18"
   }
 }
