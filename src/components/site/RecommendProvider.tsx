@@ -6,7 +6,7 @@ import { createContext, useContext, useRef, useState } from 'react';
 // count + toggled flag. Seeded from server props; in the modal it's keyed by
 // article id so navigating between articles remounts it with fresh state.
 
-type RecommendCtx = { articleId: string; count: number; on: boolean; busy: boolean; toggle: () => void };
+type RecommendCtx = { articleId: string; count: number; on: boolean; busy: boolean; signedIn: boolean; toggle: () => void };
 const Ctx = createContext<RecommendCtx | null>(null);
 
 export function useRecommend(): RecommendCtx {
@@ -16,8 +16,8 @@ export function useRecommend(): RecommendCtx {
 }
 
 export function RecommendProvider({
-  articleId, initialCount, initialOn, children,
-}: { articleId: string; initialCount: number; initialOn: boolean; children: React.ReactNode }) {
+  articleId, initialCount, initialOn, signedIn, children,
+}: { articleId: string; initialCount: number; initialOn: boolean; signedIn: boolean; children: React.ReactNode }) {
   const [count, setCount] = useState(Math.max(0, initialCount));
   const [on, setOn] = useState(initialOn);
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,9 @@ export function RecommendProvider({
   const busyRef = useRef(false);
 
   const toggle = async () => {
-    if (busyRef.current) return;
+    // Recommending requires an account — a signed-out reader gets the sign-in
+    // link (RecommendButton) and never reaches here; guard defensively anyway.
+    if (!signedIn || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     const nextOn = !on;
@@ -48,5 +50,5 @@ export function RecommendProvider({
     }
   };
 
-  return <Ctx.Provider value={{ articleId, count, on, busy, toggle }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ articleId, count, on, busy, signedIn, toggle }}>{children}</Ctx.Provider>;
 }

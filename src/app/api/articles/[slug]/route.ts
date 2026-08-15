@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
-import { recommendKey, getRecommendState } from '@/lib/articleRecommend';
+import { getRecommendState } from '@/lib/articleRecommend';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
@@ -64,8 +64,9 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     resolveReservedArticleAds(article.content, lockBrand),
   ]);
 
-  // The reader's recommend state (count + whether they've already recommended).
-  const recommend = await getRecommendState(article.id, recommendKey(user?.id, await getReaderSessionId()), article.recommends);
+  // The reader's recommend state (count + whether this account has recommended).
+  // Recommending is account-only, so an anonymous reader is simply "not recommended".
+  const recommend = await getRecommendState(article.id, user ? { userId: user.id } : null, article.recommends);
 
   return NextResponse.json({
     article: {

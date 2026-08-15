@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 import { getRelatedArticles } from '@/lib/recommend';
-import { getRecommendState, recommendKey } from '@/lib/articleRecommend';
+import { getRecommendState } from '@/lib/articleRecommend';
 import RecommendButton from '@/components/site/RecommendButton';
 import RecommendCount from '@/components/site/RecommendCount';
 import { RecommendProvider } from '@/components/site/RecommendProvider';
@@ -107,7 +107,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true, excerpt: true },
     }),
-    getRecommendState(article.id, recommendKey(user?.id, await getReaderSessionId()), article.recommends),
+    getRecommendState(article.id, user ? { userId: user.id } : null, article.recommends),
   ]);
 
   const adTagText = article.tags.map(({ tag }) => tag.name).join(' ');
@@ -151,7 +151,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         {/* Reading surface — a cream card so the body is readable on the textured
             page surround, matching the in-app reader modal. */}
         <div className="card p-6 sm:p-9 lg:p-10">
-        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended}>
+        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={!!user}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
           {genreLabel(article.genre) && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}

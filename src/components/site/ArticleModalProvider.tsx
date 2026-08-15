@@ -184,7 +184,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
                 {loading && !a && <ModalSkeleton />}
                 {a && (
-                  <RecommendProvider key={a.id} articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended}>
+                  <RecommendProvider key={a.id} articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended} signedIn={!!data?.loggedIn}>
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
                     <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
