@@ -29,7 +29,7 @@ export default function InArticleAd({
 
   // A silent looping video creative fits the rectangle and the widescreen video slot.
   if ((rect || video) && ad.video) {
-    return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} />;
+    return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} size={video ? 'video' : 'rectangle'} />;
   }
   // Pick the creative that best fits the slot shape. Skyscraper prefers the tall
   // creative; the widescreen video slot (no video creative) uses a wide image.

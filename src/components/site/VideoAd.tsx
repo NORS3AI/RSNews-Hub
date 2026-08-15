@@ -15,11 +15,15 @@ import AdExpand from '@/components/site/AdExpand';
 type Props = {
   id: string; href: string; brand: string; slot?: string;
   src: string; poster?: string | null; accent: string;
+  // 'rectangle' (default) = the ≤360px in-article slot, native aspect.
+  // 'video' = the widescreen module slot: full-width, forced 16:9 cover.
+  size?: 'rectangle' | 'video';
 };
 
 const QUARTILES = [25, 50, 75, 100] as const;
 
-export default function VideoAd({ id, href, brand, slot, src, poster, accent }: Props) {
+export default function VideoAd({ id, href, brand, slot, src, poster, accent, size = 'rectangle' }: Props) {
+  const wide = size === 'video';
   const videoRef = useRef<HTMLVideoElement>(null);
   const fired = useRef<Set<number>>(new Set());
 
@@ -27,7 +31,7 @@ export default function VideoAd({ id, href, brand, slot, src, poster, accent }: 
     if (fired.current.has(quartile)) return;
     fired.current.add(quartile);
     track({ type: 'video', subjectType: 'ad', subjectId: id, placement: slot,
-      props: { quartile, brand, campaignId: brand, creativeId: id, format: 'video', shape: 'rectangle' } });
+      props: { quartile, brand, campaignId: brand, creativeId: id, format: 'video', shape: wide ? 'video' : 'rectangle' } });
   };
 
   useEffect(() => {
@@ -65,10 +69,10 @@ export default function VideoAd({ id, href, brand, slot, src, poster, accent }: 
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const trkProps = { brand, campaignId: brand, creativeId: id, format: 'video', shape: 'rectangle' };
+  const trkProps = { brand, campaignId: brand, creativeId: id, format: 'video', shape: wide ? 'video' : 'rectangle' };
 
   return (
-    <div className="relative mx-auto w-full max-w-[360px]">
+    <div className={`relative mx-auto w-full ${wide ? '' : 'max-w-[360px]'}`}>
       <a
         href={href}
         data-ad-slot={slot}
@@ -92,7 +96,7 @@ export default function VideoAd({ id, href, brand, slot, src, poster, accent }: 
           loop
           playsInline
           preload="metadata"
-          className="block w-full"
+          className={`block w-full ${wide ? 'aspect-video object-cover' : ''}`}
           style={{ background: accent }}
         />
       </a>

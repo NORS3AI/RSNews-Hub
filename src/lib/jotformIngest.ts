@@ -94,7 +94,7 @@ export async function ingestSubmission(rawObj: Record<string, unknown>, submissi
     }, tx);
     for (const slot of ads) {
       await tx.ad.create({
-        data: { brand: parsed.vendorName, headline: `${parsed.vendorName} — submitted ad`, imageWide: slot.imageWide, imageRect: slot.imageRect, active: false },
+        data: { brand: parsed.vendorName, headline: `${parsed.vendorName} — submitted ad`, imageWide: slot.imageWide, imageRect: slot.imageRect, imageTall: slot.imageTall, active: false },
       });
     }
     // If the form collected payment, record it (deduped on the transaction id) so
