@@ -194,7 +194,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
               <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} />
               <Tile label="Unique readers" value={nf(reading.uniqueReaders)} />
               <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" />
-              <Tile label="Recommends" value={nf(reading.recommends)} hint="signed-in endorsements" />
+              <Tile label="Recommends" value={nf(reading.recommends)} hint="cast in range" />
               <Tile label="Recommenders" value={nf(reading.recommenders)} hint="unique readers" />
             </div>
             <div className="mt-3">

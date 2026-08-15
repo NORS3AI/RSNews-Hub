@@ -14,7 +14,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
   const articles = await prisma.article.findMany({
     where: sort === 'recommended' ? { ...base, recommends: { gt: 0 } } : base,
     orderBy: sort === 'recommended'
-      ? [{ recommends: 'desc' }, { publishedAt: 'desc' }]
+      ? [{ recommends: 'desc' }, { publishedAt: 'desc' }, { id: 'asc' }] // id = stable final tiebreaker (publishedAt is nullable)
       : [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
     select: { id: true, title: true, slug: true, publishedAt: true, createdAt: true, status: true, recommends: true, category: { select: { name: true, color: true } } },
     ...(sort === 'recommended' ? { take: 100 } : {}),
@@ -95,6 +95,9 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
         <p className="text-[var(--muted)]">{sort === 'recommended' ? 'No recommended articles yet — readers haven’t weighed in.' : 'Nothing archived yet.'}</p>
       )}
 
+      {sort === 'recommended' && articles.length === 100 && (
+        <p className="mb-3 text-xs text-[var(--muted)]">Showing the top 100 most-recommended articles.</p>
+      )}
       {sort === 'recommended' ? (
         <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-2)] shadow-[var(--shadow-card)]">
           {articles.map((a, i) => (

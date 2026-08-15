@@ -118,14 +118,22 @@ describe('aggregateReading', () => {
     expect(r.reach[75]).toBe(0.5);
     expect(r.reach[100]).toBe(0);
   });
-  it('counts net recommends (adds minus removes, floored) and unique recommenders', () => {
+  it('counts recommends CAST in the window (raw adds; removes are not subtracted) + unique recommenders', () => {
     const r = aggregateReading([
       ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'add' } }),
       ev({ type: 'recommend', subjectType: 'article', subjectId: 'a2', userId: 'u2', props: { action: 'add' } }),
-      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'remove' } }), // u1 un-recommends a1
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'remove' } }), // un-recommend: not counted
     ]);
-    expect(r.recommends).toBe(1);      // 2 adds − 1 remove
+    expect(r.recommends).toBe(2);      // two adds cast; the remove doesn't reduce the activity count
     expect(r.recommenders).toBe(2);    // u1 + u2 both cast at least one add
+  });
+  it('a window of only un-recommends counts zero (never negative)', () => {
+    const r = aggregateReading([
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'remove' } }),
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a2', userId: 'u2', props: { action: 'remove' } }),
+    ]);
+    expect(r.recommends).toBe(0);
+    expect(r.recommenders).toBe(0);
   });
 });
 

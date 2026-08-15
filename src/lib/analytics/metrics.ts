@@ -123,11 +123,12 @@ export function aggregateReading(evs: Ev[]) {
   // read counts at most once per bucket — never >100%).
   const denom = reads.length || 1;
   const reached = (m: number) => reads.filter((e) => num(e.props.scrollPct) >= m).length;
-  // "Recommend" is a reading OUTCOME (they finished, then endorsed). Count net
-  // endorsements in the window (adds minus removes, floored at 0) + unique
-  // recommenders. The all-time per-article total lives in Article.recommends.
+  // "Recommend" is a reading OUTCOME (they finished, then endorsed). Count the
+  // recommends CAST in the window (raw add actions — same activity semantics as
+  // Saves), plus unique recommenders. Un-recommends aren't subtracted here: this
+  // is windowed activity, not a live total (the all-time per-article total lives
+  // in Article.recommends and drives the rankings).
   const recAdds = evs.filter((e) => e.type === 'recommend' && e.props.action === 'add');
-  const recRemoves = evs.filter((e) => e.type === 'recommend' && e.props.action === 'remove').length;
   return {
     opens: opens.length,
     uniqueReaders: uniq(opens.map((e) => e.visitorId)),
@@ -135,7 +136,7 @@ export function aggregateReading(evs: Ev[]) {
     avgScrollPct: scrolls.length ? Math.round(scrolls.reduce((a, b) => a + b, 0) / scrolls.length) : 0,
     reach: { 25: pct(reached(25), denom), 50: pct(reached(50), denom), 75: pct(reached(75), denom), 100: pct(reached(100), denom) },
     bounces: reads.filter((e) => num(e.props.activeMs ?? e.value) < 5000).length,
-    recommends: Math.max(0, recAdds.length - recRemoves),
+    recommends: recAdds.length,
     recommenders: uniq(recAdds.map((e) => e.userId ?? e.visitorId)),
   };
 }

@@ -183,7 +183,7 @@ export async function trendingArticles(limit = 6, excludeIds: string[] = []): Pr
 export async function mostRecommendedArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
   const rows = await prisma.article.findMany({
     where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, recommends: { gt: 0 }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
-    orderBy: [{ recommends: 'desc' }, { publishedAt: 'desc' }],
+    orderBy: [{ recommends: 'desc' }, { publishedAt: 'desc' }, { id: 'asc' }], // id = stable final tiebreaker
     select: cardSelect,
     take: limit,
   });
