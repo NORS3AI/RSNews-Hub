@@ -1,5 +1,6 @@
 'use client';
 import { createContext, useContext, useRef, useState } from 'react';
+import { track } from '@/lib/analytics/track';
 
 // Shared recommend state for ONE article so the top-of-article count and the
 // end-of-article button never diverge within a session: both read/write the same
@@ -40,8 +41,12 @@ export function RecommendProvider({
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) { setOn(!!data.recommended); setCount(Math.max(0, data.recommends ?? 0)); }
-      else { setOn(!nextOn); setCount((c) => Math.max(0, c + (nextOn ? -1 : 1))); } // revert
+      if (res.ok && data?.ok) {
+        setOn(!!data.recommended); setCount(Math.max(0, data.recommends ?? 0));
+        // Analytics: one event per confirmed toggle (add|remove), consent-gated
+        // + batched by track(). The authoritative total lives in Article.recommends.
+        track({ type: 'recommend', subjectType: 'article', subjectId: articleId, pageType: 'article', props: { action: data.recommended ? 'add' : 'remove' } });
+      } else { setOn(!nextOn); setCount((c) => Math.max(0, c + (nextOn ? -1 : 1))); } // revert
     } catch {
       setOn(!nextOn); setCount((c) => Math.max(0, c + (nextOn ? -1 : 1))); // revert on network error
     } finally {
