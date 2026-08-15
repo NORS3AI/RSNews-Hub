@@ -4,9 +4,16 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
 import { parseJson } from '@/lib/http';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 // Records that an article was read (dedupes within a short window) and bumps views.
 export async function POST(req: Request) {
+  // Per-session 30-min dedup (below) stops normal double-counts, but a caller can
+  // forge the reader-session cookie to mint fresh sessions and inflate views. Cap
+  // per IP so rotating the cookie can't drive the counter (which also feeds sort).
+  const rl = rateLimit(`reading:${clientIp(req)}`, 120, 60_000);
+  if (!rl.ok) return NextResponse.json({ ok: false }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } });
+
   const parsed = await parseJson(req, z.object({ articleId: z.string().min(1) }));
   if (!parsed.ok) return parsed.res;
   const { articleId } = parsed.data;

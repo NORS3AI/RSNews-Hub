@@ -14,13 +14,20 @@
 
 import { headers } from 'next/headers';
 import { timingSafeEqual } from 'crypto';
+import { inProduction } from '../env';
 import type { IdentityProvider, Member } from './types';
 
 const str = (v: string | null): string | null => (v && v.trim() ? v.trim() : null);
 
 function proxySecretOk(given: string | null): boolean {
   const want = process.env.PARENT_PROXY_SECRET;
-  if (!want) return true; // opt-in: not configured → no extra gate
+  if (!want) {
+    // FAIL CLOSED in production (mirrors the JWT provider refusing a weak secret):
+    // header-trust with no shared secret means a single spoofed x-member-* header
+    // could mint an identity — including staff → ADMIN. So in prod, no secret ⇒
+    // no header identity is trusted at all. In dev the gate is relaxed for local use.
+    return !inProduction();
+  }
   const a = Buffer.from(given || '');
   const b = Buffer.from(want);
   return a.length === b.length && timingSafeEqual(a, b);
