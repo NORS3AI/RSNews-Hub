@@ -6,6 +6,8 @@ import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
 import { getRelatedArticles } from '@/lib/recommend';
 import { getRecommendState, recommendKey } from '@/lib/articleRecommend';
 import RecommendButton from '@/components/site/RecommendButton';
+import RecommendCount from '@/components/site/RecommendCount';
+import { RecommendProvider } from '@/components/site/RecommendProvider';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
@@ -23,7 +25,7 @@ import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
-import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, ThumbsUp } from '@/components/icons';
+import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -149,6 +151,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         {/* Reading surface — a cream card so the body is readable on the textured
             page surround, matching the in-app reader modal. */}
         <div className="card p-6 sm:p-9 lg:p-10">
+        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
           {genreLabel(article.genre) && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
@@ -174,7 +177,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           <span>{formatDate(article.publishedAt ?? article.createdAt)}</span>
           <span className="flex items-center gap-1"><Clock width={14} height={14} />{article.readMinutes} min read</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>
-          {recommend.recommends > 0 && <span className="flex items-center gap-1 text-brand-600"><ThumbsUp width={14} height={14} />{recommend.recommends} recommend</span>}
+          <RecommendCount />
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -211,8 +214,10 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           </div>
         )}
 
-        {/* End-of-article endorsement — placed right before Read next / related. */}
-        <RecommendButton articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} />
+        {/* End-of-article endorsement — placed right before Read next / related.
+            Only a PUBLISHED article can be recommended (the API gates on it), so
+            the button is hidden on an archived piece (the count still shows). */}
+        {article.status === 'PUBLISHED' && <RecommendButton />}
 
         {/* Read next + related — kept INSIDE the reading card at the bottom, compact,
             so the full page matches the in-app reader modal (not a separate,
@@ -244,6 +249,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             )}
           </div>
         )}
+        </RecommendProvider>
         </div>
       </div>
     </>

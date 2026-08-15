@@ -1,7 +1,9 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { X, Clock, Eye, ArrowRight, Tag as TagIcon, ThumbsUp } from '@/components/icons';
+import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
 import RecommendButton from './RecommendButton';
+import RecommendCount from './RecommendCount';
+import { RecommendProvider } from './RecommendProvider';
 import { formatDate } from '@/lib/utils';
 import { useScrollLock } from '@/lib/useScrollLock';
 import ArticleBadges from '@/components/ArticleBadges';
@@ -182,6 +184,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
                 {loading && !a && <ModalSkeleton />}
                 {a && (
+                  <RecommendProvider key={a.id} articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended}>
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
                     <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
@@ -191,7 +194,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
-                      {a.recommends > 0 && <span className="flex items-center gap-1 text-brand-600"><ThumbsUp width={14} height={14} />{a.recommends} recommend</span>}
+                      <RecommendCount />
                     </div>
                     {a.audioUrl && <div className="mt-4"><ListenButton src={a.audioUrl} /></div>}
 
@@ -222,8 +225,9 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {/* In-article ad #2 — contextually safe */}
                     <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} adContext={adCtx} /></div>
 
-                    {/* End-of-article endorsement — you finished, so you can judge it. */}
-                    <RecommendButton articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended} />
+                    {/* End-of-article endorsement — you finished, so you can judge it.
+                        Hidden on archived pieces (the recommend API gates on PUBLISHED). */}
+                    {a.status === 'PUBLISHED' && <RecommendButton />}
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
@@ -251,6 +255,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       </div>
                     )}
                   </div>
+                  </RecommendProvider>
                 )}
               </div>
             </div>

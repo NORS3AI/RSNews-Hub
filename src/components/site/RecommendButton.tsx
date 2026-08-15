@@ -1,41 +1,16 @@
 'use client';
-import { useState } from 'react';
 import { ThumbsUp, ThumbsUpFilled } from '@/components/icons';
 import { classNames } from '@/lib/utils';
+import { useRecommend } from './RecommendProvider';
 
 /**
  * End-of-article endorsement. A reader who's scrolled this far can say the piece
- * was worth it — a higher-quality signal than a top-of-page tap. Server-backed
- * (per-reader, toggleable) via /api/recommend, with optimistic UI. Distinct from
- * Favorite/Pin (those are "save for me"; this is "I'd recommend it").
+ * was worth it — a higher-quality signal than a top-of-page tap. State is shared
+ * with the top-of-article count via RecommendProvider, so both move together.
+ * Distinct from Favorite/Pin (those are "save for me"; this is "I'd recommend it").
  */
-export default function RecommendButton({
-  articleId, initialCount, initialOn,
-}: { articleId: string; initialCount: number; initialOn: boolean }) {
-  const [count, setCount] = useState(Math.max(0, initialCount));
-  const [on, setOn] = useState(initialOn);
-  const [busy, setBusy] = useState(false);
-
-  const toggle = async () => {
-    if (busy) return;
-    setBusy(true);
-    const nextOn = !on;
-    // Optimistic flip; reconciled with the server's authoritative count below.
-    setOn(nextOn);
-    setCount((c) => Math.max(0, c + (nextOn ? 1 : -1)));
-    try {
-      const res = await fetch('/api/recommend', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ articleId }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) { setOn(!!data.recommended); setCount(Math.max(0, data.recommends ?? 0)); }
-      else { setOn(!nextOn); setCount((c) => Math.max(0, c + (nextOn ? -1 : 1))); } // revert
-    } catch {
-      setOn(!nextOn); setCount((c) => Math.max(0, c + (nextOn ? -1 : 1))); // revert on network error
-    } finally {
-      setBusy(false);
-    }
-  };
+export default function RecommendButton() {
+  const { count, on, busy, toggle } = useRecommend();
 
   return (
     <div className="my-8 flex flex-col items-center gap-2.5 border-t border-[var(--border)] pt-8 text-center">
