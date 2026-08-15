@@ -626,6 +626,7 @@ model User {
   subscriptions  Subscription[]
   accountEmails  NewsletterSubscriber[] @relation("AccountEmails")
   readingLogs   ReadingLog[]
+  articleRecommends ArticleRecommend[]
   quizResponses QuizResponse[]
   pollVotes     PollVote[]
   savedItems    SavedItem[]
@@ -768,6 +769,10 @@ model Article {
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
   views       Int       @default(0)
+  // Reader endorsements ("Recommend" at the end of the article). Denormalized
+  // count for fast reads/sorting; the per-reader rows (dedup + toggle) live in
+  // ArticleRecommend. Never negative.
+  recommends  Int       @default(0)
   readMinutes Int       @default(1)
   // Autosaved draft — a work-in-progress copy that NEVER affects the live
   // article. Autosave writes here (any status); the editor loads these when
@@ -812,9 +817,29 @@ model Article {
   revisions   ArticleRevision[]
   reviews     ArticleReview[]
   vendorReviews VendorReviewRequest[]
+  recommendedBy ArticleRecommend[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// One reader's endorsement of one article (the end-of-article "Recommend").
+// A signed-in reader is deduped by (articleId, userId); an anonymous reader by
+// (articleId, sessionId) — Postgres treats NULLs as distinct, so a row carries
+// exactly ONE of the two keys and only collides with its own kind. Deleting the
+// row toggles the recommend off; Article.recommends is the denormalized count.
+model ArticleRecommend {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@unique([articleId, userId])
+  @@unique([articleId, sessionId])
+  @@index([articleId])
 }
 
 // One "push this article to a vendor's dashboard for review" round. The admin

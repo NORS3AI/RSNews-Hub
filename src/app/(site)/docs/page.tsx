@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
-import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, type ArticleCard as Card } from '@/lib/recommend';
+import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles, type ArticleCard as Card } from '@/lib/recommend';
 import { getHomeLayout, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
@@ -207,9 +207,10 @@ export default async function DocsHome() {
   // untouched. When not impersonating, this is just the real account.
   const account: AccountLike | null = viewingAs ? applyViewAs(realAccount, viewingAs) : realAccount;
   const sessionId = await getReaderSessionId();
-  const [feed, trending] = await Promise.all([
+  const [feed, trending, mostRecommended] = await Promise.all([
     getPersonalizedFeed({ userId: user?.id, sessionId, limit: 12 }),
     trendingWindowArticles(5, 7),
+    mostRecommendedArticles(8),
   ]);
   // "Rediscover" back-catalog picks, rotating daily. Exclude what Trending is
   // already showing so the two side-by-side slots don't echo each other.
@@ -332,6 +333,7 @@ export default async function DocsHome() {
   const featurePool = (source?: string): Card[] => {
     if (source === 'latest') return latest;
     if (source === 'trending') return trending as unknown as Card[];
+    if (source === 'most-recommended') return mostRecommended as unknown as Card[];
     return featured.length ? featured : all.slice(0, 5); // 'featured'
   };
 

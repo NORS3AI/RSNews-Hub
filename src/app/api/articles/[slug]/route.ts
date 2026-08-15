@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
+import { recommendKey, getRecommendState } from '@/lib/articleRecommend';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
@@ -63,6 +64,9 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     resolveReservedArticleAds(article.content, lockBrand),
   ]);
 
+  // The reader's recommend state (count + whether they've already recommended).
+  const recommend = await getRecommendState(article.id, recommendKey(user?.id, await getReaderSessionId()), article.recommends);
+
   return NextResponse.json({
     article: {
       id: article.id,
@@ -74,6 +78,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       status: article.status,
       readMinutes: article.readMinutes,
       views: article.views,
+      recommends: recommend.recommends,
       publishedAt: article.publishedAt,
       byline: article.byline,
       author: article.author,
@@ -94,5 +99,6 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     // in the reader modal (mirrors the full page). See ArticleModalProvider.
     sponsored: !!article.sponsorVendorId,
     loggedIn: !!user,
+    recommended: recommend.recommended,
   });
 }

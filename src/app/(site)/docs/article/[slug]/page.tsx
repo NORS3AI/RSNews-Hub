@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, getReaderSessionId } from '@/lib/auth';
 import { getRelatedArticles } from '@/lib/recommend';
+import { getRecommendState, recommendKey } from '@/lib/articleRecommend';
+import RecommendButton from '@/components/site/RecommendButton';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
@@ -21,7 +23,7 @@ import { applyViewAs } from '@/lib/viewAs';
 import { isBreaking } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
-import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
+import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, ThumbsUp } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -96,13 +98,14 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
     return <LockedArticle article={article} />;
   }
 
-  const [related, next] = await Promise.all([
+  const [related, next, recommend] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true, excerpt: true },
     }),
+    getRecommendState(article.id, recommendKey(user?.id, await getReaderSessionId()), article.recommends),
   ]);
 
   const adTagText = article.tags.map(({ tag }) => tag.name).join(' ');
@@ -171,6 +174,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           <span>{formatDate(article.publishedAt ?? article.createdAt)}</span>
           <span className="flex items-center gap-1"><Clock width={14} height={14} />{article.readMinutes} min read</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>
+          {recommend.recommends > 0 && <span className="flex items-center gap-1 text-brand-600"><ThumbsUp width={14} height={14} />{recommend.recommends} recommend</span>}
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -206,6 +210,9 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             ))}
           </div>
         )}
+
+        {/* End-of-article endorsement — placed right before Read next / related. */}
+        <RecommendButton articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} />
 
         {/* Read next + related — kept INSIDE the reading card at the bottom, compact,
             so the full page matches the in-app reader modal (not a separate,

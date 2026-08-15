@@ -175,6 +175,22 @@ export async function trendingArticles(limit = 6, excludeIds: string[] = []): Pr
 }
 
 /**
+ * "Most recommended" — articles readers endorsed with the end-of-article
+ * Recommend, ranked by that count. Only surfaces pieces with at least one
+ * recommend (recommends > 0), so an unendorsed article never fills the slot; the
+ * module simply shows fewer (or nothing) until readers weigh in.
+ */
+export async function mostRecommendedArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
+  const rows = await prisma.article.findMany({
+    where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, recommends: { gt: 0 }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
+    orderBy: [{ recommends: 'desc' }, { publishedAt: 'desc' }],
+    select: cardSelect,
+    take: limit,
+  });
+  return rows.map(toCard);
+}
+
+/**
  * "Trending right now" — the most-opened articles over a rolling recent window
  * (default 7 days), so the list reflects what readers are actually reading this
  * week rather than all-time view totals. Popularity is measured from

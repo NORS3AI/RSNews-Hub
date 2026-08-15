@@ -2,7 +2,7 @@ import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
 import { isCustomModuleId, customIdOf, parseTree, isArticleSourced, type Block } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
-import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles } from './recommend';
+import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from './recommend';
 
 // Homepage content inventory — what articles / polls / quizzes actually appear on
 // the public homepage, and how many times each is placed, so an admin can spot
@@ -41,8 +41,10 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
   const latest = all.filter((a) => a.id !== lead?.id);
   const trendingCards = await trendingWindowArticles(5, 7);
   const trending = trendingCards.map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
+  const recCards = await mostRecommendedArticles(8);
+  const mostRecommended = recCards.map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
   const featurePool = (source?: string): Lite[] =>
-    source === 'latest' ? latest : source === 'trending' ? trending : (featured.length ? featured : all.slice(0, 5));
+    source === 'latest' ? latest : source === 'trending' ? trending : source === 'most-recommended' ? mostRecommended : (featured.length ? featured : all.slice(0, 5));
 
   // ---- Fixed + layout sections ----
   pushArt(lead, 'Headline (hero)');

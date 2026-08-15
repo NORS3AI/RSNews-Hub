@@ -47,6 +47,7 @@ export const ARTICLE_SOURCES: ModuleSource[] = [
   { value: 'featured', label: 'Featured articles' },
   { value: 'latest', label: 'Latest articles' },
   { value: 'trending', label: 'Most read / trending' },
+  { value: 'most-recommended', label: 'Most recommended' },
 ];
 
 export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {

@@ -575,6 +575,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
               <option value="featured">Featured</option>
               <option value="latest">Latest</option>
               <option value="trending">Trending</option>
+              <option value="most-recommended">Most recommended</option>
             </select>
           </Field>
           <Field label={`Tiles — ${Number(s.count ?? 4)} stories`}>
@@ -764,6 +765,7 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
             <option value="featured">Featured</option>
             <option value="latest">Latest</option>
             <option value="trending">Trending</option>
+            <option value="most-recommended">Most recommended</option>
           </select>
         </Field>
       )}
@@ -956,7 +958,7 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
     case 'spotlight': case 'split': case 'mosaic':
       return (
         <select className="input !h-8 !py-1 text-xs" value={String(s.source ?? 'latest')} onChange={(e) => onSet('source', e.target.value)}>
-          <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option>
+          <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option><option value="most-recommended">Most recommended</option>
         </select>
       );
     case 'ad':

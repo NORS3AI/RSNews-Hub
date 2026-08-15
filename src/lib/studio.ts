@@ -431,7 +431,7 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
   }
 }
 
-const ARTICLE_SOURCE_VALUES = ['featured', 'latest', 'trending'] as const;
+const ARTICLE_SOURCE_VALUES = ['featured', 'latest', 'trending', 'most-recommended'] as const;
 function articleSource(v: unknown): string {
   return typeof v === 'string' && (ARTICLE_SOURCE_VALUES as readonly string[]).includes(v) ? v : 'latest';
 }

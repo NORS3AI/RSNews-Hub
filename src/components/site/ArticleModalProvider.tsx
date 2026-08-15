@@ -1,6 +1,7 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
+import { X, Clock, Eye, ArrowRight, Tag as TagIcon, ThumbsUp } from '@/components/icons';
+import RecommendButton from './RecommendButton';
 import { formatDate } from '@/lib/utils';
 import { useScrollLock } from '@/lib/useScrollLock';
 import ArticleBadges from '@/components/ArticleBadges';
@@ -17,7 +18,7 @@ import { analyticsDeclined } from '@/lib/consent';
 
 type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null; coverVideo?: string | null;
-  status: string; readMinutes: number; views: number; publishedAt: string | null;
+  status: string; readMinutes: number; views: number; recommends: number; publishedAt: string | null;
   byline?: string | null;
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
@@ -28,7 +29,7 @@ type ModalArticle = {
   audioUrl?: string | null;
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; sponsored?: boolean; loggedIn?: boolean };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; sponsored?: boolean; loggedIn?: boolean; recommended?: boolean };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -190,6 +191,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
+                      {a.recommends > 0 && <span className="flex items-center gap-1 text-brand-600"><ThumbsUp width={14} height={14} />{a.recommends} recommend</span>}
                     </div>
                     {a.audioUrl && <div className="mt-4"><ListenButton src={a.audioUrl} /></div>}
 
@@ -219,6 +221,9 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
 
                     {/* In-article ad #2 — contextually safe */}
                     <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} adContext={adCtx} /></div>
+
+                    {/* End-of-article endorsement — you finished, so you can judge it. */}
+                    <RecommendButton articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended} />
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
