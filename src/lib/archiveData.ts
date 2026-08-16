@@ -72,3 +72,8 @@ export async function getPollsArchiveData() {
     include: { options: { orderBy: { order: 'asc' } } },
   });
 }
+
+export type IndustryArchiveData = Awaited<ReturnType<typeof getIndustryArchiveData>>;
+export type ComicsArchiveData = Awaited<ReturnType<typeof getComicsArchiveData>>;
+export type QuizzesArchiveData = Awaited<ReturnType<typeof getQuizzesArchiveData>>;
+export type PollsArchiveData = Awaited<ReturnType<typeof getPollsArchiveData>>;

@@ -29,3 +29,5 @@ export async function getCategoriesData() {
     include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
   });
 }
+
+export type CategoriesData = Awaited<ReturnType<typeof getCategoriesData>>;

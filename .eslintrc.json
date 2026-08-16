@@ -1,4 +1,17 @@
 {
   "extends": "next/core-web-vitals",
-  "ignorePatterns": [".next/", "node_modules/", "prisma/generated/", "public/"]
+  "ignorePatterns": [".next/", "node_modules/", "prisma/generated/", "public/"],
+  "overrides": [
+    {
+      "files": ["src/app/(site)/**/page.tsx", "src/app/(site)/**/layout.tsx"],
+      "rules": {
+        "no-restricted-imports": ["error", {
+          "paths": [
+            { "name": "@/lib/db", "message": "Reader pages are the Interface layer and must not import Prisma directly. Fetch through a getXData() function in src/lib/*Data.ts — see ARCHITECTURE.md." },
+            { "name": "@prisma/client", "message": "Reader pages must not import Prisma directly. Use a getXData() function in src/lib/*Data.ts — see ARCHITECTURE.md." }
+          ]
+        }]
+      }
+    }
+  ]
 }

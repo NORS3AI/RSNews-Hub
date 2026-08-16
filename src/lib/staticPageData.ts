@@ -9,6 +9,8 @@ export async function getStaticPageData(slug: string) {
   return page;
 }
 
+export type StaticPageData = NonNullable<Awaited<ReturnType<typeof getStaticPageData>>>;
+
 // Title lookup for generateMetadata — deliberately unfiltered by status (matches
 // the original: a draft page still resolves its title for metadata).
 export async function getStaticPageMeta(slug: string) {

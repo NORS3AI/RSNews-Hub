@@ -78,8 +78,10 @@ to make the wild version real:
 
 ## The rules (enforceable)
 
-1. A reader page/component never imports `prisma`. _(Phase 3 adds an automated
-   guard for this.)_
+1. A reader page/component never imports `prisma`. **Enforced automatically:**
+   `src/lib/architecture.boundary.test.ts` fails the build if any reader page
+   imports the DB client, and an ESLint `no-restricted-imports` override flags it
+   in the editor.
 2. Every reader route has a `getXData()` in `src/lib/*Data.ts` returning a typed
    bundle; `type XData = Awaited<ReturnType<typeof getXData>>`.
 3. All article-list data flows through `src/lib/cards.ts` (`cardSelect` / `toCard`).
@@ -92,17 +94,25 @@ to make the wild version real:
 
 ## Status
 
+Every reader route now renders from a typed `getXData()` bundle and imports no
+Prisma. The whole reader Information layer is re-exported from one entry point,
+**`src/lib/readerData.ts`** — the single import surface for an alternate frontend.
+
 | Reader surface | Information layer | Prisma-free page |
 |---|---|---|
 | Homepage | ✅ `getHomepageData()` | ✅ |
-| Category | ✅ `getCategoryData()` | ✅ |
-| Tag | ✅ `getTagData()` | ✅ |
-| Search | ⛗ uses `smartSearch()` (Logic); no page bundle yet | — |
-| Archive | ⛗ still fetches inline | — |
-| Article reader | ⛗ still fetches inline | — |
+| Category · Tag · Categories index | ✅ `getCategoryData()` / `getTagData()` / `getCategoriesData()` | ✅ |
+| Article reader | ✅ `getArticlePageData()` (notFound/locked/full) | ✅ |
+| Archive + industry/comics/quizzes/polls | ✅ `getArchiveData()` + `get*ArchiveData()` | ✅ |
+| Search | ✅ `getSearchData()` | ✅ |
+| CMS static pages | ✅ `getStaticPageData()` | ✅ |
+| Account | ✅ `getAccountData()` | ✅ |
+| Vendor dashboard | ✅ `getVendorDashboardData()` (signedout/notvendor/full) | ✅ |
 
-Shared DTOs: ✅ `cards.ts` (article card). Others (article-detail) — Phase 3.
-Automated boundary guard — Phase 3. Swappability proof — Phase 4.
+- **Shared DTO:** ✅ `cards.ts` (the article card, shared across every list).
+- **Automated boundary guard:** ✅ `architecture.boundary.test.ts` + ESLint override.
+- **Consolidated contract surface:** ✅ `readerData.ts` re-exports every data fn + type.
+- **Swappability proof (an alternate renderer over a bundle):** Phase 4.
 
 _Admin tooling is intentionally out of scope — it's internal, not a surface you'd
 swap or AI-compose._
