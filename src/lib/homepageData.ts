@@ -10,7 +10,7 @@ import { prisma } from './db';
 import { getSessionUser, getReaderSessionId } from './auth';
 import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from './recommend';
 import { getHomeLayout } from './homepage';
-import { parseTree, blockChain, inSchedule, isArticleSourced, type Block } from './studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
 import { canViewContent, brandKey, type AccountLike } from './entitlements';
 import { activeViewAs } from './viewAsServer';
@@ -160,7 +160,7 @@ export async function getHomepageData() {
 
   // Published custom modules (built in the Module Studio) referenced in the
   // layout. Only published ones ever reach the public homepage.
-  const customIds = layout.filter((m) => m.enabled && m.id.startsWith('custom:')).map((m) => m.id.slice('custom:'.length));
+  const customIds = layout.filter((m) => m.enabled && isCustomModuleId(m.id)).map((m) => m.id.slice('custom:'.length));
   const customRows = customIds.length
     ? await prisma.customModule.findMany({ where: { id: { in: customIds }, published: true } })
     : [];
