@@ -30,3 +30,45 @@ export async function getArchiveData(sortParam?: string) {
 }
 
 export type ArchivePageData = Awaited<ReturnType<typeof getArchiveData>>;
+
+// Industry-News archive: every active curated link, optionally filtered by a
+// free-text query (headline / source / poster), grouped by month for the view.
+export async function getIndustryArchiveData(rawQuery?: string) {
+  const q = (rawQuery || '').trim();
+  const links = await prisma.industryLink.findMany({
+    where: {
+      active: true,
+      ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' as const } }, { source: { contains: q, mode: 'insensitive' as const } }, { author: { contains: q, mode: 'insensitive' as const } }] } : {}),
+    },
+    orderBy: [{ postedAt: 'desc' }],
+  });
+  const groups = new Map<string, typeof links>();
+  for (const l of links) {
+    const key = new Date(l.postedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(l);
+  }
+  return { q, links, groups };
+}
+
+// Comics archive — every comic, newest first.
+export async function getComicsArchiveData() {
+  return prisma.comic.findMany({ orderBy: [{ postedAt: 'desc' }] });
+}
+
+// Pop-Quiz archive — every quiz with its question count + submission total.
+// Answers are never selected (this is a public archive).
+export async function getQuizzesArchiveData() {
+  return prisma.quiz.findMany({
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, title: true, active: true, closesAt: true, submissions: true, _count: { select: { questions: true } } },
+  });
+}
+
+// Polls archive — every poll with its options + vote tallies.
+export async function getPollsArchiveData() {
+  return prisma.poll.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { options: { orderBy: { order: 'asc' } } },
+  });
+}

@@ -1,15 +1,12 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getPollsArchiveData } from '@/lib/archiveData';
 import { BarChart, ArrowLeft } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Polls archive' };
 
 export default async function PollsArchive() {
-  const polls = await prisma.poll.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: { options: { orderBy: { order: 'asc' } } },
-  });
+  const polls = await getPollsArchiveData();
 
   return (
     <div className="container-page py-8 sm:py-10">

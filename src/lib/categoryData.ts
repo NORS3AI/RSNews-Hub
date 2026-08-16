@@ -21,3 +21,11 @@ export type CategoryPageData = NonNullable<Awaited<ReturnType<typeof getCategory
 export async function getCategoryMeta(slug: string) {
   return prisma.category.findUnique({ where: { slug }, select: { name: true } });
 }
+
+// The categories index — every category with its live published-article count.
+export async function getCategoriesData() {
+  return prisma.category.findMany({
+    orderBy: { name: 'asc' },
+    include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
+  });
+}

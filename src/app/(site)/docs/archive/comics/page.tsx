@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getComicsArchiveData } from '@/lib/archiveData';
 import { ArrowLeft } from '@/components/icons';
 import { postedLabel } from '@/lib/industry';
 import ComicImage from '@/components/site/ComicImage';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Backroom Humor — comics' };
 
 export default async function ComicsArchive() {
-  const comics = await prisma.comic.findMany({ orderBy: [{ postedAt: 'desc' }] });
+  const comics = await getComicsArchiveData();
 
   return (
     <div className="container-page py-8 sm:py-10">

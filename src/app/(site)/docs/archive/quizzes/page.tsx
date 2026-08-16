@@ -1,15 +1,12 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getQuizzesArchiveData } from '@/lib/archiveData';
 import { Check, ArrowLeft } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Pop Quiz archive' };
 
 export default async function QuizzesArchive() {
-  const quizzes = await prisma.quiz.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, title: true, active: true, closesAt: true, submissions: true, _count: { select: { questions: true } } },
-  });
+  const quizzes = await getQuizzesArchiveData();
 
   return (
     <div className="container-page py-8 sm:py-10">

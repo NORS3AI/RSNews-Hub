@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getIndustryArchiveData } from '@/lib/archiveData';
 import { Newspaper, ExternalLink, Eye, ArrowLeft } from '@/components/icons';
 import { linkSource, postedLabel } from '@/lib/industry';
 
@@ -8,21 +8,7 @@ export const metadata = { title: 'Industry News archive' };
 
 export default async function IndustryArchive({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q: qRaw } = await searchParams;
-  const q = (qRaw || '').trim();
-  const links = await prisma.industryLink.findMany({
-    where: {
-      active: true,
-      ...(q ? { OR: [{ title: { contains: q, mode: 'insensitive' as const } }, { source: { contains: q, mode: 'insensitive' as const } }, { author: { contains: q, mode: 'insensitive' as const } }] } : {}),
-    },
-    orderBy: [{ postedAt: 'desc' }],
-  });
-
-  const groups = new Map<string, typeof links>();
-  for (const l of links) {
-    const key = new Date(l.postedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(l);
-  }
+  const { q, links, groups } = await getIndustryArchiveData(qRaw);
 
   return (
     <div className="container-page py-8 sm:py-10">

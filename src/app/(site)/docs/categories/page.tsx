@@ -1,15 +1,12 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getCategoriesData } from '@/lib/categoryData';
 import { Layers } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Categories' };
 
 export default async function CategoriesPage() {
-  const categories = await prisma.category.findMany({
-    orderBy: { name: 'asc' },
-    include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
-  });
+  const categories = await getCategoriesData();
   return (
     <div className="container-page py-8 sm:py-10">
       <div className="module">

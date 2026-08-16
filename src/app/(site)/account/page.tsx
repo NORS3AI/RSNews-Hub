@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getAccountData } from '@/lib/accountData';
 import LogoutButton from '@/components/LogoutButton';
 import { entitlementsOf, isVendor } from '@/lib/entitlements';
 import { formatDate } from '@/lib/utils';
@@ -10,16 +9,9 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'My account' };
 
 export default async function AccountPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login?next=/account');
-
-  const [subs, history] = await Promise.all([
-    prisma.subscription.findMany({ where: { userId: user.id }, include: { category: true } }),
-    prisma.readingLog.findMany({
-      where: { userId: user.id }, orderBy: { readAt: 'desc' }, take: 12, distinct: ['articleId'],
-      include: { article: { select: { title: true, slug: true, status: true } } },
-    }),
-  ]);
+  const data = await getAccountData();
+  if (!data) redirect('/login?next=/account');
+  const { user, subs, history } = data;
 
   return (
     <div className="container-page py-8 sm:py-10">
