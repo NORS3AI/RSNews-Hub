@@ -1,175 +1,108 @@
-# Architecture
+# Architecture — the three agnostic layers
 
-A map of the RS News Hub codebase for anyone picking it up. It aims to answer
-"where does X live?" and "why is it shaped this way?" in a few minutes.
+> **The design goal.** Keep the app split into three loosely-coupled layers so the
+> **interface can be replaced** — up to a fully AI-composed, per-user frontend —
+> **without touching the information or the logic**. This document is the contract:
+> what each layer is, where it lives, and the rules that keep them separable.
+>
+> _This is a north star we are converting toward, page by page, behavior-preserving.
+> See the status table at the bottom for what's done._
 
-> **Companion docs:** [`DEPLOYMENT.md`](./DEPLOYMENT.md) (ship it),
-> [`INTEGRATION.md`](./INTEGRATION.md) (connect it to the RS News site),
-> [`NOTES_FOR_PROGRAMMER.md`](./NOTES_FOR_PROGRAMMER.md) (running status + decisions).
+---
 
-## What it is
+## The three layers
 
-RS News Hub is a **gated area of the RS News website** — a reader/member
-experience (articles, comics, polls, a pop quiz, clippings, recommendations) plus
-an admin console and an analytics suite. In production it does **not** run its own
-login: the website authenticates members and hands the hub a verified identity
-(see *Identity delegation* below). Standalone/dev mode has its own login so the
-whole thing runs and tests in isolation.
+```
+┌──────────────────────────────────────────────────────────┐
+│  INTERFACE   how it looks — React today, anything tomorrow │  src/app/**, src/components/**
+│  depends ↓ on Information only (never reaches into Logic/DB)│
+├──────────────────────────────────────────────────────────┤
+│  INFORMATION what to show — typed, serializable data       │  src/lib/*Data.ts, src/lib/cards.ts
+│  depends ↓ on Logic + Prisma                                │
+├──────────────────────────────────────────────────────────┤
+│  LOGIC       the rules — pure domain modules, no UI         │  src/lib/** (+ Prisma models)
+│  depends on nothing above it                                │
+└──────────────────────────────────────────────────────────┘
+```
 
-**Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma ·
-PostgreSQL · Tailwind. Tests: Vitest. CI: GitHub Actions.
+The dependency arrow only ever points **down**. A lower layer never imports an
+upper one.
 
-## The two codebases
+### Logic — the rules
+Pure domain modules with **no UI and no knowledge of any page**: entitlements,
+ad selection, recommendations, the Module Studio tree, analytics, moderation,
+SSRF/rate-limit guards, the Prisma schema. Lives in `src/lib/**`. This layer is
+already ~85% of the way there — most of it was always here.
 
-| | Path | What it is |
+### Information — what to show
+One function per reader route — **`getXData()`** — that does all the fetching and
+derivation and returns a **typed, serializable bundle** (plain data: no JSX, no
+React, no class instances). Lives in `src/lib/*Data.ts` (e.g. `homepageData.ts`,
+`categoryData.ts`). Shared content shapes (the article card) live in
+`src/lib/cards.ts`. This layer may call Logic and Prisma freely; it may **not**
+import anything from the Interface layer.
+
+Rule of thumb: if you can't `JSON.stringify` it, it doesn't belong in a bundle
+(the one deliberate exception is `Date`, which serializes fine over the RSC
+boundary).
+
+### Interface — how it looks
+Pages (`src/app/**/page.tsx`) and components (`src/components/**`). They **consume
+a bundle and render it**. Request-local *render* state that only exists while
+drawing — an ad-rotation cursor, a "already shown" dedup set — is allowed here.
+What is **not** allowed:
+
+- **No `import { prisma }` in a reader page.** Data comes from a `getXData()`.
+- **No Prisma `select` literals** in a page or component. Selects live in the
+  Information layer (extend `cardSelect` with a spread; never fork it).
+- **No business rules** inlined in JSX. Gating, disclosure, ranking, ad choice
+  are Logic/Information decisions the view merely displays.
+
+---
+
+## Why this reaches the end goal (AI-composed UI)
+
+An alternate frontend — a native app, a redesign, or an AI that composes a unique
+layout per reader — only needs to call the same `getXData()` bundles. Because the
+bundles are UI-agnostic data and the rules live below them, **the entire Interface
+layer can be swapped and Logic/Information don't move.** Two pieces already exist
+to make the wild version real:
+
+1. **The data seam** — `getHomepageData()` proves the hardest page can hand its
+   whole state to any renderer.
+2. **The generic renderer** — **Module Studio** already turns a *data description
+   of a layout* (a composition tree of blocks) into UI. Letting an AI emit that
+   tree instead of an admin is the on-ramp, not a rewrite.
+
+---
+
+## The rules (enforceable)
+
+1. A reader page/component never imports `prisma`. _(Phase 3 adds an automated
+   guard for this.)_
+2. Every reader route has a `getXData()` in `src/lib/*Data.ts` returning a typed
+   bundle; `type XData = Awaited<ReturnType<typeof getXData>>`.
+3. All article-list data flows through `src/lib/cards.ts` (`cardSelect` / `toCard`).
+   Forking the select silently drops the derived `sponsored` flag → the
+   **"Partner content" FTC disclosure** disappears. Spread to extend, never fork.
+4. Reader-facing disclosure goes through `isPartnerContent()` (`ArticleBadges.tsx`)
+   wherever an article title/summary is shown.
+
+---
+
+## Status
+
+| Reader surface | Information layer | Prisma-free page |
 |---|---|---|
-| **The app** | `src/` + `prisma/` | The real product — the Next.js application. |
-| **The preview** | `docs/` | A standalone vanilla-JS site for GitHub Pages. |
+| Homepage | ✅ `getHomepageData()` | ✅ |
+| Category | ✅ `getCategoryData()` | ✅ |
+| Tag | ✅ `getTagData()` | ✅ |
+| Search | ⛗ uses `smartSearch()` (Logic); no page bundle yet | — |
+| Archive | ⛗ still fetches inline | — |
+| Article reader | ⛗ still fetches inline | — |
 
-They're linked by `scripts/build-static.mjs`, which reads the **same Prisma
-database** and writes `docs/data.js` (a snapshot of published content). So the
-static preview is *generated from the app's data* — its HTML/CSS/JS shell is
-fixed and just renders that snapshot. Editing `docs/*.html` by hand is only for
-the shell, never content.
+Shared DTOs: ✅ `cards.ts` (article card). Others (article-detail) — Phase 3.
+Automated boundary guard — Phase 3. Swappability proof — Phase 4.
 
-## Directory layout
-
-```
-src/
-  app/                     Next.js App Router
-    (site)/                public + member site (route group)
-      docs/                the reader experience, served under /docs
-        article/[slug]/  category/[slug]/  tag/[slug]/  page/[slug]/
-        search/  clippings/  history/  subscriptions/  archive/*  vendor/ (ad dashboard)
-      login/  register/  account/  layout.tsx
-    admin/                 …articles, campaigns, vendors, reports, analytics, users, …
-    admin/                 admin console (articles, users, ads, analytics, …)
-    api/                   route handlers (see below)
-    robots.ts  sitemap.ts  error.tsx  global-error.tsx  layout.tsx  globals.css
-  middleware.ts            edge middleware (assigns the anonymous reader id)
-  components/
-    site/                  reader client components (StarProvider, AnalyticsProvider,
-                           ClippingsList, PollCard, QuizCard, ArticleModalProvider, …)
-    admin/                 admin UI (ArticleEditor, ReportTable, Sparkline, …)
-  lib/                     all business logic (see "The lib layer")
-prisma/    schema.prisma · seed.ts · migrations/
-scripts/   build-static.mjs (generates docs/data.js) · seed-analytics.mjs
-deploy/    init.postgres.sql
-docs/      static GitHub Pages preview (generated data + static shell)
-```
-
-### API routes (`src/app/api`)
-`auth/{login,logout,register}` · `saved` (per-account favorites/clips) ·
-`reading` · `subscriptions` · `search` · `polls/[id]/vote` ·
-`quizzes/[id]/submit` · `articles/[slug]` · `industry/[id]/go` (click-through) ·
-`uploads` (admin image upload) · `analytics/{collect,rollup}` ·
-`ads/maintenance` (cron/admin) · `ingest/jotform` (webhook) · `health`.
-
-## The lib layer (`src/lib`)
-
-Business logic lives here so routes/components stay thin. One line each:
-
-| Module | Responsibility |
-|---|---|
-| `db.ts` | Prisma client singleton (cached in dev). |
-| `auth.ts` | Sessions (JWT via `jose`), bcrypt hashing, `getCurrentUser`/`requireAdmin`; delegates to the identity seam. |
-| `actions.ts` | `'use server'` admin write actions (articles, users, homepage, analytics rollup…). |
-| `constants.ts` | String-enum sources of truth (roles, statuses, account types) — kept as plain strings for portability + simpler migrations. |
-| `env.ts` | Centralized, validated env access; fails loud only at runtime-in-prod; `envReport()` powers `/api/health`. |
-| `email.ts` | Provider-agnostic transactional email; **logs instead of sending** when unconfigured. Ships two REST transports — **Resend** and **SendGrid** — selected by `EMAIL_PROVIDER` (or whichever key is set); `EMAIL_FROM` is the sender for both. |
-| `emailTemplates.ts` | **Admin-editable email copy.** Registry of templates (`fresh_ads`, `renewal`) with default subject/body + `{mergeTag}` list; pure `renderCopy` (substitute tags, HTML-escape values, auto-link, paragraph) + `loadTemplateCopy` (DB override → default) + `renderTemplate`. Edited at `/admin/email-templates`. |
-| `components/BrandLogo.tsx` | The brand marks (assets in `/public/brand`): `BrandMark` (the 2×2 icon; reads on any background — used in headers + favicon) and `BrandLockup` (full stacked wordmark; `variant="auto"` swaps dark-ink/white on the theme). Favicon/apple/OG images live at `src/app/icon.png` / `apple-icon.png` / `opengraph-image.png`. |
-| Theming | Three themes cycled by `ThemeToggle` (+ the reader sidebar's own button): **Light → Dark → RS**, persisted in `localStorage.theme` and applied pre-paint by the inline script in `layout.tsx` (`.dark` / `.rs` on `<html>`). **RS Mode** = the Light palette with textured surfaces (`.rs` rules in `globals.css`): a brand-orange corrugated texture on `.module-orange` (hue locked via `background-blend-mode:color`) and an aged vintage-mailer on cream `.card`/`.module` surfaces, reframed per card so a different postal stamp shows each time. Textures in `/public/textures`; `--rs-cream-wash` is the readability dial. |
-| `logger.ts` | Structured logging + one `captureError` chokepoint with a pluggable forwarder (Sentry = one line). |
-| `moderation.ts` | Pure, reusable user-text moderation (`moderateText` → ok/flag/block). The gate for any user-generated text. |
-| `sanitize.ts` | Server-side HTML sanitizer (allowlist) for editor-authored article/page bodies — blocks stored XSS. |
-| `rateLimit.ts` | In-memory fixed-window rate limiter (login/register brute-force + flood protection). |
-| `homepage.ts` | Homepage module catalog + admin-arranged layout (stored as JSON in `Setting`). |
-| `ads.ts` / `adsServer.ts` | Pure smart-ad selection (competitor suppression, relevance, flight-window, paid-inventory & visiting-vendor `favorBrand` preference) / DB inventory loader. |
-| `entitlements.ts` | Pure entitlement model over the SSO facets: free-form `tier`/`affiliations`/`vendorBrand` (no hardcoded enum) → `isVendor`/`isPremium`/`hasAffiliation`/`meetsRequirement` + `canViewContent` (content gating, denies signed-out) + `requirementLabel` + `brandKey`. |
-| `recommend.ts` | Article recommendations + `smartSearch`. |
-| `adPlans.ts` / `campaigns.ts` | Ad-package catalog + flight scheduling math (pure) / campaign lifecycle (DB). |
-| `vendors.ts` | The Vendor-entity seam: `brandKey`/`sameVendor` (pure match key) + `findOrCreateVendor`/`vendorIdForBrand` (resolve a campaign or a logged-in vendor to one `Vendor` row, never a brand string). |
-| `reports.ts` | Quarterly performance reports: pure quarter math (`quarterOf`/`lastCompletedQuarter`/`recentQuarters`) + `computeSnapshot`/`generateReportDraft` (snapshot the ad analytics into a report) + publish/list lifecycle. |
-| `jotform.ts` / `jotformIngest.ts` | JotForm ad-submission ingestion: pure parsing + SSRF host guard + field map (`parseJotformSubmission`, `isAllowedCreativeHost`) / server side (`ingestSubmission` — fetch creatives, draft campaign, record). |
-| `adReminders.ts` | Vendor reminder emails (`sendDueReminders` — find due flights/campaigns, build merge-tag vars, render the admin-editable template via `emailTemplates`, send via the email seam, mark reminded only after a successful send). Driven by the nightly `ads/maintenance` route. |
-| `payments.ts` | Campaign payments: pure `isPaid`/`paidTotalCents`/`parseAmountToCents`/`normalizePaymentStatus` + `recordPayment`/`markCampaignPaid`/`campaignIsPaid`. A flight can't be scheduled until its campaign is paid (`scheduleFlight` gate). |
-| `quiz.ts` | Pure quiz helpers (parse admin input, `isQuizOpen`, `validateAnswers`). |
-| `saved.ts` | Per-account favorites / to-read / clippings: pure input normalizers + Prisma writes. |
-| `queries.ts` · `industry.ts` · `utils.ts` | Shared select shapes/mappers · industry-links helpers · slugify/excerpt/dates. |
-| `quoteImage.ts` · `uploadClient.ts` | Client-only: clipping quote-card canvas · image-upload fetch helper. |
-| **`identity/`** | The auth-delegation **seam**: `index.ts` (pick provider by `AUTH_MODE`, provision mirror `User`), `jwt.ts`, `header.ts`, `types.ts`. |
-| **`storage/`** | Pluggable asset storage: `index.ts` (`putImage`), `local.ts`, `s3.ts` (+`sigv4.ts`, no SDK), `sniff.ts` (magic-byte validation), `optimize.ts` (sharp). |
-| **`analytics/`** | `track.ts`/`record.ts` (client + ingest), `query.ts` (the only DB reads), and pure `metrics.ts`/`audience.ts`/`rollup.ts`/`csv.ts`. |
-
-## Cross-cutting patterns
-
-These recur on purpose — learn them once and the codebase is predictable.
-
-1. **Safe-by-default provider seams.** `email`, `storage`, and `identity` each
-   have one swappable implementation chosen by env, with a safe default that
-   needs zero config: email *logs* instead of sending; storage writes to *local
-   disk*; auth uses the hub's *own login*. Flip an env var (and, for Sentry, add
-   one line) to go to the real backend — no call-site changes.
-
-2. **Pure core + thin I/O.** The logic that's worth testing is kept free of the
-   database and framework: `analytics/metrics|rollup|audience|csv`, `ads`,
-   `quiz`, `saved` normalizers, `storage/sniff|sigv4|optimize`, `moderation`.
-   The DB-touching shells around them (`analytics/query`, `record`, route
-   handlers) stay small. This is why the test suite is fast and meaningful.
-
-3. **Env centralization + a health check.** All config goes through `env.ts`;
-   nothing else reads `process.env` for secrets. `envReport()` surfaces the live
-   configuration (db, auth mode, email/storage/error-tracking status) at
-   `GET /api/health` so ops can confirm a deploy at a glance.
-
-4. **Identity delegation (`AUTH_MODE`).** In production the hub trusts the parent
-   site's verified member and provisions a local *mirror* `User` keyed to
-   `externalId`, so every piece of hub state (votes, quiz answers, clippings,
-   favorites, reading, analytics) hangs off one stable id. See `INTEGRATION.md`.
-
-5. **Content-addressed storage.** Uploaded images are optimized, then the storage
-   key is the hash of the *optimized* bytes — automatic dedup and immutable,
-   cache-forever URLs.
-
-6. **One error chokepoint.** Every route's `catch` calls
-   `captureError(e, { route })`. Structured JSON logs always; forwarding to
-   Sentry is a single `setErrorForwarder(...)` with no call-site edits.
-
-## Data model (`prisma/schema.prisma`)
-
-Content: `Article` (with `requirement`, an entitlement gate) · `Category` · `Tag`
-· `ArticleTag` · `Page` · `Comic` · `IndustryLink` · `Ad`. Engagement (all per-account): `Poll`/`PollOption`/
-`PollVote` · `Quiz`/`QuizQuestion`/`QuizOption`/`QuizResponse` · `Subscription` ·
-`ReadingLog` · `SavedItem` · `Clipping`. People: `User` (with `externalId` for
-the parent-site link + audience facets). Ad sales: `Vendor` (advertiser, unique
-normalized `brandKey`) → `AdCampaign` (a purchase, FK `vendorId`) → `AdFlight`
-(a 3-month window holding creatives); `PerformanceReport` (per vendor per
-quarter, admin-published snapshot of the ad analytics); `AdSubmission` (one
-ingested JotForm webhook — audit + idempotency); `Payment` (against a campaign —
-gates go-live). Analytics:
-`AnalyticsEvent` (raw) +
-`AnalyticsDaily` (rollups). Config: `Setting` (key/value, e.g. homepage layout).
-
-## Testing & CI
-
-- **Vitest** — pure cores + the two write-critical API routes (poll vote, quiz
-  submit). Run `npm test`. Coverage concentrates on the logic that can be wrong:
-  analytics math, storage validation/signing, quiz/ads/saved/moderation
-  normalizers, and the config/email/logger seams.
-- **CI** (`.github/workflows/ci.yml`) on every push to main and PR:
-  `npm ci` → `prisma generate` → `prisma db push` (throwaway Postgres service) →
-  `typecheck` → `test` → `build`.
-
-## Conventions
-
-- **Business logic in `src/lib`**, not in components or route handlers.
-- **Pure and testable by default** — reach for the DB/framework only in the thin
-  shell around a pure function.
-- **Never trust client input** — normalize/validate at the server boundary
-  (`saved.ts`, `moderation.ts`, `storage/sniff.ts`, the analytics `record.ts`).
-- **Read config through `env.ts`**, and surface new operational state in
-  `envReport()`.
-- **Add a test** next to any new pure module (`*.test.ts` beside the source).
-- **Bump `APP_VERSION`** (`src/lib/constants.ts`) + the `docs/index.html` badge on
-  each shipped change.
+_Admin tooling is intentionally out of scope — it's internal, not a surface you'd
+swap or AI-compose._
