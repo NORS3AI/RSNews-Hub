@@ -67,6 +67,20 @@ reading, analytics) to that account id.
 > for a clean audit. When you eventually move to 16, drop the overrides and
 > re-audit.
 
+> **Security review (v0.176.x).** A full code + dependency security audit was run
+> (auth/role boundaries, ingest-webhook auth, XSS/sanitization, IDOR, SQL
+> injection, session/secret handling, data exposure). **No critical or high
+> issues in the application logic; `npm audit` is clean (0 vulns).** Three code
+> hardenings were applied (header-auth now fails closed in prod, and
+> `/api/analytics/collect` + `/api/reading` are per-IP rate-limited). Two items
+> need a **human to confirm at deploy** — they can't be settled in-repo:
+
+| # | Item | Status | Who |
+|---|------|--------|-----|
+| S1 | **Rate limits assume a trusted reverse proxy.** The login/register lockout, the ingest-secret throttle, and the analytics/reading flood caps all key on the **first `X-Forwarded-For`** value (`src/lib/rateLimit.ts` → `clientIp`). That's only trustworthy if the hub is reachable **only** through a proxy/load-balancer that **overwrites** (not appends) `X-Forwarded-For`. If a bare server is exposed to the internet, a caller can send a fresh `X-Forwarded-For` per request → a new rate-limit bucket each time → the lockouts are bypassable. **Confirm the deployment sits behind a proxy that overwrites XFF** (most managed platforms / ALBs do; a plain `node server.js` on a public port does not). | ✅ limiter in place · 🟠 **dev/infra confirms the proxy overwrites `X-Forwarded-For`** |
+| S2 | **Advertiser analytics are self-reported by the browser.** `/api/analytics/collect` is unauthenticated by design (anonymous readers generate impression/click events) and now per-IP rate-limited. But the event's ad attribution — which brand/campaign a click counts for — is sent *by the browser*, so a determined person could still nudge the **advertiser performance report** numbers within the rate cap. That's fine while those reports are just informational dashboards. **If those numbers ever drive billing or renewal decisions,** don't trust the browser: on the server, look up each event's `creativeId` in the ad table and derive the brand from the real record (ignore the client-claimed brand). | ✅ rate-limited · ❓ **owner: do advertiser reports affect billing? if yes, add the server-side reconcile** |
+| S3 | **`AUTH_MODE=header` now requires `PARENT_PROXY_SECRET` in production.** If you run the trusted-proxy identity mode, the proxy must send the shared `x-proxy-secret` and you must set `PARENT_PROXY_SECRET` — otherwise the hub trusts **no** header identity in prod (fails closed, so admins simply can't log in until it's set). Nothing to do unless you use header mode. | ✅ enforced in code · 🟠 dev sets `PARENT_PROXY_SECRET` **if** using header mode |
+
 ---
 
 ## 1b. Legal & compliance — DO BEFORE LAUNCH _(added v0.121.0)_
