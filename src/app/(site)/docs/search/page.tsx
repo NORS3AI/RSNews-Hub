@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { smartSearch } from '@/lib/recommend';
+import { getSearchData } from '@/lib/searchData';
 import ArticleCard from '@/components/ArticleCard';
 import SearchBar from '@/components/SearchBar';
 import SearchTracker from '@/components/site/SearchTracker';
@@ -10,8 +10,7 @@ export const metadata = { title: 'Search' };
 
 export default async function SearchPage(props0: { searchParams: Promise<{ q?: string }> }) {
   const searchParams = await props0.searchParams;
-  const q = (searchParams.q ?? '').trim();
-  const results = q ? await smartSearch(q, 30) : [];
+  const { q, results } = await getSearchData(searchParams.q);
 
   return (
     <div className="container-page py-8 sm:py-10">

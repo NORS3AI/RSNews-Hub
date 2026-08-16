@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { prisma } from '@/lib/db';
+import { getArchiveData } from '@/lib/archiveData';
 import { Archive, Newspaper, ArrowRight, BarChart, Check, ThumbsUp, Clock } from '@/components/icons';
 import { formatDate, classNames } from '@/lib/utils';
 
@@ -7,29 +7,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Archive' };
 
 export default async function ArchivePage({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
-  const sort = (await searchParams).sort === 'recommended' ? 'recommended' : 'newest';
-  const base = { OR: [{ status: 'ARCHIVED' as const }, { status: 'PUBLISHED' as const, publishedAt: { lte: new Date() } }] };
-  // "Most recommended" filters to genuinely-endorsed pieces (recommends > 0),
-  // ranked by the reader endorsement count; "Newest" is the chronological archive.
-  const articles = await prisma.article.findMany({
-    where: sort === 'recommended' ? { ...base, recommends: { gt: 0 } } : base,
-    orderBy: sort === 'recommended'
-      ? [{ recommends: 'desc' }, { publishedAt: 'desc' }, { id: 'asc' }] // id = stable final tiebreaker (publishedAt is nullable)
-      : [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
-    select: { id: true, title: true, slug: true, publishedAt: true, createdAt: true, status: true, recommends: true, category: { select: { name: true, color: true } } },
-    ...(sort === 'recommended' ? { take: 100 } : {}),
-  });
-
-  // Newest view groups by month; the recommended view is a single ranked list.
-  const groups = new Map<string, typeof articles>();
-  if (sort === 'newest') {
-    for (const a of articles) {
-      const d = a.publishedAt ?? a.createdAt;
-      const key = new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(a);
-    }
-  }
+  const { sort, articles, groups } = await getArchiveData((await searchParams).sort);
   const tab = (href: string, label: string, active: boolean, Icon: typeof Clock) => (
     <Link href={href} className={classNames('inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors',
       active ? 'border-brand-500 bg-brand-500 text-white' : 'border-[var(--border)] text-[var(--muted)] hover:border-brand-400 hover:text-[var(--fg)]')}>

@@ -1,10 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { getRelatedArticles } from '@/lib/recommend';
-import { getRecommendState } from '@/lib/articleRecommend';
+import { getArticlePageData, getArticleMeta } from '@/lib/articleData';
 import RecommendButton from '@/components/site/RecommendButton';
 import RecommendCount from '@/components/site/RecommendCount';
 import { RecommendProvider } from '@/components/site/RecommendProvider';
@@ -16,12 +13,7 @@ import ListenButton from '@/components/site/ListenButton';
 import CoverVideo from '@/components/site/CoverVideo';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
-import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds, resolveArticleLockBrand } from '@/lib/adsServer';
-import { getSupplierAdMap, savedVendorIds } from '@/lib/suppliers';
-import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
-import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
-import { activeViewAs } from '@/lib/viewAsServer';
-import { applyViewAs } from '@/lib/viewAs';
+import { requirementLabel } from '@/lib/entitlements';
 import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
@@ -30,21 +22,9 @@ import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-async function getArticle(slug: string) {
-  return prisma.article.findUnique({
-    where: { slug },
-    include: {
-      category: true,
-      extraCategories: { select: { name: true, slug: true, color: true } },
-      author: { select: { name: true, bio: true } },
-      tags: { select: { tag: true } },
-    },
-  });
-}
-
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await props.params;
-  const a = await prisma.article.findUnique({ where: { slug: params.slug }, select: { title: true, excerpt: true, coverImage: true, publishedAt: true } });
+  const a = await getArticleMeta(params.slug);
   if (!a) return { title: 'Not found' };
   const description = a.excerpt ?? undefined;
   const images = a.coverImage ? [a.coverImage] : undefined;
@@ -59,84 +39,18 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
 
 export default async function ArticlePage(props: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string; dash?: string }> }) {
   const params = await props.params;
-  const article = await getArticle(params.slug);
-  if (!article) notFound();
-  // Private preview: a valid ?preview=<token> unlocks the full reader view of an
-  // UNPUBLISHED article (and bypasses the paywall + tracking below) so an invited
-  // reviewer can approve it. Any non-matching/absent token falls through to the
-  // normal public gates.
   const sp = await props.searchParams;
-  const previewParam = sp?.preview;
-  // A valid preview token bypasses the status gate + paywall — but ONLY while the
-  // article isn't yet publicly live. Otherwise the (non-rotating) token would be a
-  // permanent, shareable paywall bypass on a published gated article. Drafts and
-  // scheduled-but-not-yet-live pieces still preview; live/archived go through the
-  // normal public gates.
-  const nowTs = new Date();
-  const isLivePublic =
-    article.status === 'ARCHIVED' ||
-    (article.status === 'PUBLISHED' && (!article.publishedAt || article.publishedAt <= nowTs));
-  const isPreview = !!previewParam && !!article.previewToken && previewParam === article.previewToken && !isLivePublic;
-  // `&dash=1` means the vendor opened this from their dashboard — they respond
-  // there (which locks their round), so the in-preview review button is hidden to
-  // avoid a second, unlockable response path. Plain preview links keep the button.
-  const previewFromDashboard = sp?.dash === '1';
-  if (!isPreview) {
-    if (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED') notFound();
-    // Scheduled (future-dated) articles are not yet public.
-    if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
-  }
-
-  const user = await getCurrentUser();
-  // Admin "View as": preview the gate through the impersonated audience so an
-  // admin can confirm what a basic member (vs. premium/PackageHub) actually sees.
-  const viewingAs = await activeViewAs(user);
-  const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
-
-  // Access gate (e.g. PackageHub–only content). Enforced here, server-side,
-  // before any content is read or a view is tracked. A valid preview link bypasses
-  // it — the invited reviewer sees the full piece.
-  if (!isPreview && !canViewContent(gateAccount, article.requirement)) {
-    return <LockedArticle article={article} />;
-  }
-
-  const [related, next, recommend] = await Promise.all([
-    getRelatedArticles(article.id, 3),
-    prisma.article.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
-      orderBy: { publishedAt: 'desc' },
-      select: { title: true, slug: true, excerpt: true },
-    }),
-    getRecommendState(article.id, user ? { userId: user.id } : null, article.recommends),
-  ]);
-
-  const adTagText = article.tags.map(({ tag }) => tag.name).join(' ');
-  const adContext = `${article.title} ${article.content} ${adTagText}`;
-  // Competitor suppression matches the article's TAGS (+ title) — curated business
-  // names — not the full body, so a stray word can't hide an ad.
-  const adSafeContext = `${article.title} ${adTagText}`;
-  // A visiting vendor sees their own brand's ads surfaced first (and an admin
-  // viewing "as" a vendor sees the same).
-  const favorBrand = entitlementsOf(gateAccount ?? {}).vendorBrand;
-  // If this article is CONNECTED to a vendor (a sponsored piece or a What's Hot
-  // article we tied to them), hard-lock every in-article ad to that vendor — house
-  // ads fill any slot they can't, and a competitor can never appear in their piece.
-  // resolveArticleLockBrand keeps the lock ON even if the vendor was later removed
-  // (dangling id → house-only, never a rival) — see UNRESOLVED_LOCK.
-  const lockBrand = await resolveArticleLockBrand(article.sponsorVendorId);
-  const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
-    pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
-    resolveArticleEmbeds(article.content, user?.id),
-    loadBrandArticleAds(article.content, lockBrand),
-    resolveReservedArticleAds(article.content, lockBrand),
-    getSupplierAdMap(),
-    user ? savedVendorIds(user.id) : Promise.resolve([]),
-  ]);
-  const inlineAds = [ads.top, ads.bottom].filter(Boolean) as NonNullable<typeof ads.top>[];
-  // Attribution carried into every in-article ad event: which article, and whether
-  // it's a vendor-connected sponsored piece — so an advertiser's embedded ad can be
-  // reported per sponsored article (see advertiserReport.bySponsoredArticle).
-  const adAttribution = { articleId: article.id, articleSlug: article.slug, sponsored: !!article.sponsorVendorId };
+  // The Information layer owns the fetch + the access decision, returning one of
+  // three outcomes. `&dash=1` means the vendor opened this from their dashboard —
+  // they respond there, so the in-preview review button is hidden.
+  const result = await getArticlePageData(params.slug, { previewParam: sp?.preview, previewFromDashboard: sp?.dash === '1' });
+  if (result.kind === 'notFound') notFound();
+  if (result.kind === 'locked') return <LockedArticle article={result.article} />;
+  const {
+    article, isPreview, previewFromDashboard, signedIn,
+    related, next, recommend,
+    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution,
+  } = result;
 
   return (
     <>
@@ -151,7 +65,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         {/* Reading surface — a cream card so the body is readable on the textured
             page surround, matching the in-app reader modal. */}
         <div className="card p-6 sm:p-9 lg:p-10">
-        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={!!user}>
+        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={signedIn}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
           {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's
@@ -200,13 +114,13 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           (<img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />)
         ) : null}
 
-        <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-top" size="in-article" placeholder={false} adContext={adAttribution} /></div>
+        <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-top" size="in-article" placeholder={false} adContext={adAttribution} /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.byline || article.author?.name || ''}>
-          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} adContext={adAttribution} />
+          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={signedIn} adContext={adAttribution} />
         </article>
 
-        <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={!!user} slot="article-bottom" size="rectangle" placeholder={false} adContext={adAttribution} /></div>
+        <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-bottom" size="rectangle" placeholder={false} adContext={adAttribution} /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">
