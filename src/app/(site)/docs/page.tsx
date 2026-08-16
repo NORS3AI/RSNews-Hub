@@ -4,6 +4,7 @@ import { type ArticleCard as Card } from '@/lib/cards';
 import { moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
+import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
 import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
@@ -249,6 +250,7 @@ export default async function DocsHome() {
                   ? <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>
                   : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
                 <LockBadge requirement={card.requirement} />
+                {isPartnerContent(card) && <PartnerContentBadge />}
                 <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
               </article>
             );
@@ -276,6 +278,7 @@ export default async function DocsHome() {
                 <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-5' : 'p-4'}>
                   {card.category && <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
                   <LockBadge requirement={card.requirement} />
+                  {isPartnerContent(card) && <PartnerContentBadge />}
                   <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white group-hover:text-brand-300' : 'group-hover:text-brand-600'}`}>{card.title}</h3>
                   {b.settings.showDek !== false && card.excerpt && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>{card.excerpt}</p>}
                 </div>
@@ -300,6 +303,7 @@ export default async function DocsHome() {
               <span className="flex flex-wrap items-center gap-2">
                 {card.category && <span className="badge cat-badge self-start" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
                 <LockBadge requirement={card.requirement} />
+                {isPartnerContent(card) && <PartnerContentBadge />}
               </span>
               <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight group-hover:text-brand-600">{card.title}</h3>
               {b.settings.showDek !== false && card.excerpt && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">{card.excerpt}</p>}
