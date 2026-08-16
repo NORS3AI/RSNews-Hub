@@ -53,6 +53,15 @@ const cardSelect = {
 // Ship a derived `sponsored` boolean, never the internal vendor id.
 const toCard = (a: any): Card => { const { sponsorVendorId, tags, ...rest } = a; return { ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t: any) => t.tag) }; };
 
+// The access-gate lock badge, matching ArticleCard/ArticleBadges. Custom article
+// markup (headline/spotlight/split) must show it too, so a members-only story
+// hand-picked into one of those slots is still labelled (parity, not a body leak —
+// the body stays gated behind canViewContent on click).
+function LockBadge({ requirement }: { requirement?: string }) {
+  if (!requirement) return null;
+  return <span className="badge bg-amber-100 text-amber-800">🔒 {requirementLabel(requirement)}</span>;
+}
+
 export default async function DocsHome() {
   const [featuredRaw, latestRaw, sponsoredRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
@@ -490,6 +499,7 @@ export default async function DocsHome() {
                 {card.category
                   ? <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>
                   : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
+                <LockBadge requirement={card.requirement} />
                 <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
               </article>
             );
@@ -516,6 +526,7 @@ export default async function DocsHome() {
                 </div>
                 <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-5' : 'p-4'}>
                   {card.category && <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
+                  <LockBadge requirement={card.requirement} />
                   <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white group-hover:text-brand-300' : 'group-hover:text-brand-600'}`}>{card.title}</h3>
                   {b.settings.showDek !== false && card.excerpt && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>{card.excerpt}</p>}
                 </div>
@@ -537,7 +548,10 @@ export default async function DocsHome() {
           );
           const body = (
             <div className="flex flex-col justify-center p-5">
-              {card.category && <span className="badge cat-badge self-start" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
+              <span className="flex flex-wrap items-center gap-2">
+                {card.category && <span className="badge cat-badge self-start" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
+                <LockBadge requirement={card.requirement} />
+              </span>
               <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight group-hover:text-brand-600">{card.title}</h3>
               {b.settings.showDek !== false && card.excerpt && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">{card.excerpt}</p>}
             </div>
