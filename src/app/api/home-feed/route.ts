@@ -11,7 +11,7 @@ const PAGE = 12;
 // row to detect the end without a second query.
 const cardSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true,
-  publishedAt: true, views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true,
+  publishedAt: true, views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true, sponsorVendorId: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     select: cardSelect,
   });
   const done = rows.length <= PAGE;
-  const items = rows.slice(0, PAGE).map((a) => ({ ...a, tags: (a.tags ?? []).map((t) => t.tag) }));
+  // Ship a derived `sponsored` boolean, never the internal vendor id.
+  const items = rows.slice(0, PAGE).map(({ sponsorVendorId, tags, ...rest }) => ({ ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t) => t.tag) }));
   return NextResponse.json({ items, done });
 }

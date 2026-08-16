@@ -13,7 +13,7 @@ export const inProduction = () => process.env.NODE_ENV === 'production';
 // NODE_ENV to something that isn't 'development' — must supply a real secret, or
 // its sessions would be forgeable with a value that's committed to the repo.
 // An unset NODE_ENV is treated as development so bare `node` scripts still run.
-function devSecretAllowed(): boolean {
+export function devSecretAllowed(): boolean {
   const env = process.env.NODE_ENV;
   return !env || env === 'development' || env === 'test';
 }

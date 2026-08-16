@@ -1,7 +1,7 @@
 import { Clock, Eye } from './icons';
 import { formatDate } from '@/lib/utils';
 import type { ArticleCard as Card } from '@/lib/recommend';
-import ArticleBadges from './ArticleBadges';
+import ArticleBadges, { isPartnerContent } from './ArticleBadges';
 import ArticleLink from './site/ArticleLink';
 import StarButton from './site/StarButton';
 import AdminArticleEdit from './site/AdminArticleEdit';
@@ -41,6 +41,7 @@ export default function ArticleCard({ article, compact = false, trk, hpId = true
             breakingUntil={article.breakingUntil}
             requirement={article.requirement}
             genre={article.genre}
+            partner={isPartnerContent(article)}
           />
           {/* Title is never truncated — the card grows to fit it. */}
           <h3 className={`pr-[76px] font-extrabold leading-tight tracking-tight text-[var(--fg)] group-hover:text-brand-600 ${compact ? 'text-lg' : 'text-[22px]'}`}>

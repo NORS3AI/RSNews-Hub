@@ -19,6 +19,9 @@ export type ArticleCard = {
   tags: { name: string; slug: string }[];
   requirement?: string;
   genre?: string;
+  // Derived (never the raw vendor id): true when the article is tied to a paying
+  // vendor, so cards can show the "Partner content" disclosure. See toCard.
+  sponsored?: boolean;
 };
 
 const cardSelect = {
@@ -35,13 +38,16 @@ const cardSelect = {
   requirement: true,
   genre: true,
   breakingUntil: true,
+  sponsorVendorId: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;
 
 function toCard(a: any): ArticleCard {
-  return { ...a, tags: (a.tags ?? []).map((t: any) => t.tag) };
+  // Ship a derived `sponsored` boolean to the client, not the internal vendor id.
+  const { sponsorVendorId, tags, ...rest } = a;
+  return { ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t: any) => t.tag) };
 }
 
 /**

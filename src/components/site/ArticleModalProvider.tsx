@@ -6,7 +6,7 @@ import RecommendCount from './RecommendCount';
 import { RecommendProvider } from './RecommendProvider';
 import { formatDate } from '@/lib/utils';
 import { useScrollLock } from '@/lib/useScrollLock';
-import ArticleBadges from '@/components/ArticleBadges';
+import ArticleBadges, { isPartnerContent } from '@/components/ArticleBadges';
 import InArticleAd from '@/components/InArticleAd';
 import type { AdRow } from '@/lib/ads';
 import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/ArticleContent';
@@ -186,7 +186,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                 {a && (
                   <RecommendProvider key={a.id} articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended} signedIn={!!data?.loggedIn}>
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
-                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} partner={!!data?.sponsored || a.genre === 'sponsored'} />
+                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} partner={isPartnerContent({ sponsored: !!data?.sponsored, genre: a.genre })} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">

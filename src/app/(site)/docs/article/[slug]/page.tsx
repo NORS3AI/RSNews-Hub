@@ -22,7 +22,7 @@ import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
-import { isBreaking, PartnerContentBadge } from '@/components/ArticleBadges';
+import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
@@ -123,7 +123,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // ads fill any slot they can't, and a competitor can never appear in their piece.
   // resolveArticleLockBrand keeps the lock ON even if the vendor was later removed
   // (dangling id → house-only, never a rival) — see UNRESOLVED_LOCK.
-  const lockBrand = await resolveArticleLockBrand((article as any).sponsorVendorId);
+  const lockBrand = await resolveArticleLockBrand(article.sponsorVendorId);
   const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
@@ -136,7 +136,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   // Attribution carried into every in-article ad event: which article, and whether
   // it's a vendor-connected sponsored piece — so an advertiser's embedded ad can be
   // reported per sponsored article (see advertiserReport.bySponsoredArticle).
-  const adAttribution = { articleId: article.id, articleSlug: article.slug, sponsored: !!(article as any).sponsorVendorId };
+  const adAttribution = { articleId: article.id, articleSlug: article.slug, sponsored: !!article.sponsorVendorId };
 
   return (
     <>
@@ -154,10 +154,10 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={!!user}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
-          {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's Hot
-              article) or a 'sponsored' one shows one clear "Sponsored partner content"
-              tag, which supersedes the plain 'sponsored' genre chip. */}
-          {(!!(article as any).sponsorVendorId || article.genre === 'sponsored') && <PartnerContentBadge />}
+          {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's
+              Hot article) or a 'sponsored' one shows one clear "Partner content" tag,
+              which supersedes the plain 'sponsored' genre chip. */}
+          {isPartnerContent(article) && <PartnerContentBadge />}
           {genreLabel(article.genre) && article.genre !== 'sponsored' && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"

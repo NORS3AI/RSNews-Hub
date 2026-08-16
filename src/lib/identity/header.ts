@@ -14,7 +14,7 @@
 
 import { headers } from 'next/headers';
 import { timingSafeEqual } from 'crypto';
-import { inProduction } from '../env';
+import { devSecretAllowed } from '../env';
 import type { IdentityProvider, Member } from './types';
 
 const str = (v: string | null): string | null => (v && v.trim() ? v.trim() : null);
@@ -22,11 +22,12 @@ const str = (v: string | null): string | null => (v && v.trim() ? v.trim() : nul
 function proxySecretOk(given: string | null): boolean {
   const want = process.env.PARENT_PROXY_SECRET;
   if (!want) {
-    // FAIL CLOSED in production (mirrors the JWT provider refusing a weak secret):
-    // header-trust with no shared secret means a single spoofed x-member-* header
-    // could mint an identity — including staff → ADMIN. So in prod, no secret ⇒
-    // no header identity is trusted at all. In dev the gate is relaxed for local use.
-    return !inProduction();
+    // FAIL CLOSED outside true local dev (mirrors the JWT provider refusing a weak
+    // secret): header-trust with no shared secret means a single spoofed x-member-*
+    // header could mint an identity — including staff → ADMIN. So anywhere real
+    // (production AND staging/preview, i.e. NODE_ENV set to non-dev) no header
+    // identity is trusted at all. Only true dev/test relaxes the gate for local use.
+    return devSecretAllowed();
   }
   const a = Buffer.from(given || '');
   const b = Buffer.from(want);

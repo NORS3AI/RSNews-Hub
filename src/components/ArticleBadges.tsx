@@ -10,6 +10,15 @@ export function isBreaking(breakingUntil?: Date | string | null): boolean {
   return Number.isFinite(t) && t > Date.now();
 }
 
+/** Single source of truth for "this article is paid/advertiser content and must
+ *  carry a disclosure": it's tied to a paying vendor OR marked sponsored. Accepts
+ *  the raw `sponsorVendorId` (reader page) or a derived `sponsored` boolean (cards
+ *  ship the boolean, never the internal vendor id). Used by every surface so they
+ *  can't drift apart. */
+export function isPartnerContent(a: { sponsorVendorId?: string | null; sponsored?: boolean; genre?: string | null }): boolean {
+  return !!a.sponsorVendorId || !!a.sponsored || a.genre === 'sponsored';
+}
+
 /**
  * FTC paid-content disclosure. Shown on any article tied to a paying vendor
  * (a premium supplier's "What's Hot" piece) or otherwise marked sponsored — so
@@ -17,7 +26,7 @@ export function isBreaking(breakingUntil?: Date | string | null): boolean {
  * independent editorial. Label is "Partner content" (owner's choice), paired with
  * the supplier's company byline which names the source. Note: the FTC prefers an
  * unambiguous term like "Sponsored"; "Partner content" is a lighter disclosure —
- * change the string here if you want to strengthen it.
+ * change the one string below if you want to strengthen it.
  */
 export function PartnerContentBadge({ className = '' }: { className?: string }) {
   return (

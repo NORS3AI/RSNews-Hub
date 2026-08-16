@@ -45,12 +45,13 @@ export const dynamic = 'force-dynamic';
 
 const cardSelect = {
   id: true, title: true, slug: true, excerpt: true, coverImage: true, coverVideo: true, coverFocus: true, publishedAt: true,
-  views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true,
+  views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true, sponsorVendorId: true,
   category: { select: { name: true, slug: true, color: true } },
   extraCategories: { select: { name: true, slug: true, color: true } },
   tags: { select: { tag: { select: { name: true, slug: true } } } },
 } as const;
-const toCard = (a: any): Card => ({ ...a, tags: (a.tags ?? []).map((t: any) => t.tag) });
+// Ship a derived `sponsored` boolean, never the internal vendor id.
+const toCard = (a: any): Card => { const { sponsorVendorId, tags, ...rest } = a; return { ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t: any) => t.tag) }; };
 
 export default async function DocsHome() {
   const [featuredRaw, latestRaw, sponsoredRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
