@@ -395,6 +395,33 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   testimonials**. All are covered by the Privacy Policy (§1b L1) and the consent
   notice; none use third-party ad/tracking cookies.
 
+- **Data/view seam (keep the UI swappable — a deliberate design goal).** The app
+  is being kept split into three loosely-coupled layers so the **interface** can
+  be replaced (up to a fully AI-composed, per-user frontend) without disturbing
+  the **information** or **logic** layers. Two concrete seams exist today and new
+  code should respect them:
+  - **The article-card DTO lives once, in `src/lib/cards.ts`** (`cardSelect` +
+    `toCard` + the `ArticleCard` type). **Every** reader-facing list/grid/feed
+    surface — homepage, endless feed, recommendations, search, category, tag —
+    fetches through it. **Do not fork the select.** If a new surface writes its
+    own `select`, it will silently drop the derived `sponsored` flag and the
+    story will lose its **"Partner content" FTC disclosure** (this exact drift
+    was the bug on the category/tag pages — fixed by routing them through
+    `cards.ts`). Need an extra field? Spread it: `{ ...cardSelect, foo: true }`.
+    The DTO ships a derived `sponsored` boolean and **never** the raw
+    `sponsorVendorId`.
+  - **The homepage's data layer is `getHomepageData()` (`src/lib/homepageData.ts`)**
+    — one function that does all the fetching/derivation and returns a typed
+    `HomepageData` bundle; `docs/page.tsx` is a pure renderer over it (plus a
+    little request-local render state). An alternate frontend can call
+    `getHomepageData()` and render the same data however it likes. Keep new
+    homepage data-fetching in that function, not inlined in the page.
+  - **Disclosure is centralized** in `isPartnerContent()` (`ArticleBadges.tsx`);
+    render `<PartnerContentBadge/>` wherever an article title/summary is shown to
+    readers (cards, the reader page, the modal, and the homepage custom-markup
+    spotlight/split/headline slots all do). A new reader surface that shows
+    article titles must gate the badge on `isPartnerContent(...)` too.
+
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
 `QuizOption` + `QuizResponse`, `IndustryLink`, `Ad`, `AnalyticsEvent`,
