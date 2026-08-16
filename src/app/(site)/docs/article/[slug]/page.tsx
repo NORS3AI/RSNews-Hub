@@ -22,7 +22,7 @@ import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
 import { activeViewAs } from '@/lib/viewAsServer';
 import { applyViewAs } from '@/lib/viewAs';
-import { isBreaking } from '@/components/ArticleBadges';
+import { isBreaking, PartnerContentBadge } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
@@ -154,7 +154,11 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={!!user}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
-          {genreLabel(article.genre) && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
+          {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's Hot
+              article) or a 'sponsored' one shows one clear "Sponsored partner content"
+              tag, which supersedes the plain 'sponsored' genre chip. */}
+          {(!!(article as any).sponsorVendorId || article.genre === 'sponsored') && <PartnerContentBadge />}
+          {genreLabel(article.genre) && article.genre !== 'sponsored' && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
               style={{ '--c': article.category.color } as React.CSSProperties}>
