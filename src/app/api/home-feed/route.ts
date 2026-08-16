@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
+import { cardSelect, toCard } from '@/lib/cards';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +10,6 @@ const PAGE = 12;
 // Feeds the homepage's endless "Keep scrolling" section: recommendable articles
 // (published + archived), newest→oldest, paginated by offset. Returns one extra
 // row to detect the end without a second query.
-const cardSelect = {
-  id: true, title: true, slug: true, excerpt: true, coverImage: true, coverFocus: true,
-  publishedAt: true, views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true, sponsorVendorId: true,
-  category: { select: { name: true, slug: true, color: true } },
-  extraCategories: { select: { name: true, slug: true, color: true } },
-  tags: { select: { tag: { select: { name: true, slug: true } } } },
-} as const;
-
 export async function GET(req: Request) {
   const offset = Math.max(0, Math.min(5000, Number(new URL(req.url).searchParams.get('offset')) || 0));
   const rows = await prisma.article.findMany({
@@ -27,7 +20,6 @@ export async function GET(req: Request) {
     select: cardSelect,
   });
   const done = rows.length <= PAGE;
-  // Ship a derived `sponsored` boolean, never the internal vendor id.
-  const items = rows.slice(0, PAGE).map(({ sponsorVendorId, tags, ...rest }) => ({ ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t) => t.tag) }));
+  const items = rows.slice(0, PAGE).map(toCard);
   return NextResponse.json({ items, done });
 }

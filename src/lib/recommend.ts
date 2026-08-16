@@ -1,54 +1,11 @@
 import { prisma } from './db';
 import { RECOMMENDABLE_STATUSES } from './constants';
 import { expandQuery } from './searchSynonyms';
+import { cardSelect, toCard, type ArticleCard } from './cards';
 
-export type ArticleCard = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  coverImage: string | null;
-  coverVideo?: string | null;
-  coverFocus?: string | null;
-  publishedAt: Date | null;
-  views: number;
-  readMinutes: number;
-  category: { name: string; slug: string; color: string } | null;
-  extraCategories: { name: string; slug: string; color: string }[];
-  breakingUntil: Date | null;
-  tags: { name: string; slug: string }[];
-  requirement?: string;
-  genre?: string;
-  // Derived (never the raw vendor id): true when the article is tied to a paying
-  // vendor, so cards can show the "Partner content" disclosure. See toCard.
-  sponsored?: boolean;
-};
-
-const cardSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  coverImage: true,
-  coverVideo: true,
-  coverFocus: true,
-  publishedAt: true,
-  views: true,
-  readMinutes: true,
-  requirement: true,
-  genre: true,
-  breakingUntil: true,
-  sponsorVendorId: true,
-  category: { select: { name: true, slug: true, color: true } },
-  extraCategories: { select: { name: true, slug: true, color: true } },
-  tags: { select: { tag: { select: { name: true, slug: true } } } },
-} as const;
-
-function toCard(a: any): ArticleCard {
-  // Ship a derived `sponsored` boolean to the client, not the internal vendor id.
-  const { sponsorVendorId, tags, ...rest } = a;
-  return { ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t: any) => t.tag) };
-}
+// The canonical card shape/select/mapper now live in ./cards; re-exported here so
+// existing `import { ArticleCard } from '@/lib/recommend'` call sites keep working.
+export { cardSelect, toCard, type ArticleCard };
 
 /**
  * Content-based recommendation. Given an article, score every other published

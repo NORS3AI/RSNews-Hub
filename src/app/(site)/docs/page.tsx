@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSessionUser, getReaderSessionId } from '@/lib/auth';
-import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles, type ArticleCard as Card } from '@/lib/recommend';
+import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from '@/lib/recommend';
+import { cardSelect, toCard, type ArticleCard as Card } from '@/lib/cards';
 import { getHomeLayout, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
 import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from '@/lib/studio';
 import { RECOMMENDABLE_STATUSES } from '@/lib/constants';
@@ -42,16 +43,6 @@ import QuizCard from '@/components/site/QuizCard';
 import ComicImage from '@/components/site/ComicImage';
 
 export const dynamic = 'force-dynamic';
-
-const cardSelect = {
-  id: true, title: true, slug: true, excerpt: true, coverImage: true, coverVideo: true, coverFocus: true, publishedAt: true,
-  views: true, readMinutes: true, requirement: true, genre: true, breakingUntil: true, sponsorVendorId: true,
-  category: { select: { name: true, slug: true, color: true } },
-  extraCategories: { select: { name: true, slug: true, color: true } },
-  tags: { select: { tag: { select: { name: true, slug: true } } } },
-} as const;
-// Ship a derived `sponsored` boolean, never the internal vendor id.
-const toCard = (a: any): Card => { const { sponsorVendorId, tags, ...rest } = a; return { ...rest, sponsored: !!sponsorVendorId, tags: (tags ?? []).map((t: any) => t.tag) }; };
 
 // The access-gate lock badge, matching ArticleCard/ArticleBadges. Custom article
 // markup (headline/spotlight/split) must show it too, so a members-only story
