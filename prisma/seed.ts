@@ -189,6 +189,8 @@ async function main() {
 <p>You can unsubscribe from the newsletter at any time using the link in each email, update or delete your account, and request a copy of your data by contacting us. To exercise these rights, email <a href="mailto:[privacy@yourdomain.com]">[privacy@yourdomain.com]</a>.</p>
 <h2>Data retention</h2>
 <p>We keep information for as long as your account is active or as needed to provide the service, then delete or anonymize it.</p>
+<h2>Where we operate — U.S. audience</h2>
+<p>RS News Hub is operated in the United States and is intended for readers and businesses located in the United States. We do not target or direct our services to individuals in the European Union, the United Kingdom, or other regions. If you access the site from outside the United States, you do so on your own initiative and are responsible for compliance with your local laws.</p>
 <h2>Children</h2>
 <p>This site is not directed to children under [13/16], and we do not knowingly collect their information.</p>
 <h2>Changes</h2>
