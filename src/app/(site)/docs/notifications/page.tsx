@@ -63,6 +63,10 @@ export default async function NotificationsPage() {
                       ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Industry News</span>
                       : it.type === 'testimonial'
                       ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Testimonial</span>
+                      : it.type === 'supplier-new'
+                      ? <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700 dark:bg-green-950/40 dark:text-green-300">New supplier</span>
+                      : it.type === 'supplier-expiring'
+                      ? <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Leaving</span>
                       : it.categoryName && <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: `${it.categoryColor}22`, color: it.categoryColor }}>{it.categoryName}</span>}
                     <span>{it.meta || ago(it.date)}</span>
                     {it.meta && <span>· {ago(it.date)}</span>}

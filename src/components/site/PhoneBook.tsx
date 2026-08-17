@@ -10,13 +10,15 @@ type Supplier = {
   website: string | null; supplierUrl: string | null; phone: string | null;
   contactEmail: string | null; blurb: string | null; logoUrl: string | null;
 };
-type Entry = { vendor: Supplier; note: string | null; altEmail: string | null; altPhone: string | null };
+type Entry = { vendor: Supplier; note: string | null; altEmail: string | null; altPhone: string | null; leavingOn: Date | string | null };
 
-export default function PhoneBook({ entries, directory }: { entries: Entry[]; directory: Supplier[] }) {
+export default function PhoneBook({ entries, directory, newIds }: { entries: Entry[]; directory: Supplier[]; newIds: string[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [tab, setTab] = useState<'book' | 'directory'>(entries.length ? 'book' : 'directory');
   const savedIds = new Set(entries.map((e) => e.vendor.id));
+  const newIdSet = new Set(newIds);
+  const fmtDate = (d: Date | string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const run = (fn: () => Promise<unknown>) => start(async () => { await fn(); router.refresh(); });
 
   return (
@@ -27,7 +29,9 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
           {(['book', 'directory'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 ${tab === t ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
-              {t === 'book' ? `My Phone Book${entries.length ? ` (${entries.length})` : ''}` : 'Directory'}
+              {t === 'book'
+                ? `My Phone Book${entries.length ? ` (${entries.length})` : ''}`
+                : <>Directory{newIds.length > 0 && <span className="ml-1.5 rounded-full bg-green-500 px-1.5 text-[11px] font-black text-white">+{newIds.length}</span>}</>}
             </button>
           ))}
         </div>
@@ -48,6 +52,13 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
                     {e.vendor.contactEmail && <span className="inline-flex items-center gap-1"><Mail width={12} height={12} />{e.vendor.contactEmail}</span>}
                     {(e.note || e.altEmail || e.altPhone) && <span className="text-brand-600">• your notes</span>}
                   </div>
+                  {/* Supplier lost premium — warn before the entry is removed so the
+                      store can copy its notes. */}
+                  {e.leavingOn && (
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      ⚠ Leaving {fmtDate(e.leavingOn)} — save your notes
+                    </div>
+                  )}
                 </div>
                 <ChevronRight width={18} height={18} className="shrink-0 text-[var(--muted)]" />
               </Link>
@@ -65,6 +76,7 @@ export default function PhoneBook({ entries, directory }: { entries: Entry[]; di
                 <div key={v.id} className="tile flex items-start gap-3 p-4">
                   <div className="min-w-0 flex-1">
                     <Link href={`/docs/suppliers/${v.id}`} className="font-bold hover:text-brand-600 hover:underline">{v.name}</Link>
+                    {newIdSet.has(v.id) && <span className="ml-2 rounded-full bg-green-500 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">New</span>}
                     {v.blurb && <p className="mt-0.5 line-clamp-2 text-sm text-[var(--muted)]">{v.blurb}</p>}
                     <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--muted)]">
                       {v.phone && <span>{v.phone}</span>}

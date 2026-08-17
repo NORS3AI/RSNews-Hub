@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
-import { getPhoneBook, listPremiumSuppliers } from '@/lib/suppliers';
+import { getPhoneBook, listPremiumSuppliers, newSuppliersFor } from '@/lib/suppliers';
 import PhoneBook from '@/components/site/PhoneBook';
 
 export const dynamic = 'force-dynamic';
@@ -27,14 +27,16 @@ export default async function SuppliersPage() {
     );
   }
 
-  const [entries, directory] = await Promise.all([
+  const [entries, directory, newSuppliers] = await Promise.all([
     getPhoneBook(user.id),
     listPremiumSuppliers(),
+    newSuppliersFor(user.id),
   ]);
+  const newIds = newSuppliers.map((n) => n.vendorId);
 
   return (
     <div className="container-page py-8 sm:py-10">
-      <PhoneBook entries={entries} directory={directory} />
+      <PhoneBook entries={entries} directory={directory} newIds={newIds} />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
+import { reactivateSavedSuppliers } from './suppliers';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
 import { updateVendorContact, vendorIdForBrand } from './vendors';
@@ -999,11 +1000,25 @@ export async function saveVendorProfile(formData: FormData) {
   if (!id) throw new Error('id required');
   const s = (k: string, max: number) => { const v = ((formData.get(k) as string) || '').trim(); return v ? v.slice(0, max) : null; };
   const name = s('name', 120);
+  const newPremium = formData.get('premium') === 'on';
+
+  // Premium lifecycle: stamp the timestamps only on a real transition so the
+  // "new arrival" and "leaving grace" windows are accurate.
+  //  • gained premium → premiumSince=now, clear premiumEndedAt (and restore any
+  //    saved entries soft-removed on a prior departure — notes come back).
+  //  • lost premium   → premiumEndedAt=now (starts the phone-book grace).
+  const current = await prisma.vendor.findUnique({ where: { id }, select: { premium: true } });
+  const wasPremium = !!current?.premium;
+  const lifecycle: { premiumSince?: Date; premiumEndedAt?: Date | null } = {};
+  if (!wasPremium && newPremium) { lifecycle.premiumSince = new Date(); lifecycle.premiumEndedAt = null; }
+  else if (wasPremium && !newPremium) { lifecycle.premiumEndedAt = new Date(); }
+
   await prisma.vendor.update({
     where: { id },
     data: {
       ...(name ? { name } : {}),
-      premium: formData.get('premium') === 'on',
+      premium: newPremium,
+      ...lifecycle,
       website: s('website', 300),
       supplierUrl: s('supplierUrl', 300),
       contactName: s('contactName', 120),
@@ -1014,6 +1029,11 @@ export async function saveVendorProfile(formData: FormData) {
       notes: s('notes', 2000),
     },
   });
+
+  // Rejoin restore: bring back saved entries that were soft-removed while this
+  // vendor was gone. No-op for a first-time premium or an unchanged save.
+  if (!wasPremium && newPremium) await reactivateSavedSuppliers(id);
+
   revalidatePath('/admin/vendors');
   revalidatePath(`/admin/vendors/${id}`);
   revalidatePath('/docs/suppliers');

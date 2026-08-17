@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { after } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
-  getPremiumSupplier, getSavedSupplier, getSupplierStickyNotes, getSupplierAdsOnFile,
+  getPremiumSupplier, getSavedSupplier, getSupplierStickyNotes, getSupplierAdsOnFile, markSupplierSeen,
 } from '@/lib/suppliers';
 import { myTestimonial } from '@/lib/testimonials';
 import SupplierTools from '@/components/site/SupplierTools';
@@ -47,6 +48,10 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
     getSupplierAdsOnFile(supplier.brandKey),
   ]);
   const isSaved = !!contact; // getSavedSupplier returns the row only when saved
+
+  // Opening a supplier clears its "New" arrival badge for this account. After the
+  // response so the reader never waits on the write.
+  after(() => markSupplierSeen(user.id, vendorId).catch(() => {}));
 
   return (
     <div className="container-page py-8 sm:py-10">

@@ -16,6 +16,7 @@
 import { prisma } from './db';
 import { linkSource } from './industry';
 import { testimonialNudges } from './testimonials';
+import { expiringSavedSuppliersFor, newSuppliersFor } from './suppliers';
 import { canViewContent, type AccountLike } from './entitlements';
 
 export const INDUSTRY = 'industry';
@@ -129,7 +130,7 @@ export async function setAccountTopics(userId: string, keys: TopicKey[]): Promis
 }
 
 export type FeedItem = {
-  type: 'industry' | 'article' | 'testimonial';
+  type: 'industry' | 'article' | 'testimonial' | 'supplier-new' | 'supplier-expiring';
   title: string; href: string; date: Date;
   meta?: string; categoryName?: string; categoryColor?: string; unread: boolean;
 };
@@ -137,24 +138,49 @@ export type FeedItem = {
 /** The shared account bell: recent items in followed topics, newest first, each
  *  flagged unread if it landed after the account last opened Notifications. */
 export async function notificationFeed(userId: string, limit = 50): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
-  const [keys, user, nudges] = await Promise.all([
+  const [keys, user, nudges, expiring, newSuppliers] = await Promise.all([
     getAccountTopics(userId),
     prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true } }),
     testimonialNudges(userId),
+    expiringSavedSuppliersFor(userId),
+    newSuppliersFor(userId),
   ]);
   const now = new Date();
   const seenAt = user?.notificationsSeenAt ?? new Date(0);
+  const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  // Testimonial nudges reach a reader whether or not they follow any topics —
-  // they're tied to suppliers the reader saved, not to topic subscriptions.
-  const nudgeItems: FeedItem[] = nudges.map((n): FeedItem => ({
-    type: 'testimonial',
-    title: `Share your experience with ${n.vendorName}`,
-    href: `/docs/suppliers/${n.vendorId}?recommend=1`,
-    date: n.createdAt,
-    meta: 'You saved them — a quick testimonial helps other stores',
-    unread: n.createdAt > seenAt,
-  }));
+  // Supplier + testimonial items reach a reader whether or not they follow any
+  // topics — they're tied to suppliers the reader saved / the directory, not to
+  // topic subscriptions.
+  const nudgeItems: FeedItem[] = [
+    ...nudges.map((n): FeedItem => ({
+      type: 'testimonial',
+      title: `Share your experience with ${n.vendorName}`,
+      href: `/docs/suppliers/${n.vendorId}?recommend=1`,
+      date: n.createdAt,
+      meta: 'You saved them — a quick testimonial helps other stores',
+      unread: n.createdAt > seenAt,
+    })),
+    // A saved supplier is leaving the directory: warn with the removal date so
+    // the store can copy their notes before the entry is deactivated.
+    ...expiring.map((e): FeedItem => ({
+      type: 'supplier-expiring',
+      title: `${e.name} is leaving the Phone Book`,
+      href: `/docs/suppliers/${e.vendorId}`,
+      date: e.endedAt,
+      meta: `Your saved contact + notes go away ${shortDate(e.removeOn)} — save anything you need`,
+      unread: e.endedAt > seenAt,
+    })),
+    // A new premium supplier joined the directory.
+    ...newSuppliers.map((n): FeedItem => ({
+      type: 'supplier-new',
+      title: `New supplier: ${n.name}`,
+      href: `/docs/suppliers/${n.vendorId}`,
+      date: n.premiumSince,
+      meta: 'Just added to the Phone Book directory',
+      unread: n.premiumSince > seenAt,
+    })),
+  ];
 
   if (!keys.length) {
     const items = nudgeItems.sort((a, b) => b.date.getTime() - a.date.getTime());

@@ -371,6 +371,15 @@ model Vendor {
   // is the advertiser's site; `supplierUrl` is their supplier page on our MAIN
   // website (we link out to it — the hub does not host supplier pages).
   premium      Boolean      @default(false)
+  // Supplier lifecycle timestamps (set by saveVendorProfile on a premium change):
+  // `premiumSince`   — when this vendor BECAME premium; drives the "New" arrival
+  //                    badge in the directory (cleared per-account once seen).
+  // `premiumEndedAt` — when premium was revoked; starts the phone-book grace. A
+  //                    saved entry stays visible (with a "leaving" badge) for
+  //                    SUPPLIER_GRACE_DAYS, then the sweep deactivates it (soft —
+  //                    notes are retained and restored if the vendor rejoins).
+  premiumSince   DateTime?
+  premiumEndedAt DateTime?
   website      String?
   supplierUrl  String?                       // external supplier page on the main site
   contactName  String?                       // the supplier's contact person (sales rep)
@@ -380,6 +389,7 @@ model Vendor {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   campaigns    AdCampaign[]
+  supplierSeens SupplierSeen[]
   reports      PerformanceReport[]
   savedBy      SavedSupplier[]
   testimonials Testimonial[]
@@ -468,8 +478,28 @@ model SavedSupplier {
   note      String?
   altEmail  String?
   altPhone  String?
+  // Soft-removal: set when the grace period after a vendor loses premium elapses.
+  // The row + its notes are retained (not deleted) so a later rejoin can restore
+  // them; the phone book and star state only ever show rows where this is null.
+  removedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+}
+
+// Per-account record that a signed-in store has actually opened a supplier's
+// phone-book detail. Powers the "New" arrival badge: a newly-premium supplier
+// shows "New" to each account until that account has seen it (then a row lands
+// here and the badge clears for them). One row per account+vendor.
+model SupplierSeen {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  seenAt    DateTime @default(now())
 
   @@unique([userId, vendorId])
   @@index([userId])
@@ -634,6 +664,7 @@ model User {
   clippings     Clipping[]
   articleRevisions ArticleRevision[]
   savedSuppliers SavedSupplier[]
+  supplierSeens SupplierSeen[]
   testimonials  Testimonial[]
   supplierNotes SupplierNote[]
   reportRequests AdReportRequest[]
