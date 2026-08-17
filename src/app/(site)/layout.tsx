@@ -5,7 +5,7 @@ import { AdPreviewBanner } from '@/components/site/AdPreview';
 import ViewAsBar from '@/components/site/ViewAsBar';
 import AnnouncementBar from '@/components/site/AnnouncementBar';
 import { getCurrentUser } from '@/lib/auth';
-import { entitlementsOf, isVendor } from '@/lib/entitlements';
+import { isActiveVendor } from '@/lib/vendors';
 import { canViewAs, activeViewAs } from '@/lib/viewAsServer';
 import { listAdvertisers } from '@/lib/adsServer';
 import { getLiveAnnouncement, announcementSignature } from '@/lib/announcement';
@@ -25,7 +25,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <SiteProviders>
       <AppSidebarShell
         user={user ? { id: user.id, name: user.name, role: user.role } : null}
-        isVendor={!!user && isVendor(entitlementsOf(user))}
+        isVendor={await isActiveVendor(user)}
         announcement={liveAnnouncement
           ? <AnnouncementBar record={liveAnnouncement} sig={announcementSignature(liveAnnouncement)} />
           : null}>

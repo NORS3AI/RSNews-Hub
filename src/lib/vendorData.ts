@@ -29,6 +29,13 @@ export async function getVendorDashboardData(tabParam: string | undefined) {
   if (!isVendor(ent)) return { kind: 'notvendor' as const };
 
   const brand = brandKey(ent.vendorBrand);
+  // Dashboard access is COUPLED to supplier status: it's open only while their
+  // Vendor record is an active premium supplier. Unchecking "Premium supplier"
+  // in admin closes the phone-book listing AND this dashboard together (one
+  // switch). No premium Vendor record for their brand → inactive.
+  const supplier = brand ? await prisma.vendor.findUnique({ where: { brandKey: brand }, select: { premium: true } }) : null;
+  if (!supplier?.premium) return { kind: 'inactive' as const };
+
   const vendorId = await vendorIdForBrand(ent.vendorBrand);
   const mine = vendorId
     ? await prisma.adCampaign.findMany({ where: { vendorId }, orderBy: { createdAt: 'desc' }, include: { flights: { orderBy: { index: 'asc' } } } })

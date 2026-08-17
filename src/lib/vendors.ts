@@ -8,9 +8,23 @@
 
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { brandKey } from './entitlements';
+import { brandKey, entitlementsOf, isVendor, type AccountLike } from './entitlements';
 
 export { brandKey };
+
+/** True when this account is a vendor whose brand maps to an ACTIVE premium
+ *  supplier record. The vendor dashboard, its account-page link, and the sidebar
+ *  nav item are ALL gated on this — access is coupled to the admin "Premium
+ *  supplier" switch, so removing that status closes the phone-book listing and
+ *  the dashboard together. */
+export async function isActiveVendor(account: AccountLike | null | undefined): Promise<boolean> {
+  const ent = entitlementsOf(account ?? {});
+  if (!isVendor(ent)) return false;
+  const brand = brandKey(ent.vendorBrand);
+  if (!brand) return false;
+  const v = await prisma.vendor.findUnique({ where: { brandKey: brand }, select: { premium: true } });
+  return !!v?.premium;
+}
 
 // Either the base client or a transaction client — so callers can run these
 // inside a `prisma.$transaction(...)` for atomicity (e.g. JotForm ingest).

@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAccountData } from '@/lib/accountData';
 import LogoutButton from '@/components/LogoutButton';
-import { entitlementsOf, isVendor } from '@/lib/entitlements';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +10,7 @@ export const metadata = { title: 'My account' };
 export default async function AccountPage() {
   const data = await getAccountData();
   if (!data) redirect('/login?next=/account');
-  const { user, subs, history } = data;
+  const { user, subs, history, vendorActive } = data;
 
   return (
     <div className="container-page py-8 sm:py-10">
@@ -25,7 +24,7 @@ export default async function AccountPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {isVendor(entitlementsOf(user)) && <Link href="/docs/vendor" className="btn-primary btn-sm">Ad dashboard</Link>}
+          {vendorActive && <Link href="/docs/vendor" className="btn-primary btn-sm">Ad dashboard</Link>}
           {(user.role === 'ADMIN' || user.role === 'EDITOR') && <Link href="/admin" className="btn-primary btn-sm">Admin dashboard</Link>}
           <LogoutButton />
         </div>

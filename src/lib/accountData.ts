@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { getCurrentUser } from './auth';
+import { isActiveVendor } from './vendors';
 
 // Information layer for the account page. Returns null when there's no signed-in
 // user (the page redirects to login); otherwise the user plus their subscriptions
@@ -14,7 +15,10 @@ export async function getAccountData() {
       include: { article: { select: { title: true, slug: true, status: true } } },
     }),
   ]);
-  return { user, subs, history };
+  // Drives the "Ad dashboard" link — coupled to the same premium switch that
+  // gates the dashboard itself, so a cut-off vendor sees no dead-end link.
+  const vendorActive = await isActiveVendor(user);
+  return { user, subs, history, vendorActive };
 }
 
 export type AccountPageData = NonNullable<Awaited<ReturnType<typeof getAccountData>>>;

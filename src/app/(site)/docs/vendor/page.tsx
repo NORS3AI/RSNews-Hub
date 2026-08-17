@@ -19,6 +19,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
   const data = await getVendorDashboardData(tabParam);
   if (data.kind === 'signedout') return <Shell><Notice title="Sign in to view your vendor dashboard" body="Log in on the main RS News site to see your ad campaigns." /></Shell>;
   if (data.kind === 'notvendor') return <Shell><Notice title="This area is for advertisers" body="Your account isn’t set up as a vendor. If you advertise with RS News and this looks wrong, contact us." /></Shell>;
+  if (data.kind === 'inactive') return <Shell><Notice title="Your advertiser account isn’t active" body="Your advertising account with RS News isn’t currently active. If you believe this is a mistake, please contact the RS News team." /></Shell>;
   const {
     user, ent, mine, now, current, past,
     reports, testimonials, updateUrl, latestReq, articleReviews,
