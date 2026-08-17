@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { X, Check } from '@/components/icons';
+import { X, Check, Edit } from '@/components/icons';
 
 // Shown at the top of a DRAFT article opened via a valid ?preview=<token> link.
 // A clear "not published" banner plus a review action: an invited reviewer gives
@@ -75,8 +75,8 @@ export default function PreviewReviewBar({ slug, token, hideReview = false }: { 
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setMode('approve')} className={`rounded-xl border-2 px-3 py-2 text-sm font-bold ${mode === 'approve' ? 'border-green-500 bg-green-50 text-green-800' : 'border-[var(--border)] text-[var(--muted)]'}`}>✓ Approve</button>
-                  <button type="button" onClick={() => setMode('change')} className={`rounded-xl border-2 px-3 py-2 text-sm font-bold ${mode === 'change' ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-[var(--border)] text-[var(--muted)]'}`}>✎ Request changes</button>
+                  <button type="button" onClick={() => setMode('approve')} className={`inline-flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2 text-sm font-bold ${mode === 'approve' ? 'border-green-500 bg-green-50 text-green-800' : 'border-[var(--border)] text-[var(--muted)]'}`}><Check width={14} height={14} />Approve</button>
+                  <button type="button" onClick={() => setMode('change')} className={`inline-flex items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2 text-sm font-bold ${mode === 'change' ? 'border-amber-500 bg-amber-50 text-amber-800' : 'border-[var(--border)] text-[var(--muted)]'}`}><Edit width={14} height={14} />Request changes</button>
                 </div>
 
                 {mode === 'change' && (

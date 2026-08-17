@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import type { ScheduleEvent, ScheduleCategory, ScheduleSpan } from '@/lib/scheduleEvents';
-import { ArrowLeft, ArrowRight } from '@/components/icons';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X, Clock } from '@/components/icons';
 
 // One hue per category, so a glance tells you what kind of thing is running.
 const CAT: Record<ScheduleCategory, { label: string; bar: string; dot: string }> = {
@@ -16,7 +16,7 @@ const CAT: Record<ScheduleCategory, { label: string; bar: string; dot: string }>
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_MS = 86_400_000;
-const MARK: Record<string, string> = { expire: '✕', up: '↑', down: '↓', start: '↑', end: '↓', close: '⧗' };
+const MARK_ICON = { expire: X, up: ArrowUp, down: ArrowDown, start: ArrowUp, end: ArrowDown, close: Clock } as const;
 
 // Local calendar-day number (days since epoch in the viewer's timezone), so bar
 // coverage lines up with the grid's local day cells regardless of the stored UTC.
@@ -138,12 +138,15 @@ export default function ScheduleCalendar({ events, spans, initialYear, initialMo
                 return (
                   <div key={ci} className={`border-[var(--border)] ${ci ? 'border-l' : ''} ${wi ? 'border-t' : ''} p-1 ${isToday ? 'bg-brand-50/50 dark:bg-brand-950/20' : 'bg-[var(--card)]'}`}>
                     <div className="flex items-center justify-end gap-1">
-                      {pts.map((e, k) => (
-                        <span key={k} title={`${MARK[e.kind] ?? '•'} ${e.title}${e.detail ? ` — ${e.detail}` : ''}`}
-                          className={`inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[9px] font-black leading-none text-white ${CAT[e.category]?.dot ?? 'bg-slate-500'}`}>
-                          {MARK[e.kind] ?? '•'}
-                        </span>
-                      ))}
+                      {pts.map((e, k) => {
+                        const Ico = MARK_ICON[e.kind as keyof typeof MARK_ICON];
+                        return (
+                          <span key={k} title={`${e.title}${e.detail ? ` — ${e.detail}` : ''}`}
+                            className={`inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[9px] font-black leading-none text-white ${CAT[e.category]?.dot ?? 'bg-slate-500'}`}>
+                            {Ico ? <Ico width={11} height={11} /> : '•'}
+                          </span>
+                        );
+                      })}
                       <span className={`text-xs font-bold ${isToday ? 'text-brand-700 dark:text-brand-300' : 'text-[var(--muted)]'}`}>{d.getDate()}</span>
                     </div>
                   </div>

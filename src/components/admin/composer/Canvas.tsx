@@ -4,7 +4,7 @@ import { EditorContent } from '@tiptap/react';
 import { useComposer } from './context';
 import ArticleContent from '@/components/site/ArticleContent';
 import { formatDate } from '@/lib/utils';
-import { Bold, Italic, LinkIcon, Eye, X, Clock, Star, Pin, Share, Scissors } from '@/components/icons';
+import { Bold, Italic, LinkIcon, Eye, X, Clock, Star, Pin, Share, Scissors, Zap } from '@/components/icons';
 
 type Cat = { id: string; name: string; color?: string };
 type PreviewData = { title: string; byline: string; cover: string; cats: { name: string; color: string }[]; breaking: boolean; date: string; readMin: number };
@@ -38,7 +38,7 @@ export default function Canvas({
     const cats = catIds.map((id) => byId.get(id)).filter((c): c is Cat => !!c && !seen.has(c.id) && !!seen.add(c.id))
       .map((c) => ({ name: c.name, color: c.color || '#E97D34' }));
     const breaking = !!val('breakingHours');
-    // Match the hub: when Breaking is on, the ⚡ badge stands in for the
+    // Match the hub: when Breaking is on, the Breaking badge stands in for the
     // "Breaking News" category, so don't show both.
     const shownCats = breaking ? cats.filter((c) => c.name.toLowerCase() !== 'breaking news') : cats;
     const words = html.replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
@@ -112,7 +112,7 @@ export default function Canvas({
               {/* Top bar — badges + title + Favorite / Pin / Share, plus a theme switch + close */}
               <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2">
-                  {preview.breaking && <span className="badge shrink-0 whitespace-nowrap" style={{ background: '#d23b2e', color: '#fff' }}>⚡ Breaking</span>}
+                  {preview.breaking && <span className="badge inline-flex shrink-0 items-center gap-1 whitespace-nowrap" style={{ background: '#d23b2e', color: '#fff' }}><Zap width={11} height={11} />Breaking</span>}
                   {preview.cats.slice(0, 2).map((c) => <span key={c.name} className="badge cat-badge shrink-0" style={{ '--c': c.color } as React.CSSProperties}>{c.name}</span>)}
                   <span className="truncate text-sm font-semibold text-[var(--muted)]">{preview.title}</span>
                 </div>

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { setArticleStatus, deleteArticle, setAutoArchiveMonths } from '@/lib/actions';
 import { getAutoArchiveMonths } from '@/lib/autoArchive';
 import { ActionButtons } from '@/components/admin/RowActions';
-import { Plus, Eye } from '@/components/icons';
+import { Plus, Eye, Edit, Check } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import { CONTENT_STATUSES } from '@/lib/constants';
 import StatusChip from '@/components/admin/StatusChip';
@@ -172,8 +172,8 @@ function ReviewBadges({ r }: { r?: { approvals: number; openChanges: number } })
   if (!r || (!r.approvals && !r.openChanges)) return null;
   return (
     <>
-      {r.openChanges > 0 && <span className="badge bg-amber-100 text-amber-800" title={`${r.openChanges} open change request${r.openChanges > 1 ? 's' : ''}`}>✎ {r.openChanges}</span>}
-      {r.approvals > 0 && <span className="badge bg-green-100 text-green-700" title={`${r.approvals} approval${r.approvals > 1 ? 's' : ''}`}>✓ {r.approvals}</span>}
+      {r.openChanges > 0 && <span className="badge inline-flex items-center gap-1 bg-amber-100 text-amber-800" title={`${r.openChanges} open change request${r.openChanges > 1 ? 's' : ''}`}><Edit width={11} height={11} />{r.openChanges}</span>}
+      {r.approvals > 0 && <span className="badge inline-flex items-center gap-1 bg-green-100 text-green-700" title={`${r.approvals} approval${r.approvals > 1 ? 's' : ''}`}><Check width={11} height={11} />{r.approvals}</span>}
     </>
   );
 }

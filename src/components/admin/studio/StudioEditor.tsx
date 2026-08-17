@@ -11,7 +11,7 @@ import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } fr
 import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import EntityPicker from '@/components/admin/studio/EntityPicker';
 import RsColorPicker from '@/components/admin/studio/RsColorPicker';
-import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X } from '@/components/icons';
+import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X, Lock } from '@/components/icons';
 
 function newId(): string {
   try { return 'b' + crypto.randomUUID().slice(0, 8); } catch { return 'b' + Date.now().toString(36); }
@@ -443,7 +443,7 @@ function BlockFrame({ selected, over, label, children, onSelect, onDragStart, on
       {(hasFallbacks || scheduled || gateLabel) && (
         <div className="mt-1 flex flex-wrap items-center gap-1 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-2)] px-1.5 py-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
           {scheduled && <span className="rounded bg-amber-100 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title="This element has a schedule window">⏱ Scheduled</span>}
-          {gateLabel && <span className="rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Audience-gated element">🔒 {gateLabel}</span>}
+          {gateLabel && <span className="inline-flex items-center gap-1 rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Audience-gated element"><Lock width={11} height={11} />{gateLabel}</span>}
           {hasFallbacks && <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>}
           {hasFallbacks && chain!.map((r, k) => (
             <button key={k} type="button" onClick={() => onRung?.(k)}

@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitVendorReviewDecision } from '@/lib/actions';
 import { formatDateTimeUTC, formatDateUTC } from '@/lib/utils';
-import { Check, ExternalLink } from '@/components/icons';
+import { Check, ExternalLink, Edit } from '@/components/icons';
 
 export type VendorReviewCard = {
   id: string;
@@ -99,8 +99,8 @@ function ReviewCard({ r }: { r: VendorReviewCard }) {
       ) : locked ? (
         /* Answered — locked, can't reopen or flip. */
         <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--bg-soft)] px-3 py-2.5 text-sm">
-          <div className="font-semibold text-[var(--fg)]">
-            {r.decision === 'approve' ? '✓ You approved this' : '✎ You requested changes'} · {formatDateTimeUTC(r.decidedAt)}
+          <div className="inline-flex items-center gap-1 font-semibold text-[var(--fg)]">
+            {r.decision === 'approve' ? <><Check width={14} height={14} />You approved this</> : <><Edit width={14} height={14} />You requested changes</>} · {formatDateTimeUTC(r.decidedAt)}
           </div>
           {r.decision === 'change' && r.message && <div className="mt-1 whitespace-pre-wrap text-[13px] text-[var(--muted)]">{r.message}</div>}
           <div className="mt-1 text-[12px] text-[var(--muted)]">This response is locked. If we make edits, a new review will appear above.</div>

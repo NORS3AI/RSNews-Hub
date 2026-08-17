@@ -17,7 +17,7 @@ import { requirementLabel } from '@/lib/entitlements';
 import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
-import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock } from '@/components/icons';
+import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, Zap } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -67,7 +67,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <div className="card p-6 sm:p-9 lg:p-10">
         <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={signedIn}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {isBreaking(article.breakingUntil) && <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>}
+          {isBreaking(article.breakingUntil) && <span className="badge inline-flex items-center gap-1 animate-pulse bg-red-600 text-white"><Zap width={12} height={12} /> Breaking</span>}
           {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's
               Hot article) or a 'sponsored' one shows one clear "Partner content" tag,
               which supersedes the plain 'sponsored' genre chip. */}

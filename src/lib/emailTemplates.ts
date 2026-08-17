@@ -43,7 +43,7 @@ Thanks for advertising with RS News!`,
     label: 'Ads are live',
     description: 'Sent to a vendor the first time their campaign goes live, with a link to see their ads in the Hub.',
     tags: [CONTACT_TAG, VENDOR_TAG, DATE_TAG, { tag: 'dashboardUrl', desc: 'Link to their vendor dashboard (their live ad preview)' }],
-    subject: '🎉 Your RS News ads are live, {vendorName}',
+    subject: 'Your RS News ads are live, {vendorName}',
     body:
 `Hi {contactName},
 

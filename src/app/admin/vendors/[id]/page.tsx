@@ -5,7 +5,7 @@ import { saveVendorProfile, requestSupplierTestimonials, setTestimonialStatus, s
 import { REPORT_PERIODS } from '@/lib/vendorReports';
 import { testimonialsForAdmin, testimonialAudienceCount, hasActiveRequest } from '@/lib/testimonials';
 import TestimonialAttribution from '@/components/site/TestimonialAttribution';
-import { ArrowLeft, ExternalLink } from '@/components/icons';
+import { ArrowLeft, ExternalLink, Check } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -187,7 +187,7 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
                   )}
                   {t.status === 'APPROVED' && (
                     <form action={setTestimonialOnDashboard.bind(null, t.id, !t.showOnVendorDashboard)}>
-                      <button className={`btn-sm ${t.showOnVendorDashboard ? 'btn-primary' : 'btn-outline'}`}>{t.showOnVendorDashboard ? '✓ In vendor document' : 'Add to vendor document'}</button>
+                      <button className={`btn-sm inline-flex items-center gap-1.5 ${t.showOnVendorDashboard ? 'btn-primary' : 'btn-outline'}`}>{t.showOnVendorDashboard ? <><Check width={14} height={14} />In vendor document</> : 'Add to vendor document'}</button>
                     </form>
                   )}
                 </div>

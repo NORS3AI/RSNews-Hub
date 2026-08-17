@@ -2,7 +2,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { moveHomeModule, toggleHomeModule, toggleHomeLock, toggleHomeSizeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource, setHomeModuleSpan } from '@/lib/actions';
-import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip } from '@/components/icons';
+import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip, StarFilled } from '@/components/icons';
 
 type Source = { value: string; label: string };
 type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sizeLocked: boolean; sources: Source[] | null; source: string | null; span: number };
@@ -41,7 +41,7 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
   return (
     <div>
       <div className="mb-3 flex items-center gap-3 rounded-xl border border-dashed border-brand-300 bg-brand-50 p-4 dark:bg-brand-950/40">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">★</span>
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white"><StarFilled width={16} height={16} /></span>
         <div className="flex-1">
           <div className="font-semibold">Headline block <span className="ml-1 text-xs font-normal text-[var(--muted)]">(pinned — always first)</span></div>
           <div className="text-sm text-[var(--muted)]">Lead story + supporting headlines. This never moves.</div>

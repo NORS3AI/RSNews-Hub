@@ -6,6 +6,7 @@ import { CONTENT_STATUSES } from '@/lib/constants';
 import { GENRES } from '@/lib/genre';
 import { suggestTags } from '@/lib/suggestTags';
 import { useComposer } from './context';
+import { Sparkles } from '@/components/icons';
 
 type Cat = { id: string; name: string };
 type Vendor = { id: string; name: string };
@@ -105,7 +106,7 @@ export default function ArticleDetails({ article, categories, vendors = [] }: { 
         <div>
           <label className="label" htmlFor="breakingHours">Breaking News timer</label>
           <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
-            {initiallyBreaking && <option value="keep">⚡ Keep current</option>}
+            {initiallyBreaking && <option value="keep">Keep current</option>}
             <option value="">{initiallyBreaking ? 'Turn off breaking' : 'Not breaking'}</option>
             <option value="24">Breaking for 24 hours</option>
             <option value="48">Breaking for 48 hours</option>
@@ -255,7 +256,7 @@ export default function ArticleDetails({ article, categories, vendors = [] }: { 
       <Section title="Tags">
         <div className="flex items-center justify-between">
           <span className="text-xs text-[var(--muted)]">Comma-separated.</span>
-          <button type="button" onClick={onSuggestTags} className="text-xs font-bold text-brand-600 hover:underline">✨ Suggest</button>
+          <button type="button" onClick={onSuggestTags} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:underline"><Sparkles width={12} height={12} />Suggest</button>
         </div>
         <input name="tags" value={tags} onChange={(e) => setTags(e.target.value)} className="input" placeholder="usps, rates, counter" />
       </Section>

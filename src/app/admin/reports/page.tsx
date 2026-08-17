@@ -4,6 +4,7 @@ import { generatePerformanceReport } from '@/lib/actions';
 import { recentQuarters } from '@/lib/reports';
 import { listReportTemplates } from '@/lib/reportTemplates';
 import { formatDate, formatDateUTC } from '@/lib/utils';
+import { BarChart } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export default async function AdminReports() {
     <div className="max-w-5xl">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Performance reports</h1>
-        <Link href="/admin/reports/builder" className="btn-outline btn-sm">📊 Report builder</Link>
+        <Link href="/admin/reports/builder" className="btn-outline btn-sm inline-flex items-center gap-1.5"><BarChart width={14} height={14} />Report builder</Link>
       </div>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
         Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports. For a custom, exportable report (whole-site or one advertiser, your choice of charts) use the <strong>Report builder</strong>.
@@ -35,7 +36,7 @@ export default async function AdminReports() {
           <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Saved report templates · one press for fresh numbers</div>
           <div className="flex flex-wrap gap-2">
             {templates.map((t) => (
-              <Link key={t.id} href={`/admin/reports/builder?${t.query}`} className="btn-outline btn-sm">📊 {t.name}</Link>
+              <Link key={t.id} href={`/admin/reports/builder?${t.query}`} className="btn-outline btn-sm inline-flex items-center gap-1.5"><BarChart width={14} height={14} />{t.name}</Link>
             ))}
           </div>
         </div>

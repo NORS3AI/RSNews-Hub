@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ensureArticlePreviewLink, resolveArticleReview, deleteArticleReview } from '@/lib/actions';
 import { formatDate } from '@/lib/utils';
-import { Check, X } from '@/components/icons';
+import { Check, X, Edit } from '@/components/icons';
 
 type Review = { id: string; firstName: string; lastName: string; decision: string; message: string; resolved: boolean; createdAt: Date | string };
 
@@ -64,8 +64,8 @@ export default function ArticleReviews({ articleId, slug, previewToken, reviews 
     <div className="card mt-6 p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">Preview &amp; approvals</h2>
-        <span className={`badge ${status === 'changes' ? 'bg-amber-100 text-amber-800' : status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-[var(--card-2)] text-[var(--muted)]'}`}>
-          {status === 'changes' ? '✎ Changes requested' : status === 'approved' ? `✓ Approved (${approvals})` : 'Awaiting review'}
+        <span className={`badge inline-flex items-center gap-1 ${status === 'changes' ? 'bg-amber-100 text-amber-800' : status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-[var(--card-2)] text-[var(--muted)]'}`}>
+          {status === 'changes' ? <><Edit width={12} height={12} />Changes requested</> : status === 'approved' ? <><Check width={12} height={12} />Approved ({approvals})</> : 'Awaiting review'}
         </span>
       </div>
 
@@ -86,14 +86,14 @@ export default function ArticleReviews({ articleId, slug, previewToken, reviews 
                   {/* A change request is a click-to-open row (one at a time); an approval is just a line. */}
                   {change && r.message ? (
                     <button onClick={() => setOpenId(expanded ? null : r.id)} className="flex flex-1 items-center gap-2 text-left" aria-expanded={expanded}>
-                      <span className="badge bg-amber-100 text-amber-800">✎ Change</span>
+                      <span className="badge inline-flex items-center gap-1 bg-amber-100 text-amber-800"><Edit width={11} height={11} />Change</span>
                       <span className="font-semibold">{r.firstName} {r.lastName}</span>
                       <span className="text-xs text-[var(--muted)]">{formatDate(r.createdAt)}</span>
                       <span className="text-xs font-semibold text-brand-600">{expanded ? 'Hide' : 'Open'}</span>
                     </button>
                   ) : (
                     <span className="flex flex-1 items-center gap-2">
-                      <span className={`badge ${change ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}`}>{change ? '✎ Change' : '✓ Approved'}</span>
+                      <span className={`badge inline-flex items-center gap-1 ${change ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}`}>{change ? <><Edit width={11} height={11} />Change</> : <><Check width={11} height={11} />Approved</>}</span>
                       <span className="font-semibold">{r.firstName} {r.lastName}</span>
                       <span className="text-xs text-[var(--muted)]">{formatDate(r.createdAt)}</span>
                     </span>

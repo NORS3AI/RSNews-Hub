@@ -6,6 +6,7 @@ import {
   showAnnouncementMessage, setAnnouncementBarEnabled,
 } from '@/lib/actions';
 import type { AnnouncementRecord, AnnSize, AnnElement } from '@/lib/announcement';
+import { Star, StarFilled, Lock, Megaphone } from '@/components/icons';
 
 type Draft = {
   id?: string; name: string; message: string; href: string; hrefLabel: string;
@@ -105,12 +106,12 @@ export default function AnnouncementManager({ list, enabled, liveId }: { list: A
       {/* Library */}
       <div className="space-y-2">
         <div className="text-xs font-bold uppercase tracking-wide text-[var(--muted)]">Saved messages ({list.length})</div>
-        {list.length === 0 && <p className="text-sm text-[var(--muted)]">No saved messages yet. Create one above — starred ones (⭐) rise to the top so you can reuse them.</p>}
+        {list.length === 0 && <p className="text-sm text-[var(--muted)]">No saved messages yet. Create one above — starred ones (<StarFilled width={12} height={12} className="inline align-[-1px]" />) rise to the top so you can reuse them.</p>}
         {list.map((r) => {
           const isLive = r.id === liveId;
           return (
             <div key={r.id} className={`card flex flex-wrap items-center gap-3 p-3 ${isLive ? 'ring-2 ring-brand-500' : ''}`}>
-              <button onClick={() => run(() => toggleAnnouncementStar(r.id))} disabled={busy} title={r.starred ? 'Unstar' : 'Star for reuse'} className="shrink-0 text-lg leading-none">{r.starred ? '⭐' : '☆'}</button>
+              <button onClick={() => run(() => toggleAnnouncementStar(r.id))} disabled={busy} title={r.starred ? 'Unstar' : 'Star for reuse'} className="shrink-0 leading-none">{r.starred ? <StarFilled width={18} height={18} /> : <Star width={18} height={18} />}</button>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold">{r.message || <span className="text-[var(--muted)]">(empty)</span>}</div>
                 <div className="mt-0.5 flex flex-wrap gap-1.5 text-[11px] text-[var(--muted)]">
@@ -119,7 +120,7 @@ export default function AnnouncementManager({ list, enabled, liveId }: { list: A
                   {r.showCountdown && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">⏱ countdown</span>}
                   {r.ticker && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">ticker</span>}
                   {r.href && <span className="rounded bg-[var(--card-2)] px-1.5 py-0.5">button</span>}
-                  {r.audience && <span className="rounded bg-brand-100 px-1.5 py-0.5 font-semibold text-brand-700">🔒 {audienceLabel(r.audience).replace(/ only$/, '')}</span>}
+                  {r.audience && <span className="inline-flex items-center gap-1 rounded bg-brand-100 px-1.5 py-0.5 font-semibold text-brand-700"><Lock width={11} height={11} />{audienceLabel(r.audience).replace(/ only$/, '')}</span>}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
@@ -152,7 +153,7 @@ function AnnPreview({ draft }: { draft: Draft }) {
     <div>
       <div className="mb-1 text-xs text-[var(--muted)]">Preview</div>
       <div className={`flex flex-wrap items-center justify-center gap-3 rounded-lg bg-brand-600 px-4 text-white ${size}`}>
-        <span aria-hidden>📣</span>
+        <span aria-hidden className="inline-flex"><Megaphone width={16} height={16} /></span>
         {draft.order.map((k) => els[k]).filter(Boolean)}
       </div>
     </div>

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setDigestEnabled } from '@/lib/actions';
+import { AlertTriangle } from '@/components/icons';
 
 /** Admin controls: send today's digest to everyone, or a test to one address. */
 export default function NewsletterAdmin({ emailReady, enabled }: { emailReady: boolean; enabled: boolean }) {
@@ -81,7 +82,7 @@ export default function NewsletterAdmin({ emailReady, enabled }: { emailReady: b
       {/* The scheduled nightly job also sends. If you push manually right around
           that time, subscribers can get the digest twice. */}
       <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-        ⚠︎ Heads-up: the digest also sends automatically each night. Sending manually now (especially near that scheduled time, or clicking twice) can deliver the same digest <strong>twice</strong>. Use this mainly when the nightly send is off or you know it hasn’t run.
+        <AlertTriangle width={12} height={12} className="mr-1 inline align-[-1px]" />Heads-up: the digest also sends automatically each night. Sending manually now (especially near that scheduled time, or clicking twice) can deliver the same digest <strong>twice</strong>. Use this mainly when the nightly send is off or you know it hasn’t run.
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex-1">

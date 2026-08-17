@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup, setAdUpdateUrl } from '@/lib/actions';
 import { AD_UPDATE_URL_KEY } from '@/lib/vendorReports';
 import { formatDate } from '@/lib/utils';
+import { Mail } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,7 @@ export default async function AdminVendors() {
                   <span className="badge bg-[var(--bg-soft)]">{v._count.campaigns} campaign{v._count.campaigns === 1 ? '' : 's'}</span>
                   <span className="badge bg-[var(--bg-soft)]">{v._count.reports} report{v._count.reports === 1 ? '' : 's'}</span>
                   {v.contactEmail
-                    ? <span className="badge bg-green-100 text-green-700">✉ {v.contactEmail}</span>
+                    ? <span className="badge inline-flex items-center gap-1 bg-green-100 text-green-700"><Mail width={11} height={11} />{v.contactEmail}</span>
                     : <span className="badge bg-amber-100 text-amber-800">no email</span>}
                 </div>
               </div>
