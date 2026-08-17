@@ -112,7 +112,21 @@ Prisma. The whole reader Information layer is re-exported from one entry point,
 - **Shared DTO:** ✅ `cards.ts` (the article card, shared across every list).
 - **Automated boundary guard:** ✅ `architecture.boundary.test.ts` + ESLint override.
 - **Consolidated contract surface:** ✅ `readerData.ts` re-exports every data fn + type.
-- **Swappability proof (an alternate renderer over a bundle):** Phase 4.
+- **Swappability proof:** ✅ the **render manifest** (`manifest.ts`) turns a bundle
+  into UI-agnostic JSON blocks; the generic `ManifestView` draws any manifest;
+  `/docs/category/<slug>/alt` renders the same category through it (a second UI
+  over one bundle), and `GET /api/render/category/<slug>` serves it as headless
+  JSON for a native app or an AI-composed frontend.
+
+## The AI-composed-UI on-ramp
+
+The manifest is the primitive the wild goal rides on. Today a `categoryManifest()`
+adapter hand-writes the block list; the same `ViewManifest` shape could instead be
+**emitted by an AI** (given the bundle + a reader profile) and drawn by the very
+same `ManifestView`. Module Studio already proves the composition side for the
+homepage. Generalizing the manifest to every surface + adding a composer that
+personalizes the block list per reader is the remaining product work — but the
+architecture to support it now exists and is enforced.
 
 _Admin tooling is intentionally out of scope — it's internal, not a surface you'd
 swap or AI-compose._
