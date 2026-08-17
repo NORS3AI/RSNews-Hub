@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { entitlementsOf } from '@/lib/entitlements';
-import { vendorIdForBrand } from '@/lib/vendors';
+import { vendorIdForBrand, isActiveVendor } from '@/lib/vendors';
 import { testimonialsForVendorDashboard } from '@/lib/testimonials';
 import { SITE_NAME } from '@/lib/constants';
 import { formatDate } from '@/lib/utils';
@@ -30,6 +30,12 @@ export default async function VendorTestimonialsDoc(props: { searchParams: Promi
   }
 
   const isStaff = user.role === 'ADMIN' || user.role === 'EDITOR';
+  // Non-staff access is coupled to premium supplier status, same as the vendor
+  // dashboard — a de-listed vendor can't reach their testimonials doc either.
+  // Staff can still preview any vendor via ?vendorId.
+  if (!isStaff && !(await isActiveVendor(user))) {
+    return wrap(<p className="text-[var(--muted)]">This document is available to active premium suppliers only.</p>);
+  }
   const vendorId = qVendorId && isStaff ? qVendorId : await vendorIdForBrand(entitlementsOf(user).vendorBrand);
   if (!vendorId) {
     return wrap(<p className="text-[var(--muted)]">No advertiser record is linked to this account.</p>);
