@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { addSavedSupplier, removeSavedSupplier } from '@/lib/actions';
-import { Star, StarFilled, Mail, ChevronRight } from '@/components/icons';
+import { Star, StarFilled, Mail, ChevronRight, Clock } from '@/components/icons';
 
 type Supplier = {
   id: string; name: string; brandKey: string; premium: boolean;
@@ -56,7 +56,7 @@ export default function PhoneBook({ entries, directory, newIds }: { entries: Ent
                       store can copy its notes. */}
                   {e.leavingOn && (
                     <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                      ⚠ Leaving {fmtDate(e.leavingOn)} — save your notes
+                      <Clock width={13} height={13} className="shrink-0" /> Leaving {fmtDate(e.leavingOn)} — save your notes
                     </div>
                   )}
                 </div>
