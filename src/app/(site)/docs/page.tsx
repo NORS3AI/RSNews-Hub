@@ -38,7 +38,7 @@ export const dynamic = 'force-dynamic';
 // the body stays gated behind canViewContent on click).
 function LockBadge({ requirement }: { requirement?: string }) {
   if (!requirement) return null;
-  return <span className="badge bg-amber-100 text-amber-800">🔒 {requirementLabel(requirement)}</span>;
+  return <span className="badge inline-flex items-center gap-1 bg-amber-100 text-amber-800"><Lock width={12} height={12} /> {requirementLabel(requirement)}</span>;
 }
 
 export default async function DocsHome() {

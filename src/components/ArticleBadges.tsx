@@ -1,5 +1,6 @@
 import { requirementLabel } from '@/lib/entitlements';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
+import { Zap, Lock } from '@/components/icons';
 
 type Cat = { name: string; slug: string; color: string };
 
@@ -40,7 +41,7 @@ export function PartnerContentBadge({ className = '' }: { className?: string }) 
 }
 
 // The row of badges shown above an article title on cards and in the reader:
-// a ⚡ Breaking pill (while its timer is live), the primary category, any extra
+// a Breaking pill (while its timer is live), the primary category, any extra
 // categories, and the access-gate lock. Kept in one place so cards, the article
 // page, and the modal stay consistent.
 export default function ArticleBadges({
@@ -69,7 +70,7 @@ export default function ArticleBadges({
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {breaking && (
-        <span className="badge animate-pulse bg-red-600 text-white">⚡ Breaking</span>
+        <span className="badge inline-flex items-center gap-1 animate-pulse bg-red-600 text-white"><Zap width={12} height={12} /> Breaking</span>
       )}
       {partner && <PartnerContentBadge />}
       {showGenre && (
@@ -82,7 +83,7 @@ export default function ArticleBadges({
         <span key={c.slug} className="badge cat-badge" style={{ '--c': c.color } as React.CSSProperties}>{c.name}</span>
       ))}
       {requirement && (
-        <span className="badge bg-amber-100 text-amber-800">🔒 {requirementLabel(requirement)}</span>
+        <span className="badge inline-flex items-center gap-1 bg-amber-100 text-amber-800"><Lock width={12} height={12} /> {requirementLabel(requirement)}</span>
       )}
     </div>
   );

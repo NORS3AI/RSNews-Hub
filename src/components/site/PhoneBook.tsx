@@ -3,7 +3,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { addSavedSupplier, removeSavedSupplier } from '@/lib/actions';
-import { Star, StarFilled, Mail, ChevronRight, Clock } from '@/components/icons';
+import { Star, StarFilled, Mail, ChevronRight, Clock, Phone } from '@/components/icons';
 
 type Supplier = {
   id: string; name: string; brandKey: string; premium: boolean;
@@ -48,7 +48,7 @@ export default function PhoneBook({ entries, directory, newIds }: { entries: Ent
                 <div className="min-w-0 flex-1">
                   <div className="font-bold">{e.vendor.name}</div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[var(--muted)]">
-                    {e.vendor.phone && <span>📞 {e.vendor.phone}</span>}
+                    {e.vendor.phone && <span className="inline-flex items-center gap-1"><Phone width={12} height={12} />{e.vendor.phone}</span>}
                     {e.vendor.contactEmail && <span className="inline-flex items-center gap-1"><Mail width={12} height={12} />{e.vendor.contactEmail}</span>}
                     {(e.note || e.altEmail || e.altPhone) && <span className="text-brand-600">• your notes</span>}
                   </div>

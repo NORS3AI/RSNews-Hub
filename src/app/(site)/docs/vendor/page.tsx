@@ -10,7 +10,7 @@ import VendorReviewInbox from '@/components/site/VendorReviewInbox';
 import { AdPreviewButton } from '@/components/site/AdPreview';
 import ReportView from '@/components/ReportView';
 import { formatDate, formatDateUTC } from '@/lib/utils';
-import { ExternalLink, Megaphone, Check, X } from '@/components/icons';
+import { ExternalLink, Megaphone, Check, X, Sparkles } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +62,7 @@ export default async function VendorDashboard(props: { searchParams: Promise<{ t
                 {liveSince && (
                   <div className="p-5 sm:p-6">
                     <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950/30">
-                      <p className="font-bold text-green-800 dark:text-green-200">🎉 Your ads are live on RS News Hub</p>
+                      <p className="flex items-center gap-1.5 font-bold text-green-800 dark:text-green-200"><Sparkles width={16} height={16} className="shrink-0" /> Your ads are live on RS News Hub</p>
                       <p className="text-sm text-green-700 dark:text-green-300">Live since {formatDate(liveSince)}, published by the RS News team.</p>
                     </div>
                   </div>

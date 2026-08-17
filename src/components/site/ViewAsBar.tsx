@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { VIEW_AS_COOKIE, MEMBER_PRESETS, vendorPresetKey } from '@/lib/viewAs';
+import { Eye } from '@/components/icons';
 
 // Admin-only "View as" control, shown site-wide to staff/admin. Picking an
 // audience sets a cookie and reloads; the server re-derives content gating and
@@ -55,7 +56,7 @@ export default function ViewAsBar({ vendorBrands, active }: { vendorBrands: stri
         className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold shadow-[0_4px_18px_rgba(0,0,0,0.22)] ${active ? 'bg-brand-600 text-white' : 'bg-[var(--card)] text-[var(--fg)] border border-[var(--border)]'}`}
         title="Admin: preview the site as a member or vendor"
       >
-        <span aria-hidden>👁</span>
+        <Eye width={15} height={15} />
         {active ? <>Viewing as <span className="font-extrabold">{active}</span></> : 'View as…'}
       </button>
     </div>

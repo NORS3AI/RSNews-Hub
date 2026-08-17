@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getComicsArchiveData } from '@/lib/archiveData';
-import { ArrowLeft } from '@/components/icons';
+import { ArrowLeft, Smile } from '@/components/icons';
 import { postedLabel } from '@/lib/industry';
 import ComicImage from '@/components/site/ComicImage';
 
@@ -13,7 +13,7 @@ export default async function ComicsArchive() {
   return (
     <div className="container-page py-8 sm:py-10">
       <Link href="/docs/archive" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]"><ArrowLeft width={16} height={16} /> Archive</Link>
-      <div className="mb-2 flex items-center gap-2"><span className="text-2xl">😄</span><h1 className="text-2xl font-bold">Backroom Humor</h1></div>
+      <div className="mb-2 flex items-center gap-2"><Smile width={24} height={24} className="text-brand-600" /><h1 className="text-2xl font-bold">Backroom Humor</h1></div>
       <p className="mb-8 text-[var(--muted)]">Every comic we&apos;ve run.</p>
       {comics.length === 0 && <p className="text-[var(--muted)]">No comics yet.</p>}
 

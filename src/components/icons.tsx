@@ -29,6 +29,9 @@ export const ArrowRight = (p: P) => (<svg {...base(p)}><path d="M5 12h14M13 6l6 
 export const ArrowLeft = (p: P) => (<svg {...base(p)}><path d="M19 12H5M11 6l-6 6 6 6" /></svg>);
 export const Clock = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 export const Calendar = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>);
+export const Phone = (p: P) => (<svg {...base(p)}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13 1.05.36 2.06.68 3a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.94.32 1.95.55 3 .68A2 2 0 0 1 22 16.92Z" /></svg>);
+export const Zap = (p: P) => (<svg {...base(p)}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg>);
+export const Smile = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></svg>);
 export const Pin = (p: P) => (<svg {...base(p)}><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z" /></svg>);
 export const ExpandLR = (p: P) => (<svg {...base(p)}><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" /></svg>);
 export const Maximize = (p: P) => (<svg {...base(p)}><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>);

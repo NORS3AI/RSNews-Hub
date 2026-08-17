@@ -6,7 +6,7 @@ import { useScrollLock } from '@/lib/useScrollLock';
 import { clipShareText } from './ReaderClipper';
 import { makeQuoteImage, preloadQuoteAssets, downloadDataUrl, downloadImage, type QuoteTheme } from '@/lib/quoteImage';
 import { track } from '@/lib/analytics/track';
-import { Scissors, Download, Copy, Trash, ArrowRight, X } from '@/components/icons';
+import { Scissors, Download, Copy, Trash, ArrowRight, X, Check } from '@/components/icons';
 
 const CLIP_THEME_KEY = 'rsnews_cliptheme_v1';
 // Mini-swatch preview of each quote-image look — [body, footer strip].
@@ -135,7 +135,7 @@ export default function ClippingsList() {
                           <span className="h-3" style={{ background: t.swatch[1] }} />
                         </span>
                         {t.label}
-                        {clipTheme === t.key && <span className="ml-auto text-sm text-brand-600">✓</span>}
+                        {clipTheme === t.key && <Check width={15} height={15} className="ml-auto text-brand-600" />}
                       </button>
                     ))}
                     <p className="px-1.5 pt-2 text-xs leading-snug text-[var(--muted)]">Applies to quote images from articles. Remembered for next time.</p>

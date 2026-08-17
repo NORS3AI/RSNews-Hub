@@ -9,7 +9,7 @@ import { myTestimonial } from '@/lib/testimonials';
 import SupplierTools from '@/components/site/SupplierTools';
 import TestimonialCta from '@/components/site/TestimonialCta';
 import InArticleAd from '@/components/InArticleAd';
-import { ArrowLeft, LinkIcon, Mail, Newspaper, Users } from '@/components/icons';
+import { ArrowLeft, LinkIcon, Mail, Newspaper, Users, Phone } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +77,7 @@ export default async function SupplierDetailPage(props: { params: Promise<{ vend
         {/* Official contact — the supplier's own details. */}
         <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-[var(--border)] pt-4 text-sm">
           {supplier.contactName && <span className="inline-flex items-center gap-1.5 text-[var(--fg)]"><Users width={15} height={15} /> {supplier.contactName}</span>}
-          {supplier.phone && <span className="inline-flex items-center gap-1.5 text-[var(--fg)]">📞 {supplier.phone}</span>}
+          {supplier.phone && <span className="inline-flex items-center gap-1.5 text-[var(--fg)]"><Phone width={15} height={15} /> {supplier.phone}</span>}
           {supplier.contactEmail && (
             <a href={`mailto:${supplier.contactEmail}`} className="inline-flex items-center gap-1.5 text-[var(--fg)] hover:text-brand-600"><Mail width={15} height={15} /> {supplier.contactEmail}</a>
           )}

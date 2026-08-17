@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Countdown from './Countdown';
-import { X } from '@/components/icons';
+import { X, Megaphone } from '@/components/icons';
 import type { AnnouncementRecord } from '@/lib/announcement';
 
 // Dismissible top strip. `sig` is a signature of the visible content — when the
@@ -61,7 +61,7 @@ export default function AnnouncementBar({ record, sig }: { record: AnnouncementR
   return (
     <div className={`relative bg-brand-600 px-4 text-white ${SIZE[record.size] ?? SIZE.md}`}>
       <div className="mx-auto flex max-w-5xl items-center justify-center gap-x-3 gap-y-1 pr-7 flex-wrap">
-        <span aria-hidden className="shrink-0">📣</span>
+        <Megaphone width={16} height={16} className="shrink-0" />
         {ordered}
       </div>
       <button onClick={dismiss} aria-label="Dismiss announcement"

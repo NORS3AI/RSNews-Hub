@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getArchiveData } from '@/lib/archiveData';
-import { Archive, Newspaper, ArrowRight, BarChart, Check, ThumbsUp, Clock } from '@/components/icons';
+import { Archive, Newspaper, ArrowRight, BarChart, Check, ThumbsUp, Clock, Smile } from '@/components/icons';
 import { formatDate, classNames } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
         </Link>
         <Link href="/docs/archive/comics" className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-5 shadow-[var(--shadow-card)] transition hover:border-brand-400">
           <span className="flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-xl">😄</span>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Smile width={22} height={22} /></span>
             <span>
               <span className="block font-extrabold">Backroom Humor</span>
               <span className="block text-sm text-[var(--muted)]">Every comic we&apos;ve run.</span>

@@ -2,7 +2,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { submitTestimonial } from '@/lib/actions';
-import { X } from '@/components/icons';
+import { X, StarFilled } from '@/components/icons';
 
 type Existing = { status: string } | null;
 
@@ -53,7 +53,7 @@ export default function TestimonialCta({
         {canSubmit && (
           <div className="flex items-center gap-3">
             {statusNote && <span className="text-xs font-semibold text-[var(--muted)]">{statusNote}</span>}
-            <button onClick={openModal} className="btn-outline btn-sm whitespace-nowrap">★ {existing ? 'Edit your testimonial' : 'Leave a testimonial!'}</button>
+            <button onClick={openModal} className="btn-outline btn-sm inline-flex items-center gap-1.5 whitespace-nowrap"><StarFilled width={14} height={14} /> {existing ? 'Edit your testimonial' : 'Leave a testimonial!'}</button>
           </div>
         )}
       </div>
