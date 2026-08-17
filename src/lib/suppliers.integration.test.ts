@@ -95,4 +95,22 @@ describe('supplier lifecycle — leaving grace, sweep, rejoin', () => {
     expect(restored?.note).toBe('call Dana on Tuesdays');
     expect(restored?.leavingOn).toBeNull();
   });
+
+  it('shows no "Leaving" badge once past grace (pre-sweep) or while still premium', async () => {
+    const u = await mkUser();
+    const v = await mkVendor();
+    await prisma.savedSupplier.create({ data: { userId: u.id, vendorId: v.id } });
+
+    // Past grace but not yet swept → still listed, but the badge is gone (it only
+    // shows within the grace window, matching the expiry notification).
+    await prisma.vendor.update({ where: { id: v.id }, data: { premium: false, premiumEndedAt: new Date(Date.now() - (SUPPLIER_GRACE_DAYS + 1) * 864e5) } });
+    let entry = (await getPhoneBook(u.id)).find((b) => b.vendor.id === v.id);
+    expect(entry).toBeTruthy();
+    expect(entry?.leavingOn).toBeNull();
+
+    // A still-premium vendor never renders as leaving, even with a stray timestamp.
+    await prisma.vendor.update({ where: { id: v.id }, data: { premium: true, premiumEndedAt: new Date() } });
+    entry = (await getPhoneBook(u.id)).find((b) => b.vendor.id === v.id);
+    expect(entry?.leavingOn).toBeNull();
+  });
 });

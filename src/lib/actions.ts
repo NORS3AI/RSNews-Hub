@@ -1048,7 +1048,10 @@ export async function addSavedSupplier(vendorId: string) {
   if (!v?.premium) throw new Error('That supplier is not available in the Phone Book.');
   await prisma.savedSupplier.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
-    update: {},
+    // Clear any prior soft-removal: the premium gate above means the supplier is
+    // active, so re-starring must un-hide a lingering removedAt row (self-defensive
+    // even if a future premium path forgot to reactivate).
+    update: { removedAt: null },
     create: { userId: u.id, vendorId },
   });
   revalidatePath('/docs/suppliers');
@@ -1075,7 +1078,9 @@ export async function updateSavedSupplier(vendorId: string, data: { note?: strin
   const altPhone = (data.altPhone ?? '').trim().slice(0, 60) || null;
   await prisma.savedSupplier.upsert({
     where: { userId_vendorId: { userId: u.id, vendorId } },
-    update: { note, altEmail, altPhone },
+    // removedAt:null — premium-gated above, so saving a note also un-hides a
+    // lingering soft-removed row (mirrors addSavedSupplier).
+    update: { note, altEmail, altPhone, removedAt: null },
     create: { userId: u.id, vendorId, note, altEmail, altPhone },
   });
   revalidatePath('/docs/suppliers');

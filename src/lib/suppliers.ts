@@ -60,12 +60,19 @@ export async function getPhoneBook(userId: string): Promise<PhoneBookEntry[]> {
     select: { note: true, altEmail: true, altPhone: true, vendor: { select: supplierSelect } },
   });
   const graceMs = SUPPLIER_GRACE_DAYS * 864e5;
+  const withinGrace = new Date(Date.now() - graceMs); // ended before this → past grace
   return rows.map((r) => ({
     vendor: r.vendor,
     note: r.note,
     altEmail: r.altEmail,
     altPhone: r.altPhone,
-    leavingOn: r.vendor.premiumEndedAt ? new Date(r.vendor.premiumEndedAt.getTime() + graceMs) : null,
+    // Show the "Leaving" badge only for a vendor that has actually lost premium
+    // AND is still inside the grace window — mirrors expiringSavedSuppliersFor so
+    // the badge and the expiry notification appear/disappear together, and a
+    // still-premium vendor can never render as "leaving".
+    leavingOn: !r.vendor.premium && r.vendor.premiumEndedAt && r.vendor.premiumEndedAt >= withinGrace
+      ? new Date(r.vendor.premiumEndedAt.getTime() + graceMs)
+      : null,
   }));
 }
 
