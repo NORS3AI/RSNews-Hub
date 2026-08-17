@@ -21,7 +21,7 @@ import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelC
 import { reactivateSavedSuppliers } from './suppliers';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
-import { updateVendorContact, vendorIdForBrand } from './vendors';
+import { updateVendorContact, vendorIdForBrand, isActiveVendor } from './vendors';
 import { entitlementsOf, isVendor } from './entitlements';
 import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
@@ -328,6 +328,8 @@ export async function submitVendorReviewDecision(formData: FormData) {
   // Ownership: the signed-in account must BE this vendor.
   const ent = entitlementsOf(u);
   if (!isVendor(ent)) throw new Error('This review is for the advertiser.');
+  // Coupled to the premium switch: a de-listed vendor can't act on reviews either.
+  if (!(await isActiveVendor(u))) throw new Error('The advertiser dashboard is available to active premium suppliers only.');
   const myVendorId = await vendorIdForBrand(ent.vendorBrand);
   if (!myVendorId || myVendorId !== req.vendorId) throw new Error('This review isn’t yours.');
 
@@ -1199,6 +1201,8 @@ export async function requestVendorReport(period: string) {
   const u = await getCurrentUser();
   if (!u) throw new Error('Sign in.');
   if (!isVendor(entitlementsOf(u))) throw new Error('This is for advertisers.');
+  // Coupled to the premium switch: a de-listed vendor can't queue reports either.
+  if (!(await isActiveVendor(u))) throw new Error('The advertiser dashboard is available to active premium suppliers only.');
   if (!REPORT_PERIODS[period]) throw new Error('Pick a period.');
   const vendorId = await vendorIdForBrand(entitlementsOf(u).vendorBrand);
   if (!vendorId) throw new Error('No advertiser record is linked to your account.');

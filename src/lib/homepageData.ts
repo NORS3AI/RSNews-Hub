@@ -23,6 +23,7 @@ import { loadAds, listAdvertisers } from './adsServer';
 import { cookies } from 'next/headers';
 import { AD_PREVIEW_COOKIE } from '@/components/site/AdPreview';
 import { getSupplierAdMap, savedVendorIds } from './suppliers';
+import { isActiveVendor } from './vendors';
 import { cardSelect, toCard, type ArticleCard as Card } from './cards';
 
 /** Everything the homepage needs, fetched and derived once. The page turns this
@@ -114,8 +115,10 @@ export async function getHomepageData() {
   let previewWide = false;
   let previewRect = false;
   if (previewCookie && user) {
-    const acct = await prisma.user.findUnique({ where: { id: user.id }, select: { vendorBrand: true } });
-    if (acct?.vendorBrand && brandKey(previewCookie) === brandKey(acct.vendorBrand)) {
+    const acct = await prisma.user.findUnique({ where: { id: user.id }, select: { accountType: true, vendorBrand: true } });
+    // Coupled to the premium switch: a de-listed vendor's ad preview stops
+    // rendering, same as their dashboard closing.
+    if (acct?.vendorBrand && brandKey(previewCookie) === brandKey(acct.vendorBrand) && (await isActiveVendor(acct))) {
       previewBrand = acct.vendorBrand;
       const mine = (await listAdvertisers()).find((a) => a.key === brandKey(previewBrand));
       previewWide = !!mine?.wide;
