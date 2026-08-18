@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { Prisma } from '@prisma/client';
@@ -269,6 +269,7 @@ export async function saveArticle(formData: FormData) {
 
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
+  revalidateTag('reader-content'); // refresh cached category/tag/list pages now
   redirect('/admin/articles');
 }
 
@@ -416,6 +417,7 @@ export async function restoreArticleRevision(revisionId: string) {
   });
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
   // Navigate back to the editor so it remounts with the restored content.
   redirect(`/admin/articles/${rev.articleId}`);
 }
@@ -434,12 +436,15 @@ export async function setArticleStatus(id: string, status: string) {
   if (status === 'PUBLISHED') after(() => notifySponsorLive(id).catch(() => {}));
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 export async function deleteArticle(id: string) {
   await ensureStaff();
   await prisma.article.delete({ where: { id } });
   revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 /* ------------------------------- Categories ------------------------------ */
@@ -457,6 +462,7 @@ export async function saveCategory(formData: FormData) {
   revalidatePath('/admin/categories');
   revalidatePath('/docs/categories');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 export async function deleteCategory(id: string) {
@@ -465,6 +471,7 @@ export async function deleteCategory(id: string) {
   revalidatePath('/admin/categories');
   revalidatePath('/docs/categories');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 /* ----------------------------- Ad management ----------------------------- */
@@ -823,12 +830,14 @@ export async function saveTag(formData: FormData) {
   if (id) await prisma.tag.update({ where: { id }, data: { name, slug } });
   else await prisma.tag.create({ data: { name, slug } });
   revalidatePath('/admin/tags');
+  revalidateTag('reader-content');
 }
 
 export async function deleteTag(id: string) {
   await ensureStaff();
   await prisma.tag.delete({ where: { id } });
   revalidatePath('/admin/tags');
+  revalidateTag('reader-content');
 }
 
 /* --------------------------------- Pages --------------------------------- */
@@ -844,6 +853,7 @@ export async function savePage(formData: FormData) {
   if (id) await prisma.page.update({ where: { id }, data: { title, slug, content, status } });
   else await prisma.page.create({ data: { title, slug, content, status } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
   redirect('/admin/pages');
 }
 
@@ -851,12 +861,14 @@ export async function setPageStatus(id: string, status: string) {
   await ensureStaff();
   await prisma.page.update({ where: { id }, data: { status } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
 }
 
 export async function deletePage(id: string) {
   await ensureStaff();
   await prisma.page.delete({ where: { id } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
 }
 
 /* --------------------------------- Users --------------------------------- */

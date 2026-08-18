@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { prisma } from './db';
 import { publishedArticles } from './queries';
 
@@ -7,12 +8,26 @@ import { publishedArticles } from './queries';
 // page turns into notFound(). Articles flow through the canonical card select
 // (via publishedArticles → lib/cards), so they carry the derived `sponsored`
 // flag for the Partner-content disclosure.
-export async function getCategoryData(slug: string) {
-  const category = await prisma.category.findUnique({ where: { slug } });
-  if (!category) return null;
-  const articles = await publishedArticles({ categoryId: category.id });
-  return { category, articles };
-}
+//
+// Cached in Next's data cache: the query bundle is shared across all requests and
+// recomputed at most once every 60s (the whole route is dynamic because the shell
+// layout reads the auth cookie, so this is where the DB-load win actually lands
+// under traffic). Safe to cache because nothing here is personalized — the same
+// bytes for every visitor. Card date fields serialize to strings through the
+// cache, which the card/badge views already tolerate (formatDate/isBreaking coerce
+// strings), the same way cards already cross the RSC→client boundary. Bounded 60s
+// staleness on newly-published/edited content is fine for a listing surface; bump
+// freshness later with revalidateTag('reader-content') from the publish action.
+export const getCategoryData = unstable_cache(
+  async (slug: string) => {
+    const category = await prisma.category.findUnique({ where: { slug } });
+    if (!category) return null;
+    const articles = await publishedArticles({ categoryId: category.id });
+    return { category, articles };
+  },
+  ['category-data'],
+  { revalidate: 60, tags: ['reader-content'] },
+);
 
 export type CategoryPageData = NonNullable<Awaited<ReturnType<typeof getCategoryData>>>;
 
@@ -23,11 +38,14 @@ export async function getCategoryMeta(slug: string) {
 }
 
 // The categories index — every category with its live published-article count.
-export async function getCategoriesData() {
-  return prisma.category.findMany({
+// Cached like getCategoryData (public, non-personalized; 60s TTL).
+export const getCategoriesData = unstable_cache(
+  async () => prisma.category.findMany({
     orderBy: { name: 'asc' },
     include: { _count: { select: { articles: { where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } } } } } },
-  });
-}
+  }),
+  ['categories-index'],
+  { revalidate: 60, tags: ['reader-content'] },
+);
 
 export type CategoriesData = Awaited<ReturnType<typeof getCategoriesData>>;
