@@ -8,7 +8,58 @@
 > **Legend:** ✅ done · 🔵 Claude can do this in-repo · 🟠 needs a developer/infra ·
 > ❓ open question for the team
 >
-> _Last updated: 2026-08-12 (v0.121.0)_
+> _Last updated: 2026-08-18_
+
+---
+
+## 0a. Latest session (2026-08-18) — hardening, resilience, a11y
+
+Recent in-repo work (all merged, tests green). Context for the dev + a short
+list of things only your side can finish.
+
+**Shipped in-repo (🔵 done):**
+- **Reader-page data caching** — category / tag / categories-index / static-page
+  queries are wrapped in Next's data cache (60s TTL, tag `reader-content`), so
+  traffic spikes don't hammer Postgres. Content mutations call
+  `revalidateTag('reader-content')` for instant freshness. `homepageData` /
+  article stay per-request (personalized).
+- **Security fixes** (from a fresh 3-angle audit): suspended sessions now rejected
+  live in local-auth mode; local session JWT pins HS256 + requires `exp`; the
+  article preview token compares in constant time; `/api/search` is rate-limited
+  (unindexed `ILIKE` over `content` — was an unthrottled DoS).
+- **Ad-analytics attribution is now server-authoritative** — `recordEvents`
+  resolves each ad event's brand from the real `Ad` row (by `subjectId = Ad.id`)
+  and drops events with a bogus ad id, so a forged beacon can no longer credit or
+  poison an advertiser's report. **Note:** this fixes *brand forgery*, not
+  *volume* — spamming a real ad's own counter is still bounded only by the rate
+  limiter, which needs **S1** (below) to be effective.
+- **App Content-Security-Policy** — nonce-based `script-src` (second lock behind
+  the HTML sanitizer) set per-request in `middleware.ts`; the inline theme
+  bootstrap in `app/layout.tsx` is nonce-stamped. `style-src` keeps
+  `'unsafe-inline'` (React inline style attributes). `/uploads` keeps its strict
+  sandbox. Verified: 0 CSP violations across reader + admin in a real browser.
+
+**🟠 Dev/infra to finish (the short list):**
+1. **Wire the rate-limiter to the trusted edge IP** — this is **S1** below. It now
+   *also* closes the ad-click-volume residual above, not just login/register. Put
+   the hub behind a proxy/LB that **overwrites** `X-Forwarded-For` (or adjust
+   `clientIp` in `src/lib/rateLimit.ts` to your proxy's hop count).
+2. **Turn on S3/R2 for uploads** (§2 item 7) — local disk is the default and does
+   **not** survive redeploys or multiple instances. Set the `S3_*` env vars.
+3. **Point a scheduler at the cron endpoints** — `/api/ads/maintenance`,
+   `/api/cron/newsletter`, `/api/analytics/rollup` (needs `CRON_SECRET` +
+   `PROD_URL`). Until then the admin dashboard flags them "Never run" and
+   **newsletters don't send**. The committed `nightly.yml` Action does this if you
+   set the repo secrets, or use the host's native scheduler.
+4. **Create the first admin via `/admin-setup`, not by registering** — on a fresh
+   *local-auth* deploy the first account to self-register is auto-promoted to
+   ADMIN (bootstrap foot-gun). In delegated (production) auth, self-registration
+   is disabled, so this only matters for a standalone install. Use the token-gated
+   `/admin-setup` flow (or set `SEED_ADMIN_*`, item 4 in §1).
+
+**❓ Owner (not code):** the brand-orange contrast fix (still open — see §1b L5;
+the form-label / in-text-link a11y items from the same axis are now fixed in
+repo), the legal-page blanks (§1b L1), and real editorial content.
 
 ---
 

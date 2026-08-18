@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import { SITE_NAME, SITE_DESCRIPTION } from '@/lib/constants';
 import { getSessionUser } from '@/lib/auth';
@@ -42,16 +43,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     if (s && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s.value)) rsBg = s.value;
   } catch { /* ignore */ }
 
+  // CSP nonce (set per-request in middleware) — stamps the inline bootstrap so it
+  // runs under the strict script-src. Empty in dev/tests where no CSP is applied.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var st=${JSON.stringify(serverTheme)};var t=st||localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var el=document.documentElement;if(t==='dark'||(!t&&m)){el.classList.add('dark');}else if(t==='rs'){el.classList.add('rs');}if(st){try{localStorage.setItem('theme',st);}catch(e){}}}catch(e){}})();`,
           }}
         />
         {rsBg && (
-          <style dangerouslySetInnerHTML={{ __html: `.rs body::before{background-image:none!important;background-color:${rsBg}!important;}` }} />
+          <style nonce={nonce} dangerouslySetInnerHTML={{ __html: `.rs body::before{background-image:none!important;background-color:${rsBg}!important;}` }} />
         )}
       </head>
       <body className="min-h-screen antialiased">{children}</body>
