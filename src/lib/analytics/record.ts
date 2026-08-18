@@ -33,26 +33,59 @@ export function serializeProps(props: unknown): string | null {
 // rather than failing the whole batch (analytics must never break a page).
 export async function recordEvents(events: unknown, ctx: Ctx): Promise<number> {
   if (!Array.isArray(events)) return 0;
-  const rows = events
+  const staged = events
     .slice(0, MAX_BATCH)
     .filter((e): e is ClientEvent => !!e && typeof e === 'object' && VALID.has((e as ClientEvent).type))
-    .map((e) => {
-      const props = e.props && typeof e.props === 'object' ? e.props : undefined;
-      return {
-        type: String(e.type),
-        subjectType: str(e.subjectType, 24),
-        subjectId: str(e.subjectId, 200),
-        visitorId: ctx.visitorId,
-        userId: ctx.userId,
-        sessionId: str(e.sessionId, 64),
-        pageType: str(e.pageType, 32),
-        placement: str(e.placement, 64),
-        path: str(e.path, 400),
-        device: ctx.device,
-        value: typeof e.value === 'number' && isFinite(e.value) ? e.value : null,
-        props: serializeProps(props),
-      };
-    });
+    .map((e) => ({
+      type: String(e.type),
+      subjectType: str(e.subjectType, 24),
+      subjectId: str(e.subjectId, 200),
+      sessionId: str(e.sessionId, 64),
+      pageType: str(e.pageType, 32),
+      placement: str(e.placement, 64),
+      path: str(e.path, 400),
+      value: typeof e.value === 'number' && isFinite(e.value) ? e.value : null,
+      props: (e.props && typeof e.props === 'object' ? { ...(e.props as Record<string, unknown>) } : undefined) as Record<string, unknown> | undefined,
+    }));
+
+  // Ad attribution is decided by the SERVER, never the client. Advertiser reports
+  // key on props.campaignId/brand (see metrics.brandOf); a beacon is client-
+  // controlled, so a forged one could otherwise credit/poison any advertiser's
+  // numbers. Resolve the real brand from the ad's own row (by subjectId = Ad.id),
+  // overwrite the client-claimed brand/campaign/flight, and DROP any ad event whose
+  // subjectId isn't a real ad. So the reports derive from the DB, not the browser.
+  const adIds = [...new Set(staged.filter((r) => r.subjectType === 'ad' && r.subjectId).map((r) => r.subjectId as string))];
+  const adById = new Map<string, { brand: string; flightId: string | null }>();
+  if (adIds.length) {
+    const ads = await prisma.ad.findMany({ where: { id: { in: adIds } }, select: { id: true, brand: true, flightId: true } });
+    for (const a of ads) adById.set(a.id, { brand: a.brand, flightId: a.flightId });
+  }
+
+  const rows = staged
+    .filter((r) => {
+      if (r.subjectType !== 'ad') return true;
+      const ad = r.subjectId ? adById.get(r.subjectId) : undefined;
+      if (!ad) return false; // unknown / forged ad id — never counts toward a report
+      const p = (r.props ??= {});
+      p.brand = ad.brand;       // authoritative — overwrite whatever the client sent
+      p.campaignId = ad.brand;
+      if (ad.flightId) p.flightId = ad.flightId; else delete p.flightId;
+      return true;
+    })
+    .map((r) => ({
+      type: r.type,
+      subjectType: r.subjectType,
+      subjectId: r.subjectId,
+      visitorId: ctx.visitorId,
+      userId: ctx.userId,
+      sessionId: r.sessionId,
+      pageType: r.pageType,
+      placement: r.placement,
+      path: r.path,
+      device: ctx.device,
+      value: r.value,
+      props: serializeProps(r.props),
+    }));
   if (!rows.length) return 0;
   await prisma.analyticsEvent.createMany({ data: rows });
   return rows.length;
