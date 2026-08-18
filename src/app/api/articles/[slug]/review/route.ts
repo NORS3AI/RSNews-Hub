@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { parseJson } from '@/lib/http';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { moderateText } from '@/lib/moderation';
+
+// Constant-time token equality (length-checked) — matches the ingest/cron paths.
+function tokenMatches(stored: string | null, given: string): boolean {
+  if (!stored) return false;
+  const a = Buffer.from(stored);
+  const b = Buffer.from(given);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 // Public (unauthenticated) endpoint: an invited reviewer submits an approval or a
 // change request on a DRAFT preview. The preview TOKEN is the access control — a
@@ -30,7 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
 
   const article = await prisma.article.findUnique({ where: { slug }, select: { id: true, title: true, previewToken: true, status: true, publishedAt: true } });
   // Token is the gate — a wrong/absent token reveals nothing.
-  if (!article || !article.previewToken || article.previewToken !== token) {
+  if (!article || !tokenMatches(article.previewToken, token)) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   // Reviews are a PRE-publish step. Once the piece is publicly live (or archived),

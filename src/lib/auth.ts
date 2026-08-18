@@ -61,7 +61,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, getAuthSecret());
+    // Pin the algorithm + require an expiry, matching the delegated parent-JWT
+    // verifier. Symmetric key already precludes RS/none, but this is explicit.
+    const { payload } = await jwtVerify(token, getAuthSecret(), { algorithms: ['HS256'], requiredClaims: ['exp'] });
     return {
       id: payload.id as string,
       email: payload.email as string,
@@ -90,7 +92,10 @@ export async function getCurrentUser() {
     where: { id: session.id },
     select: { id: true, email: true, name: true, role: true, status: true, bio: true, createdAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true },
   });
-  if (!user || user.status === 'BANNED') return null;
+  // Re-check status on every request so an admin ban OR suspension takes effect
+  // immediately, even against a still-valid 7-day session token. (Matches the
+  // login route and the delegated-auth path, which both reject SUSPENDED too.)
+  if (!user || user.status === 'BANNED' || user.status === 'SUSPENDED') return null;
   return user;
 }
 
