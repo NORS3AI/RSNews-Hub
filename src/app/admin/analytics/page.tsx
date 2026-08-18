@@ -127,12 +127,12 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Hub overview</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Visitors" value={nf(ov.visitors)} />
-              <Tile label="Sessions" value={nf(ov.sessions)} />
-              <Tile label="Pageviews" value={nf(ov.pageviews)} />
-              <Tile label="Article opens" value={nf(ov.articleOpens)} />
-              <Tile label="Opens / session" value={String(ov.opensPerSession)} />
-              <Tile label="Signed-in" value={nf(ov.loggedInVisitors)} />
+              <Tile label="Visitors" value={nf(ov.visitors)} tip="Distinct people who loaded any hub page in this window — counted by browser for guests, by account for signed-in members." />
+              <Tile label="Sessions" value={nf(ov.sessions)} tip="Browsing sessions. A session ends after about 30 minutes of inactivity, so one person can have several over the window." />
+              <Tile label="Pageviews" value={nf(ov.pageviews)} tip="Total pages loaded, including repeat views of the same page. Always higher than Visitors." />
+              <Tile label="Article opens" value={nf(ov.articleOpens)} tip="Times an article was opened to read (reader view or modal), across everyone." />
+              <Tile label="Opens / session" value={String(ov.opensPerSession)} tip="Average articles opened per session — a quick gauge of how deep a typical visit goes." />
+              <Tile label="Signed-in" value={nf(ov.loggedInVisitors)} tip="Of the visitors, how many were logged-in members. The rest browsed anonymously." />
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <BarList title="By device" rows={ov.byDevice} />
@@ -144,12 +144,12 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Members — activation &amp; retention</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Members" value={nf(act.members)} hint="provisioned accounts" />
-              <Tile label={`Active · ${days}d`} value={nf(act.active)} hint={`${pctOf(act.active, act.members)} of members`} />
-              <Tile label={`Engaged · ${days}d`} value={nf(act.engaged)} hint={`${pctOf(act.engaged, act.active)} of active`} />
-              <Tile label="Came back" value={nf(act.returned)} hint={`${pctOf(act.returned, act.active)} of active`} />
-              <Tile label={`New · ${days}d`} value={nf(cohort.cohortSize)} hint="joined this window" />
-              <Tile label="New-member return" value={pctOf(cohort.returned, cohort.cohortSize)} hint={`${nf(cohort.returned)} came back`} />
+              <Tile label="Members" value={nf(act.members)} hint="have opened the hub" tip="Members who've opened the hub at least once. An account is created on a member's first visit, so this is 'members reached' — not your full RS News roster, which lives on the parent site until people show up." />
+              <Tile label={`Active · ${days}d`} value={nf(act.active)} hint={`${pctOf(act.active, act.members)} of members`} tip="Members who did anything at all in the hub during this window." />
+              <Tile label={`Engaged · ${days}d`} value={nf(act.engaged)} hint={`${pctOf(act.engaged, act.active)} of active`} tip="Members who took a real action — opened or read an article, saved, recommended, clipped, or searched — not just landed on a page." />
+              <Tile label="Came back" value={nf(act.returned)} hint={`${pctOf(act.returned, act.active)} of active`} tip="Members active on 2 or more different days in this window. The core 'is it sticky?' signal." />
+              <Tile label={`New · ${days}d`} value={nf(cohort.cohortSize)} hint="joined this window" tip="Members who opened the hub for the very first time during this window." />
+              <Tile label="New-member return" value={pctOf(cohort.returned, cohort.cohortSize)} hint={`${nf(cohort.returned)} came back`} tip="Of those brand-new members, the share who came back on a later day. The single clearest 'worth returning to' number." />
             </div>
             <div className="mt-3">
               <BarList title="Active members / day (new + returning)" rows={activePerDay} />
@@ -217,12 +217,12 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Reading — outcome</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Avg active read" value={fmtMs(reading.avgActiveMs)} />
-              <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} />
-              <Tile label="Unique readers" value={nf(reading.uniqueReaders)} />
-              <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" />
-              <Tile label="Recommends" value={nf(reading.recommends)} hint="cast in range" />
-              <Tile label="Recommenders" value={nf(reading.recommenders)} hint="unique readers" />
+              <Tile label="Avg active read" value={fmtMs(reading.avgActiveMs)} tip="Average time readers were actively engaged with an article — idle time is excluded, so this is real attention, not just how long the tab was open." />
+              <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} tip="On average, how far down the article readers scrolled before leaving." />
+              <Tile label="Unique readers" value={nf(reading.uniqueReaders)} tip="Distinct people who opened at least one article in this window." />
+              <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" tip="Article opens abandoned in under 5 seconds — a sign the piece didn't hook them (or was opened by mistake)." />
+              <Tile label="Recommends" value={nf(reading.recommends)} hint="cast in range" tip="Times readers hit 'Recommend' on an article during this window (each press counts)." />
+              <Tile label="Recommenders" value={nf(reading.recommenders)} hint="unique readers" tip="Distinct people who recommended at least one article — the headcount behind the recommends." />
             </div>
             <div className="mt-3">
               <BarList title="Scroll reach" rows={[
@@ -238,13 +238,13 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Clippings</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-              <Tile label="Saves" value={nf(clips.saves)} />
-              <Tile label="Savers" value={nf(clips.savers)} />
-              <Tile label="Comics" value={nf(clips.byKind.comic)} />
-              <Tile label="Quotes" value={nf(clips.byKind.quote)} />
-              <Tile label="Downloads" value={nf(clips.downloads)} />
-              <Tile label="Expands" value={nf(clips.expands)} />
-              <Tile label="Deletes" value={nf(clips.deletes)} />
+              <Tile label="Saves" value={nf(clips.saves)} tip="Clippings saved — a quote image or comic a reader kept to their collection." />
+              <Tile label="Savers" value={nf(clips.savers)} tip="Distinct people who saved at least one clipping." />
+              <Tile label="Comics" value={nf(clips.byKind.comic)} tip="Saved clippings that are comics." />
+              <Tile label="Quotes" value={nf(clips.byKind.quote)} tip="Saved clippings that are quote images (a highlighted passage turned into a shareable graphic)." />
+              <Tile label="Downloads" value={nf(clips.downloads)} tip="Times a saved clipping was downloaded as an image file." />
+              <Tile label="Expands" value={nf(clips.expands)} tip="Times a clipping was opened to full size." />
+              <Tile label="Deletes" value={nf(clips.deletes)} tip="Saved clippings a reader later removed from their collection." />
             </div>
           </section>
 
@@ -254,10 +254,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             {themes.totalUsers > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Tile label="Light" value={`${nf(themes.rows[0].users)}`} hint={pctStr(themes.rows[0].pct)} />
-                  <Tile label="Dark" value={`${nf(themes.rows[1].users)}`} hint={pctStr(themes.rows[1].pct)} />
-                  <Tile label="RS Mode" value={`${nf(themes.rows[2].users)}`} hint={pctStr(themes.rows[2].pct)} />
-                  <Tile label="Theme switches" value={nf(themes.switches)} hint="deliberate toggles" />
+                  <Tile label="Light" value={`${nf(themes.rows[0].users)}`} hint={pctStr(themes.rows[0].pct)} tip="People whose most recent theme this window was Light mode." />
+                  <Tile label="Dark" value={`${nf(themes.rows[1].users)}`} hint={pctStr(themes.rows[1].pct)} tip="People whose most recent theme this window was Dark mode." />
+                  <Tile label="RS Mode" value={`${nf(themes.rows[2].users)}`} hint={pctStr(themes.rows[2].pct)} tip="People whose most recent theme this window was RS Mode (the branded look)." />
+                  <Tile label="Theme switches" value={nf(themes.switches)} hint="deliberate toggles" tip="Times someone actively changed their theme — a signal of how much people fiddle with the appearance." />
                 </div>
                 <div className="mt-3">
                   <BarList title={`Share of ${nf(themes.totalUsers)} visitors`} rows={themes.rows.map((r) => ({ key: r.label, count: Math.round(r.pct * 100) }))} suffix="%" max={100} />
@@ -280,11 +280,20 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-2.5 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{children}</h2>;
 }
 
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Tile({ label, value, hint, tip }: { label: string; value: string; hint?: string; tip?: string }) {
   return (
-    <div className="card p-3.5">
+    <div
+      className={`card group relative p-3.5${tip ? ' cursor-help' : ''}`}
+      tabIndex={tip ? 0 : undefined}
+      title={tip /* native fallback for touch + assistive tech */}>
+      {tip && <span aria-hidden className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full border border-[var(--border)] text-[9px] font-black leading-none text-[var(--muted)] opacity-45 transition-opacity group-hover:opacity-90">i</span>}
       <div className="text-2xl font-black leading-none tracking-tight">{value}</div>
       <div className="mt-1 text-xs font-semibold text-[var(--muted)]">{label}{hint ? <span className="ml-1 font-normal opacity-70">· {hint}</span> : ''}</div>
+      {tip && (
+        <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-[240px] -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--fg)] px-3 py-2 text-left text-[11px] font-normal leading-snug text-[var(--card)] opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
+          {tip}
+        </span>
+      )}
     </div>
   );
 }
