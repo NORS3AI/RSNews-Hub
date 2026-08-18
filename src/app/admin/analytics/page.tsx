@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { loadEvents, totalEventCount, loadUserInfo } from '@/lib/analytics/query';
+import { loadEvents, totalEventCount, loadUserInfo, loadMembers, rangeDays } from '@/lib/analytics/query';
+import { aggregateActivation, aggregateNewVsReturning, aggregateCohortReturn } from '@/lib/analytics/retention';
 import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, aggregateThemes, ctr } from '@/lib/analytics/metrics';
 import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
@@ -21,6 +22,7 @@ function fmtMs(ms: number) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 const pctStr = (n: number) => `${Math.round(n * 100)}%`;
+const pctOf = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—');
 const nf = (n: number) => n.toLocaleString();
 
 export default async function AnalyticsPage(props: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -36,8 +38,13 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
   const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
 
-  const [{ events, capped }, total, series] = await Promise.all([loadEvents(days), totalEventCount(), loadDailySeries(new Date(), days)]);
+  const [{ events, capped }, total, series, members] = await Promise.all([loadEvents(days), totalEventCount(), loadDailySeries(new Date(), days), loadMembers()]);
   const ov = aggregateOverview(events);
+  // Member activation + retention — are invited members showing up, doing
+  // something, and coming back? (signed-in accounts only)
+  const act = aggregateActivation(members, events);
+  const cohort = aggregateCohortReturn(members, events, rangeDays(days).since);
+  const activePerDay = aggregateNewVsReturning(members, events).map((d) => ({ key: d.day, count: d.newMembers + d.returningMembers }));
 
   // Trend series from the daily rollups (survives raw-event pruning).
   const sum = (pick: (d: (typeof series)[number]) => number) => series.reduce((a, d) => a + pick(d), 0);
@@ -131,6 +138,26 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
               <BarList title="By device" rows={ov.byDevice} />
               <BarList title="By page" rows={ov.byPage} />
             </div>
+          </section>
+
+          {/* ---------- Members: activation & retention ---------- */}
+          <section>
+            <SectionTitle>Members — activation &amp; retention</SectionTitle>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile label="Members" value={nf(act.members)} hint="provisioned accounts" />
+              <Tile label={`Active · ${days}d`} value={nf(act.active)} hint={`${pctOf(act.active, act.members)} of members`} />
+              <Tile label={`Engaged · ${days}d`} value={nf(act.engaged)} hint={`${pctOf(act.engaged, act.active)} of active`} />
+              <Tile label="Came back" value={nf(act.returned)} hint={`${pctOf(act.returned, act.active)} of active`} />
+              <Tile label={`New · ${days}d`} value={nf(cohort.cohortSize)} hint="joined this window" />
+              <Tile label="New-member return" value={pctOf(cohort.returned, cohort.cohortSize)} hint={`${nf(cohort.returned)} came back`} />
+            </div>
+            <div className="mt-3">
+              <BarList title="Active members / day (new + returning)" rows={activePerDay} />
+            </div>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">
+              <strong>Engaged</strong> = took a real action (opened/read an article, saved, recommended, clipped, searched) — not just landed.
+              <strong> Came back</strong> = active on 2+ different days. <strong>New-member return</strong> = of members who first appeared in this window, the share who returned on a later day — the clearest signal the hub is worth coming back to. These count signed-in accounts only; anonymous traffic is in Hub overview above.
+            </p>
           </section>
 
           {/* ---------- Audience segmentation ---------- */}
