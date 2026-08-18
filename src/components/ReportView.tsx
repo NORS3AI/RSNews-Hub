@@ -3,11 +3,20 @@ import type { ReportSnapshot } from '@/lib/reports';
 const pctStr = (f: number) => `${(f * 100).toFixed(1)}%`;
 const n = (x: number) => x.toLocaleString('en-US');
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, tip }: { label: string; value: string; tip?: string }) {
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-3">
+    <div
+      className={`group relative rounded-lg border border-[var(--border)] bg-[var(--card-2)] p-3${tip ? ' cursor-help' : ''}`}
+      tabIndex={tip ? 0 : undefined}
+      title={tip}>
+      {tip && <span aria-hidden className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full border border-[var(--border)] text-[9px] font-black leading-none text-[var(--muted)] opacity-45 transition-opacity group-hover:opacity-90">i</span>}
       <div className="text-lg font-bold">{value}</div>
       <div className="text-xs text-[var(--muted)]">{label}</div>
+      {tip && (
+        <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-[230px] -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--fg)] px-3 py-2 text-left text-[11px] font-normal leading-snug text-[var(--card)] opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
+          {tip}
+        </span>
+      )}
     </div>
   );
 }
@@ -22,9 +31,9 @@ function Table({ title, rows, firstCol = 'Name' }: { title: string; rows: Report
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)]">
               <th className="py-1 pr-3 font-medium">{firstCol}</th>
-              <th className="py-1 pr-3 text-right font-medium">Impressions</th>
-              <th className="py-1 pr-3 text-right font-medium">Clicks</th>
-              <th className="py-1 text-right font-medium">CTR</th>
+              <th className="py-1 pr-3 text-right font-medium" title="How many times your ads were shown on a page.">Impressions</th>
+              <th className="py-1 pr-3 text-right font-medium" title="How many times readers clicked your ads.">Clicks</th>
+              <th className="py-1 text-right font-medium" title="Click-through rate — clicks ÷ viewable impressions.">CTR</th>
             </tr>
           </thead>
           <tbody>
@@ -51,12 +60,12 @@ export default function ReportView({ snapshot }: { snapshot: ReportSnapshot }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Impressions" value={n(t.impressions)} />
-        <Stat label="Viewable" value={n(t.viewable)} />
-        <Stat label="Clicks" value={n(t.clicks)} />
-        <Stat label="CTR" value={pctStr(t.ctr)} />
-        <Stat label="Avg. dwell" value={`${(t.avgDwellMs / 1000).toFixed(1)}s`} />
-        <Stat label="Above the fold" value={pctStr(t.aboveFoldPct)} />
+        <Stat label="Impressions" value={n(t.impressions)} tip="How many times your ads were shown on a page during this period." />
+        <Stat label="Viewable" value={n(t.viewable)} tip="Of those, how many actually scrolled into a reader's view — the fair basis for your click rate." />
+        <Stat label="Clicks" value={n(t.clicks)} tip="How many times readers clicked your ads through to your link." />
+        <Stat label="CTR" value={pctStr(t.ctr)} tip="Click-through rate — clicks ÷ viewable impressions. Measured against viewable (not every) impression so ad placement doesn't distort it." />
+        <Stat label="Avg. dwell" value={`${(t.avgDwellMs / 1000).toFixed(1)}s`} tip="On average, how long your ad stayed in a reader's view — a sense of the attention it held." />
+        <Stat label="Above the fold" value={pctStr(t.aboveFoldPct)} tip="The share of your impressions shown near the top of the page, visible without scrolling." />
       </div>
       {!hasData && (
         <p className="text-sm text-[var(--muted)]">No ad activity was recorded for this period.</p>
