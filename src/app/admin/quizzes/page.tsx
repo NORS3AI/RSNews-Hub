@@ -41,8 +41,8 @@ export default async function AdminQuizzes() {
             <p className="mt-1 text-xs text-[var(--muted)]">Separate questions with a blank line. First line = prompt, then 2–8 options. Prefix the correct option with <code>*</code>.</p>
           </div>
           <div className="flex items-end gap-3">
-            <div className="w-28"><label className="label">Open for (hours)</label><input name="hours" type="number" min={1} defaultValue={48} className="input" /></div>
-            <div className="flex-1"><label className="label">Or close at</label><input name="closesAt" type="datetime-local" className="input" /></div>
+            <div className="w-28"><label className="label">Open for (hours)</label><input name="hours" aria-label="Open for (hours)" type="number" min={1} defaultValue={48} className="input" /></div>
+            <div className="flex-1"><label className="label">Or close at</label><input name="closesAt" aria-label="Or close at" type="datetime-local" className="input" /></div>
           </div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active (show on homepage)</label>
           <button className="btn-primary w-full">Publish quiz</button>
@@ -94,7 +94,7 @@ export default async function AdminQuizzes() {
                   <div><label className="label">Title</label><input name="title" required defaultValue={quiz.title} className="input" /></div>
                   <QuizEditor questions={quiz.questions.map((q) => ({ id: q.id, prompt: q.prompt, options: q.options.map((o) => ({ id: o.id, label: o.label, correct: o.correct, count: o.count })) }))} />
                   <div className="flex items-end gap-4">
-                    <div className="flex-1"><label className="label">Closes</label><input name="closesAt" type="datetime-local" defaultValue={toLocalInput(quiz.closesAt)} className="input" /></div>
+                    <div className="flex-1"><label className="label">Closes</label><input name="closesAt" aria-label="Quiz closes at" type="datetime-local" defaultValue={toLocalInput(quiz.closesAt)} className="input" /></div>
                     <label className="mb-2.5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={quiz.active} className="h-4 w-4" /> Active</label>
                   </div>
                   <div className="flex items-center justify-between">

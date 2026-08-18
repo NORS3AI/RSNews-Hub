@@ -67,7 +67,7 @@ export default async function AdminArticles(props: { searchParams: Promise<{ sta
           "current" surfaces. Admin-set; 0 = off. */}
       <form action={setAutoArchiveMonths} className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card">
         <span className="text-sm font-semibold">Auto-archive old articles</span>
-        <select name="months" defaultValue={String(autoMonths)} className="input h-9 w-auto py-1 text-sm">
+        <select name="months" aria-label="Auto-archive articles after" defaultValue={String(autoMonths)} className="input h-9 w-auto py-1 text-sm">
           <option value="0">Off</option>
           <option value="12">After 1 year</option>
           <option value="24">After 2 years</option>

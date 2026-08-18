@@ -30,7 +30,7 @@ export default function ConsentBanner() {
       <div className="mx-auto flex max-w-4xl flex-col items-start gap-3 sm:flex-row sm:items-center">
         <p className="flex-1 text-sm text-[var(--fg)]">
           We use cookies to keep you signed in and to understand what readers find useful. See our{' '}
-          <Link href="/docs/page/privacy" className="font-semibold text-brand-600 hover:underline">Privacy Policy</Link>.
+          <Link href="/docs/page/privacy" className="font-semibold text-brand-600 underline">Privacy Policy</Link>.
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <button type="button" onClick={() => choose('declined')}

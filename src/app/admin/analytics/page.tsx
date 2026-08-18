@@ -142,7 +142,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
               rows={audience.slice(0, 50)}
               filename={`audience-by-${audSplit}-${days}d`}
             />
-            <p className="mt-1.5 text-xs text-[var(--muted)]">Anonymous visitors show as <strong>Guest</strong>. <strong>Account type</strong> (member/vendor/staff), <strong>region</strong> and <strong>store type</strong> come from each account; set them on <Link href="/admin/users" className="text-brand-600 hover:underline">Users</Link>. <strong>Tenure</strong> is measured from signup.</p>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">Anonymous visitors show as <strong>Guest</strong>. <strong>Account type</strong> (member/vendor/staff), <strong>region</strong> and <strong>store type</strong> come from each account; set them on <Link href="/admin/users" className="text-brand-600 underline">Users</Link>. <strong>Tenure</strong> is measured from signup.</p>
           </section>
 
           {/* ---------- Ads ---------- */}

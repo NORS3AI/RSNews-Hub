@@ -35,12 +35,12 @@ export default async function AdminPolls() {
       <div className="grid gap-6 lg:grid-cols-3">
         <AutoPlugForm kind="poll" action={createPoll} className="card h-fit space-y-3 p-5 lg:col-span-1">
           <h2 className="font-semibold">New poll</h2>
-          <div><label className="label">Question</label><input name="question" required className="input" placeholder="What should we cover next?" /></div>
+          <div><label className="label">Question</label><input name="question" aria-label="Poll question" required className="input" placeholder="What should we cover next?" /></div>
           <div>
             <label className="label">Options (one per line, 2–8)</label>
             <textarea name="options" required className="input min-h-[110px]" placeholder={'Shipping tips\nStore management\nMarketing\nIndustry news'} />
           </div>
-          <div><label className="label">Closes (optional)</label><input name="closesAt" type="datetime-local" className="input" /></div>
+          <div><label className="label">Closes (optional)</label><input name="closesAt" aria-label="Poll closes at" type="datetime-local" className="input" /></div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Active (show on homepage)</label>
           <button className="btn-primary w-full">Publish poll</button>
         </AutoPlugForm>
@@ -77,10 +77,10 @@ export default async function AdminPolls() {
 
                 <form action={updatePoll} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                   <input type="hidden" name="id" value={poll.id} />
-                  <div><label className="label">Question</label><input name="question" required defaultValue={poll.question} className="input" /></div>
+                  <div><label className="label">Question</label><input name="question" aria-label="Poll question" required defaultValue={poll.question} className="input" /></div>
                   <PollOptionsEditor options={poll.options.map((o) => ({ id: o.id, label: o.label, votes: o.votes }))} />
                   <div className="flex items-end gap-4">
-                    <div className="flex-1"><label className="label">Closes</label><input name="closesAt" type="datetime-local" defaultValue={toLocalInput(poll.closesAt)} className="input" /></div>
+                    <div className="flex-1"><label className="label">Closes</label><input name="closesAt" aria-label="Poll closes at" type="datetime-local" defaultValue={toLocalInput(poll.closesAt)} className="input" /></div>
                     <label className="mb-2.5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={poll.active} className="h-4 w-4" /> Active</label>
                   </div>
                   <div className="flex items-center justify-between">

@@ -70,8 +70,8 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           {mode === 'register' && (
             <p className="text-center text-xs text-[var(--muted)]">
               By creating an account you agree to our{' '}
-              <Link href="/docs/page/terms" className="text-brand-600 hover:underline">Terms</Link> and{' '}
-              <Link href="/docs/page/privacy" className="text-brand-600 hover:underline">Privacy Policy</Link>.
+              <Link href="/docs/page/terms" className="text-brand-600 underline">Terms</Link> and{' '}
+              <Link href="/docs/page/privacy" className="text-brand-600 underline">Privacy Policy</Link>.
             </p>
           )}
         </form>

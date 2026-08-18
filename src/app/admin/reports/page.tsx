@@ -51,15 +51,15 @@ export default async function AdminReports() {
           ) : (
             <>
               <div>
-                <label className="label">Vendor</label>
-                <select name="vendorId" required className="input" defaultValue="">
+                <label className="label" htmlFor="report-vendor">Vendor</label>
+                <select id="report-vendor" name="vendorId" required className="input" defaultValue="">
                   <option value="" disabled>Choose a vendor…</option>
                   {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label">Quarter</label>
-                <select name="periodStart" required className="input" defaultValue={quarters[0]?.start.toISOString()}>
+                <label className="label" htmlFor="report-quarter">Quarter</label>
+                <select id="report-quarter" name="periodStart" required className="input" defaultValue={quarters[0]?.start.toISOString()}>
                   {quarters.map((q) => <option key={q.label} value={q.start.toISOString()}>{q.label}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-[var(--muted)]">Only completed quarters are listed. Re-generating refreshes the numbers and returns the report to draft.</p>
