@@ -63,7 +63,7 @@ export default async function AdminComics() {
                     c.active
                       ? { label: 'Archive', run: toggleComic.bind(null, c.id, false) }
                       : { label: 'Feature', run: toggleComic.bind(null, c.id, true) },
-                    { label: 'Delete', run: deleteComic.bind(null, c.id), danger: true, confirm: `Delete "${c.title}"?` },
+                    { label: 'Delete', run: deleteComic.bind(null, c.id), danger: true, confirm: `Delete "${c.title}" permanently? This can't be undone.` },
                   ]} />
                 </div>
               </div>

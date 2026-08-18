@@ -28,7 +28,7 @@ export default async function AdminTags() {
               <button className="btn-outline btn-sm">Rename</button>
             </form>
             <span className="text-xs text-[var(--muted)]">{t._count.articles} articles</span>
-            <ActionButtons actions={[{ label: 'Delete', run: deleteTag.bind(null, t.id), danger: true, confirm: `Delete tag "${t.name}"?` }]} />
+            <ActionButtons actions={[{ label: 'Delete', run: deleteTag.bind(null, t.id), danger: true, confirm: `Delete tag "${t.name}" permanently? This can't be undone.` }]} />
           </div>
         ))}
         {tags.length === 0 && <div className="p-6 text-[var(--muted)]">No tags yet.</div>}

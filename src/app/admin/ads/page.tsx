@@ -93,7 +93,7 @@ export default async function AdminAds() {
                   <FieldSet ad={ad} />
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
-                    <ActionButtons actions={[{ label: 'Delete', run: deleteAd.bind(null, ad.id), danger: true, confirm: `Delete the ${ad.brand} ad?` }]} />
+                    <ActionButtons actions={[{ label: 'Delete', run: deleteAd.bind(null, ad.id), danger: true, confirm: `Delete the ${ad.brand} ad permanently? This can't be undone.` }]} />
                   </div>
                 </form>
                 <div>

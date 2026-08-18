@@ -99,7 +99,7 @@ export default async function AdminQuizzes() {
                   </div>
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
-                    <ActionButtons actions={[{ label: 'Delete', run: deleteQuiz.bind(null, quiz.id), danger: true, confirm: 'Delete this quiz and all its responses?' }]} />
+                    <ActionButtons actions={[{ label: 'Delete', run: deleteQuiz.bind(null, quiz.id), danger: true, confirm: 'Delete this quiz and all its responses permanently? This can\'t be undone.' }]} />
                   </div>
                 </form>
                 <div className="mt-3 flex justify-end border-t border-[var(--border)] pt-3">

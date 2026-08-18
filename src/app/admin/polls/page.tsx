@@ -85,7 +85,7 @@ export default async function AdminPolls() {
                   </div>
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
-                    <ActionButtons actions={[{ label: 'Delete', run: deletePoll.bind(null, poll.id), danger: true, confirm: 'Delete this poll and all its votes?' }]} />
+                    <ActionButtons actions={[{ label: 'Delete', run: deletePoll.bind(null, poll.id), danger: true, confirm: 'Delete this poll and all its votes permanently? This can\'t be undone.' }]} />
                   </div>
                 </form>
                 <div className="mt-3 flex justify-end border-t border-[var(--border)] pt-3">
