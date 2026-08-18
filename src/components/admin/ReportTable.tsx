@@ -4,7 +4,7 @@ import { toCsv } from '@/lib/analytics/csv';
 import { Download, ChevronUp, ChevronDown } from '@/components/icons';
 
 export type ColType = 'text' | 'int' | 'num' | 'pct01' | 'ms';
-export type Col = { key: string; label: string; type?: ColType };
+export type Col = { key: string; label: string; type?: ColType; tip?: string };
 type Row = Record<string, string | number>;
 
 const nf = (n: number) => Number(n).toLocaleString();
@@ -77,8 +77,8 @@ export default function ReportTable({ columns, rows, filename }: { columns: Col[
               {columns.map((c, i) => {
                 const active = c.key === sortKey;
                 return (
-                  <th key={c.key} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`}>
-                    <button onClick={() => sortBy(c.key)} className={`inline-flex items-center gap-1 hover:text-[var(--fg)] ${active ? 'text-[var(--fg)]' : ''}`}>
+                  <th key={c.key} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`} title={c.tip}>
+                    <button onClick={() => sortBy(c.key)} className={`inline-flex items-center gap-1 hover:text-[var(--fg)] ${active ? 'text-[var(--fg)]' : ''} ${c.tip ? 'cursor-help decoration-dotted underline-offset-2 [text-decoration-line:underline]' : ''}`}>
                       {c.label}
                       {active && (dir === 1 ? <ChevronUp width={12} height={12} /> : <ChevronDown width={12} height={12} />)}
                     </button>

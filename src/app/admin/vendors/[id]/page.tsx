@@ -45,10 +45,15 @@ export default async function VendorDetail(props: { params: Promise<{ id: string
       <p className="mb-5 text-sm text-[var(--muted)]">Advertiser profile. When <strong>Premium supplier</strong> is on, these fields populate the reader Phone Book, and ads gain an options menu that links out to the supplier page on our main site.</p>
 
       <div className="mb-5 grid grid-cols-3 gap-3">
-        {[['Campaigns', vendor._count.campaigns], ['Reports', vendor._count.reports], ['In Phone Books', vendor._count.savedBy]].map(([l, n]) => (
-          <div key={l as string} className="tile p-3 text-center">
-            <div className="text-2xl font-black">{n as number}</div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{l as string}</div>
+        {([
+          ['Campaigns', vendor._count.campaigns, 'Ad campaigns this advertiser has purchased (each may run as several 3-month flights).'],
+          ['Reports', vendor._count.reports, 'Quarterly performance reports generated for this advertiser.'],
+          ['In Phone Books', vendor._count.savedBy, 'How many members have saved this supplier to their personal Phone Book. Requires Premium supplier to be on.'],
+        ] as [string, number, string][]).map(([l, n, tip]) => (
+          <div key={l} title={tip} className="tile group relative cursor-help p-3 text-center" tabIndex={0}>
+            <div className="text-2xl font-black">{n}</div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">{l}</div>
+            <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-[220px] -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--fg)] px-3 py-2 text-left text-[11px] font-normal normal-case leading-snug tracking-normal text-[var(--card)] opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">{tip}</span>
           </div>
         ))}
       </div>

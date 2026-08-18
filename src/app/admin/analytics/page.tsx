@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { loadEvents, totalEventCount, loadUserInfo, loadMembers, rangeDays } from '@/lib/analytics/query';
 import { aggregateActivation, aggregateNewVsReturning, aggregateCohortReturn } from '@/lib/analytics/retention';
+import Tile from '@/components/admin/StatTile';
 import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, aggregateThemes, ctr } from '@/lib/analytics/metrics';
 import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
@@ -99,10 +100,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
         </div>
         {hasTrend ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Sparkline label="Pageviews" value={nf(totals.pageviews)} points={trend.pageviews} sub={`${nf(totals.pageviews)} in ${days}d`} />
-            <Sparkline label="Visitors / day" value={nf(avgVisitors)} points={trend.visitors} sub="avg per day" />
-            <Sparkline label="Article opens" value={nf(totals.opens)} points={trend.opens} sub={`${nf(totals.opens)} in ${days}d`} />
-            <Sparkline label="Ad CTR" value={pctStr(ctr(totals.clk, totals.view || totals.imp))} points={trend.ctr} sub="clicks ÷ viewable" />
+            <Sparkline label="Pageviews" value={nf(totals.pageviews)} points={trend.pageviews} sub={`${nf(totals.pageviews)} in ${days}d`} tip="Total pages loaded per day over the window, from the daily rollups. The line shows the day-by-day trend; the number is the window total." />
+            <Sparkline label="Visitors / day" value={nf(avgVisitors)} points={trend.visitors} sub="avg per day" tip="Average distinct visitors per day across the window. The line is each day's visitor count." />
+            <Sparkline label="Article opens" value={nf(totals.opens)} points={trend.opens} sub={`${nf(totals.opens)} in ${days}d`} tip="Times an article was opened to read, per day. The number is the window total." />
+            <Sparkline label="Ad CTR" value={pctStr(ctr(totals.clk, totals.view || totals.imp))} points={trend.ctr} sub="clicks ÷ viewable" tip="Ad click-through rate = clicks ÷ viewable impressions. Using viewable (not all) impressions means a low-placed ad isn't unfairly compared with a top one." />
           </div>
         ) : (
           <div className="card p-5 text-sm text-[var(--muted)]">
@@ -165,7 +166,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             <SectionTitle>Audience — who is engaging</SectionTitle>
             <Compare current={audSplit} options={AUDIENCE_DIMS as unknown as [string, string][]} makeHref={(v) => url({ audSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: audLabel }, { key: 'visitors', label: 'Visitors', type: 'int' }, { key: 'sessions', label: 'Sessions', type: 'int' }, { key: 'pageviews', label: 'Pageviews', type: 'int' }, { key: 'articleOpens', label: 'Opens', type: 'int' }, { key: 'opensPerSession', label: 'Opens/session', type: 'num' }]}
+              columns={[{ key: 'key', label: audLabel }, { key: 'visitors', label: 'Visitors', type: 'int', tip: 'Distinct people in this segment.' }, { key: 'sessions', label: 'Sessions', type: 'int', tip: 'Browsing sessions (a visit ends after ~30 min idle).' }, { key: 'pageviews', label: 'Pageviews', type: 'int', tip: 'Total pages loaded by this segment.' }, { key: 'articleOpens', label: 'Opens', type: 'int', tip: 'Articles opened to read by this segment.' }, { key: 'opensPerSession', label: 'Opens/session', type: 'num', tip: 'Average articles opened per session — depth of visit.' }]}
               rows={audience.slice(0, 50)}
               filename={`audience-by-${audSplit}-${days}d`}
             />
@@ -180,7 +181,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             </div>
             <Compare current={adSplit} options={AD_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ adSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: adLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'viewable', label: 'Viewable', type: 'int' }, { key: 'aboveFoldPct', label: 'Above fold', type: 'pct01' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              columns={[{ key: 'key', label: adLabel }, { key: 'impressions', label: 'Impr.', type: 'int', tip: 'Impressions — times the ad was rendered on a page.' }, { key: 'viewable', label: 'Viewable', type: 'int', tip: 'Impressions that actually scrolled into the reader’s view.' }, { key: 'aboveFoldPct', label: 'Above fold', type: 'pct01', tip: 'Share of impressions shown at the top of the page, visible without scrolling.' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms', tip: 'Average time the ad spent in view — a proxy for attention.' }, { key: 'clicks', label: 'Clicks', type: 'int', tip: 'Times readers clicked the ad.' }, { key: 'ctr', label: 'CTR', type: 'pct01', tip: 'Click-through rate = clicks ÷ viewable impressions.' }]}
               rows={ads.slice(0, 50)}
               filename={`ads-by-${adSplit}-${days}d`}
             />
@@ -206,7 +207,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             <SectionTitle>Articles &amp; modules — what presentation wins</SectionTitle>
             <Compare current={artSplit} options={ART_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ artSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: artLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              columns={[{ key: 'key', label: artLabel }, { key: 'impressions', label: 'Impr.', type: 'int', tip: 'Impressions — times this article card/module was shown to a reader.' }, { key: 'clicks', label: 'Clicks', type: 'int', tip: 'Times readers clicked through to the article.' }, { key: 'ctr', label: 'CTR', type: 'pct01', tip: 'Click-through rate = clicks ÷ impressions.' }]}
               rows={eng.slice(0, 50)}
               filename={`articles-by-${artSplit}-${days}d`}
             />
@@ -280,23 +281,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-2.5 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{children}</h2>;
 }
 
-function Tile({ label, value, hint, tip }: { label: string; value: string; hint?: string; tip?: string }) {
-  return (
-    <div
-      className={`card group relative p-3.5${tip ? ' cursor-help' : ''}`}
-      tabIndex={tip ? 0 : undefined}
-      title={tip /* native fallback for touch + assistive tech */}>
-      {tip && <span aria-hidden className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full border border-[var(--border)] text-[9px] font-black leading-none text-[var(--muted)] opacity-45 transition-opacity group-hover:opacity-90">i</span>}
-      <div className="text-2xl font-black leading-none tracking-tight">{value}</div>
-      <div className="mt-1 text-xs font-semibold text-[var(--muted)]">{label}{hint ? <span className="ml-1 font-normal opacity-70">· {hint}</span> : ''}</div>
-      {tip && (
-        <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-[240px] -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--fg)] px-3 py-2 text-left text-[11px] font-normal leading-snug text-[var(--card)] opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
-          {tip}
-        </span>
-      )}
-    </div>
-  );
-}
+// Tile is the shared admin StatTile (imported at top) — kept as a local alias so
+// this page's many <Tile .../> call sites stay unchanged.
 
 function Compare({ current, options, makeHref }: { current: string; options: [string, string][]; makeHref: (v: string) => string }) {
   return (

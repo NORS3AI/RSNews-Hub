@@ -32,12 +32,12 @@ export default async function AdminDashboard() {
   ];
 
   const stats = [
-    { label: 'Published', value: published, icon: FileText, href: '/admin/articles?status=PUBLISHED' },
-    { label: 'Drafts', value: drafts, icon: FileText, href: '/admin/articles?status=DRAFT' },
-    { label: 'Total views', value: totalViews._sum.views ?? 0, icon: Eye, href: '/admin/articles' },
-    { label: 'Users', value: users, icon: Users, href: '/admin/users' },
-    { label: 'Categories', value: categories, icon: Layers, href: '/admin/categories' },
-    { label: 'In trash', value: trashed, icon: FileText, href: '/admin/articles?status=TRASHED' },
+    { label: 'Published', value: published, icon: FileText, href: '/admin/articles?status=PUBLISHED', tip: 'Live articles readers can see right now. Click to manage them.' },
+    { label: 'Drafts', value: drafts, icon: FileText, href: '/admin/articles?status=DRAFT', tip: 'Articles started but not yet published — only staff can see these.' },
+    { label: 'Total views', value: totalViews._sum.views ?? 0, icon: Eye, href: '/admin/articles', tip: 'All-time article opens summed across every article. A lifetime total, not this month.' },
+    { label: 'Users', value: users, icon: Users, href: '/admin/users', tip: 'Member and staff accounts that exist in the hub (created on a member’s first visit). Not your full RS News roster.' },
+    { label: 'Categories', value: categories, icon: Layers, href: '/admin/categories', tip: 'Sections articles can be filed under (e.g. Industry News, What’s Hot).' },
+    { label: 'In trash', value: trashed, icon: FileText, href: '/admin/articles?status=TRASHED', tip: 'Articles moved to trash. They’re hidden from readers and can be restored or permanently deleted.' },
   ];
 
   const statusColor: Record<string, string> = {
@@ -74,10 +74,14 @@ export default async function AdminDashboard() {
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="card p-4 transition-shadow hover:shadow-md">
+          <Link key={s.label} href={s.href} title={s.tip} className="card group relative p-4 transition-shadow hover:shadow-md">
+            <span aria-hidden className="absolute right-2 top-2 grid h-4 w-4 place-items-center rounded-full border border-[var(--border)] text-[9px] font-black leading-none text-[var(--muted)] opacity-45 transition-opacity group-hover:opacity-90">i</span>
             <s.icon width={18} height={18} className="text-brand-600" />
             <div className="mt-2 text-2xl font-bold">{s.value.toLocaleString()}</div>
             <div className="text-xs text-[var(--muted)]">{s.label}</div>
+            <span role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 w-max max-w-[240px] -translate-x-1/2 rounded-lg border border-[var(--border)] bg-[var(--fg)] px-3 py-2 text-left text-[11px] font-normal leading-snug text-[var(--card)] opacity-0 shadow-lg transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
+              {s.tip}
+            </span>
           </Link>
         ))}
       </div>
