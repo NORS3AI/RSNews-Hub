@@ -182,6 +182,11 @@ export type ModuleTree = {
   // 3 = full). Seeds the layout's per-instance `span` when the module is first
   // placed; an admin can still override it per-placement in Homepage layout.
   defaultSpan?: number;
+  // Optional festive animation painted behind the module's content (over its
+  // background, under every element). 'snow' or 'confetti'; null/absent = off.
+  effect?: 'snow' | 'confetti' | null;
+  // Up to 3 hex colors for confetti (ignored by snow). Empty = built-in defaults.
+  effectColors?: string[];
   children: Block[];
 };
 
@@ -266,7 +271,9 @@ export function normalizeTree(input: unknown): ModuleTree {
   }
   const days = Number(obj.expireDays);
   const expireDays = Number.isInteger(days) && days > 0 ? Math.min(days, 3650) : 0;
-  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), children };
+  const effect: 'snow' | 'confetti' | null = obj.effect === 'snow' || obj.effect === 'confetti' ? obj.effect : null;
+  const effectColors = (Array.isArray(obj.effectColors) ? obj.effectColors : []).filter(isHexColor).slice(0, 3);
+  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), effect, effectColors, children };
 }
 
 function normalizeBlock(input: unknown, index: number, allowFallbacks = true): Block | null {

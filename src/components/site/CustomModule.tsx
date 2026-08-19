@@ -4,6 +4,14 @@ import { isHexColor, rsTextureUrl } from '@/lib/studio';
 import CoverVideo from '@/components/site/CoverVideo';
 import Countdown from '@/components/site/Countdown';
 import Carousel from '@/components/site/Carousel';
+import ModuleEffect from '@/components/site/ModuleEffect';
+
+// The optional festive overlay (snow/confetti) for a module, or null when off.
+// Sits behind the content; the module section must be `relative` and the content
+// wrapped in `relative z-10` so elements paint above it. See ModuleEffect.
+export function ModuleEffectLayer({ tree }: { tree: ModuleTree }) {
+  return tree.effect ? <ModuleEffect effect={tree.effect} colors={tree.effectColors} /> : null;
+}
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -87,13 +95,16 @@ export function ModuleShell({ shape, items }: { shape: Shape; items: { key: stri
 
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
-    <section className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
-      {title ? <h2 className="module-title mb-4">{title}</h2> : null}
-      {tree.children.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">This module is empty.</p>
-      ) : (
-        <ModuleShell shape={tree.shape} items={tree.children.map((b) => ({ key: b.id, node: <BlockView block={b} /> }))} />
-      )}
+    <section className={`module studio-fill relative overflow-hidden ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
+      <ModuleEffectLayer tree={tree} />
+      <div className="relative z-10">
+        {title ? <h2 className="module-title mb-4">{title}</h2> : null}
+        {tree.children.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">This module is empty.</p>
+        ) : (
+          <ModuleShell shape={tree.shape} items={tree.children.map((b) => ({ key: b.id, node: <BlockView block={b} /> }))} />
+        )}
+      </div>
     </section>
   );
 }

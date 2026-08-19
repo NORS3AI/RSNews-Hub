@@ -6,7 +6,7 @@ import {
   BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, clampTreeSpan, MAX_BLOCKS, MAX_FALLBACKS,
   type ModuleTree, type Block, type BlockType, type Shape,
 } from '@/lib/studio';
-import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
+import CustomModule, { BlockView, ModuleEffectLayer, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
 import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import EntityPicker from '@/components/admin/studio/EntityPicker';
@@ -142,6 +142,8 @@ export default function StudioEditor({
   const setContainerColor = (c: string | null) => mutate((t) => { t.rsColor = c; return t; });
   const setExpireDays = (d: number) => mutate((t) => { t.expireDays = d > 0 ? d : 0; return t; });
   const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = clampTreeSpan(n); return t; });
+  const setEffect = (e: 'snow' | 'confetti' | null) => mutate((t) => { t.effect = e; if (!e) t.effectColors = []; return t; });
+  const setEffectColors = (cols: string[]) => mutate((t) => { t.effectColors = cols.slice(0, 3); return t; });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -313,9 +315,15 @@ export default function StudioEditor({
               </button>
             </div>
           </div>
-          <div className={`mx-auto w-full rounded-2xl transition-[max-width] duration-300 ${clampTreeSpan(tree.defaultSpan) === 1 ? 'max-w-sm' : clampTreeSpan(tree.defaultSpan) === 2 ? 'max-w-2xl' : 'max-w-4xl'} ${previewClass}`}>
-            <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+          {/* One fixed canvas size for every shape — it grows only when the left
+              palette is collapsed (see the editor grid). The true per-span width
+              is shown by the "Preview" button, so the canvas stays consistent and
+              a long row can chop itself into stacked lines instead of one per row. */}
+          <div className={`mx-auto w-full max-w-4xl rounded-2xl ${previewClass}`}>
+            <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
               onClick={() => setSelected(null)}>
+              <ModuleEffectLayer tree={tree} />
+              <div className="relative z-10">
               {tree.children.length === 0 ? (
                 <div
                   onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
@@ -324,12 +332,17 @@ export default function StudioEditor({
                   Drag an element here, or click one in the palette.
                 </div>
               ) : (
-                <div className={shapeInnerClass(tree.shape)}>
+                // A row is a single arrow-scrolled strip for readers, but on the
+                // fixed-width canvas we "chop" it into stacked lines so the whole
+                // thing is visible while building. An auto-fill grid fills the
+                // canvas with 2-3+ even columns and reflows as the canvas grows
+                // (e.g. when the left palette is collapsed).
+                <div className={tree.shape === 'row' ? 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]' : shapeInnerClass(tree.shape)}>
                   {tree.children.map((b, i) => {
                     const chain = blockChain(b);
                     const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
                     return (
-                    <div key={b.id} className={childWidthClass(tree.shape)}
+                    <div key={b.id} className={tree.shape === 'row' ? 'w-full min-w-0' : childWidthClass(tree.shape)}
                       onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
                       onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
                       <BlockFrame
@@ -355,11 +368,12 @@ export default function StudioEditor({
                   <div
                     onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
                     onDrop={(e) => { e.stopPropagation(); onDropAt(tree.children.length); }}
-                    className={`${childWidthClass(tree.shape)} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
+                    className={`${tree.shape === 'row' ? 'w-full min-w-0' : childWidthClass(tree.shape)} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
                     {overIndex === tree.children.length ? 'Drop here' : ''}
                   </div>
                 </div>
               )}
+              </div>
             </section>
           </div>
         </div>
@@ -368,7 +382,7 @@ export default function StudioEditor({
         <aside>
           {selectedBlock
             ? <BlockInspector block={selectedBlock} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
-            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} />}
+            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} onEffect={setEffect} onEffectColors={setEffectColors} />}
         </aside>
       </div>
 
@@ -479,7 +493,9 @@ const WIDTH_PRESETS: { value: number; label: string; hint: string }[] = [
   { value: 3, label: 'Full', hint: 'Full width — its own row' },
 ];
 
-function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void }) {
+const DEFAULT_CONFETTI = ['#E97D34', '#f7edd8', '#b23b2e'];
+
+function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, onEffect, onEffectColors }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void; onEffect: (e: 'snow' | 'confetti' | null) => void; onEffectColors: (c: string[]) => void }) {
   const span = clampTreeSpan(tree.defaultSpan);
   return (
     <InspectorShell title="Module">
@@ -500,6 +516,25 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan }
         <p className="mt-1 text-[11px] text-[var(--muted)]">The width this module takes when first placed on the homepage. You can still override it per-placement in Homepage layout. Everything collapses to full width on phones.</p>
       </Field>
       <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
+      <Field label="Holiday effect">
+        <select className="input" value={tree.effect ?? ''} onChange={(e) => onEffect((e.target.value || null) as 'snow' | 'confetti' | null)}>
+          <option value="">None</option>
+          <option value="snow">Snow</option>
+          <option value="confetti">Confetti</option>
+        </select>
+        {tree.effect === 'confetti' && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[11px] text-[var(--muted)]">Colors</span>
+            {[0, 1, 2].map((i) => (
+              <input key={i} type="color" aria-label={`Confetti color ${i + 1}`}
+                value={tree.effectColors?.[i] ?? DEFAULT_CONFETTI[i]}
+                onChange={(e) => onEffectColors([0, 1, 2].map((j) => (j === i ? e.target.value : (tree.effectColors?.[j] ?? DEFAULT_CONFETTI[j]))))}
+                className="h-8 w-10 rounded border border-[var(--border)] bg-[var(--card-2)] p-0.5" />
+            ))}
+          </div>
+        )}
+        <p className="mt-1 text-[11px] text-[var(--muted)]">A gentle animated overlay behind this module — for a holiday or a celebration. It pauses when off-screen and honors “reduce motion”, and adds no page-load weight (it&apos;s drawn in the browser, no images).</p>
+      </Field>
       <Field label="Auto-remove after (days)">
         <input type="number" min={0} className="input" value={Number(tree.expireDays) || 0} onChange={(e) => onExpireDays(Math.max(0, Number(e.target.value) || 0))} />
         <p className="mt-1 text-[11px] text-[var(--muted)]">0 = never. Invisible timer starts when you publish; the module drops off the homepage when it elapses (logged in the activity log).</p>

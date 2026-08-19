@@ -81,6 +81,16 @@ describe('studio tree model', () => {
     expect(normalizeTree({}).expireDays).toBe(0);
   });
 
+  it('normalizes the holiday effect + confetti colors', () => {
+    expect(normalizeTree({}).effect).toBe(null);
+    expect(normalizeTree({ effect: 'snow' }).effect).toBe('snow');
+    expect(normalizeTree({ effect: 'confetti' }).effect).toBe('confetti');
+    expect(normalizeTree({ effect: 'fireworks' }).effect).toBe(null); // unknown → off
+    // colors: only valid hex, capped at 3
+    const t = normalizeTree({ effect: 'confetti', effectColors: ['#E97D34', 'red', '#fff', '#000', '#123456'] });
+    expect(t.effectColors).toEqual(['#E97D34', '#fff', '#000']);
+  });
+
   it('whitelists settings keys — unknown fields are stripped', () => {
     const t = normalizeTree({ children: [{ type: 'ad', settings: { format: 'leaderboard', evil: '<script>' } }] });
     expect(t.children[0].settings).toEqual({ format: 'leaderboard', vendor: '' });

@@ -6,7 +6,7 @@ import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from 
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
-import { ModuleShell, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
+import { ModuleShell, ModuleEffectLayer, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -370,9 +370,12 @@ export default async function DocsHome() {
     const solo = tree.children.length === 1 ? tree.children[0] : null;
     const soloSelfHeader = !!solo && !solo.fallbacks?.length && (solo.type === 'poll' || solo.type === 'quiz');
     return (
-      <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
-        {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}
-        <ModuleShell shape={tree.shape} items={kids} />
+      <section key={layoutId} className={`module studio-fill relative overflow-hidden ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
+        <ModuleEffectLayer tree={tree} />
+        <div className="relative z-10">
+          {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}
+          <ModuleShell shape={tree.shape} items={kids} />
+        </div>
       </section>
     );
   };
