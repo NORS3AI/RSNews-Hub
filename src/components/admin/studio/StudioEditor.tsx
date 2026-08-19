@@ -65,6 +65,23 @@ export default function StudioEditor({
   const [saving, startSave] = useTransition();
   const drag = useRef<DragState>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  // A `row` reader-side is one arrow-scrolled strip. On the builder canvas we
+  // instead "chop" it into stacked strips that keep the row's true card ratio,
+  // with an orange marker on each cut end showing the row continues. Measure the
+  // canvas so the number of cards per strip reflows as it grows (e.g. when the
+  // left palette is collapsed) or shrinks.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [perRow, setPerRow] = useState(3);
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const CARD = 200, GAP = 16; // target card width + column gap, px
+    const compute = () => setPerRow(Math.max(1, Math.floor((el.clientWidth + GAP) / (CARD + GAP))));
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tree.shape]);
   const [past, setPast] = useState<ModuleTree[]>([]);
   const [future, setFuture] = useState<ModuleTree[]>([]);
   // Permutation preview: which rung of each slot's priority stack to show on the
@@ -198,6 +215,62 @@ export default function StudioEditor({
     });
   }
 
+  // One draggable canvas slot, shared by every shape. `i` is the block's GLOBAL
+  // index so drops reorder correctly even when a row is chopped into strips.
+  const renderSlot = (b: Block, i: number, widthClass: string) => {
+    const chain = blockChain(b);
+    const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
+    return (
+      <div key={b.id} className={widthClass}
+        onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
+        onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
+        <BlockFrame
+          selected={selected === b.id}
+          over={overIndex === i}
+          onSelect={(e) => { e.stopPropagation(); setSelected(b.id); }}
+          onDragStart={() => { drag.current = { kind: 'move', index: i }; }}
+          onDragEnd={() => { drag.current = null; setOverIndex(null); }}
+          onRemove={(e) => { e.stopPropagation(); removeBlock(b.id); }}
+          onDuplicate={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
+          label={BLOCKS[b.type].label}
+          chain={chain}
+          rung={rung}
+          onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
+          scheduled={!!(b.startAt || b.endAt)}
+          gateLabel={b.requirement ? (AUDIENCES.find((a) => a.value === b.requirement)?.label ?? b.requirement) : undefined}
+        >
+          <BlockView block={chain[rung]} />
+        </BlockFrame>
+      </div>
+    );
+  };
+  // The "drop at the very end" affordance.
+  const trailingZone = (widthClass: string) => (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
+      onDrop={(e) => { e.stopPropagation(); onDropAt(tree.children.length); }}
+      className={`${widthClass} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
+      {overIndex === tree.children.length ? 'Drop here' : ''}
+    </div>
+  );
+  // Chop a row's blocks into strips of `perRow`, carrying each block's global index.
+  const rowStrips: { block: Block; index: number }[][] = [];
+  if (tree.shape === 'row') {
+    for (let i = 0; i < tree.children.length; i += perRow) {
+      rowStrips.push(tree.children.slice(i, i + perRow).map((block, k) => ({ block, index: i + k })));
+    }
+  }
+  // Orange "this row continues" marker on a chopped strip's cut edge: a flush bar
+  // plus a chevron pointing the way the row runs on.
+  const ContinueMarker = ({ side }: { side: 'left' | 'right' }) => (
+    <div aria-hidden title={side === 'left' ? 'Continued from the strip above' : 'Continues on the next strip'}>
+      <div className="pointer-events-none absolute inset-y-3 z-20 w-1 rounded-full bg-brand-500" style={{ [side]: 0 }} />
+      <div className="pointer-events-none absolute top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-brand-600 text-white shadow" style={{ [side]: -12 }}>
+        <ChevronRight width={14} height={14} className={side === 'left' ? 'rotate-180' : ''} />
+      </div>
+    </div>
+  );
+
   return (
     <CategoriesContext.Provider value={categories}>
     <AdvertisersContext.Provider value={advertisers}>
@@ -317,64 +390,49 @@ export default function StudioEditor({
           </div>
           {/* One fixed canvas size for every shape — it grows only when the left
               palette is collapsed (see the editor grid). The true per-span width
-              is shown by the "Preview" button, so the canvas stays consistent and
-              a long row can chop itself into stacked lines instead of one per row. */}
+              is shown by the "Preview" button. A row stays a row but is "chopped"
+              into separated strips stacked down the canvas, so the whole row is
+              visible while building; orange markers on the cut ends show it runs on. */}
           <div className={`mx-auto w-full max-w-4xl rounded-2xl ${previewClass}`}>
-            <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
-              onClick={() => setSelected(null)}>
-              <ModuleEffectLayer tree={tree} />
-              <div className="relative z-10">
-              {tree.children.length === 0 ? (
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
-                  onDrop={() => onDropAt(0)}
-                  className={`grid min-h-[160px] place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-[var(--muted)] ${overIndex === 0 ? 'border-brand-500 bg-brand-50/50' : 'border-[var(--border)]'}`}>
-                  Drag an element here, or click one in the palette.
-                </div>
-              ) : (
-                // A row is a single arrow-scrolled strip for readers, but on the
-                // fixed-width canvas we "chop" it into stacked lines so the whole
-                // thing is visible while building. An auto-fill grid fills the
-                // canvas with 2-3+ even columns and reflows as the canvas grows
-                // (e.g. when the left palette is collapsed).
-                <div className={tree.shape === 'row' ? 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]' : shapeInnerClass(tree.shape)}>
-                  {tree.children.map((b, i) => {
-                    const chain = blockChain(b);
-                    const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
-                    return (
-                    <div key={b.id} className={tree.shape === 'row' ? 'w-full min-w-0' : childWidthClass(tree.shape)}
-                      onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
-                      onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
-                      <BlockFrame
-                        selected={selected === b.id}
-                        over={overIndex === i}
-                        onSelect={(e) => { e.stopPropagation(); setSelected(b.id); }}
-                        onDragStart={() => { drag.current = { kind: 'move', index: i }; }}
-                        onDragEnd={() => { drag.current = null; setOverIndex(null); }}
-                        onRemove={(e) => { e.stopPropagation(); removeBlock(b.id); }}
-                        onDuplicate={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
-                        label={BLOCKS[b.type].label}
-                        chain={chain}
-                        rung={rung}
-                        onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
-                        scheduled={!!(b.startAt || b.endAt)}
-                        gateLabel={b.requirement ? (AUDIENCES.find((a) => a.value === b.requirement)?.label ?? b.requirement) : undefined}
-                      >
-                        <BlockView block={chain[rung]} />
-                      </BlockFrame>
-                    </div>
-                  ); })}
-                  {/* trailing append zone */}
+            {tree.children.length === 0 ? (
+              <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+                onClick={() => setSelected(null)}>
+                <ModuleEffectLayer tree={tree} />
+                <div className="relative z-10">
                   <div
-                    onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
-                    onDrop={(e) => { e.stopPropagation(); onDropAt(tree.children.length); }}
-                    className={`${tree.shape === 'row' ? 'w-full min-w-0' : childWidthClass(tree.shape)} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
-                    {overIndex === tree.children.length ? 'Drop here' : ''}
+                    onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
+                    onDrop={() => onDropAt(0)}
+                    className={`grid min-h-[160px] place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-[var(--muted)] ${overIndex === 0 ? 'border-brand-500 bg-brand-50/50' : 'border-[var(--border)]'}`}>
+                    Drag an element here, or click one in the palette.
                   </div>
                 </div>
-              )}
+              </section>
+            ) : tree.shape === 'row' ? (
+              <div ref={canvasRef} className="min-h-[200px] space-y-4" onClick={() => setSelected(null)}>
+                {rowStrips.map((strip, si) => (
+                  <section key={si} className="module studio-fill relative min-h-[92px]" style={rsStyle(tree.rsColor)}>
+                    <ModuleEffectLayer tree={tree} />
+                    {si > 0 && <ContinueMarker side="left" />}
+                    {si < rowStrips.length - 1 && <ContinueMarker side="right" />}
+                    <div className="relative z-10 grid gap-4" style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}>
+                      {strip.map(({ block, index }) => renderSlot(block, index, 'min-w-0'))}
+                    </div>
+                  </section>
+                ))}
+                {trailingZone('w-full')}
               </div>
-            </section>
+            ) : (
+              <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+                onClick={() => setSelected(null)}>
+                <ModuleEffectLayer tree={tree} />
+                <div className="relative z-10">
+                  <div className={shapeInnerClass(tree.shape)}>
+                    {tree.children.map((b, i) => renderSlot(b, i, childWidthClass(tree.shape)))}
+                    {trailingZone(childWidthClass(tree.shape))}
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         </div>
 
