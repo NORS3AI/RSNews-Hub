@@ -6,7 +6,7 @@ import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from 
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
-import { shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
+import { ModuleShell, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -357,14 +357,10 @@ export default async function DocsHome() {
       const style = rsStyle(slot.rsColor);
       for (const rung of blockChain(slot)) {
         const node = renderRung(rung, i, rung.rsColor ? rsStyle(rung.rsColor) : style);
-        if (node) return (
-          <div key={slot.id} className={childWidthClass(tree.shape)}>
-            <Eyebrow label={rung.label ?? slot.label} />{node}
-          </div>
-        );
+        if (node) return { key: slot.id, node: <><Eyebrow label={rung.label ?? slot.label} />{node}</> };
       }
       return null;
-    }).filter(Boolean);
+    }).filter(Boolean) as { key: string; node: React.ReactNode }[];
     if (kids.length === 0) return null;
     // A single poll/quiz already carries its own header, so don't repeat the
     // module name above it (avoids the title == poll-question duplication).
@@ -376,7 +372,7 @@ export default async function DocsHome() {
     return (
       <section key={layoutId} className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
         {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}
-        <div className={shapeInnerClass(tree.shape)}>{kids}</div>
+        <ModuleShell shape={tree.shape} items={kids} />
       </section>
     );
   };

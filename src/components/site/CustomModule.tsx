@@ -1,8 +1,9 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
 import { isHexColor, rsTextureUrl } from '@/lib/studio';
 import CoverVideo from '@/components/site/CoverVideo';
 import Countdown from '@/components/site/Countdown';
+import Carousel from '@/components/site/Carousel';
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -63,6 +64,27 @@ export function shapeContainerClass(shape: Shape): string {
   return shape === 'sidebar' ? 'studio-sidebar max-w-xs' : '';
 }
 
+// Lays out a module's already-rendered children in its shape. A `row` is drawn
+// through the SAME arrow Carousel the built-in homepage card rows use — click
+// arrows on desktop when it overflows, swipe on touch, arrows auto-hidden when
+// everything fits. Every other shape keeps its CSS grid/flex. One place, so a
+// hand-built Studio row and a coded card row behave identically. Each item's
+// `key` is preserved; `node` is the slot's rendered content (eyebrow + block).
+export function ModuleShell({ shape, items }: { shape: Shape; items: { key: string; node: ReactNode }[] }) {
+  if (shape === 'row') {
+    return (
+      <Carousel itemWidth="w-64">
+        {items.map((it) => <div key={it.key}>{it.node}</div>)}
+      </Carousel>
+    );
+  }
+  return (
+    <div className={SHAPE_INNER[shape]}>
+      {items.map((it) => <div key={it.key} className={childWidthClass(shape)}>{it.node}</div>)}
+    </div>
+  );
+}
+
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
     <section className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
@@ -70,13 +92,7 @@ export default function CustomModule({ tree, title }: { tree: ModuleTree; title?
       {tree.children.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">This module is empty.</p>
       ) : (
-        <div className={SHAPE_INNER[tree.shape]}>
-          {tree.children.map((b) => (
-            <div key={b.id} className={childWidthClass(tree.shape)}>
-              <BlockView block={b} />
-            </div>
-          ))}
-        </div>
+        <ModuleShell shape={tree.shape} items={tree.children.map((b) => ({ key: b.id, node: <BlockView block={b} /> }))} />
       )}
     </section>
   );
