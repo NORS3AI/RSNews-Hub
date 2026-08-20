@@ -39,6 +39,10 @@ describe('formatting + validation', () => {
     expect(clampWindow({ startMonth: 0, startDay: 99, endMonth: 13, endDay: 0 }))
       .toEqual({ startMonth: 1, startDay: 31, endMonth: 12, endDay: 1 });
   });
+  it('clamps the day to the month length (no Feb 31)', () => {
+    expect(clampWindow({ startMonth: 2, startDay: 31, endMonth: 11, endDay: 31 }))
+      .toEqual({ startMonth: 2, startDay: 29, endMonth: 11, endDay: 30 });
+  });
 });
 
 describe('daysUntilOpen', () => {

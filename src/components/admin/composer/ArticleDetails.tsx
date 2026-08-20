@@ -203,6 +203,11 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
           <label className="label" htmlFor="genre">Genre <span className="font-normal text-[var(--muted)]">(optional)</span></label>
           <select id="genre" name="genre" defaultValue={article?.genre ?? ''} className="input">
             <option value="">None</option>
+            {/* Keep the article's current genre selectable even if it was since
+                archived/removed from the list — otherwise it silently drops on save. */}
+            {article?.genre && !genres.some((g) => g.slug === article.genre) && (
+              <option value={article.genre}>{article.genre} (archived)</option>
+            )}
             {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
           </select>
           <p className="mt-1 text-xs text-[var(--muted)]">

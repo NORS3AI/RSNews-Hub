@@ -59,16 +59,29 @@ export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocVie
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Ref so a mid-save reschedule can call the latest runSave without a dep cycle.
+  const runSaveRef = useRef<() => void>(() => {});
   const runSave = useCallback(async () => {
+    // Snapshot what we're saving. If more keystrokes land while the request is in
+    // flight, we must NOT clear the dirty flag (that would let the sync loop adopt
+    // the server copy and drop those keystrokes) — instead keep it dirty and save
+    // again once this one returns.
+    const savedTitle = titleRef.current, savedBody = bodyValRef.current;
     setSaving(true);
     try {
-      const res = await saveNewsroomDoc({ id, title: titleRef.current, body: bodyValRef.current });
-      dirtyRef.current = false;
-      setSavedAt(res.at);
+      const res = await saveNewsroomDoc({ id, title: savedTitle, body: savedBody });
       baseRef.current = res.at;
+      if (titleRef.current === savedTitle && bodyValRef.current === savedBody) {
+        dirtyRef.current = false;
+        setSavedAt(res.at);
+      } else {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => runSaveRef.current(), AUTOSAVE_MS);
+      }
     } catch { /* transient — retried on next edit/heartbeat */ }
     setSaving(false);
   }, [id]);
+  runSaveRef.current = runSave;
 
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);

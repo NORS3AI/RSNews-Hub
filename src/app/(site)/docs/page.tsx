@@ -57,6 +57,10 @@ export default async function DocsHome() {
     modulePollById, myModuleVoteByPoll, quizById, myQuizDone,
     pinnedPollIds, pinnedQuizIds, seasonalModuleIds,
   } = data;
+  // A module shown in the seasonal band is skipped in the arranged layout below so
+  // a module that's both scheduled seasonally AND in the saved layout isn't drawn
+  // twice (and doesn't double-consume its collection pool).
+  const seasonalSet = new Set(seasonalModuleIds);
 
   // Ad-rotation cursor — request-local render state, mutated as each slot is
   // filled so successive slots rotate through the creative pool.
@@ -691,7 +695,7 @@ export default async function DocsHome() {
           whole grid is wrapped so it can flip into on-page drag "Arrange" mode. ===== */}
       {!isAdmin ? (
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-6 lg:gap-y-[52px]">
-          {layout.filter((m) => m.enabled).map((m) => {
+          {layout.filter((m) => m.enabled && !seasonalSet.has(m.id)).map((m) => {
             const el = renderModule(m);
             if (!el) return null;
             const spanCls = clampSpan(m.span) === 1 ? 'lg:col-span-1' : clampSpan(m.span) === 2 ? 'lg:col-span-2' : 'lg:col-span-3';
@@ -702,7 +706,7 @@ export default async function DocsHome() {
         (() => {
           const moduleLabel = (mid: string): string =>
             isCustomModuleId(mid) ? (customById.get(mid)?.name ?? 'Custom module') : (MODULE_CATALOG[mid as ModuleId]?.label ?? mid);
-          const arrangeItems = layout.filter((m) => m.enabled).flatMap((m) => {
+          const arrangeItems = layout.filter((m) => m.enabled && !seasonalSet.has(m.id)).flatMap((m) => {
             const el = renderModule(m);
             if (!el) return [];
             const isCustom = isCustomModuleId(m.id);

@@ -29,13 +29,17 @@ export function isSeasonActive(w: SeasonalWindow, date: Date): boolean {
   return s <= e ? t >= s && t <= e : t >= s || t <= e;
 }
 
-/** Clamp submitted month/day into valid ranges (day 1-31, month 1-12). */
+// Max day per month (Feb = 29 so leap-year Feb 29 windows are allowed). Keeps an
+// impossible date like Feb 31 from being stored, which would otherwise make the
+// calendar bar (a real Date that rolls over into March) disagree with isSeasonActive.
+const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Clamp submitted month/day into valid ranges (month 1-12, day 1-lastDayOfMonth). */
 export function clampWindow(w: SeasonalWindow): SeasonalWindow {
-  const c = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n) || lo));
-  return {
-    startMonth: c(w.startMonth, 1, 12), startDay: c(w.startDay, 1, 31),
-    endMonth: c(w.endMonth, 1, 12), endDay: c(w.endDay, 1, 31),
-  };
+  const cm = (n: number) => Math.min(12, Math.max(1, Math.round(n) || 1));
+  const cd = (n: number, month: number) => Math.min(DAYS_IN_MONTH[month - 1], Math.max(1, Math.round(n) || 1));
+  const startMonth = cm(w.startMonth), endMonth = cm(w.endMonth);
+  return { startMonth, startDay: cd(w.startDay, startMonth), endMonth, endDay: cd(w.endDay, endMonth) };
 }
 
 /** "Nov 1" style label for one month/day. */

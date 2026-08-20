@@ -157,9 +157,13 @@ export async function setGenreArchived(id: string, archived: boolean): Promise<v
 
 export async function deleteGenre(id: string): Promise<void> {
   await ensureStaff();
-  const g = await prisma.genre.findUnique({ where: { id }, select: { builtin: true } });
-  if (g?.builtin) throw new Error('Built-in genres can’t be deleted — archive it instead.');
+  const g = await prisma.genre.findUnique({ where: { id }, select: { builtin: true, slug: true } });
+  if (!g) return;
+  if (g.builtin) throw new Error('Built-in genres can’t be deleted — archive it instead.');
   await prisma.genre.delete({ where: { id } });
+  // Clear the genre off any article that still carries it, so no article is left
+  // pointing at a genre that no longer resolves (which would show a blank badge).
+  await prisma.article.updateMany({ where: { genre: g.slug }, data: { genre: '' } });
   revalidateGenres();
   revalidatePath('/admin/genres');
   revalidateTag('reader-content');
@@ -234,6 +238,10 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
   const doc = await prisma.newsroomDoc.findUnique({ where: { id }, select: { title: true, body: true, pushedAt: true } });
   if (!doc) throw new Error('That draft no longer exists.');
   if (doc.pushedAt) throw new Error('That draft was already pushed to the article editor.');
+  // Atomically claim the doc BEFORE creating the article, so two people pushing
+  // the same draft at once can't each mint a duplicate draft article.
+  const claim = await prisma.newsroomDoc.updateMany({ where: { id, pushedAt: null }, data: { pushedAt: new Date() } });
+  if (claim.count === 0) throw new Error('That draft was already pushed to the article editor.');
   const title = (doc.title?.trim() || deriveDocTitle(doc.body)).slice(0, 300);
   const content = sanitizeArticleHtml(docBodyToArticleHtml(doc.body));
   const slug = await uniqueSlug(title, 'article');
@@ -244,7 +252,6 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
     },
     select: { id: true },
   });
-  await prisma.newsroomDoc.update({ where: { id }, data: { pushedAt: new Date() } });
   revalidatePath('/admin/newsroom');
   revalidatePath('/admin/articles');
   return article.id;
