@@ -10,6 +10,7 @@ import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './au
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
 import { validGenreSlugs, revalidateGenres } from './genreServer';
+import { docBodyToArticleHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -159,6 +160,126 @@ export async function deleteGenre(id: string): Promise<void> {
   revalidateGenres();
   revalidatePath('/admin/genres');
   revalidateTag('reader-content');
+}
+
+/* ------------------------------ Newsroom -------------------------------- */
+// The shared drafts space. Any staffer can create/edit/comment on any doc.
+// Authorship is captured automatically (name snapshots) so comments read
+// "who said what" without anyone typing their name, and presence is a
+// lightweight heartbeat (no websockets — the client polls newsroomSync).
+
+export async function createNewsroomDoc(): Promise<string> {
+  const staff = await ensureStaff();
+  const row = await prisma.newsroomDoc.create({
+    data: { createdById: staff.id, createdByName: staff.name, updatedById: staff.id, updatedByName: staff.name },
+  });
+  revalidatePath('/admin/newsroom');
+  return row.id;
+}
+
+// Autosave target — called frequently, so it does NOT revalidate (the client's
+// sync loop propagates the change to other viewers). A blank title is derived
+// from the first line so a tab always has a readable name.
+export async function saveNewsroomDoc(input: { id: string; title: string; body: string }): Promise<{ ok: true; at: string }> {
+  const staff = await ensureStaff();
+  const body = (input.body ?? '').slice(0, 100_000);
+  const title = ((input.title ?? '').trim() || deriveDocTitle(body)).slice(0, 200);
+  const row = await prisma.newsroomDoc.update({
+    where: { id: input.id },
+    data: { title, body, updatedById: staff.id, updatedByName: staff.name },
+    select: { updatedAt: true },
+  });
+  return { ok: true, at: row.updatedAt.toISOString() };
+}
+
+export async function deleteNewsroomDoc(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.newsroomDoc.delete({ where: { id } });
+  revalidatePath('/admin/newsroom');
+}
+
+export async function addNewsroomComment(input: { docId: string; body: string }): Promise<NewsroomCommentView> {
+  const staff = await ensureStaff();
+  const body = (input.body ?? '').trim().slice(0, 4000);
+  if (!body) throw new Error('Write a note first.');
+  const row = await prisma.newsroomComment.create({
+    data: { docId: input.docId, authorId: staff.id, authorName: staff.name, body },
+    select: { id: true, authorName: true, body: true, createdAt: true },
+  });
+  return { id: row.id, authorName: row.authorName, body: row.body, createdAt: row.createdAt.toISOString() };
+}
+
+export async function deleteNewsroomComment(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.newsroomComment.delete({ where: { id } });
+}
+
+// One-button hand-off: build a DRAFT article from the doc (prose → paragraphs),
+// soft-remove the doc from the Newsroom (pushedAt), and return the new article id
+// so the client can open the composer to format + add blocks before publishing.
+export async function pushNewsroomDocToArticle(id: string): Promise<string> {
+  const staff = await ensureStaff();
+  const doc = await prisma.newsroomDoc.findUnique({ where: { id }, select: { title: true, body: true, pushedAt: true } });
+  if (!doc) throw new Error('That draft no longer exists.');
+  if (doc.pushedAt) throw new Error('That draft was already pushed to the article editor.');
+  const title = (doc.title?.trim() || deriveDocTitle(doc.body)).slice(0, 300);
+  const content = sanitizeArticleHtml(docBodyToArticleHtml(doc.body));
+  const slug = await uniqueSlug(title, 'article');
+  const article = await prisma.article.create({
+    data: {
+      title, slug, content, excerpt: makeExcerpt(content), status: 'DRAFT',
+      authorId: staff.id, readMinutes: estimateReadMinutes(content),
+    },
+    select: { id: true },
+  });
+  await prisma.newsroomDoc.update({ where: { id }, data: { pushedAt: new Date() } });
+  revalidatePath('/admin/newsroom');
+  revalidatePath('/admin/articles');
+  return article.id;
+}
+
+// The live loop: refresh my presence on the doc I'm viewing, prune stale rows,
+// and return who else is here + every active doc (body + comment thread), so
+// other people's drafts and notes show up within a few seconds. The client takes
+// the server copy for every doc except the one it's actively editing.
+export async function newsroomSync(input: { docId?: string; editing?: boolean }): Promise<{ viewers: NewsroomViewer[]; docs: NewsroomDocView[] }> {
+  const staff = await ensureStaff();
+  const now = Date.now();
+  if (input.docId) {
+    await prisma.newsroomPresence.upsert({
+      where: { docId_userId: { docId: input.docId, userId: staff.id } },
+      create: { docId: input.docId, userId: staff.id, userName: staff.name, editing: !!input.editing },
+      update: { userName: staff.name, editing: !!input.editing, lastSeen: new Date() },
+    });
+  }
+  // Opportunistic prune of long-gone heartbeats.
+  await prisma.newsroomPresence.deleteMany({ where: { lastSeen: { lt: new Date(now - PRESENCE_STALE_MS) } } });
+
+  const [presence, docs] = await Promise.all([
+    input.docId
+      ? prisma.newsroomPresence.findMany({
+          where: { docId: input.docId, lastSeen: { gte: new Date(now - PRESENCE_ACTIVE_MS) } },
+          orderBy: { lastSeen: 'desc' },
+          select: { userId: true, userName: true, editing: true },
+        })
+      : Promise.resolve([]),
+    prisma.newsroomDoc.findMany({
+      where: { archived: false, pushedAt: null },
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true, title: true, body: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
+        comments: { orderBy: { createdAt: 'asc' }, select: { id: true, authorName: true, body: true, createdAt: true } },
+      },
+    }),
+  ]);
+
+  return {
+    viewers: presence.map((p) => ({ userId: p.userId, userName: p.userName, editing: p.editing })),
+    docs: docs.map((d) => ({
+      id: d.id, title: d.title, body: d.body, updatedAt: d.updatedAt.toISOString(), updatedById: d.updatedById, updatedByName: d.updatedByName, createdByName: d.createdByName,
+      comments: d.comments.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt.toISOString() })),
+    })),
+  };
 }
 
 /* --------------------- Report builder templates -------------------------- */

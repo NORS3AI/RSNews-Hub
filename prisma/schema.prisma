@@ -910,6 +910,67 @@ model Byline {
   @@index([archived, name])
 }
 
+// The Newsroom — a shared "OneNote-style" drafts space. Any staffer (ADMIN or
+// EDITOR) can open, read, and edit any doc; each doc is a tab. Bodies autosave as
+// plain prose; the rich formatting/blocks happen in the real composer AFTER a
+// one-button push. Author identity is a denormalized snapshot (id + name), not a
+// FK to User — the same "stands on its own" pattern as ContentSubmission — so the
+// doc keeps a readable trail even if an account changes. `pushedAt` marks a doc
+// that has been handed off to the article editor (then it's hidden from the list).
+model NewsroomDoc {
+  id            String   @id @default(cuid())
+  title         String   @default("Untitled draft")
+  body          String   @default("")
+  archived      Boolean  @default(false)
+  // Set when the doc is pushed into the article composer; a pushed doc is removed
+  // from the Newsroom (it "becomes" the draft article).
+  pushedAt      DateTime?
+  createdById   String?
+  createdByName String?
+  // Who last saved it + when (snapshot), for the "last edited by …" line and to
+  // warn a second editor that someone else just changed the doc.
+  updatedById   String?
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  comments      NewsroomComment[]
+  presence      NewsroomPresence[]
+
+  @@index([archived, pushedAt, updatedAt])
+}
+
+// A note in a doc's comments thread. The admin's name is captured automatically
+// when they post (auto-tagged authorship), so a thread always reads "who said
+// what" without anyone typing their name.
+model NewsroomComment {
+  id         String      @id @default(cuid())
+  docId      String
+  doc        NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  authorId   String?
+  authorName String
+  body       String
+  createdAt  DateTime    @default(now())
+
+  @@index([docId, createdAt])
+}
+
+// Lightweight presence: each staffer viewing a doc upserts a heartbeat row so the
+// others can see who's here (and who's actively typing). "Active" is a recent
+// `lastSeen`; stale rows are pruned opportunistically. No websockets — the client
+// polls a sync action. This is the "live enough" model, not full co-editing.
+model NewsroomPresence {
+  id       String      @id @default(cuid())
+  docId    String
+  doc      NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  userId   String
+  userName String
+  editing  Boolean     @default(false)
+  lastSeen DateTime    @default(now())
+
+  @@unique([docId, userId])
+  @@index([docId, lastSeen])
+}
+
 // One reader's endorsement of one article (the end-of-article "Recommend").
 // A signed-in reader is deduped by (articleId, userId); an anonymous reader by
 // (articleId, sessionId) — Postgres treats NULLs as distinct, so a row carries

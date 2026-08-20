@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight, ExternalLink } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight, ExternalLink, Book } from './icons';
 import { BrandMark } from './BrandLogo';
 
 type NavLink = { href: string; label: string; icon: typeof Grid; exact?: boolean; adminOnly?: boolean };
@@ -24,6 +24,7 @@ const groups: NavGroup[] = [
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
   ] },
   { title: 'Create content', links: [
+    { href: '/admin/newsroom', label: 'Newsroom', icon: Book },
     { href: '/admin/articles', label: 'Articles', icon: FileText },
     { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
     { href: '/admin/polls', label: 'Polls', icon: BarChart },
