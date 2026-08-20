@@ -22,7 +22,7 @@ export default async function EditArticle(props: { params: Promise<{ id: string 
     prisma.articleReview.findMany({ where: { articleId: params.id }, orderBy: { createdAt: 'desc' }, take: 100 }),
     prisma.vendor.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     listArticlePushTrail(params.id),
-    prisma.byline.findMany({ where: { archived: false }, orderBy: { name: 'asc' }, select: { id: true, name: true, title: true, photo: true } }),
+    prisma.byline.findMany({ where: { archived: false }, orderBy: { name: 'asc' }, select: { id: true, name: true, title: true, photo: true, bio: true } }),
   ]);
   if (!article) notFound();
   // If an autosaved draft exists, seed the editor from it (so an in-progress edit

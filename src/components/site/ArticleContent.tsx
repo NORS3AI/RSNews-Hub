@@ -1,6 +1,7 @@
 'use client';
 import parse, { Element } from 'html-react-parser';
 import type { AdRow, AdContext } from '@/lib/ads';
+import type { BylineCard } from '@/lib/byline';
 import InArticleAd from '@/components/InArticleAd';
 import PollCard, { type PollData } from '@/components/site/PollCard';
 import QuizCard, { type QuizData } from '@/components/site/QuizCard';
@@ -22,10 +23,13 @@ export type LiveQuiz = { data: QuizData; done: boolean };
 // votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
 // a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], loggedIn = false, adminPreview = false, adContext,
+  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], bylines = {}, loggedIn = false, adminPreview = false, adContext,
 }: {
   html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>; adById?: Record<string, AdRow>;
   pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
+  // Live values for in-article Author cards linked to a library byline, keyed by
+  // byline id — so editing the person in the library updates every placed card.
+  bylines?: Record<string, BylineCard>;
   // `adminPreview` = the admin composer preview, where an un-hooked ad slot SHOULD
   // show a placeholder so the editor sees it. On every live reader surface (page,
   // modal, shared preview link) this is false → an ad element with no live creative
@@ -40,7 +44,7 @@ export default function ArticleContent({
     replace: (node) => {
       if (!(node instanceof Element) || !node.attribs) return;
       const a = node.attribs;
-      if ('data-author' in a) return <AuthorCard a={a} />;
+      if ('data-author' in a) return <AuthorCard a={a} live={bylines[a['data-bylineid'] || '']} />;
       if ('data-ad-slot' in a) {
         const size = a['data-ad-size'] === 'rectangle' ? 'rectangle' : 'in-article';
         // A slot locked to an advertiser shows that advertiser's live creative in
@@ -80,17 +84,20 @@ export default function ArticleContent({
   return <>{content}</>;
 }
 
-function AuthorCard({ a }: { a: Record<string, string> }) {
-  const inhouse = a['data-inhouse'] === '1';
-  const name = inhouse ? 'RS News' : (a['data-name'] || 'Author');
-  const title = inhouse ? 'Editorial Team' : a['data-title'];
-  const bio = inhouse ? '' : a['data-bio'];
+function AuthorCard({ a, live }: { a: Record<string, string>; live?: BylineCard }) {
+  const inhouse = !live && a['data-inhouse'] === '1';
+  // A linked library byline (live) wins — so a title/photo/bio edit propagates.
+  // Fall back to the snapshot baked into the content when there's no live link.
+  const name = inhouse ? 'RS News' : (live?.name || a['data-name'] || 'Author');
+  const title = inhouse ? 'Editorial Team' : (live?.title ?? a['data-title']);
+  const bio = inhouse ? '' : (live?.bio ?? a['data-bio']);
+  const avatar = live?.avatar ?? a['data-avatar'];
   return (
     <div className="author-card">
       {inhouse ? <span className="author-avatar grid place-items-center"><BrandMark size={56} className="rounded-full" /></span>
-        : a['data-avatar']
+        : avatar
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img className="author-avatar" src={a['data-avatar']} alt="" />
+          ? <img className="author-avatar" src={avatar} alt="" />
           : <span className="author-avatar grid place-items-center bg-[var(--card)] text-lg font-black text-[var(--muted)]">{name.slice(0, 1).toUpperCase()}</span>}
       <div className="min-w-0">
         <div className="author-name">{name}</div>

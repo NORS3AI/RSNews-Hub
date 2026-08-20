@@ -143,15 +143,18 @@ export const CtaButton = Node.create({
 /* ── Author bio card (inline additional content, e.g. a guest writer) ───────── */
 export const Author = Node.create({
   name: 'author', group: 'block', atom: true, selectable: true, draggable: true,
-  addAttributes() { return { name: { default: '' }, title: { default: '' }, avatar: { default: '' }, bio: { default: '' }, inhouse: { default: false } }; },
+  addAttributes() { return { name: { default: '' }, title: { default: '' }, avatar: { default: '' }, bio: { default: '' }, inhouse: { default: false }, bylineId: { default: '' } }; },
   parseHTML() {
     return [{ tag: 'div[data-author]', getAttrs: (el) => {
       const e = el as HTMLElement;
-      return { name: e.getAttribute('data-name') || '', title: e.getAttribute('data-title') || '', avatar: e.getAttribute('data-avatar') || '', bio: e.getAttribute('data-bio') || '', inhouse: e.getAttribute('data-inhouse') === '1' };
+      return { name: e.getAttribute('data-name') || '', title: e.getAttribute('data-title') || '', avatar: e.getAttribute('data-avatar') || '', bio: e.getAttribute('data-bio') || '', inhouse: e.getAttribute('data-inhouse') === '1', bylineId: e.getAttribute('data-bylineid') || '' };
     } }];
   },
   renderHTML({ node }) {
-    return ['div', { 'data-author': '', 'data-name': node.attrs.name, 'data-title': node.attrs.title, 'data-avatar': node.attrs.avatar, 'data-bio': node.attrs.bio, 'data-inhouse': node.attrs.inhouse ? '1' : '0' }];
+    // data-bylineid links the card to a library byline so its name/title/photo/bio
+    // resolve LIVE at read time (see ArticleContent); the data-* below are a
+    // snapshot fallback for when no link is set (or the byline was deleted).
+    return ['div', { 'data-author': '', 'data-name': node.attrs.name, 'data-title': node.attrs.title, 'data-avatar': node.attrs.avatar, 'data-bio': node.attrs.bio, 'data-inhouse': node.attrs.inhouse ? '1' : '0', 'data-bylineid': node.attrs.bylineId || '' }];
   },
   addNodeView() {
     return ReactNodeViewRenderer((p: any) => {

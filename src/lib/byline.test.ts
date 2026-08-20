@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveByline, bylineInitials, TEAM_BYLINE_NAME } from './byline';
+import { resolveByline, bylineInitials, bylineIdsInContent, TEAM_BYLINE_NAME } from './byline';
 
 describe('byline resolution', () => {
   const ref = { id: 'b1', name: 'Brandon Gale', title: 'President, RS News', photo: '/u/x.jpg' };
@@ -24,6 +24,13 @@ describe('byline resolution', () => {
     expect(resolveByline(null, '   ')).toEqual({ name: TEAM_BYLINE_NAME, title: null, photo: null, isTeam: true });
     // a ref with a blank name is treated as no ref
     expect(resolveByline({ id: 'x', name: '  ', title: 't', photo: 'p' }, null).isTeam).toBe(true);
+  });
+
+  it('bylineIdsInContent extracts unique linked author-card ids', () => {
+    const html = '<p>hi</p><div data-author data-bylineid="b1"></div><div data-author data-bylineid="b2"></div><div data-author data-bylineid="b1"></div><div data-author data-bylineid=""></div>';
+    expect(bylineIdsInContent(html).sort()).toEqual(['b1', 'b2']);
+    expect(bylineIdsInContent('<p>no cards</p>')).toEqual([]);
+    expect(bylineIdsInContent(null)).toEqual([]);
   });
 
   it('bylineInitials takes up to two letters', () => {

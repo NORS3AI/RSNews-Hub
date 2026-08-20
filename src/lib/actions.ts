@@ -86,15 +86,16 @@ export async function setAnnouncementBarEnabled(on: boolean): Promise<void> {
 // Reusable author identities (photo + name + title). Saving/editing here updates
 // every article that uses the byline (a title change, a new photo); archiving
 // hides it from the picker without touching articles that already reference it.
-export async function saveByline(input: { id?: string; name: string; title?: string | null; photo?: string | null }): Promise<string> {
+export async function saveByline(input: { id?: string; name: string; title?: string | null; photo?: string | null; bio?: string | null }): Promise<string> {
   await ensureStaff();
   const name = (input.name ?? '').trim().slice(0, 120);
   if (!name) throw new Error('A byline needs a name.');
   const title = (input.title ?? '').trim().slice(0, 120) || null;
   const photo = (input.photo ?? '').trim().slice(0, 2000) || null;
+  const bio = (input.bio ?? '').trim().slice(0, 600) || null;
   const row = input.id
-    ? await prisma.byline.update({ where: { id: input.id }, data: { name, title, photo } })
-    : await prisma.byline.create({ data: { name, title, photo } });
+    ? await prisma.byline.update({ where: { id: input.id }, data: { name, title, photo, bio } })
+    : await prisma.byline.create({ data: { name, title, photo, bio } });
   revalidatePath('/admin/bylines');
   return row.id;
 }

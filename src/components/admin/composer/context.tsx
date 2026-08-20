@@ -9,6 +9,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { AdSlot, ReservedAd, Spacer, PollEmbed, QuizEmbed, CtaButton, PullQuote, Author, CUSTOM_TYPES } from './extensions';
 
 export type Opt = { id: string; title: string };
+export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
 export type ReservedAdOpt = { id: string; brand: string; headline: string };
 export type Selected = { type: string; attrs: Record<string, unknown>; pos: number } | null;
@@ -17,7 +18,7 @@ type Ctx = {
   editor: Editor | null;
   html: string;
   selected: Selected;
-  polls: Opt[]; quizzes: Opt[]; advertisers: Advertiser[]; reservedAds: ReservedAdOpt[];
+  polls: Opt[]; quizzes: Opt[]; advertisers: Advertiser[]; reservedAds: ReservedAdOpt[]; bylines: BylineOpt[];
   insertBlock: (type: string, attrs?: Record<string, unknown>) => void;
   updateSelected: (attrs: Record<string, unknown>) => void;
   deleteSelected: () => void;
@@ -26,8 +27,8 @@ const C = createContext<Ctx | null>(null);
 export const useComposer = () => { const v = useContext(C); if (!v) throw new Error('useComposer outside provider'); return v; };
 
 export function ComposerProvider({
-  name = 'content', initialHTML = '', polls = [], quizzes = [], advertisers = [], reservedAds = [], children,
-}: { name?: string; initialHTML?: string; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; children: ReactNode }) {
+  name = 'content', initialHTML = '', polls = [], quizzes = [], advertisers = [], reservedAds = [], bylines = [], children,
+}: { name?: string; initialHTML?: string; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; bylines?: BylineOpt[]; children: ReactNode }) {
   const [html, setHtml] = useState(initialHTML);
   const [selected, setSelected] = useState<Selected>(null);
 
@@ -71,7 +72,7 @@ export function ComposerProvider({
   const deleteSelected = useCallback(() => { if (editor) editor.chain().focus().deleteSelection().run(); }, [editor]);
 
   return (
-    <C.Provider value={{ editor, html, selected, polls, quizzes, advertisers, reservedAds, insertBlock, updateSelected, deleteSelected }}>
+    <C.Provider value={{ editor, html, selected, polls, quizzes, advertisers, reservedAds, bylines, insertBlock, updateSelected, deleteSelected }}>
       {children}
       <textarea name={name} value={html} readOnly hidden />
     </C.Provider>

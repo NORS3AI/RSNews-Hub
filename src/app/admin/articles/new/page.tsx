@@ -13,7 +13,7 @@ export default async function NewArticle() {
     listAdvertisers(),
     listReservedAds(),
     prisma.vendor.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
-    prisma.byline.findMany({ where: { archived: false }, orderBy: { name: 'asc' }, select: { id: true, name: true, title: true, photo: true } }),
+    prisma.byline.findMany({ where: { archived: false }, orderBy: { name: 'asc' }, select: { id: true, name: true, title: true, photo: true, bio: true } }),
     getCurrentUser(),
   ]);
   return <ArticleEditor categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}

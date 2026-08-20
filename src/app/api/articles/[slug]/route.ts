@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { bylineRefSelect } from '@/lib/byline';
+import { resolveContentBylines } from '@/lib/bylineServer';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
 import { getRecommendState } from '@/lib/articleRecommend';
@@ -99,6 +100,8 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     embeds,
     slotAds,
     reservedAds: reservedAdMap,
+    // Live values for in-article Author cards linked to a library byline.
+    bylines: await resolveContentBylines(article.content),
     // Vendor-connected sponsored piece? Drives per-sponsored-article ad attribution
     // in the reader modal (mirrors the full page). See ArticleModalProvider.
     sponsored: !!article.sponsorVendorId,

@@ -6,10 +6,10 @@ import { saveByline, setBylineArchived } from '@/lib/actions';
 import { bylineInitials } from '@/lib/byline';
 import { Plus, Check, X } from '@/components/icons';
 
-type B = { id: string; name: string; title: string | null; photo: string | null; archived: boolean };
-type Draft = { id?: string; name: string; title: string; photo: string | null };
+type B = { id: string; name: string; title: string | null; photo: string | null; bio: string | null; archived: boolean };
+type Draft = { id?: string; name: string; title: string; photo: string | null; bio: string };
 
-const BLANK: Draft = { name: '', title: '', photo: null };
+const BLANK: Draft = { name: '', title: '', photo: null, bio: '' };
 
 // A round avatar — the same shape readers see. Any uploaded image is centered
 // and cropped to the circle, so no specific size is ever required.
@@ -37,7 +37,7 @@ export default function BylineManager({ list }: { list: B[] }) {
   const archived = list.filter((b) => b.archived);
 
   const openNew = () => setDraft({ ...BLANK });
-  const openEdit = (b: B) => setDraft({ id: b.id, name: b.name, title: b.title ?? '', photo: b.photo });
+  const openEdit = (b: B) => setDraft({ id: b.id, name: b.name, title: b.title ?? '', photo: b.photo, bio: b.bio ?? '' });
 
   const pickPhoto = async (file: File) => {
     setUploading(true);
@@ -51,7 +51,7 @@ export default function BylineManager({ list }: { list: B[] }) {
   const save = () => {
     if (!draft || !draft.name.trim()) return;
     startSave(async () => {
-      await saveByline({ id: draft.id, name: draft.name, title: draft.title, photo: draft.photo });
+      await saveByline({ id: draft.id, name: draft.name, title: draft.title, photo: draft.photo, bio: draft.bio });
       setDraft(null);
       router.refresh();
     });
@@ -89,6 +89,12 @@ export default function BylineManager({ list }: { list: B[] }) {
             <label className="label" htmlFor="b-title">Title <span className="font-normal text-[var(--muted)]">(optional)</span></label>
             <input id="b-title" className="input" value={draft.title} maxLength={120}
               onChange={(e) => setDraft((d) => (d ? { ...d, title: e.target.value } : d))} placeholder="e.g. President, RS News" />
+          </div>
+          <div>
+            <label className="label" htmlFor="b-bio">Bio <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+            <textarea id="b-bio" className="input min-h-[72px]" value={draft.bio} maxLength={600}
+              onChange={(e) => setDraft((d) => (d ? { ...d, bio: e.target.value } : d))} placeholder="A sentence or two — shown in the in-article author card." />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Only appears in the in-article Author card element, never in the little top byline.</p>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button type="button" className="btn-primary btn-sm" disabled={saving || uploading || !draft.name.trim()} onClick={save}>

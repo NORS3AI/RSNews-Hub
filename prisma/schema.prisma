@@ -878,6 +878,9 @@ model Byline {
   // Optional headshot URL. Any size — rendered in a fixed circular avatar
   // (object-cover center-crop), so no specific dimensions are required.
   photo     String?
+  // Optional short bio. Shown only in the in-article Author card element (never in
+  // the compact top byline). Editing it here updates every linked card.
+  bio       String?
   archived  Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

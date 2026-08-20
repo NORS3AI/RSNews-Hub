@@ -10,7 +10,7 @@ import { Sparkles } from '@/components/icons';
 
 type Cat = { id: string; name: string };
 type Vendor = { id: string; name: string };
-type BylineOpt = { id: string; name: string; title: string | null; photo: string | null };
+type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 type Article = {
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   byline?: string | null; bylineId?: string | null;

@@ -26,7 +26,7 @@ function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
 }
 
 type Cat = { id: string; name: string; color?: string };
-export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null };
+export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; byline?: string | null; bylineId?: string | null; coverImage: string | null;
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
@@ -69,7 +69,7 @@ export default function ArticleEditor({
         </div>
       )}
 
-      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers} reservedAds={reservedAds}>
+      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers} reservedAds={reservedAds} bylines={bylines}>
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
           <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
             <div className="card card-soft composer-panel p-3">

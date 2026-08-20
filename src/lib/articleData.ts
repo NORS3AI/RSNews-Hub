@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { bylineRefSelect } from './byline';
+import { resolveContentBylines } from './bylineServer';
 import { getCurrentUser } from './auth';
 import { getRelatedArticles } from './recommend';
 import { getRecommendState } from './articleRecommend';
@@ -94,13 +95,14 @@ export async function getArticlePageData(slug: string, opts: { previewParam?: st
   // appear in their piece. resolveArticleLockBrand keeps the lock ON even if the
   // vendor was later removed (dangling id → house-only, never a rival).
   const lockBrand = await resolveArticleLockBrand(article.sponsorVendorId);
-  const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds] = await Promise.all([
+  const [ads, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, bylineCards] = await Promise.all([
     pickArticleAds(adContext, 'article', favorBrand, adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
     loadBrandArticleAds(article.content, lockBrand),
     resolveReservedArticleAds(article.content, lockBrand),
     getSupplierAdMap(),
     user ? savedVendorIds(user.id) : Promise.resolve([]),
+    resolveContentBylines(article.content),
   ]);
   const inlineAds = [ads.top, ads.bottom].filter(Boolean) as NonNullable<typeof ads.top>[];
   // Attribution carried into every in-article ad event: which article, and whether
@@ -114,7 +116,7 @@ export async function getArticlePageData(slug: string, opts: { previewParam?: st
     previewFromDashboard: opts.previewFromDashboard,
     signedIn: !!user,
     related, next, recommend,
-    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution,
+    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution, bylineCards,
   };
 }
 

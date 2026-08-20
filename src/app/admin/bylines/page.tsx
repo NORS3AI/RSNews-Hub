@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminBylines() {
   const list = await prisma.byline.findMany({
     orderBy: [{ archived: 'asc' }, { name: 'asc' }],
-    select: { id: true, name: true, title: true, photo: true, archived: true },
+    select: { id: true, name: true, title: true, photo: true, bio: true, archived: true },
   });
   return (
     <div className="max-w-2xl">

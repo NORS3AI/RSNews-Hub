@@ -12,12 +12,27 @@ export const TEAM_BYLINE_NAME = 'RS News Hub Team';
 // A library byline as needed for rendering (fetched via the select below).
 export type BylineRef = { id: string; name: string; title: string | null; photo: string | null };
 
+// The live values an in-article Author card pulls from its linked byline.
+export type BylineCard = { name: string; title: string; avatar: string; bio: string };
+
 // What the reader byline component renders. `photo`/`title` are null for the
 // team default and for a free-text one-off name.
 export type ResolvedByline = { name: string; title: string | null; photo: string | null; isTeam: boolean };
 
 // The Prisma select for a byline wherever an article's byline is rendered.
 export const bylineRefSelect = { id: true, name: true, title: true, photo: true } as const;
+
+// Extract the byline ids that in-article Author cards link to, from article HTML
+// (a `<div data-author data-bylineid="...">`). Pure string scan — the caller
+// fetches the current library values so an edit propagates to every placed card.
+export function bylineIdsInContent(html: string | null | undefined): string[] {
+  if (!html) return [];
+  const out = new Set<string>();
+  const re = /data-bylineid="([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) { const id = m[1].trim(); if (id) out.add(id); }
+  return [...out];
+}
 
 // Choose the reader-facing byline. A library byline (with a real name) wins;
 // else a typed one-off name (name only); else the house team default.

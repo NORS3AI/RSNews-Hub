@@ -25,7 +25,7 @@ const COMPOSER_DIV_ATTRS = [
   'data-ad-id',
   'data-spacer', 'data-size',
   'data-poll', 'data-quiz', 'data-label',
-  'data-author', 'data-name', 'data-title', 'data-avatar', 'data-bio', 'data-inhouse',
+  'data-author', 'data-name', 'data-title', 'data-avatar', 'data-bio', 'data-inhouse', 'data-bylineid',
 ];
 
 const OPTIONS: sanitizeHtml.IOptions = {

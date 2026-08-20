@@ -5,7 +5,7 @@ import ArticleDetails from './ArticleDetails';
 import ElementInspector from './ElementInspector';
 
 type Cat = { id: string; name: string };
-type BylineOpt = { id: string; name: string; title: string | null; photo: string | null };
+type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 
 // Right rail: Article details vs the selected element's options. Both stay
 // mounted (just hidden) so the article's form fields always submit — we only

@@ -34,7 +34,7 @@ type ModalArticle = {
   audioUrl?: string | null;
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; sponsored?: boolean; loggedIn?: boolean; recommended?: boolean };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; bylines?: Record<string, { name: string; title: string; avatar: string; bio: string }>; sponsored?: boolean; loggedIn?: boolean; recommended?: boolean };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -213,7 +213,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
 
                     <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={resolveByline(a.bylineRef, a.byline).name}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
-                        adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} adContext={adCtx} />
+                        adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} bylines={data?.bylines ?? {}} loggedIn={!!data?.loggedIn} adContext={adCtx} />
                     </article>
 
                     {a.tags.length > 0 && (

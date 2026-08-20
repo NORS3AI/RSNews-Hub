@@ -51,7 +51,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
   const {
     article, isPreview, previewFromDashboard, signedIn,
     related, next, recommend,
-    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution,
+    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution, bylineCards,
   } = result;
   const byline = resolveByline(article.bylineRef, article.byline);
 
@@ -120,7 +120,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-top" size="in-article" placeholder={false} adContext={adAttribution} /></div>
 
         <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={byline.name}>
-          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={signedIn} adContext={adAttribution} />
+          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} bylines={bylineCards} loggedIn={signedIn} adContext={adAttribution} />
         </article>
 
         <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-bottom" size="rectangle" placeholder={false} adContext={adAttribution} /></div>
