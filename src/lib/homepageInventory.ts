@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
-import { isCustomModuleId, customIdOf, parseTree, blockChain, isArticleSourced, collectionOffset, rotatePool, type Block } from './studio';
+import { isCustomModuleId, customIdOf, parseTree, blockChain, isArticleSourced, collectionOffset, collectionStep, rotatePool, type Block } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
 import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from './recommend';
 
@@ -151,7 +151,7 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
         take: 40, select: { id: true, title: true, slug: true },
       });
       const pool: Lite[] = rows.map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
-      const step = tree.children.flatMap(blockChain).filter((b) => (isArticleSourced(b.type) || b.type === 'mosaic') && b.settings.mode !== 'pick').length || 1;
+      const step = collectionStep(tree.children);
       collectionPool = rotatePool(pool, collectionOffset(collection.rotateHours, pool.length, step, now.getTime()));
     }
     for (const b of tree.children) {

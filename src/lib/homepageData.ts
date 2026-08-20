@@ -168,6 +168,9 @@ export async function getHomepageData() {
     ? await prisma.customModule.findMany({ where: { id: { in: customIds }, published: true } })
     : [];
   const customById = new Map(customRows.map((r) => [`custom:${r.id}`, r]));
+  // Parse each module's tree ONCE for this request; both the block scan and the
+  // collection prefetch below reuse it (parseTree runs a full normalize walk).
+  const treeById = new Map(customRows.map((r) => [r.id, parseTree(r.tree)]));
 
   // Poll lifecycle: close any module polls whose timer elapsed (hides them +
   // logs), then load the still-open ones referenced by these modules so they
@@ -181,7 +184,7 @@ export async function getHomepageData() {
   // Scans below flatten each block into its full priority stack (block +
   // fallbacks) so a poll/article/quiz that only appears as a *fallback* still
   // has its live content pre-fetched and can fill its slot when promoted.
-  const allBlocks = customRows.flatMap((r) => parseTree(r.tree).children.flatMap(blockChain));
+  const allBlocks = customRows.flatMap((r) => treeById.get(r.id)!.children.flatMap(blockChain));
   const modulePollIds = allBlocks
     .filter((b) => b.type === 'poll' && typeof b.settings.pollId === 'string').map((b) => b.settings.pollId as string);
   const modulePolls = modulePollIds.length
@@ -246,7 +249,7 @@ export async function getHomepageData() {
   // category (primary OR extra) with any-of tags and an optional year; a generous
   // pool (40) gives daily rotation room to cycle. Mirrors homepageInventory.
   const collections = new Map<string, ModuleCollection>();
-  for (const r of customRows) { const c = parseTree(r.tree).collection; if (c) collections.set(collectionKey(c), c); }
+  for (const r of customRows) { const c = treeById.get(r.id)!.collection; if (c) collections.set(collectionKey(c), c); }
   const byCollection = new Map<string, Card[]>();
   await Promise.all([...collections.entries()].map(async ([key, c]) => {
     const rows = await prisma.article.findMany({

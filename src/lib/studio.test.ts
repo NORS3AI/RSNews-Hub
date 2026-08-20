@@ -3,7 +3,7 @@ import {
   normalizeTree, emptyTree, makeBlock, serializeTree, parseTree, isHexColor,
   MAX_BLOCKS, MAX_FALLBACKS, blockChain, inSchedule, customModuleId, isCustomModuleId, customIdOf,
   BLOCK_IDS, ARTICLE_SOURCED_BLOCKS, isArticleSourced,
-  normalizeCollection, collectionKey, collectionOffset, rotatePool,
+  normalizeCollection, collectionKey, collectionOffset, rotatePool, collectionStep,
 } from './studio';
 
 describe('studio tree model', () => {
@@ -108,6 +108,23 @@ describe('studio tree model', () => {
     const t = parseTree(serializeTree(normalizeTree({ collection: { categorySlug: 'blogs', sort: 'views' } })));
     expect(t.collection?.categorySlug).toBe('blogs');
     expect(t.collection?.sort).toBe('views');
+  });
+
+  it('collectionStep counts how many stories a module draws from its collection', () => {
+    const t = (children: unknown[]) => collectionStep(children as never);
+    const art = (mode?: string) => ({ id: 'x', type: 'article-image', settings: mode ? { mode } : {}, children: [] });
+    const mosaic = (count: number) => ({ id: 'm', type: 'mosaic', settings: { count }, children: [] });
+    // three single-article slots → 3
+    expect(t([art(), art(), art()])).toBe(3);
+    // a hand-pick consumes nothing from the pool
+    expect(t([art(), art('pick'), art()])).toBe(2);
+    // a mosaic consumes its whole tile count (clamped 3–6), not 1
+    expect(t([mosaic(6)])).toBe(6);
+    expect(t([mosaic(99)])).toBe(6);
+    expect(t([mosaic(1)])).toBe(3);
+    expect(t([art(), mosaic(4)])).toBe(5);
+    // non-article blocks don't count; floor is 1
+    expect(t([{ id: 'h', type: 'heading', settings: {}, children: [] }])).toBe(1);
   });
 
   it('collectionKey is stable regardless of tag order', () => {

@@ -55,10 +55,16 @@ export default function ModuleEffect({ effect, colors }: { effect: 'snow' | 'con
       ctx.restore();
     };
 
-    // Reduced motion: render one gentle still frame and stop.
+    // Reduced motion: render a gentle still frame and stop animating — but keep
+    // repainting it on resize, since resizing the canvas clears its bitmap (the
+    // default ResizeObserver only resizes). Otherwise the overlay blanks out for
+    // good after the first responsive reflow.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      ctx.clearRect(0, 0, w, h); parts.forEach(draw);
-      return () => ro.disconnect();
+      ro.disconnect();
+      const renderStill = () => { resize(); ctx.clearRect(0, 0, w, h); parts.forEach(draw); };
+      const stillRo = new ResizeObserver(renderStill); stillRo.observe(host);
+      renderStill();
+      return () => stillRo.disconnect();
     }
 
     let raf = 0;

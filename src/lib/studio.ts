@@ -529,6 +529,21 @@ export function rotatePool<T>(pool: T[], offset: number): T[] {
   return pool.slice(k).concat(pool.slice(0, k));
 }
 
+// How many stories a module draws from its collection in one render — the
+// rotation step, so each period advances past exactly the set currently shown.
+// Only primary rungs consume (fallbacks fill only when promoted); a mosaic
+// consumes its whole tile count, every other article slot consumes one; a
+// hand-picked element consumes none from the pool. Minimum 1.
+export function collectionStep(children: Block[]): number {
+  let n = 0;
+  for (const b of children) {
+    if (b.settings?.mode === 'pick') continue;
+    if (b.type === 'mosaic') n += Math.min(Math.max(Number(b.settings?.count) || 4, 3), 6);
+    else if (isArticleSourced(b.type)) n += 1;
+  }
+  return n || 1;
+}
+
 /* ----------------------------- Serialization ----------------------------- */
 
 export function serializeTree(tree: ModuleTree): string {

@@ -72,6 +72,10 @@ export default function StudioEditor({
   // left palette is collapsed) or shrinks.
   const canvasRef = useRef<HTMLDivElement>(null);
   const [perRow, setPerRow] = useState(3);
+  // Re-run when the row canvas first mounts (empty → first block, so the ref
+  // element exists) as well as on shape change — hoisted so the deps array stays
+  // a simple value (lint) and the ResizeObserver actually attaches.
+  const canvasMounted = tree.shape === 'row' && tree.children.length > 0;
   useEffect(() => {
     const el = canvasRef.current;
     if (!el) return;
@@ -81,7 +85,7 @@ export default function StudioEditor({
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [tree.shape]);
+  }, [canvasMounted]);
   const [past, setPast] = useState<ModuleTree[]>([]);
   const [future, setFuture] = useState<ModuleTree[]>([]);
   // Permutation preview: which rung of each slot's priority stack to show on the

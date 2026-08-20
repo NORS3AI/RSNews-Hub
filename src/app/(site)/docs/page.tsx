@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getHomepageData } from '@/lib/homepageData';
 import { type ArticleCard as Card } from '@/lib/cards';
 import { moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
-import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, collectionKey, collectionOffset, rotatePool, type Block } from '@/lib/studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, collectionKey, collectionOffset, collectionStep, rotatePool, type Block } from '@/lib/studio';
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
@@ -154,8 +154,7 @@ export default async function DocsHome() {
           const id = String(b.settings.articleId ?? ''); if (id) used.add(id);
         }
       }
-      const step = tree.children.flatMap(blockChain)
-        .filter((b) => (isArticleSourced(b.type) || b.type === 'mosaic') && b.settings.mode !== 'pick').length || 1;
+      const step = collectionStep(tree.children);
       const pool = byCollection.get(collectionKey(collection)) ?? [];
       collectionPool = rotatePool(pool, collectionOffset(collection.rotateHours, pool.length, step, nowMs));
     }
