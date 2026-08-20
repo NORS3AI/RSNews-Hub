@@ -3,13 +3,13 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
-import { GENRES } from '@/lib/genre';
 import { suggestTags } from '@/lib/suggestTags';
 import { useComposer } from './context';
 import { Sparkles } from '@/components/icons';
 
 type Cat = { id: string; name: string };
 type Vendor = { id: string; name: string };
+type GenreOpt = { slug: string; label: string };
 type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 type Article = {
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
@@ -42,7 +42,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </div>
 );
 
-export default function ArticleDetails({ article, categories, vendors = [], bylines = [] }: { article?: Article; categories: Cat[]; vendors?: Vendor[]; bylines?: BylineOpt[] }) {
+export default function ArticleDetails({ article, categories, vendors = [], bylines = [], genres = [] }: { article?: Article; categories: Cat[]; vendors?: Vendor[]; bylines?: BylineOpt[]; genres?: GenreOpt[] }) {
   // Byline picker state: '' = the house team default, 'custom' = a typed one-off
   // name (the free-text field), otherwise a saved byline id from the library.
   const [bylinePick, setBylinePick] = useState<string>(article?.bylineId || (article?.byline ? 'custom' : ''));
@@ -203,9 +203,12 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
           <label className="label" htmlFor="genre">Genre <span className="font-normal text-[var(--muted)]">(optional)</span></label>
           <select id="genre" name="genre" defaultValue={article?.genre ?? ''} className="input">
             <option value="">None</option>
-            {GENRES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+            {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
           </select>
-          <p className="mt-1 text-xs text-[var(--muted)]">The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.{' '}
+            <a href="/admin/genres" target="_blank" rel="noreferrer" className="text-brand-600 underline">Manage genres →</a>
+          </p>
         </div>
         <div>
           <label className="label" htmlFor="sponsoredUntil">Featured (sponsored) until <span className="font-normal text-[var(--muted)]">(optional)</span></label>

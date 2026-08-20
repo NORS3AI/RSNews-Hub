@@ -23,6 +23,9 @@ export type ArticleCard = {
   breakingUntil: Date | null;
   tags: { name: string; slug: string }[];
   requirement?: string;
+  // The editorial-genre SLUG. Its label/color are resolved at render from the
+  // live genre map (see GenresProvider/GenreBadge), so cards stay a pure data
+  // shape and a renamed/custom genre updates everywhere without re-querying.
   genre?: string;
   // Derived (never the raw vendor id): true when the article is tied to a paying
   // vendor, so cards can show the "Partner content" disclosure. See toCard.

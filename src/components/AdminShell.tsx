@@ -34,6 +34,7 @@ const groups: NavGroup[] = [
   ] },
   { title: 'Organize', links: [
     { href: '/admin/categories', label: 'Categories', icon: Layers },
+    { href: '/admin/genres', label: 'Genres', icon: Tag },
     { href: '/admin/tags', label: 'Tags', icon: Tag },
     { href: '/admin/bylines', label: 'Bylines', icon: Users },
   ] },

@@ -27,6 +27,7 @@ function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
 
 type Cat = { id: string; name: string; color?: string };
 export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
+export type GenreOpt = { slug: string; label: string };
 type Article = {
   id: string; title: string; content: string; excerpt: string | null; byline?: string | null; bylineId?: string | null; coverImage: string | null;
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
@@ -39,8 +40,8 @@ type Article = {
 // tabbed inspector (right) for Article details vs the selected element — one
 // shared TipTap editor behind all three, via ComposerProvider.
 export default function ArticleEditor({
-  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], bylines = [], authorName = 'You',
-}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; bylines?: BylineOpt[]; authorName?: string }) {
+  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], bylines = [], genres = [], authorName = 'You',
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; bylines?: BylineOpt[]; genres?: GenreOpt[]; authorName?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   useUnsavedGuard(formRef);
   return (
@@ -87,7 +88,7 @@ export default function ArticleEditor({
             {/* The panel scrolls INTERNALLY (tabs stay pinned) when it's taller than
                 the viewport, so a long options list never runs off the page. */}
             <div className="card card-soft composer-panel p-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-              <Inspector article={article} categories={categories} vendors={vendors} bylines={bylines} />
+              <Inspector article={article} categories={categories} vendors={vendors} bylines={bylines} genres={genres} />
             </div>
           </aside>
         </div>

@@ -862,6 +862,27 @@ model Article {
   @@index([categoryId])
 }
 
+// An editorial "genre" — the NATURE of a piece (Opinion, Sponsored, …), a
+// separate axis from topic categories, shown as a small badge. Admin-editable so
+// new ones (History, Education, …) can be added. `slug` is the stable token
+// stored on Article.genre and compared in code; `builtin` rows can't be deleted
+// and their slug can't change (the 'sponsored' slug is load-bearing — it drives
+// the paid-content disclosure and the sponsor go-live email). `color` tints the
+// badge. `archived` hides it from the picker without touching existing articles.
+model Genre {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  color     String   @default("#64748b")
+  builtin   Boolean  @default(false)
+  archived  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([archived, sortOrder])
+}
+
 // A reusable byline — a saved author identity (photo + name + title) an editor
 // can attach to articles from a small library, instead of retyping it each time.
 // Not a login account: covers in-house management, council members, and repeat

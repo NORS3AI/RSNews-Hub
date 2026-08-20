@@ -1,5 +1,6 @@
 import { requirementLabel } from '@/lib/entitlements';
-import { genreLabel, genreBadgeClass } from '@/lib/genre';
+import { SPONSORED_GENRE } from '@/lib/genre';
+import { GenreBadge } from '@/components/site/GenresProvider';
 import { Zap, Lock } from '@/components/icons';
 
 type Cat = { name: string; slug: string; color: string };
@@ -62,20 +63,19 @@ export default function ArticleBadges({
   className?: string;
 }) {
   const breaking = isBreaking(breakingUntil);
-  const gLabel = genreLabel(genre);
-  // The "Paid partner content" disclosure supersedes the plain 'sponsored' genre
-  // chip so paid content shows one clear label, not two.
-  const showGenre = gLabel && !(partner && genre === 'sponsored');
-  if (!breaking && !category && extraCategories.length === 0 && !requirement && !showGenre && !partner) return null;
+  // The label/color for the genre chip is resolved at render by <GenreBadge> from
+  // the live genre map. Here we only need to know whether a chip *might* show (a
+  // genre is set and isn't the deduped partner-sponsored case) so the row doesn't
+  // collapse to null when the genre is the only badge.
+  const mayShowGenre = !!genre && !(partner && genre === SPONSORED_GENRE);
+  if (!breaking && !category && extraCategories.length === 0 && !requirement && !mayShowGenre && !partner) return null;
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {breaking && (
         <span className="badge inline-flex items-center gap-1 animate-pulse bg-red-600 text-white"><Zap width={12} height={12} /> Breaking</span>
       )}
       {partner && <PartnerContentBadge />}
-      {showGenre && (
-        <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(genre!)}`}>{gLabel}</span>
-      )}
+      <GenreBadge genre={genre} partner={partner} />
       {category && (
         <span className="badge cat-badge" style={{ '--c': category.color } as React.CSSProperties}>{category.name}</span>
       )}

@@ -1,39 +1,52 @@
-// Optional editorial "genre" for an article — the NATURE of the piece, a
-// separate axis from topic categories. Blank on most articles; set only when it
-// clarifies. 'sponsored' doubles as an ad/paid disclosure. Pure + shared by the
-// editor, the save action (whitelist), and the badge display so they never drift.
+// Editorial "genre" — the NATURE of a piece (a separate axis from topic
+// categories), shown as a small badge. Genres are admin-editable at runtime (see
+// genreServer + /admin/genres); this file is the PURE layer: the built-in seed +
+// fallback and the display/validation helpers, so SSR, tests, and the composer
+// keep working without a DB round-trip. The DB is the source of truth at runtime.
 
-export type Genre = 'opinion' | 'sponsored' | 'press_release' | 'update';
+// The one load-bearing slug: it drives the paid-content (FTC) disclosure and the
+// sponsor go-live email. It's a protected built-in — its slug never changes.
+export const SPONSORED_GENRE = 'sponsored';
 
-export const GENRES: { value: Genre; label: string }[] = [
-  { value: 'opinion', label: 'Opinion' },
-  { value: 'sponsored', label: 'Sponsored' },
-  { value: 'press_release', label: 'Press release' },
-  { value: 'update', label: 'Update' },
+export type GenreInfo = { slug: string; label: string; color: string };
+
+// Built-in genres — seeded into the DB and used as the fallback everywhere.
+export const BUILTIN_GENRES: GenreInfo[] = [
+  { slug: 'opinion', label: 'Opinion', color: '#8b5cf6' },
+  { slug: 'sponsored', label: 'Sponsored', color: '#d97706' },
+  { slug: 'press_release', label: 'Press release', color: '#64748b' },
+  { slug: 'update', label: 'Update', color: '#3b82f6' },
 ];
+const BUILTIN: Record<string, GenreInfo> = Object.fromEntries(BUILTIN_GENRES.map((g) => [g.slug, g]));
 
-const LABEL: Record<string, string> = Object.fromEntries(GENRES.map((g) => [g.value, g.label]));
-
-/** Human label for a genre token, or '' if none/unknown. */
-export function genreLabel(v: string | null | undefined): string {
-  return (v && LABEL[v]) || '';
+// Resolve a genre slug to its display info from a runtime map (DB) with a
+// built-in fallback; null when blank/unknown.
+export function genreInfo(slug: string | null | undefined, map?: Record<string, GenreInfo>): GenreInfo | null {
+  const s = (slug || '').trim();
+  if (!s) return null;
+  return (map && map[s]) || BUILTIN[s] || null;
 }
 
-/** Normalize a submitted genre to a known token, or '' (none). */
-export function normalizeGenre(v: unknown): string {
+/** Human label for a genre slug (built-in fallback), or '' if none/unknown. */
+export function genreLabel(slug: string | null | undefined, map?: Record<string, GenreInfo>): string {
+  return genreInfo(slug, map)?.label ?? '';
+}
+
+/** Badge tint color (hex) for a genre slug, or null if none. */
+export function genreColor(slug: string | null | undefined, map?: Record<string, GenreInfo>): string | null {
+  return genreInfo(slug, map)?.color ?? null;
+}
+
+/** Normalize a submitted genre to an allowed slug, or '' (none). Pass the set of
+ *  valid slugs (from the DB) at save time; without it, only built-ins pass. */
+export function normalizeGenre(v: unknown, allowed?: Set<string>): string {
   const t = typeof v === 'string' ? v.trim().toLowerCase() : '';
-  return LABEL[t] ? t : '';
+  if (!t) return '';
+  if (allowed) return allowed.has(t) ? t : '';
+  return BUILTIN[t] ? t : '';
 }
 
-// Badge tint per genre — deliberately distinct from the category colours so it
-// reads as a different axis. Sponsored is a filled, high-visibility gold because
-// it's a disclosure; the others are soft tints.
-const BADGE: Record<string, string> = {
-  opinion: 'bg-violet-100 text-violet-800',
-  sponsored: 'bg-amber-400 text-amber-950',
-  press_release: 'bg-slate-200 text-slate-700',
-  update: 'bg-blue-100 text-blue-800',
-};
-export function genreBadgeClass(v: string): string {
-  return BADGE[v] ?? 'bg-[var(--card-2)] text-[var(--fg)]';
+/** Make a slug from a label for a new custom genre (lowercase, underscores). */
+export function genreSlugify(label: string): string {
+  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
 }

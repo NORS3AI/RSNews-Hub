@@ -8,7 +8,8 @@ import { prisma } from './db';
 import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
-import { normalizeGenre } from './genre';
+import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
+import { validGenreSlugs, revalidateGenres } from './genreServer';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -105,6 +106,61 @@ export async function setBylineArchived(id: string, archived: boolean): Promise<
   revalidatePath('/admin/bylines');
 }
 
+/* --------------------------- Genres (editorial) -------------------------- */
+// The editorial-genre list is admin-editable (label + tint color). Built-in
+// genres keep their slug forever (logic and saved articles reference the slug),
+// but their label/color can be edited. The 'sponsored' genre is fully protected —
+// it drives paid-content (FTC) disclosure — so it can't be archived or deleted.
+// Custom genres (History, Education…) are free-form and fully removable.
+
+async function uniqueGenreSlug(label: string): Promise<string> {
+  const base = genreSlugify(label) || 'genre';
+  let slug = base;
+  let n = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const found = await prisma.genre.findUnique({ where: { slug } });
+    if (!found) return slug;
+    slug = `${base}_${++n}`;
+  }
+}
+
+export async function saveGenre(input: { id?: string; label: string; color?: string }): Promise<string> {
+  await ensureStaff();
+  const label = (input.label ?? '').trim().slice(0, 60);
+  if (!label) throw new Error('A genre needs a label.');
+  const color = /^#[0-9a-fA-F]{6}$/.test((input.color ?? '').trim()) ? (input.color as string).trim() : '#64748b';
+  // Editing keeps the slug stable (articles + logic reference it); only a new
+  // genre mints a slug from its label.
+  const row = input.id
+    ? await prisma.genre.update({ where: { id: input.id }, data: { label, color } })
+    : await prisma.genre.create({ data: { slug: await uniqueGenreSlug(label), label, color, builtin: false } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+  return row.id;
+}
+
+export async function setGenreArchived(id: string, archived: boolean): Promise<void> {
+  await ensureStaff();
+  const g = await prisma.genre.findUnique({ where: { id }, select: { slug: true } });
+  if (g?.slug === SPONSORED_GENRE) throw new Error('The Sponsored genre powers paid-content disclosure and can’t be archived.');
+  await prisma.genre.update({ where: { id }, data: { archived } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+}
+
+export async function deleteGenre(id: string): Promise<void> {
+  await ensureStaff();
+  const g = await prisma.genre.findUnique({ where: { id }, select: { builtin: true } });
+  if (g?.builtin) throw new Error('Built-in genres can’t be deleted — archive it instead.');
+  await prisma.genre.delete({ where: { id } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+}
+
 /* --------------------- Report builder templates -------------------------- */
 // Save/delete a named Report-builder configuration. A template stores only the
 // querystring; regenerating always recomputes live numbers, so there's nothing
@@ -167,8 +223,9 @@ export async function saveArticle(formData: FormData) {
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
   const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
-  // Optional editorial genre — whitelisted to a known token or '' (none).
-  const genre = normalizeGenre(formData.get('genre'));
+  // Optional editorial genre — whitelisted to a known (admin-editable) slug or
+  // '' (none). Validated against the live genre list so custom genres are allowed.
+  const genre = normalizeGenre(formData.get('genre'), await validGenreSlugs());
   // Optional connected vendor (the advertiser this piece belongs to — sponsored or
   // a What's Hot article). Verified to be a real vendor id, else cleared. Drives the
   // in-article ad lock + the "send to dashboard" default. '' → null (not connected).

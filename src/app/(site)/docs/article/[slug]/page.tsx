@@ -17,7 +17,7 @@ import ArticleByline from '@/components/site/ArticleByline';
 import { resolveByline } from '@/lib/byline';
 import { requirementLabel } from '@/lib/entitlements';
 import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
-import { genreLabel, genreBadgeClass } from '@/lib/genre';
+import { GenreBadge } from '@/components/site/GenresProvider';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, Zap } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
@@ -75,7 +75,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
               Hot article) or a 'sponsored' one shows one clear "Partner content" tag,
               which supersedes the plain 'sponsored' genre chip. */}
           {isPartnerContent(article) && <PartnerContentBadge />}
-          {genreLabel(article.genre) && article.genre !== 'sponsored' && <span className={`badge font-bold uppercase tracking-wide ${genreBadgeClass(article.genre)}`}>{genreLabel(article.genre)}</span>}
+          <GenreBadge genre={article.genre} partner={isPartnerContent(article)} />
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
               style={{ '--c': article.category.color } as React.CSSProperties}>

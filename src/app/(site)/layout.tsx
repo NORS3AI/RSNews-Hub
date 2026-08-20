@@ -9,9 +9,12 @@ import { isActiveVendor } from '@/lib/vendors';
 import { canViewAs, activeViewAs } from '@/lib/viewAsServer';
 import { listAdvertisers } from '@/lib/adsServer';
 import { getLiveAnnouncement, announcementSignature } from '@/lib/announcement';
+import { getGenreMap } from '@/lib/genreServer';
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  // Live genre map (slug → label/color) for the whole site's genre badges.
+  const genres = await getGenreMap();
   // Gate the top bar by the viewer's entitlement: a PackageHub-only message is
   // filtered out server-side for everyone else (never sent to their browser).
   const liveAnnouncement = await getLiveAnnouncement(user);
@@ -22,7 +25,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     ? await Promise.all([listAdvertisers().then((a) => a.map((x) => x.brand)), activeViewAs(user)])
     : [[], null];
   return (
-    <SiteProviders>
+    <SiteProviders genres={genres}>
       <AppSidebarShell
         user={user ? { id: user.id, name: user.name, role: user.role } : null}
         isVendor={await isActiveVendor(user)}
