@@ -11,6 +11,7 @@ const CAT: Record<ScheduleCategory, { label: string; bar: string; dot: string }>
   campaign:  { label: 'Ad campaign',      bar: 'bg-emerald-500', dot: 'bg-emerald-500' },
   element:   { label: 'Element window',   bar: 'bg-amber-500',   dot: 'bg-amber-500' },
   module:    { label: 'Module retires',   bar: 'bg-rose-500',    dot: 'bg-rose-500' },
+  seasonal:  { label: 'Seasonal module',  bar: 'bg-teal-500',    dot: 'bg-teal-500' },
 };
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -105,7 +106,7 @@ export default function ScheduleCalendar({ events, spans, initialYear, initialMo
         <span className="text-sm text-[var(--muted)]">{monthCount} running or scheduled this month</span>
         {/* Legend — bars for windows, dots for point markers (campaign start/end, module retire) */}
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {(['poll', 'quiz', 'sponsored', 'element'] as ScheduleCategory[]).map((c) => (
+          {(['poll', 'quiz', 'sponsored', 'seasonal', 'element'] as ScheduleCategory[]).map((c) => (
             <span key={c} className="inline-flex items-center gap-1.5 text-[var(--muted)]">
               <span className={`h-2.5 w-4 rounded-full ${CAT[c].bar}`} /> {CAT[c].label}
             </span>

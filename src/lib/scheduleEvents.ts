@@ -6,8 +6,9 @@
 // module poll & quiz close timers, and ad-campaign start/end dates.
 
 import { parseTree, blockChain, blockLabel, type Block } from './studio';
+import { windowSpansYearEnd } from './seasonal';
 
-export type ScheduleCategory = 'element' | 'module' | 'poll' | 'quiz' | 'campaign' | 'sponsored';
+export type ScheduleCategory = 'element' | 'module' | 'poll' | 'quiz' | 'campaign' | 'sponsored' | 'seasonal';
 export type ScheduleKind = 'up' | 'down' | 'expire' | 'close' | 'start' | 'end';
 
 // A multi-day span (Outlook-style bar): something that runs over a window, so the
@@ -37,6 +38,7 @@ export type PollRow = { question: string; createdAt: Date; closesAt: Date | null
 export type QuizRow = { title: string; createdAt: Date; closesAt: Date | null };
 export type CampaignRow = { vendorName: string; startAt: Date | null; endAt: Date | null; status: string };
 export type SponsoredRow = { title: string; publishedAt: Date | null; sponsoredUntil: Date | null };
+export type SeasonalRow = { label: string; moduleName: string | null; startMonth: number; startDay: number; endMonth: number; endDay: number; enabled: boolean };
 
 export type ScheduleInput = {
   modules?: ModuleRow[];
@@ -44,6 +46,7 @@ export type ScheduleInput = {
   quizzes?: QuizRow[];
   campaigns?: CampaignRow[];
   sponsored?: SponsoredRow[];
+  seasonal?: SeasonalRow[];
 };
 
 const iso = (d: Date | string): string => (typeof d === 'string' ? d : d.toISOString());
@@ -83,6 +86,20 @@ export function collectScheduleSpans(input: ScheduleInput, now: Date = new Date(
   for (const p of input.polls ?? []) add(p.createdAt, p.closesAt, 'poll', p.question, p.kind === 'module' ? 'Module poll' : 'Poll');
   for (const q of input.quizzes ?? []) add(q.createdAt, q.closesAt, 'quiz', q.title, 'Pop quiz');
   for (const a of input.sponsored ?? []) add(a.publishedAt, a.sponsoredUntil, 'sponsored', a.title, 'Sponsored article');
+  // Seasonal placements recur every year, so materialize each into concrete bars
+  // for the years around `now` (last year for context, this year, next year) — the
+  // calendar navigates within that range and spanStatus tags the live one.
+  const yr = now.getFullYear();
+  for (const s of input.seasonal ?? []) {
+    if (!s.enabled) continue;
+    const wraps = windowSpansYearEnd(s);
+    for (const Y of [yr - 1, yr, yr + 1]) {
+      const start = new Date(Y, s.startMonth - 1, s.startDay);
+      const end = new Date(wraps ? Y + 1 : Y, s.endMonth - 1, s.endDay);
+      end.setHours(23, 59, 59, 999); // include the closing day
+      add(start, end, 'seasonal', s.label, s.moduleName ?? 'Seasonal module');
+    }
+  }
   // Ad campaigns are NOT bars — they show as start/end point markers instead (see
   // collectScheduleEvents), so a long multi-month flight doesn't eat calendar rows.
 

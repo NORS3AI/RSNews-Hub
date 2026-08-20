@@ -22,6 +22,7 @@ const groups: NavGroup[] = [
     { href: '/admin/homepage/inventory', label: 'Homepage inventory', icon: Layers },
     { href: '/admin/announcement', label: 'Announcement bar', icon: Megaphone },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/admin/seasonal', label: 'Seasonal modules', icon: Sparkles },
   ] },
   { title: 'Create content', links: [
     { href: '/admin/newsroom', label: 'Newsroom', icon: Book },

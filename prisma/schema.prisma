@@ -998,6 +998,30 @@ model HouseStyleRule {
   @@index([enabled, sortOrder])
 }
 
+// A recurring "seasonal" placement: a Module Studio module that auto-appears high
+// on the public homepage during a yearly window (start month/day → end month/day,
+// 1-based; a start that sorts after the end wraps the New Year, e.g. Nov 1 → Jan 5)
+// and lifts off when the window closes — hands-free, WITHOUT mutating the saved
+// homepage layout (the homepage renders active seasonal modules as a computed band
+// on top). Also painted on the admin schedule calendar. `moduleId` references a
+// CustomModule by id (plain link, like ContentSubmission — a dangling/unpublished
+// module is simply skipped at render). `priority` orders simultaneously-active ones.
+model SeasonalModule {
+  id         String   @id @default(cuid())
+  label      String
+  moduleId   String
+  startMonth Int
+  startDay   Int
+  endMonth   Int
+  endDay     Int
+  enabled    Boolean  @default(true)
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([enabled, priority])
+}
+
 // One reader's endorsement of one article (the end-of-article "Recommend").
 // A signed-in reader is deduped by (articleId, userId); an anonymous reader by
 // (articleId, sessionId) — Postgres treats NULLs as distinct, so a row carries

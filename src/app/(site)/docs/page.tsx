@@ -55,7 +55,7 @@ export default async function DocsHome() {
     heroSpan, weekSpan, priorPollVote, priorQuizResponse,
     customById, pickById, byTag, byYear, byCat, byCollection,
     modulePollById, myModuleVoteByPoll, quizById, myQuizDone,
-    pinnedPollIds, pinnedQuizIds,
+    pinnedPollIds, pinnedQuizIds, seasonalModuleIds,
   } = data;
 
   // Ad-rotation cursor — request-local render state, mutated as each slot is
@@ -670,6 +670,19 @@ export default async function DocsHome() {
           </div>
         </section>
         </SectionWidth>
+      )}
+
+      {/* ===== Seasonal band — Module Studio modules on a recurring yearly window
+          that's open today (e.g. a holiday module Nov 1–Jan 5). Rendered high, above
+          the arranged layout, and auto-removed when the window closes — it is never
+          part of the saved layout (managed under Admin → Seasonal). ===== */}
+      {seasonalModuleIds.length > 0 && (
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-x-6 lg:gap-y-[52px]">
+          {seasonalModuleIds.map((id) => {
+            const el = renderModule({ id, enabled: true, span: 3 });
+            return el ? <div key={`season-${id}`} className="lg:col-span-3">{el}</div> : null;
+          })}
+        </div>
       )}
 
       {/* ===== Admin-arranged modules — a 3-column grid on desktop; each module

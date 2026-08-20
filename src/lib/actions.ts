@@ -13,6 +13,7 @@ import { validGenreSlugs, revalidateGenres } from './genreServer';
 import { docBodyToArticleHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
 import { splitVariants } from './houseStyle';
 import { revalidateHouseStyle } from './houseStyleServer';
+import { clampWindow } from './seasonal';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -324,6 +325,47 @@ export async function deleteHouseStyleRule(id: string): Promise<void> {
   await prisma.houseStyleRule.delete({ where: { id } });
   revalidateHouseStyle();
   revalidatePath('/admin/house-style');
+}
+
+/* --------------------------- Seasonal modules ---------------------------- */
+// A Module Studio module scheduled onto the homepage during a recurring yearly
+// window. The homepage renders active ones as a band on top (see homepageData);
+// these actions just manage the schedules.
+
+function revalidateSeasonal() {
+  revalidatePath('/admin/seasonal');
+  revalidatePath('/docs');
+  revalidateTag('reader-content');
+}
+
+export async function saveSeasonalSchedule(input: { id?: string; label: string; moduleId: string; startMonth: number; startDay: number; endMonth: number; endDay: number; priority?: number }): Promise<string> {
+  await ensureStaff();
+  const label = (input.label ?? '').trim().slice(0, 120);
+  const moduleId = (input.moduleId ?? '').trim();
+  if (!label) throw new Error('Give the seasonal placement a name.');
+  if (!moduleId) throw new Error('Pick a module to feature.');
+  const mod = await prisma.customModule.findUnique({ where: { id: moduleId }, select: { id: true } });
+  if (!mod) throw new Error('That module no longer exists.');
+  const win = clampWindow({ startMonth: input.startMonth, startDay: input.startDay, endMonth: input.endMonth, endDay: input.endDay });
+  const priority = Number.isFinite(input.priority) ? Math.max(0, Math.min(999, Math.round(input.priority as number))) : 0;
+  const data = { label, moduleId, ...win, priority };
+  const row = input.id
+    ? await prisma.seasonalModule.update({ where: { id: input.id }, data })
+    : await prisma.seasonalModule.create({ data });
+  revalidateSeasonal();
+  return row.id;
+}
+
+export async function setSeasonalEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.seasonalModule.update({ where: { id }, data: { enabled } });
+  revalidateSeasonal();
+}
+
+export async function deleteSeasonalSchedule(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.seasonalModule.delete({ where: { id } });
+  revalidateSeasonal();
 }
 
 /* --------------------- Report builder templates -------------------------- */

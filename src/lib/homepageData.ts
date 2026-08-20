@@ -18,6 +18,7 @@ import { applyViewAs } from './viewAs';
 import { sweepStudioExpiries } from './studioPolls';
 import { sweepAutoArchivedArticles } from './autoArchive';
 import { sweepSponsorGoLiveNotifications } from './intake';
+import { getActiveSeasonalModuleIds } from './seasonalServer';
 import { after } from 'next/server';
 import { loadAds, listAdvertisers } from './adsServer';
 import { cookies } from 'next/headers';
@@ -162,12 +163,20 @@ export async function getHomepageData() {
   const loggedIn = !!user;
 
   // Published custom modules (built in the Module Studio) referenced in the
-  // layout. Only published ones ever reach the public homepage.
-  const customIds = layout.filter((m) => m.enabled && isCustomModuleId(m.id)).map((m) => m.id.slice('custom:'.length));
+  // layout. Only published ones ever reach the public homepage. Seasonal modules
+  // (recurring yearly windows open TODAY) are merged in here so their content
+  // pools resolve exactly like a layout module — they render as a computed band
+  // above the layout (see the page), without ever touching the saved layout.
+  const seasonalActiveIds = await getActiveSeasonalModuleIds(new Date());
+  const layoutCustomIds = layout.filter((m) => m.enabled && isCustomModuleId(m.id)).map((m) => m.id.slice('custom:'.length));
+  const customIds = [...new Set([...layoutCustomIds, ...seasonalActiveIds])];
   const customRows = customIds.length
     ? await prisma.customModule.findMany({ where: { id: { in: customIds }, published: true } })
     : [];
   const customById = new Map(customRows.map((r) => [`custom:${r.id}`, r]));
+  // The seasonal band, in priority order — only ids that resolved to a published
+  // module (a dangling/unpublished seasonal reference is silently skipped).
+  const seasonalModuleIds = seasonalActiveIds.map((id) => `custom:${id}`).filter((cid) => customById.has(cid));
   // Parse each module's tree ONCE for this request; both the block scan and the
   // collection prefetch below reuse it (parseTree runs a full normalize walk).
   const treeById = new Map(customRows.map((r) => [r.id, parseTree(r.tree)]));
@@ -324,6 +333,8 @@ export async function getHomepageData() {
     heroSpan, weekSpan, priorPollVote, priorQuizResponse,
     // custom modules + their resolved content pools
     customById, pickById, byTag, byYear, byCat, byCollection,
+    // seasonal band (custom:<id> in priority order) — active recurring modules
+    seasonalModuleIds,
     modulePollById, myModuleVoteByPoll, quizById, myQuizDone,
     pinnedPollIds, pinnedQuizIds,
   };
