@@ -266,6 +266,7 @@ export async function getHomepageData() {
         status: { in: RECOMMENDABLE_STATUSES },
         OR: [{ category: { slug: c.categorySlug } }, { extraCategories: { some: { slug: c.categorySlug } } }],
         ...(c.tags.length ? { tags: { some: { tag: { OR: c.tags.flatMap((t) => [{ slug: { contains: t } }, { name: { contains: t } }]) } } } } : {}),
+        ...(c.genre ? { genre: c.genre } : {}),
         ...(c.year
           ? { publishedAt: { gte: new Date(c.year, 0, 1), lt: new Date(Math.min(new Date(c.year + 1, 0, 1).getTime(), Date.now())) } }
           : { publishedAt: { lte: new Date() } }),

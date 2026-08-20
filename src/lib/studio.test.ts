@@ -98,12 +98,12 @@ describe('studio tree model', () => {
     expect(normalizeCollection({ tags: ['x'] })).toBe(null);
     const c = normalizeCollection({
       categorySlug: 'Blogs', tags: ['A', ' ', 'b', 'a', 'c', 'd', 'e', 'f', 'g'],
-      year: 2022, sort: 'recommended', rotateHours: 24,
+      year: 2022, genre: 'History', sort: 'recommended', rotateHours: 24,
     });
-    expect(c).toEqual({ categorySlug: 'blogs', tags: ['a', 'b', 'c', 'd', 'e', 'f'], year: 2022, sort: 'recommended', rotateHours: 24 });
-    // invalid sort/year/rotate fall back to safe defaults
+    expect(c).toEqual({ categorySlug: 'blogs', tags: ['a', 'b', 'c', 'd', 'e', 'f'], year: 2022, genre: 'history', sort: 'recommended', rotateHours: 24 });
+    // invalid sort/year/rotate fall back to safe defaults; genre defaults to '' (any)
     const d = normalizeCollection({ categorySlug: 'news', sort: 'bogus', year: 1200, rotateHours: 7 });
-    expect(d).toEqual({ categorySlug: 'news', tags: [], year: 0, sort: 'newest', rotateHours: 0 });
+    expect(d).toEqual({ categorySlug: 'news', tags: [], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
     // survives a serialize/parse round-trip on the tree
     const t = parseTree(serializeTree(normalizeTree({ collection: { categorySlug: 'blogs', sort: 'views' } })));
     expect(t.collection?.categorySlug).toBe('blogs');
@@ -128,11 +128,13 @@ describe('studio tree model', () => {
   });
 
   it('collectionKey is stable regardless of tag order', () => {
-    const a = collectionKey({ categorySlug: 'blogs', tags: ['x', 'y'], year: 0, sort: 'newest', rotateHours: 0 });
-    const b = collectionKey({ categorySlug: 'blogs', tags: ['y', 'x'], year: 0, sort: 'newest', rotateHours: 0 });
+    const a = collectionKey({ categorySlug: 'blogs', tags: ['x', 'y'], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
+    const b = collectionKey({ categorySlug: 'blogs', tags: ['y', 'x'], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
     expect(a).toBe(b);
     // a different filter yields a different key
-    expect(collectionKey({ categorySlug: 'blogs', tags: [], year: 2022, sort: 'newest', rotateHours: 0 })).not.toBe(a);
+    expect(collectionKey({ categorySlug: 'blogs', tags: [], year: 2022, genre: '', sort: 'newest', rotateHours: 0 })).not.toBe(a);
+    // a different genre yields a different key too
+    expect(collectionKey({ categorySlug: 'blogs', tags: ['x', 'y'], year: 0, genre: 'history', sort: 'newest', rotateHours: 0 })).not.toBe(a);
   });
 
   it('collectionOffset rotates deterministically by the clock', () => {

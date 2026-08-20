@@ -198,14 +198,16 @@ export type ModuleTree = {
 
 // A module-level query that article elements draw from. `categorySlug` is the
 // anchor (empty = the whole collection is off). `tags` narrow to articles
-// carrying ANY of them; `year` narrows to that calendar year; all set filters
-// are AND-ed. `sort` orders the pool; `rotateHours` (0 = off) advances which
-// slice shows each period so the module refreshes itself over time.
+// carrying ANY of them; `year` narrows to that calendar year; `genre` narrows to
+// that editorial genre (a slug, empty = any); all set filters are AND-ed. `sort`
+// orders the pool; `rotateHours` (0 = off) advances which slice shows each period
+// so the module refreshes itself over time.
 export type CollectionSort = 'newest' | 'recommended' | 'views';
 export type ModuleCollection = {
   categorySlug: string;
   tags: string[];
   year: number;
+  genre: string;
   sort: CollectionSort;
   rotateHours: number;
 };
@@ -499,17 +501,18 @@ export function normalizeCollection(input: unknown): ModuleCollection | null {
     .map((t) => str(t, 60).trim().toLowerCase()).filter(Boolean))].slice(0, 6);
   const y = Number(o.year);
   const year = Number.isInteger(y) && y >= 1990 && y <= 2100 ? y : 0;
+  const genre = str(o.genre, 40).trim().toLowerCase();
   const sort: CollectionSort = COLLECTION_SORTS.includes(o.sort as CollectionSort) ? (o.sort as CollectionSort) : 'newest';
   const r = Number(o.rotateHours);
   const rotateHours = COLLECTION_ROTATE_CHOICES.includes(r) ? r : 0;
-  return { categorySlug, tags, year, sort, rotateHours };
+  return { categorySlug, tags, year, genre, sort, rotateHours };
 }
 
 // A stable key for a collection's query — used to prefetch/share one article
 // pool across every element (and module) that asks for the same thing. Tags are
 // sorted so order doesn't fragment the key.
 export function collectionKey(c: ModuleCollection): string {
-  return [c.categorySlug, [...c.tags].sort().join('+'), c.year, c.sort].join('|');
+  return [c.categorySlug, [...c.tags].sort().join('+'), c.year, c.genre, c.sort].join('|');
 }
 
 // Deterministic, cron-free rotation offset into a collection pool. Buckets time

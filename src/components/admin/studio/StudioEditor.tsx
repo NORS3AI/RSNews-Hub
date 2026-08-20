@@ -25,6 +25,11 @@ export type CatOption = { name: string; slug: string };
 const CategoriesContext = createContext<CatOption[]>([]);
 const useCategories = () => useContext(CategoriesContext);
 
+// Editorial genres, shared like categories for the collection's genre filter.
+export type GenreOption = { label: string; slug: string };
+const GenresContext = createContext<GenreOption[]>([]);
+const useGenres = () => useContext(GenresContext);
+
 // Advertisers (+ which image shapes each can fill) for the ad block's advertiser
 // picker and its "no creative in that shape" popup. Shared via context like
 // categories so it doesn't thread through every inspector level.
@@ -47,8 +52,8 @@ const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false
 const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video || adv.tall);
 
 export default function StudioEditor({
-  id, name: initialName, published, initialTree, categories = [], advertisers = [],
-}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[]; advertisers?: Advertiser[] }) {
+  id, name: initialName, published, initialTree, categories = [], advertisers = [], genres = [],
+}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[]; advertisers?: Advertiser[]; genres?: GenreOption[] }) {
   const router = useRouter();
   const [tree, setTree] = useState<ModuleTree>(initialTree);
   const [name, setName] = useState(initialName);
@@ -169,7 +174,7 @@ export default function StudioEditor({
   // the whole collection off (elements fall back to their own sourcing).
   const setCollection = (patch: Partial<ModuleCollection> | null) => mutate((t) => {
     if (patch === null) { t.collection = null; return t; }
-    const cur: ModuleCollection = t.collection ?? { categorySlug: '', tags: [], year: 0, sort: 'newest', rotateHours: 0 };
+    const cur: ModuleCollection = t.collection ?? { categorySlug: '', tags: [], year: 0, genre: '', sort: 'newest', rotateHours: 0 };
     const next: ModuleCollection = { ...cur, ...patch };
     t.collection = next.categorySlug ? next : null;
     return t;
@@ -286,6 +291,7 @@ export default function StudioEditor({
 
   return (
     <CategoriesContext.Provider value={categories}>
+    <GenresContext.Provider value={genres}>
     <AdvertisersContext.Provider value={advertisers}>
     <div className="mx-auto max-w-6xl">
       {/* Top bar */}
@@ -488,6 +494,7 @@ export default function StudioEditor({
       )}
     </div>
     </AdvertisersContext.Provider>
+    </GenresContext.Provider>
     </CategoriesContext.Provider>
   );
 }
@@ -569,6 +576,7 @@ const DEFAULT_CONFETTI = ['#E97D34', '#f7edd8', '#b23b2e'];
 function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, onEffect, onEffectColors, onCollection }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void; onEffect: (e: 'snow' | 'confetti' | null) => void; onEffectColors: (c: string[]) => void; onCollection: (patch: Partial<ModuleCollection> | null) => void }) {
   const span = clampTreeSpan(tree.defaultSpan);
   const cats = useCategories();
+  const genres = useGenres();
   const col = tree.collection;
   return (
     <InspectorShell title="Module">
@@ -598,6 +606,10 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, 
           <div className="mt-2 space-y-2">
             <input className="input" placeholder="Tags — optional, comma-separated" value={(col.tags ?? []).join(', ')}
               onChange={(e) => onCollection({ tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 6) })} />
+            <select className="input" value={col.genre ?? ''} onChange={(e) => onCollection({ genre: e.target.value })}>
+              <option value="">Any genre</option>
+              {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
+            </select>
             <div className="flex gap-2">
               <input type="number" min={1990} max={2100} className="input" placeholder="Year — optional"
                 value={col.year || ''} onChange={(e) => onCollection({ year: Number(e.target.value) || 0 })} />
@@ -615,7 +627,7 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, 
             </select>
           </div>
         )}
-        <p className="mt-1 text-[11px] text-[var(--muted)]">Every article element in this module fills from this set — never repeating a story — unless you switch that element to “Pick a specific article”. Tags and year narrow it (all must match); rotation quietly cycles which stories show over time.</p>
+        <p className="mt-1 text-[11px] text-[var(--muted)]">Every article element in this module fills from this set — never repeating a story — unless you switch that element to “Pick a specific article”. Tags, genre, and year narrow it (all must match); rotation quietly cycles which stories show over time.</p>
       </Field>
       <Field label="Holiday effect">
         <select className="input" value={tree.effect ?? ''} onChange={(e) => onEffect((e.target.value || null) as 'snow' | 'confetti' | null)}>

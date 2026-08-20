@@ -141,6 +141,7 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
           status: { in: RECOMMENDABLE_STATUSES },
           OR: [{ category: { slug: collection.categorySlug } }, { extraCategories: { some: { slug: collection.categorySlug } } }],
           ...(collection.tags.length ? { tags: { some: { tag: { OR: collection.tags.flatMap((t) => [{ slug: { contains: t } }, { name: { contains: t } }]) } } } } : {}),
+          ...(collection.genre ? { genre: collection.genre } : {}),
           ...(collection.year
             ? { publishedAt: { gte: new Date(collection.year, 0, 1), lt: new Date(Math.min(new Date(collection.year + 1, 0, 1).getTime(), now.getTime())) } }
             : { publishedAt: { lte: now } }),
