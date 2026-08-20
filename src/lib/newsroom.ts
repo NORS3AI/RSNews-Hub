@@ -16,11 +16,38 @@ export type NewsroomCommentView = {
   authorName: string;
   body: string;
   createdAt: string;        // ISO
+  quote: string | null;       // the passage the note is anchored to (if any)
+  quoteStart: number | null;  // its character offset in the body when written
 };
 
-// The full doc as the client holds it. The drafts space is small (a handful of
-// in-flight drafts), so the sync loop returns whole bodies + threads — the client
-// takes the server copy for every doc except the one it's actively editing.
+/** Locate a note's anchored passage in the current body. Prefers the stored
+ *  offset, then falls back to a text search (the draft may have shifted since).
+ *  Returns the [start, end) range, or null if the passage is gone. Pure so the
+ *  editor and tests agree on the jump target. */
+export function locateQuote(body: string, quote: string | null, quoteStart: number | null): { start: number; end: number } | null {
+  const q = (quote ?? '').trim();
+  if (!q) return null;
+  if (quoteStart != null && quoteStart >= 0 && body.slice(quoteStart, quoteStart + q.length) === q) {
+    return { start: quoteStart, end: quoteStart + q.length };
+  }
+  const i = body.indexOf(q);
+  return i >= 0 ? { start: i, end: i + q.length } : null;
+}
+
+// A row in the Newsroom list — no body, so the directory stays light with dozens
+// of drafts. Full bodies load only when a draft is opened.
+export type NewsroomDocSummary = {
+  id: string;
+  title: string;
+  createdByName: string | null;
+  updatedByName: string | null;
+  createdAt: string;   // ISO
+  updatedAt: string;   // ISO
+  commentCount: number;
+};
+
+// The full doc as the single-doc editor holds it (body + comment thread). The sync
+// loop returns this one doc so a co-editor's changes and notes show up live.
 export type NewsroomDocView = {
   id: string;
   title: string;

@@ -11,9 +11,9 @@ export default async function AdminHouseStyle() {
   const list = await getHouseStyleRuleRows();
   return (
     <div className="max-w-2xl">
-      <h1 className="mb-1 text-2xl font-bold">House style</h1>
+      <h1 className="mb-1 text-2xl font-bold">RS Dictionary</h1>
       <p className="mb-5 text-sm text-[var(--muted)]">
-        The rule book the <b>Newsroom</b> style checker enforces. Give each term its correct spelling and the off-house versions to flag (e.g. correct <b>e-commerce</b>, catch <i>ecommerce</i>, <i>e commerce</i>). The checker highlights matches in a draft and offers one-click fixes — it never rewrites anything on its own. The Oxford comma is always checked.
+        The house dictionary the <b>Newsroom</b> checker enforces. Give each term its correct spelling and the off-house versions to flag (e.g. correct <b>e-commerce</b>, catch <i>ecommerce</i>, <i>e commerce</i>). The checker highlights matches in a draft and offers one-click fixes — it never rewrites anything on its own. The Oxford comma is always checked too.
       </p>
       <HouseStyleManager list={list} />
     </div>

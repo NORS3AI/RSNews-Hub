@@ -949,6 +949,11 @@ model NewsroomComment {
   authorId   String?
   authorName String
   body       String
+  // Optional anchor: the passage the writer highlighted when leaving the note, plus
+  // its character offset in the body at that time. Clicking the note re-selects that
+  // passage (offset first, then a text search, since the draft may have shifted).
+  quote      String?
+  quoteStart Int?
   createdAt  DateTime    @default(now())
 
   @@index([docId, createdAt])

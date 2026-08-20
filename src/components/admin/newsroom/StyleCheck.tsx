@@ -15,7 +15,7 @@ export default function StyleCheck({ text, rules, onChange }: { text: string; ru
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-bold">
           <Sparkles width={15} height={15} className="text-brand-600" />
-          House style
+          RS Dictionary
           <span className={`badge ${suggestions.length ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
             {suggestions.length ? `${suggestions.length} to review` : 'All clear'}
           </span>

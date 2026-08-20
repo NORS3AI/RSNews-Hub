@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { docBodyToArticleHtml, isPresenceActive, deriveDocTitle, docPreview, PRESENCE_ACTIVE_MS } from './newsroom';
+import { docBodyToArticleHtml, isPresenceActive, deriveDocTitle, docPreview, locateQuote, PRESENCE_ACTIVE_MS } from './newsroom';
 
 describe('docBodyToArticleHtml', () => {
   it('splits blank-line paragraphs and keeps single newlines as <br>', () => {
@@ -29,5 +29,24 @@ describe('presence + previews', () => {
   it('docPreview flattens whitespace and truncates', () => {
     expect(docPreview('a\n\n  b   c')).toBe('a b c');
     expect(docPreview('x'.repeat(200)).endsWith('…')).toBe(true);
+  });
+});
+
+describe('locateQuote — re-finding a note anchor', () => {
+  const body = 'The USPS surcharge lands Nov 1. Every ecommerce shipper is bracing.';
+  it('uses the stored offset when it still matches', () => {
+    const start = body.indexOf('ecommerce');
+    expect(locateQuote(body, 'ecommerce', start)).toEqual({ start, end: start + 9 });
+  });
+  it('falls back to a text search when the offset has shifted', () => {
+    const shifted = 'PREFIX ADDED. ' + body;
+    const oldStart = body.indexOf('ecommerce'); // stale offset from the un-prefixed body
+    const found = locateQuote(shifted, 'ecommerce', oldStart);
+    expect(found).toEqual({ start: shifted.indexOf('ecommerce'), end: shifted.indexOf('ecommerce') + 9 });
+  });
+  it('returns null when the passage is gone or empty', () => {
+    expect(locateQuote(body, 'no longer here', 0)).toBeNull();
+    expect(locateQuote(body, null, null)).toBeNull();
+    expect(locateQuote(body, '   ', 3)).toBeNull();
   });
 });

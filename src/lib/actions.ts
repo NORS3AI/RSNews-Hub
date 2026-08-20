@@ -200,15 +200,24 @@ export async function deleteNewsroomDoc(id: string): Promise<void> {
   revalidatePath('/admin/newsroom');
 }
 
-export async function addNewsroomComment(input: { docId: string; body: string }): Promise<NewsroomCommentView> {
+// Prisma select + mapper for a comment view (shared by add + sync). Keeps the
+// anchor (quote/offset) attached so the client can jump to the highlighted passage.
+const newsroomCommentSelect = { id: true, authorName: true, body: true, quote: true, quoteStart: true, createdAt: true } as const;
+function toCommentView(c: { id: string; authorName: string; body: string; quote: string | null; quoteStart: number | null; createdAt: Date }): NewsroomCommentView {
+  return { id: c.id, authorName: c.authorName, body: c.body, quote: c.quote, quoteStart: c.quoteStart, createdAt: c.createdAt.toISOString() };
+}
+
+export async function addNewsroomComment(input: { docId: string; body: string; quote?: string | null; quoteStart?: number | null }): Promise<NewsroomCommentView> {
   const staff = await ensureStaff();
   const body = (input.body ?? '').trim().slice(0, 4000);
   if (!body) throw new Error('Write a note first.');
+  const quote = (input.quote ?? '').trim().slice(0, 500) || null;
+  const quoteStart = quote && typeof input.quoteStart === 'number' && input.quoteStart >= 0 ? Math.floor(input.quoteStart) : null;
   const row = await prisma.newsroomComment.create({
-    data: { docId: input.docId, authorId: staff.id, authorName: staff.name, body },
-    select: { id: true, authorName: true, body: true, createdAt: true },
+    data: { docId: input.docId, authorId: staff.id, authorName: staff.name, body, quote, quoteStart },
+    select: newsroomCommentSelect,
   });
-  return { id: row.id, authorName: row.authorName, body: row.body, createdAt: row.createdAt.toISOString() };
+  return toCommentView(row);
 }
 
 export async function deleteNewsroomComment(id: string): Promise<void> {
@@ -240,47 +249,42 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
   return article.id;
 }
 
-// The live loop: refresh my presence on the doc I'm viewing, prune stale rows,
-// and return who else is here + every active doc (body + comment thread), so
-// other people's drafts and notes show up within a few seconds. The client takes
-// the server copy for every doc except the one it's actively editing.
-export async function newsroomSync(input: { docId?: string; editing?: boolean }): Promise<{ viewers: NewsroomViewer[]; docs: NewsroomDocView[] }> {
+// The live loop for the single-doc editor: refresh my presence on this doc, prune
+// stale rows, and return who else is here + this one doc (body + comment thread),
+// so a co-editor's changes and notes show up within a few seconds. Scoped to one
+// doc (not the whole list) so it stays cheap with dozens of drafts in flight.
+export async function newsroomSync(input: { docId?: string; editing?: boolean }): Promise<{ viewers: NewsroomViewer[]; doc: NewsroomDocView | null }> {
   const staff = await ensureStaff();
   const now = Date.now();
-  if (input.docId) {
-    await prisma.newsroomPresence.upsert({
-      where: { docId_userId: { docId: input.docId, userId: staff.id } },
-      create: { docId: input.docId, userId: staff.id, userName: staff.name, editing: !!input.editing },
-      update: { userName: staff.name, editing: !!input.editing, lastSeen: new Date() },
-    });
-  }
+  if (!input.docId) return { viewers: [], doc: null };
+  await prisma.newsroomPresence.upsert({
+    where: { docId_userId: { docId: input.docId, userId: staff.id } },
+    create: { docId: input.docId, userId: staff.id, userName: staff.name, editing: !!input.editing },
+    update: { userName: staff.name, editing: !!input.editing, lastSeen: new Date() },
+  });
   // Opportunistic prune of long-gone heartbeats.
   await prisma.newsroomPresence.deleteMany({ where: { lastSeen: { lt: new Date(now - PRESENCE_STALE_MS) } } });
 
-  const [presence, docs] = await Promise.all([
-    input.docId
-      ? prisma.newsroomPresence.findMany({
-          where: { docId: input.docId, lastSeen: { gte: new Date(now - PRESENCE_ACTIVE_MS) } },
-          orderBy: { lastSeen: 'desc' },
-          select: { userId: true, userName: true, editing: true },
-        })
-      : Promise.resolve([]),
-    prisma.newsroomDoc.findMany({
-      where: { archived: false, pushedAt: null },
-      orderBy: { updatedAt: 'desc' },
+  const [presence, doc] = await Promise.all([
+    prisma.newsroomPresence.findMany({
+      where: { docId: input.docId, lastSeen: { gte: new Date(now - PRESENCE_ACTIVE_MS) } },
+      orderBy: { lastSeen: 'desc' },
+      select: { userId: true, userName: true, editing: true },
+    }),
+    prisma.newsroomDoc.findUnique({
+      where: { id: input.docId },
       select: {
-        id: true, title: true, body: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
-        comments: { orderBy: { createdAt: 'asc' }, select: { id: true, authorName: true, body: true, createdAt: true } },
+        id: true, title: true, body: true, archived: true, pushedAt: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
+        comments: { orderBy: { createdAt: 'asc' }, select: newsroomCommentSelect },
       },
     }),
   ]);
 
   return {
     viewers: presence.map((p) => ({ userId: p.userId, userName: p.userName, editing: p.editing })),
-    docs: docs.map((d) => ({
-      id: d.id, title: d.title, body: d.body, updatedAt: d.updatedAt.toISOString(), updatedById: d.updatedById, updatedByName: d.updatedByName, createdByName: d.createdByName,
-      comments: d.comments.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt.toISOString() })),
-    })),
+    doc: doc && !doc.archived && !doc.pushedAt
+      ? { id: doc.id, title: doc.title, body: doc.body, updatedAt: doc.updatedAt.toISOString(), updatedById: doc.updatedById, updatedByName: doc.updatedByName, createdByName: doc.createdByName, comments: doc.comments.map(toCommentView) }
+      : null,
   };
 }
 

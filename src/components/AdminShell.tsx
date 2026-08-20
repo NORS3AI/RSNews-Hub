@@ -38,7 +38,7 @@ const groups: NavGroup[] = [
     { href: '/admin/genres', label: 'Genres', icon: Tag },
     { href: '/admin/tags', label: 'Tags', icon: Tag },
     { href: '/admin/bylines', label: 'Bylines', icon: Users },
-    { href: '/admin/house-style', label: 'House style', icon: Quote },
+    { href: '/admin/house-style', label: 'RS Dictionary', icon: Quote },
   ] },
   { title: 'Advertising', links: [
     { href: '/admin/ads', label: 'Ad management', icon: Megaphone },

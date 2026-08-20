@@ -1,28 +1,40 @@
 import { prisma } from './db';
-import { type NewsroomDocView } from './newsroom';
+import { type NewsroomDocView, type NewsroomDocSummary } from './newsroom';
 
-// Reads for the Newsroom page. Mutations live in actions.ts (server actions).
-// The list is small by nature (a handful of in-flight drafts), so the page loads
-// full doc bodies + their comment threads up front; the client's sync loop keeps
-// presence, new comments, and "last edited" fresh from there. Returns the same
-// NewsroomDocView shape the sync action returns, so the client has one type.
+// Reads for the Newsroom. Mutations live in actions.ts (server actions).
+// The landing is a LIST (light rows, no bodies) so it scales to dozens of drafts;
+// a draft's full body + comment thread load only when it's opened in the editor,
+// where the client's sync loop keeps presence + notes fresh.
 
-/** Active drafts (not archived, not yet pushed to the composer), newest edit first. */
-export async function listNewsroomDocs(): Promise<NewsroomDocView[]> {
-  const docs = await prisma.newsroomDoc.findMany({
+/** Active drafts (not archived, not pushed) as light list rows, newest edit first. */
+export async function listNewsroomDocSummaries(): Promise<NewsroomDocSummary[]> {
+  const rows = await prisma.newsroomDoc.findMany({
     where: { archived: false, pushedAt: null },
     orderBy: { updatedAt: 'desc' },
     select: {
-      id: true, title: true, body: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
-      comments: {
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, authorName: true, body: true, createdAt: true },
-      },
+      id: true, title: true, createdByName: true, updatedByName: true, createdAt: true, updatedAt: true,
+      _count: { select: { comments: true } },
     },
   });
-  return docs.map((d) => ({
+  return rows.map((d) => ({
+    id: d.id, title: d.title, createdByName: d.createdByName, updatedByName: d.updatedByName,
+    createdAt: d.createdAt.toISOString(), updatedAt: d.updatedAt.toISOString(), commentCount: d._count.comments,
+  }));
+}
+
+/** One draft's full body + comment thread, for the editor. Null if gone/pushed. */
+export async function getNewsroomDoc(id: string): Promise<NewsroomDocView | null> {
+  const d = await prisma.newsroomDoc.findUnique({
+    where: { id },
+    select: {
+      id: true, title: true, body: true, archived: true, pushedAt: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
+      comments: { orderBy: { createdAt: 'asc' }, select: { id: true, authorName: true, body: true, quote: true, quoteStart: true, createdAt: true } },
+    },
+  });
+  if (!d || d.archived || d.pushedAt) return null;
+  return {
     id: d.id, title: d.title, body: d.body, updatedAt: d.updatedAt.toISOString(),
     updatedById: d.updatedById, updatedByName: d.updatedByName, createdByName: d.createdByName,
-    comments: d.comments.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt.toISOString() })),
-  }));
+    comments: d.comments.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, quote: c.quote, quoteStart: c.quoteStart, createdAt: c.createdAt.toISOString() })),
+  };
 }
