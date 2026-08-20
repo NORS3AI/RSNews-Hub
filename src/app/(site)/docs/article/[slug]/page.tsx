@@ -19,6 +19,7 @@ import { requirementLabel } from '@/lib/entitlements';
 import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
 import { GenreBadge } from '@/components/site/GenresProvider';
 import PreviewReviewBar from '@/components/site/PreviewReviewBar';
+import ReadingProgress from '@/components/site/ReadingProgress';
 import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, Zap } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
@@ -57,6 +58,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
   return (
     <>
+      <ReadingProgress />
       {isPreview
         ? <PreviewReviewBar slug={article.slug} token={article.previewToken!} hideReview={previewFromDashboard} />
         : <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />}

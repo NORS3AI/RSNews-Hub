@@ -49,6 +49,9 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
   const [slug, setSlug] = useState<string | null>(null);
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  // Reading-progress (0–100): how far through the article the reader has scrolled,
+  // shown as a bar that fills under the modal's sticky header.
+  const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { recordHistory } = useSaved();
@@ -149,8 +152,13 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
       props: { category: art.category?.slug, title: art.title } });
 
     const el = scrollRef.current;
+    setProgress(0); // a fresh article starts unread
     const onScroll = () => {
       const r = readRef.current; if (!r || !el) return;
+      // Visual progress bar: 0 at the top, 100 at the bottom (how far scrolled).
+      const denom = el.scrollHeight - el.clientHeight;
+      setProgress(denom > 0 ? Math.min(100, Math.max(0, (el.scrollTop / denom) * 100)) : 0);
+      // Analytics depth uses the bottom-edge fraction (unchanged).
       const pct = Math.min(100, Math.round(((el.scrollTop + el.clientHeight) / Math.max(1, el.scrollHeight)) * 100));
       if (pct > r.maxPct) r.maxPct = pct;
       for (const m of [25, 50, 75, 100]) {
@@ -181,6 +189,11 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                   {a && <StarButton item={{ id: a.id, title: a.title, slug: a.slug }} variant="inline" />}
                   <button onClick={close} className="btn-ghost h-9 w-9 !px-0" aria-label="Close"><X /></button>
                 </div>
+              </div>
+
+              {/* Reading-progress bar — fills as the reader scrolls toward the end. */}
+              <div className="h-[3px] w-full shrink-0 bg-[var(--border)]" aria-hidden="true">
+                <div className="h-full bg-brand-500 transition-[width] duration-150 ease-out" style={{ width: `${progress}%` }} />
               </div>
 
               {/* Scrollable body */}
