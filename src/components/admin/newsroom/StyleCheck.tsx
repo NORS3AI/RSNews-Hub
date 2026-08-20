@@ -1,13 +1,13 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { checkHouseStyle, applySuggestion, applyAll, HOUSE_STYLE_RULES } from '@/lib/houseStyle';
+import { checkHouseStyle, applySuggestion, applyAll, ruleMessage, type HouseStyleRule } from '@/lib/houseStyle';
 import { Sparkles, Check, Book } from '@/components/icons';
 
-// The house-style panel: runs the rule book over the current draft and offers
-// one-click fixes (never a silent rewrite). Applying a fix hands the corrected
-// text back up; the suggestion list re-derives from the new text automatically.
-export default function StyleCheck({ text, onChange }: { text: string; onChange: (t: string) => void }) {
-  const suggestions = useMemo(() => checkHouseStyle(text), [text]);
+// The house-style panel: runs the admin-editable rule book over the current draft
+// and offers one-click fixes (never a silent rewrite). Applying a fix hands the
+// corrected text back up; the suggestion list re-derives from the new text.
+export default function StyleCheck({ text, rules, onChange }: { text: string; rules: HouseStyleRule[]; onChange: (t: string) => void }) {
+  const suggestions = useMemo(() => checkHouseStyle(text, rules), [text, rules]);
   const [showRules, setShowRules] = useState(false);
 
   return (
@@ -45,14 +45,17 @@ export default function StyleCheck({ text, onChange }: { text: string; onChange:
         <p className="mt-2 text-xs text-[var(--muted)]">No house-style issues found in this draft.</p>
       )}
 
-      <button type="button" onClick={() => setShowRules((v) => !v)}
-        className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--muted)] hover:text-[var(--fg)]">
-        <Book width={12} height={12} /> {showRules ? 'Hide' : 'View'} the rule book ({HOUSE_STYLE_RULES.length} terms + Oxford comma)
-      </button>
+      <div className="mt-3 flex items-center justify-between">
+        <button type="button" onClick={() => setShowRules((v) => !v)}
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--muted)] hover:text-[var(--fg)]">
+          <Book width={12} height={12} /> {showRules ? 'Hide' : 'View'} the rule book ({rules.length} terms + Oxford comma)
+        </button>
+        <a href="/admin/house-style" target="_blank" rel="noreferrer" className="text-[11px] font-semibold text-brand-600 hover:underline">Manage rules →</a>
+      </div>
       {showRules && (
         <ul className="mt-2 space-y-1 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--muted)]">
-          {HOUSE_STYLE_RULES.map((r) => (
-            <li key={r.canonical}><b className="text-[var(--fg)]">{r.canonical}</b> — {r.message}</li>
+          {rules.map((r) => (
+            <li key={r.canonical}><b className="text-[var(--fg)]">{r.canonical}</b> — {ruleMessage(r)}</li>
           ))}
           <li><b className="text-[var(--fg)]">Oxford comma</b> — Add the serial comma before “and”/“or” in a list of three or more.</li>
         </ul>

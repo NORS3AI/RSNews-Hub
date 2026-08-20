@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { listNewsroomDocs } from '@/lib/newsroomServer';
+import { getHouseStyleRules } from '@/lib/houseStyleServer';
 import Newsroom from '@/components/admin/newsroom/Newsroom';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
 // checker flags off-house spellings + missing Oxford commas; and one button pushes
 // a finished draft into the real article composer (removing it from here).
 export default async function NewsroomPage() {
-  const [user, docs] = await Promise.all([getCurrentUser(), listNewsroomDocs()]);
+  const [user, docs, styleRules] = await Promise.all([getCurrentUser(), listNewsroomDocs(), getHouseStyleRules()]);
   const me = user ? { id: user.id, name: user.name } : { id: '', name: 'You' };
   return (
     <div className="mx-auto max-w-6xl">
@@ -20,7 +21,7 @@ export default async function NewsroomPage() {
           A shared scratchpad for drafting stories together. Everything autosaves, everyone with admin can see and edit, and one button hands a finished draft to the article editor. Draft the words here — you&apos;ll add formatting, images, and blocks after you push.
         </p>
       </div>
-      <Newsroom initialDocs={docs} me={me} />
+      <Newsroom initialDocs={docs} me={me} styleRules={styleRules} />
     </div>
   );
 }

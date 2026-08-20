@@ -971,6 +971,28 @@ model NewsroomPresence {
   @@index([docId, lastSeen])
 }
 
+// The house-style "rule book" — the admin-editable dictionary the Newsroom's
+// style checker enforces. Each row is one term: its `canonical` house spelling
+// plus the off-house `variants` to catch (a comma/newline blob parsed in
+// lib/houseStyle — admins never write regex). `forceLowercase` is for terms we
+// always lowercase (e-commerce). `builtin` rows seed the list and can be edited or
+// disabled but not deleted; custom rows are fully removable. No code keys off a
+// specific canonical, so any term can change.
+model HouseStyleRule {
+  id             String   @id @default(cuid())
+  canonical      String
+  variants       String   @default("")
+  forceLowercase Boolean  @default(false)
+  message        String?
+  builtin        Boolean  @default(false)
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
 // One reader's endorsement of one article (the end-of-article "Recommend").
 // A signed-in reader is deduped by (articleId, userId); an anonymous reader by
 // (articleId, sessionId) — Postgres treats NULLs as distinct, so a row carries

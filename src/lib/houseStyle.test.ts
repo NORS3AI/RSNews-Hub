@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { checkHouseStyle, applySuggestion, applyAll } from './houseStyle';
+import { checkHouseStyle, applySuggestion, applyAll, splitVariants, type HouseStyleRule } from './houseStyle';
 
 const apply1 = (text: string) => {
   const s = checkHouseStyle(text);
@@ -79,5 +79,32 @@ describe('applyAll', () => {
     const text = 'Our e-mail and web site cover e-commerce, tape and boxes.';
     const fixed = applyAll(text, checkHouseStyle(text));
     expect(fixed).toBe('Our email and website cover e-commerce, tape, and boxes.');
+  });
+});
+
+describe('admin-editable rules', () => {
+  it('splitVariants parses commas + newlines, trims, and dedupes', () => {
+    expect(splitVariants('ecommerce, e commerce\n ecommerce ,')).toEqual(['ecommerce', 'e commerce']);
+    expect(splitVariants('')).toEqual([]);
+  });
+
+  it('runs a custom rule list (canonical + variants, case preserved)', () => {
+    const rules: HouseStyleRule[] = [{ canonical: 'color', variants: ['colour', 'collor'], message: 'US spelling' }];
+    const text = 'A bright colour and a bold Colour.';
+    const out = checkHouseStyle(text, rules);
+    expect(out.map((s) => [s.found, s.replacement])).toEqual([['colour', 'color'], ['Colour', 'Color']]);
+    expect(applyAll(text, out)).toBe('A bright color and a bold Color.');
+  });
+
+  it('catches a wrong-case canonical even with no variants listed', () => {
+    const rules: HouseStyleRule[] = [{ canonical: 'PackageHub', variants: [] }];
+    expect(checkHouseStyle('visit packagehub today', rules)[0].replacement).toBe('PackageHub');
+    expect(checkHouseStyle('visit PackageHub today', rules)).toEqual([]); // already correct
+  });
+
+  it('with an empty rule list, only the Oxford check runs', () => {
+    const out = checkHouseStyle('boxes, tape and labels', []);
+    expect(out.length).toBe(1);
+    expect(out[0].kind).toBe('oxford');
   });
 });

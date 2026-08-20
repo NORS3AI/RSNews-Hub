@@ -11,6 +11,8 @@ import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils
 import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
 import { validGenreSlugs, revalidateGenres } from './genreServer';
 import { docBodyToArticleHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
+import { splitVariants } from './houseStyle';
+import { revalidateHouseStyle } from './houseStyleServer';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -280,6 +282,44 @@ export async function newsroomSync(input: { docId?: string; editing?: boolean })
       comments: d.comments.map((c) => ({ id: c.id, authorName: c.authorName, body: c.body, createdAt: c.createdAt.toISOString() })),
     })),
   };
+}
+
+/* ------------------------- House-style rule book ------------------------- */
+// The admin-editable dictionary the Newsroom's style checker enforces. Admins
+// enter a canonical spelling + the off-house variants to catch (plain text, never
+// regex). Built-in rows can be edited or disabled but not deleted.
+
+export async function saveHouseStyleRule(input: { id?: string; canonical: string; variants?: string; forceLowercase?: boolean; message?: string | null }): Promise<string> {
+  await ensureStaff();
+  const canonical = (input.canonical ?? '').trim().slice(0, 120);
+  if (!canonical) throw new Error('A rule needs a canonical spelling.');
+  // Normalize the variant blob to a clean comma-separated list (drops the term
+  // itself and dupes; the checker also matches wrong-case canonicals on its own).
+  const variants = splitVariants(input.variants ?? '').filter((v) => v.toLowerCase() !== canonical.toLowerCase()).join(', ');
+  const forceLowercase = !!input.forceLowercase;
+  const message = (input.message ?? '').trim().slice(0, 300) || null;
+  const row = input.id
+    ? await prisma.houseStyleRule.update({ where: { id: input.id }, data: { canonical, variants, forceLowercase, message } })
+    : await prisma.houseStyleRule.create({ data: { canonical, variants, forceLowercase, message, builtin: false } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+  return row.id;
+}
+
+export async function setHouseStyleRuleEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.houseStyleRule.update({ where: { id }, data: { enabled } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+}
+
+export async function deleteHouseStyleRule(id: string): Promise<void> {
+  await ensureStaff();
+  const r = await prisma.houseStyleRule.findUnique({ where: { id }, select: { builtin: true } });
+  if (r?.builtin) throw new Error('Built-in rules can’t be deleted — disable it instead.');
+  await prisma.houseStyleRule.delete({ where: { id } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
 }
 
 /* --------------------- Report builder templates -------------------------- */

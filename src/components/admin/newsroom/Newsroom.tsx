@@ -6,6 +6,7 @@ import {
   addNewsroomComment, deleteNewsroomComment, pushNewsroomDocToArticle, newsroomSync,
 } from '@/lib/actions';
 import { AUTOSAVE_MS, HEARTBEAT_MS, type NewsroomDocView, type NewsroomViewer } from '@/lib/newsroom';
+import type { HouseStyleRule } from '@/lib/houseStyle';
 import StyleCheck from './StyleCheck';
 import { Plus, Trash, X, Check, ArrowRight, Users, FileText } from '@/components/icons';
 
@@ -37,7 +38,7 @@ function ViewerChip({ v, me }: { v: NewsroomViewer; me: Me }) {
   );
 }
 
-export default function Newsroom({ initialDocs, me }: { initialDocs: NewsroomDocView[]; me: Me }) {
+export default function Newsroom({ initialDocs, me, styleRules }: { initialDocs: NewsroomDocView[]; me: Me; styleRules: HouseStyleRule[] }) {
   const router = useRouter();
   const [docs, setDocs] = useState<NewsroomDocView[]>(initialDocs);
   const [activeId, setActiveId] = useState<string | null>(initialDocs[0]?.id ?? null);
@@ -255,7 +256,7 @@ export default function Newsroom({ initialDocs, me }: { initialDocs: NewsroomDoc
               <span>{active.body.trim() ? `${active.body.trim().split(/\s+/).length} words` : 'Empty draft'}</span>
               <span aria-live="polite">{saving ? 'Saving…' : savedAt ? `Saved ${fmtTime(savedAt, mounted)}` : dirtyRef.current ? 'Unsaved' : ' '}</span>
             </div>
-            <StyleCheck text={active.body} onChange={(t) => editActive({ body: t })} />
+            <StyleCheck text={active.body} rules={styleRules} onChange={(t) => editActive({ body: t })} />
           </div>
 
           {/* Sidebar: presence + actions + comments */}
