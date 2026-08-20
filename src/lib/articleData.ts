@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { bylineRefSelect } from './byline';
 import { getCurrentUser } from './auth';
 import { getRelatedArticles } from './recommend';
 import { getRecommendState } from './articleRecommend';
@@ -26,6 +27,7 @@ function getArticle(slug: string) {
       category: true,
       extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true, bio: true } },
+      bylineRef: { select: bylineRefSelect },
       tags: { select: { tag: true } },
     },
   });

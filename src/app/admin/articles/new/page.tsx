@@ -6,15 +6,16 @@ import ArticleEditor from '@/components/admin/ArticleEditor';
 export const dynamic = 'force-dynamic';
 
 export default async function NewArticle() {
-  const [categories, polls, quizzes, advertisers, reservedAds, vendors, user] = await Promise.all([
+  const [categories, polls, quizzes, advertisers, reservedAds, vendors, bylines, user] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true, color: true } }),
     prisma.poll.findMany({ orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, question: true } }),
     prisma.quiz.findMany({ orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, title: true } }),
     listAdvertisers(),
     listReservedAds(),
     prisma.vendor.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
+    prisma.byline.findMany({ where: { archived: false }, orderBy: { name: 'asc' }, select: { id: true, name: true, title: true, photo: true } }),
     getCurrentUser(),
   ]);
   return <ArticleEditor categories={categories} polls={polls.map((p) => ({ id: p.id, title: p.question }))} quizzes={quizzes}
-    advertisers={advertisers} reservedAds={reservedAds} vendors={vendors} authorName={user?.name || 'You'} />;
+    advertisers={advertisers} reservedAds={reservedAds} vendors={vendors} bylines={bylines} authorName={user?.name || 'You'} />;
 }

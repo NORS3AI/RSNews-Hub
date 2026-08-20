@@ -10,6 +10,8 @@ import ArticleBadges, { isPartnerContent } from '@/components/ArticleBadges';
 import InArticleAd from '@/components/InArticleAd';
 import type { AdRow } from '@/lib/ads';
 import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/ArticleContent';
+import ArticleByline from './ArticleByline';
+import { resolveByline } from '@/lib/byline';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
 import ListenButton from './ListenButton';
@@ -22,6 +24,7 @@ type ModalArticle = {
   id: string; title: string; slug: string; content: string; coverImage: string | null; coverVideo?: string | null;
   status: string; readMinutes: number; views: number; recommends: number; publishedAt: string | null;
   byline?: string | null;
+  bylineRef?: { id: string; name: string; title: string | null; photo: string | null } | null;
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
   extraCategories?: { name: string; slug: string; color: string }[];
@@ -190,7 +193,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">
-                      {(a.byline || a.author?.name) && <span>By {a.byline || a.author?.name}</span>}
+                      <ArticleByline byline={resolveByline(a.bylineRef, a.byline)} />
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
@@ -208,7 +211,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
                     <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" placeholder={false} adContext={adCtx} /></div>
 
-                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.byline || a.author?.name || ''}>
+                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={resolveByline(a.bylineRef, a.byline).name}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
                         adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} adContext={adCtx} />
                     </article>

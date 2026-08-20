@@ -26,8 +26,9 @@ function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
 }
 
 type Cat = { id: string; name: string; color?: string };
+export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null };
 type Article = {
-  id: string; title: string; content: string; excerpt: string | null; byline?: string | null; coverImage: string | null;
+  id: string; title: string; content: string; excerpt: string | null; byline?: string | null; bylineId?: string | null; coverImage: string | null;
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   sponsoredUntil?: string | Date | null;
@@ -38,8 +39,8 @@ type Article = {
 // tabbed inspector (right) for Article details vs the selected element — one
 // shared TipTap editor behind all three, via ComposerProvider.
 export default function ArticleEditor({
-  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], authorName = 'You',
-}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; authorName?: string }) {
+  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], bylines = [], authorName = 'You',
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; bylines?: BylineOpt[]; authorName?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   useUnsavedGuard(formRef);
   return (
@@ -86,7 +87,7 @@ export default function ArticleEditor({
             {/* The panel scrolls INTERNALLY (tabs stay pinned) when it's taller than
                 the viewport, so a long options list never runs off the page. */}
             <div className="card card-soft composer-panel p-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-              <Inspector article={article} categories={categories} vendors={vendors} />
+              <Inspector article={article} categories={categories} vendors={vendors} bylines={bylines} />
             </div>
           </aside>
         </div>

@@ -35,6 +35,7 @@ const groups: NavGroup[] = [
   { title: 'Organize', links: [
     { href: '/admin/categories', label: 'Categories', icon: Layers },
     { href: '/admin/tags', label: 'Tags', icon: Tag },
+    { href: '/admin/bylines', label: 'Bylines', icon: Users },
   ] },
   { title: 'Advertising', links: [
     { href: '/admin/ads', label: 'Ad management', icon: Megaphone },

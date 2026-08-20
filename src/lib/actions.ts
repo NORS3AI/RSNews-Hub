@@ -82,6 +82,28 @@ export async function setAnnouncementBarEnabled(on: boolean): Promise<void> {
   revalidatePath('/admin/announcement');
 }
 
+/* ------------------------------ Byline library ---------------------------- */
+// Reusable author identities (photo + name + title). Saving/editing here updates
+// every article that uses the byline (a title change, a new photo); archiving
+// hides it from the picker without touching articles that already reference it.
+export async function saveByline(input: { id?: string; name: string; title?: string | null; photo?: string | null }): Promise<string> {
+  await ensureStaff();
+  const name = (input.name ?? '').trim().slice(0, 120);
+  if (!name) throw new Error('A byline needs a name.');
+  const title = (input.title ?? '').trim().slice(0, 120) || null;
+  const photo = (input.photo ?? '').trim().slice(0, 2000) || null;
+  const row = input.id
+    ? await prisma.byline.update({ where: { id: input.id }, data: { name, title, photo } })
+    : await prisma.byline.create({ data: { name, title, photo } });
+  revalidatePath('/admin/bylines');
+  return row.id;
+}
+export async function setBylineArchived(id: string, archived: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.byline.update({ where: { id }, data: { archived } });
+  revalidatePath('/admin/bylines');
+}
+
 /* --------------------- Report builder templates -------------------------- */
 // Save/delete a named Report-builder configuration. A template stores only the
 // querystring; regenerating always recomputes live numbers, so there's nothing
@@ -160,7 +182,13 @@ export async function saveArticle(formData: FormData) {
     ? (await prisma.vendor.findUnique({ where: { id: sponsorVendorIdRaw }, select: { id: true } }))?.id ?? null
     : null;
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
-  // Optional display byline (overrides the author account name in the reader).
+  // Byline: a chosen library byline (photo + name + title) wins; the free-text
+  // field is a one-off name (or empty → the house team default). Validate the id
+  // so a stale reference can't FK-error the save; unknown → treated as none.
+  const bylineIdRaw = ((formData.get('bylineId') as string) || '').trim();
+  const bylineId = bylineIdRaw
+    ? (await prisma.byline.findUnique({ where: { id: bylineIdRaw }, select: { id: true } }))?.id ?? null
+    : null;
   const byline = ((formData.get('byline') as string) || '').trim().slice(0, 120);
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
   const publishedAtRaw = ((formData.get('publishedAt') as string) || '').trim();
@@ -221,7 +249,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -236,7 +264,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

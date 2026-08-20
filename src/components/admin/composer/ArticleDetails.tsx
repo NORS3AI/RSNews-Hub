@@ -10,9 +10,10 @@ import { Sparkles } from '@/components/icons';
 
 type Cat = { id: string; name: string };
 type Vendor = { id: string; name: string };
+type BylineOpt = { id: string; name: string; title: string | null; photo: string | null };
 type Article = {
   status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
-  byline?: string | null;
+  byline?: string | null; bylineId?: string | null;
   coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
   sponsoredUntil?: string | Date | null; sponsorVendorId?: string | null;
@@ -41,7 +42,10 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </div>
 );
 
-export default function ArticleDetails({ article, categories, vendors = [] }: { article?: Article; categories: Cat[]; vendors?: Vendor[] }) {
+export default function ArticleDetails({ article, categories, vendors = [], bylines = [] }: { article?: Article; categories: Cat[]; vendors?: Vendor[]; bylines?: BylineOpt[] }) {
+  // Byline picker state: '' = the house team default, 'custom' = a typed one-off
+  // name (the free-text field), otherwise a saved byline id from the library.
+  const [bylinePick, setBylinePick] = useState<string>(article?.bylineId || (article?.byline ? 'custom' : ''));
   const { html } = useComposer();
   // Connected vendor — the advertiser a sponsored or What's Hot piece belongs to.
   // Setting it locks the article's in-article ads to that vendor (house fallback)
@@ -119,10 +123,21 @@ export default function ArticleDetails({ article, categories, vendors = [] }: { 
 
       <Section title="Byline">
         <div>
-          <label className="label" htmlFor="byline">Shown to readers as &ldquo;By …&rdquo;</label>
-          <input id="byline" name="byline" defaultValue={article?.byline ?? ''} maxLength={120} autoComplete="off"
-            className="input" placeholder="Defaults to your name" />
-          <p className="mt-1 text-xs text-[var(--muted)]">Optional. Post on behalf of a colleague — blank uses your account name. Simple upload fills this from a &ldquo;By …&rdquo; line.</p>
+          <label className="label" htmlFor="bylinePick">Shown to readers as &ldquo;By …&rdquo;</label>
+          <select id="bylinePick" className="input" value={bylinePick} onChange={(e) => setBylinePick(e.target.value)}>
+            <option value="">RS News Hub Team (default)</option>
+            {bylines.map((b) => <option key={b.id} value={b.id}>{b.name}{b.title ? ` — ${b.title}` : ''}</option>)}
+            <option value="custom">Custom name…</option>
+          </select>
+          {/* The saved-byline id we submit (blank for the team default or a one-off). */}
+          <input type="hidden" name="bylineId" value={bylinePick && bylinePick !== 'custom' ? bylinePick : ''} />
+          {bylinePick === 'custom'
+            ? <input name="byline" defaultValue={article?.byline ?? ''} maxLength={120} autoComplete="off" className="input mt-2" placeholder="e.g. Guest Contributor" />
+            : <input type="hidden" name="byline" value="" />}
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Defaults to <b>RS News Hub Team</b> (no photo). Pick a saved byline for a named author with photo &amp; title, or type a one-off name.{' '}
+            <a href="/admin/bylines" target="_blank" rel="noreferrer" className="text-brand-600 underline">Manage bylines →</a>
+          </p>
         </div>
       </Section>
 

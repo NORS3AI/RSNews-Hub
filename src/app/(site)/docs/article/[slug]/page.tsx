@@ -13,6 +13,8 @@ import ListenButton from '@/components/site/ListenButton';
 import CoverVideo from '@/components/site/CoverVideo';
 import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
+import ArticleByline from '@/components/site/ArticleByline';
+import { resolveByline } from '@/lib/byline';
 import { requirementLabel } from '@/lib/entitlements';
 import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
 import { genreLabel, genreBadgeClass } from '@/lib/genre';
@@ -51,6 +53,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
     related, next, recommend,
     ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution,
   } = result;
+  const byline = resolveByline(article.bylineRef, article.byline);
 
   return (
     <>
@@ -91,7 +94,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-          {(article.byline || article.author?.name) && <span>By {article.byline || article.author?.name}</span>}
+          <ArticleByline byline={byline} />
           <span>{formatDate(article.publishedAt ?? article.createdAt)}</span>
           <span className="flex items-center gap-1"><Clock width={14} height={14} />{article.readMinutes} min read</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>
@@ -116,7 +119,7 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
 
         <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-top" size="in-article" placeholder={false} adContext={adAttribution} /></div>
 
-        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.byline || article.author?.name || ''}>
+        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={byline.name}>
           <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={signedIn} adContext={adAttribution} />
         </article>
 

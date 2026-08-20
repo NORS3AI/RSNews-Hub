@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { bylineRefSelect } from '@/lib/byline';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
 import { getRecommendState } from '@/lib/articleRecommend';
@@ -20,6 +21,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       category: { select: { name: true, slug: true, color: true } },
       extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true } },
+      bylineRef: { select: bylineRefSelect },
       tags: { select: { tag: { select: { name: true, slug: true } } } },
     },
   });
@@ -82,6 +84,7 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       recommends: recommend.recommends,
       publishedAt: article.publishedAt,
       byline: article.byline,
+      bylineRef: article.bylineRef,
       author: article.author,
       category: article.category,
       extraCategories: article.extraCategories,

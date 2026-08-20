@@ -838,6 +838,14 @@ model Article {
   authorId    String?
   author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
+  // Optional reusable byline from the Byline library (a person: photo + name +
+  // title). Takes precedence over the free-text `byline` and the author account.
+  // Null = no library byline chosen → the generic "RS News Hub Team" default (or
+  // the free-text `byline` if one was typed). onDelete: SetNull so removing a
+  // library byline never deletes articles — they fall back to the default.
+  bylineId    String?
+  bylineRef   Byline?   @relation(fields: [bylineId], references: [id], onDelete: SetNull)
+
   // A private, shareable draft-preview link secret. Anyone with
   // /docs/article/<slug>?preview=<token> can see the unpublished article as a
   // reader would (and leave an approval / change request). Null until generated.
@@ -852,6 +860,30 @@ model Article {
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// A reusable byline — a saved author identity (photo + name + title) an editor
+// can attach to articles from a small library, instead of retyping it each time.
+// Not a login account: covers in-house management, council members, and repeat
+// contributors who never sign in. Editing one here updates it on every article
+// that uses it (a title change, a new photo, a name change). `archived` hides it
+// from the picker without breaking articles that already reference it. There is
+// no "team" row — the generic "RS News Hub Team" default is what shows when an
+// article has no byline chosen (see lib/byline.ts).
+model Byline {
+  id        String    @id @default(cuid())
+  name      String
+  // Optional job title / role shown under the name (e.g. "President, RS News").
+  title     String?
+  // Optional headshot URL. Any size — rendered in a fixed circular avatar
+  // (object-cover center-crop), so no specific dimensions are required.
+  photo     String?
+  archived  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  articles  Article[]
+
+  @@index([archived, name])
 }
 
 // One reader's endorsement of one article (the end-of-article "Recommend").

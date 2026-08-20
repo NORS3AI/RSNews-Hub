@@ -71,7 +71,7 @@ export async function getHomepageData() {
     where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, category: { slug: 'rs-council-column' }, requirement: '' },
     orderBy: { publishedAt: 'desc' },
     take: 12,
-    select: { id: true, title: true, slug: true, content: true, publishedAt: true, author: { select: { name: true } } },
+    select: { id: true, title: true, slug: true, content: true, publishedAt: true, byline: true, bylineRef: { select: { name: true } }, author: { select: { name: true } } },
   });
 
   // The most-recent already-posted active comic shows on the homepage — matching

@@ -428,7 +428,7 @@ export default async function DocsHome() {
         if (councilArticles.length === 0) return null;
         const councilEl = (
           <CouncilColumn items={councilArticles.map((a) => ({
-            id: a.id, slug: a.slug, title: a.title, content: a.content, author: a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
+            id: a.id, slug: a.slug, title: a.title, content: a.content, author: a.bylineRef?.name ?? a.byline ?? a.author?.name ?? null, publishedAt: a.publishedAt ? formatDate(a.publishedAt) : '',
           }))} />
         );
         // The column is intentionally narrow; fill the space beside it with ads.
