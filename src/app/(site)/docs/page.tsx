@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getHomepageData } from '@/lib/homepageData';
 import { type ArticleCard as Card } from '@/lib/cards';
 import { moduleSource, clampSpan, MODULE_CATALOG, type ModuleId, type HomeModule } from '@/lib/homepage';
-import { isCustomModuleId, parseTree, blockChain, inSchedule, type Block } from '@/lib/studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, collectionKey, collectionOffset, rotatePool, type Block } from '@/lib/studio';
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
@@ -53,7 +53,7 @@ export default async function DocsHome() {
     trending, mostRecommended, rediscover, feed, topSectionIds,
     categories, layout, industry, activePoll, activeQuiz, councilArticles, currentComic,
     heroSpan, weekSpan, priorPollVote, priorQuizResponse,
-    customById, pickById, byTag, byYear, byCat,
+    customById, pickById, byTag, byYear, byCat, byCollection,
     modulePollById, myModuleVoteByPoll, quizById, myQuizDone,
     pinnedPollIds, pinnedQuizIds,
   } = data;
@@ -136,12 +136,31 @@ export default async function DocsHome() {
 
   const renderCustomModule = (row: { id: string; name: string; tree: string }, layoutId: string) => {
     const tree = parseTree(row.tree);
+    const nowMs = Date.now();
     const used = shownArticleIds; // page-global so articles don't repeat across modules
     const firstUnused = (pool: Card[]): Card | null => {
       for (const c of pool) if (!used.has(c.id)) { used.add(c.id); return c; }
       return null;
     };
-    // Resolve an article block's story by its sourcing mode.
+    // Module-level collection: when set, every article element fills from this
+    // one shared pool (guaranteed distinct via `used`), rotated by the clock so
+    // the module quietly refreshes over time. Hand-picked elements are reserved
+    // first so a picked story can never also appear through the collection.
+    const collection = tree.collection ?? null;
+    let collectionPool: Card[] = [];
+    if (collection) {
+      for (const b of tree.children.flatMap(blockChain)) {
+        if (isArticleSourced(b.type) && b.settings.mode === 'pick') {
+          const id = String(b.settings.articleId ?? ''); if (id) used.add(id);
+        }
+      }
+      const step = tree.children.flatMap(blockChain)
+        .filter((b) => (isArticleSourced(b.type) || b.type === 'mosaic') && b.settings.mode !== 'pick').length || 1;
+      const pool = byCollection.get(collectionKey(collection)) ?? [];
+      collectionPool = rotatePool(pool, collectionOffset(collection.rotateHours, pool.length, step, nowMs));
+    }
+    // Resolve an article block's story by its sourcing mode. A module collection
+    // overrides every mode except an explicit hand-pick (which always wins).
     const resolveArticle = (b: Block): Card | null => {
       const mode = b.settings.mode ?? 'auto';
       if (mode === 'pick') {
@@ -149,6 +168,7 @@ export default async function DocsHome() {
         if (a) used.add(a.id); // a hand-picked story always shows, even if repeated
         return a ?? null;
       }
+      if (collection) return firstUnused(collectionPool); // empty pool → null → slot hidden
       if (mode === 'tag') return firstUnused(byTag.get(String(b.settings.tag ?? '').trim().toLowerCase()) ?? []);
       if (mode === 'year') return firstUnused(byYear.get(Number(b.settings.year)) ?? []);
       if (mode === 'category') return firstUnused(byCat.get(String(b.settings.categorySlug ?? '').trim().toLowerCase()) ?? []);
@@ -158,7 +178,6 @@ export default async function DocsHome() {
     // null when it has nothing to show (poll not running, picked article
     // unpublished, empty image…). Returning null is the signal to try the next
     // fallback. `style` is the slot's background so the look holds across rungs.
-    const nowMs = Date.now();
     const renderRung = (b: Block, i: number, style: React.CSSProperties | undefined): React.ReactNode | null => {
       // Outside its schedule window → treat as unavailable so the slot falls
       // through to the next rung (which restores the "previous" content).
@@ -320,7 +339,7 @@ export default async function DocsHome() {
         }
         case 'mosaic': {
           const count = Math.min(Math.max(Number(b.settings.count) || 4, 3), 6);
-          const pool = featurePool(String(b.settings.source ?? 'latest'));
+          const pool = collection ? collectionPool : featurePool(String(b.settings.source ?? 'latest'));
           const cards: Card[] = [];
           for (const c of pool) { if (cards.length >= count) break; if (!used.has(c.id)) { used.add(c.id); cards.push(c); } }
           if (cards.length === 0) return null;

@@ -10,7 +10,7 @@ import { prisma } from './db';
 import { getSessionUser, getReaderSessionId } from './auth';
 import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from './recommend';
 import { getHomeLayout } from './homepage';
-import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, type Block } from './studio';
+import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, collectionKey, type Block, type ModuleCollection } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
 import { canViewContent, brandKey, type AccountLike } from './entitlements';
 import { activeViewAs } from './viewAsServer';
@@ -241,6 +241,31 @@ export async function getHomepageData() {
     byCat.set(slug, rows.map(toCard));
   }));
 
+  // Module-level article collections: one shared pool per distinct query so
+  // identical collections across modules reuse a single fetch. AND-combines the
+  // category (primary OR extra) with any-of tags and an optional year; a generous
+  // pool (40) gives daily rotation room to cycle. Mirrors homepageInventory.
+  const collections = new Map<string, ModuleCollection>();
+  for (const r of customRows) { const c = parseTree(r.tree).collection; if (c) collections.set(collectionKey(c), c); }
+  const byCollection = new Map<string, Card[]>();
+  await Promise.all([...collections.entries()].map(async ([key, c]) => {
+    const rows = await prisma.article.findMany({
+      where: {
+        status: { in: RECOMMENDABLE_STATUSES },
+        OR: [{ category: { slug: c.categorySlug } }, { extraCategories: { some: { slug: c.categorySlug } } }],
+        ...(c.tags.length ? { tags: { some: { tag: { OR: c.tags.flatMap((t) => [{ slug: { contains: t } }, { name: { contains: t } }]) } } } } : {}),
+        ...(c.year
+          ? { publishedAt: { gte: new Date(c.year, 0, 1), lt: new Date(Math.min(new Date(c.year + 1, 0, 1).getTime(), Date.now())) } }
+          : { publishedAt: { lte: new Date() } }),
+      },
+      orderBy: c.sort === 'recommended' ? [{ recommends: 'desc' as const }, { publishedAt: 'desc' as const }]
+        : c.sort === 'views' ? [{ views: 'desc' as const }, { publishedAt: 'desc' as const }]
+        : [{ publishedAt: 'desc' as const }],
+      take: 40, select: cardSelect,
+    });
+    byCollection.set(key, rows.map(toCard));
+  }));
+
   // Resolve hand-picked quizzes referenced by quiz elements (answers never selected).
   const quizIds = [...new Set(allBlocks.filter((b) => b.type === 'quiz' && b.settings.quizId).map((b) => String(b.settings.quizId)))];
   const pickedQuizzes = quizIds.length
@@ -295,7 +320,7 @@ export async function getHomepageData() {
     categories, layout, industry, activePoll, activeQuiz, councilArticles, currentComic,
     heroSpan, weekSpan, priorPollVote, priorQuizResponse,
     // custom modules + their resolved content pools
-    customById, pickById, byTag, byYear, byCat,
+    customById, pickById, byTag, byYear, byCat, byCollection,
     modulePollById, myModuleVoteByPoll, quizById, myQuizDone,
     pinnedPollIds, pinnedQuizIds,
   };

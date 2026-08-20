@@ -187,8 +187,31 @@ export type ModuleTree = {
   effect?: 'snow' | 'confetti' | null;
   // Up to 3 hex colors for confetti (ignored by snow). Empty = built-in defaults.
   effectColors?: string[];
+  // Optional module-level article collection. When set (a category is chosen),
+  // every article element in the module fills itself from this pool by default —
+  // guaranteed distinct within the module — unless the element is switched to
+  // "pick a specific article". `rotateHours` quietly cycles which slice shows.
+  // null/absent = off (elements use their own per-element sourcing).
+  collection?: ModuleCollection | null;
   children: Block[];
 };
+
+// A module-level query that article elements draw from. `categorySlug` is the
+// anchor (empty = the whole collection is off). `tags` narrow to articles
+// carrying ANY of them; `year` narrows to that calendar year; all set filters
+// are AND-ed. `sort` orders the pool; `rotateHours` (0 = off) advances which
+// slice shows each period so the module refreshes itself over time.
+export type CollectionSort = 'newest' | 'recommended' | 'views';
+export type ModuleCollection = {
+  categorySlug: string;
+  tags: string[];
+  year: number;
+  sort: CollectionSort;
+  rotateHours: number;
+};
+const COLLECTION_SORTS: readonly CollectionSort[] = ['newest', 'recommended', 'views'];
+// Allowed rotation cadences, in hours: off / 12h / daily / weekly.
+export const COLLECTION_ROTATE_CHOICES: readonly number[] = [0, 12, 24, 168];
 
 /** Clamp a span to 1–3 (⅓ / ⅔ / full); anything missing/invalid → 3. Kept here
  *  (not imported from homepage.ts) so studio.ts stays dependency-free and the
@@ -273,7 +296,8 @@ export function normalizeTree(input: unknown): ModuleTree {
   const expireDays = Number.isInteger(days) && days > 0 ? Math.min(days, 3650) : 0;
   const effect: 'snow' | 'confetti' | null = obj.effect === 'snow' || obj.effect === 'confetti' ? obj.effect : null;
   const effectColors = (Array.isArray(obj.effectColors) ? obj.effectColors : []).filter(isHexColor).slice(0, 3);
-  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), effect, effectColors, children };
+  const collection = normalizeCollection(obj.collection);
+  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), effect, effectColors, collection, children };
 }
 
 function normalizeBlock(input: unknown, index: number, allowFallbacks = true): Block | null {
@@ -448,9 +472,11 @@ function articleSource(v: unknown): string {
 //   tag  → auto-fill from articles carrying a tag/keyword
 //   year → auto-fill from a given year (throwbacks)
 //   pick → a specific hand-picked article
-export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick' | 'category';
+export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick' | 'category' | 'collection';
 function articleFill(s: Record<string, unknown>): BlockSettings {
-  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' || s.mode === 'category' ? s.mode : 'auto';
+  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' || s.mode === 'category' || s.mode === 'collection' ? s.mode : 'auto';
+  // collection → fill from the module's shared collection pool (see ModuleCollection).
+  if (mode === 'collection') return { mode };
   // category → newest published articles in a chosen category (primary or extra).
   if (mode === 'category') return { mode, categorySlug: str(s.categorySlug, 60) };
   if (mode === 'tag') return { mode, tag: str(s.tag, 60), source: articleSource(s.source) };
@@ -460,6 +486,47 @@ function articleFill(s: Record<string, unknown>): BlockSettings {
   }
   if (mode === 'pick') return { mode, articleId: str(s.articleId, 40) };
   return { mode: 'auto', source: articleSource(s.source) };
+}
+
+// Coerce arbitrary input into a ModuleCollection, or null when off. A collection
+// with no category is treated as off (nothing to draw from).
+export function normalizeCollection(input: unknown): ModuleCollection | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  const categorySlug = str(o.categorySlug, 60).trim().toLowerCase();
+  if (!categorySlug) return null;
+  const tags = [...new Set((Array.isArray(o.tags) ? o.tags : [])
+    .map((t) => str(t, 60).trim().toLowerCase()).filter(Boolean))].slice(0, 6);
+  const y = Number(o.year);
+  const year = Number.isInteger(y) && y >= 1990 && y <= 2100 ? y : 0;
+  const sort: CollectionSort = COLLECTION_SORTS.includes(o.sort as CollectionSort) ? (o.sort as CollectionSort) : 'newest';
+  const r = Number(o.rotateHours);
+  const rotateHours = COLLECTION_ROTATE_CHOICES.includes(r) ? r : 0;
+  return { categorySlug, tags, year, sort, rotateHours };
+}
+
+// A stable key for a collection's query — used to prefetch/share one article
+// pool across every element (and module) that asks for the same thing. Tags are
+// sorted so order doesn't fragment the key.
+export function collectionKey(c: ModuleCollection): string {
+  return [c.categorySlug, [...c.tags].sort().join('+'), c.year, c.sort].join('|');
+}
+
+// Deterministic, cron-free rotation offset into a collection pool. Buckets time
+// into `rotateHours` windows and advances by `step` (how many the module shows)
+// each window, so the visible slice cycles through the whole pool over time and
+// is identical for every reader within a window. Returns 0 when rotation is off.
+export function collectionOffset(rotateHours: number, poolLen: number, step: number, nowMs: number): number {
+  if (rotateHours <= 0 || poolLen <= 0 || step <= 0) return 0;
+  const bucket = Math.floor(nowMs / (rotateHours * 3_600_000));
+  return (((bucket * step) % poolLen) + poolLen) % poolLen;
+}
+
+// Rotate a pool so element `i` reads from `pool[(offset + i) % len]`.
+export function rotatePool<T>(pool: T[], offset: number): T[] {
+  if (!pool.length || offset % pool.length === 0) return pool;
+  const k = ((offset % pool.length) + pool.length) % pool.length;
+  return pool.slice(k).concat(pool.slice(0, k));
 }
 
 /* ----------------------------- Serialization ----------------------------- */

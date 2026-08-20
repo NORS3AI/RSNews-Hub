@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import { getHomeLayout, moduleSource } from './homepage';
-import { isCustomModuleId, customIdOf, parseTree, isArticleSourced, type Block } from './studio';
+import { isCustomModuleId, customIdOf, parseTree, blockChain, isArticleSourced, collectionOffset, rotatePool, type Block } from './studio';
 import { RECOMMENDABLE_STATUSES } from './constants';
 import { getPersonalizedFeed, trendingWindowArticles, rediscoverArticles, mostRecommendedArticles } from './recommend';
 
@@ -90,10 +90,10 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
     for (const c of pool) { if (out.length >= n) break; if (!used.has(c.id)) { used.add(c.id); out.push(c); } }
     return out;
   };
-  const resolveArticleBlock = async (b: Block): Promise<Lite[]> => {
+  const resolveArticleBlock = async (b: Block, collectionPool: Lite[] | null): Promise<Lite[]> => {
     if (b.type === 'mosaic') {
       const count = Math.min(Math.max(Number(b.settings.count) || 4, 3), 6);
-      return firstUnused(featurePool(String(b.settings.source ?? 'latest')), count);
+      return firstUnused(collectionPool ?? featurePool(String(b.settings.source ?? 'latest')), count);
     }
     const mode = b.settings.mode ?? 'auto';
     if (mode === 'pick') {
@@ -102,6 +102,8 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
       if (a && (a.status === 'PUBLISHED' || a.status === 'ARCHIVED')) { used.add(a.id); return [{ id: a.id, title: a.title, slug: a.slug }]; }
       return [];
     }
+    // Module collection overrides every non-pick mode (mirrors docs/page.tsx).
+    if (collectionPool) return firstUnused(collectionPool);
     if (mode === 'tag') {
       const t = String(b.settings.tag ?? '').trim().toLowerCase();
       const rows = t ? await prisma.article.findMany({ where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: now }, tags: { some: { tag: { OR: [{ slug: { contains: t } }, { name: { contains: t } }] } } } }, orderBy: { publishedAt: 'desc' }, take: 12, select: { id: true, title: true, slug: true } }) : [];
@@ -124,9 +126,37 @@ export async function getHomepageInventory(userId?: string): Promise<HomepageInv
     if (!m.enabled || !isCustomModuleId(m.id)) continue;
     const row = await prisma.customModule.findUnique({ where: { id: customIdOf(m.id)! }, select: { name: true, tree: true, published: true } });
     if (!row || !row.published) continue;
-    for (const b of parseTree(row.tree).children) {
+    const tree = parseTree(row.tree);
+    // Module collection: build the shared pool once (mirrors homepageData), reserve
+    // this module's hand-picks so they can't also surface through the collection,
+    // then rotate by the clock exactly as the page does.
+    const collection = tree.collection ?? null;
+    let collectionPool: Lite[] | null = null;
+    if (collection) {
+      for (const b of tree.children.flatMap(blockChain)) {
+        if (isArticleSourced(b.type) && b.settings.mode === 'pick') { const id = String(b.settings.articleId ?? ''); if (id) used.add(id); }
+      }
+      const rows = await prisma.article.findMany({
+        where: {
+          status: { in: RECOMMENDABLE_STATUSES },
+          OR: [{ category: { slug: collection.categorySlug } }, { extraCategories: { some: { slug: collection.categorySlug } } }],
+          ...(collection.tags.length ? { tags: { some: { tag: { OR: collection.tags.flatMap((t) => [{ slug: { contains: t } }, { name: { contains: t } }]) } } } } : {}),
+          ...(collection.year
+            ? { publishedAt: { gte: new Date(collection.year, 0, 1), lt: new Date(Math.min(new Date(collection.year + 1, 0, 1).getTime(), now.getTime())) } }
+            : { publishedAt: { lte: now } }),
+        },
+        orderBy: collection.sort === 'recommended' ? [{ recommends: 'desc' as const }, { publishedAt: 'desc' as const }]
+          : collection.sort === 'views' ? [{ views: 'desc' as const }, { publishedAt: 'desc' as const }]
+          : [{ publishedAt: 'desc' as const }],
+        take: 40, select: { id: true, title: true, slug: true },
+      });
+      const pool: Lite[] = rows.map((a) => ({ id: a.id, title: a.title, slug: a.slug }));
+      const step = tree.children.flatMap(blockChain).filter((b) => (isArticleSourced(b.type) || b.type === 'mosaic') && b.settings.mode !== 'pick').length || 1;
+      collectionPool = rotatePool(pool, collectionOffset(collection.rotateHours, pool.length, step, now.getTime()));
+    }
+    for (const b of tree.children) {
       if (isArticleSourced(b.type) || b.type === 'mosaic') {
-        pushArts(await resolveArticleBlock(b), row.name);
+        pushArts(await resolveArticleBlock(b, collectionPool), row.name);
       } else if (b.type === 'poll' && b.settings.pollId) {
         pinnedPollIds.add(String(b.settings.pollId));
         const p = await prisma.poll.findUnique({ where: { id: String(b.settings.pollId) }, select: { id: true, question: true } });

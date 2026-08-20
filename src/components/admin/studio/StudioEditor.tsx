@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, clampTreeSpan, MAX_BLOCKS, MAX_FALLBACKS,
-  type ModuleTree, type Block, type BlockType, type Shape,
+  type ModuleTree, type Block, type BlockType, type Shape, type ModuleCollection, type CollectionSort,
 } from '@/lib/studio';
 import CustomModule, { BlockView, ModuleEffectLayer, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
@@ -161,6 +161,15 @@ export default function StudioEditor({
   const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = clampTreeSpan(n); return t; });
   const setEffect = (e: 'snow' | 'confetti' | null) => mutate((t) => { t.effect = e; if (!e) t.effectColors = []; return t; });
   const setEffectColors = (cols: string[]) => mutate((t) => { t.effectColors = cols.slice(0, 3); return t; });
+  // Module-level article collection. Merges a patch; clearing the category turns
+  // the whole collection off (elements fall back to their own sourcing).
+  const setCollection = (patch: Partial<ModuleCollection> | null) => mutate((t) => {
+    if (patch === null) { t.collection = null; return t; }
+    const cur: ModuleCollection = t.collection ?? { categorySlug: '', tags: [], year: 0, sort: 'newest', rotateHours: 0 };
+    const next: ModuleCollection = { ...cur, ...patch };
+    t.collection = next.categorySlug ? next : null;
+    return t;
+  });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -439,8 +448,8 @@ export default function StudioEditor({
         {/* ---- Inspector ---- */}
         <aside>
           {selectedBlock
-            ? <BlockInspector block={selectedBlock} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
-            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} onEffect={setEffect} onEffectColors={setEffectColors} />}
+            ? <BlockInspector block={selectedBlock} hasCollection={!!tree.collection} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
+            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} onEffect={setEffect} onEffectColors={setEffectColors} onCollection={setCollection} />}
         </aside>
       </div>
 
@@ -553,8 +562,10 @@ const WIDTH_PRESETS: { value: number; label: string; hint: string }[] = [
 
 const DEFAULT_CONFETTI = ['#E97D34', '#f7edd8', '#b23b2e'];
 
-function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, onEffect, onEffectColors }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void; onEffect: (e: 'snow' | 'confetti' | null) => void; onEffectColors: (c: string[]) => void }) {
+function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, onEffect, onEffectColors, onCollection }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void; onEffect: (e: 'snow' | 'confetti' | null) => void; onEffectColors: (c: string[]) => void; onCollection: (patch: Partial<ModuleCollection> | null) => void }) {
   const span = clampTreeSpan(tree.defaultSpan);
+  const cats = useCategories();
+  const col = tree.collection;
   return (
     <InspectorShell title="Module">
       <Field label="Shape">
@@ -574,6 +585,34 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, 
         <p className="mt-1 text-[11px] text-[var(--muted)]">The width this module takes when first placed on the homepage. You can still override it per-placement in Homepage layout. Everything collapses to full width on phones.</p>
       </Field>
       <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
+      <Field label="Article collection">
+        <select className="input" value={col?.categorySlug ?? ''} onChange={(e) => onCollection(e.target.value ? { categorySlug: e.target.value } : null)}>
+          <option value="">Off — each element chooses its own</option>
+          {cats.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+        </select>
+        {col && (
+          <div className="mt-2 space-y-2">
+            <input className="input" placeholder="Tags — optional, comma-separated" value={(col.tags ?? []).join(', ')}
+              onChange={(e) => onCollection({ tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 6) })} />
+            <div className="flex gap-2">
+              <input type="number" min={1990} max={2100} className="input" placeholder="Year — optional"
+                value={col.year || ''} onChange={(e) => onCollection({ year: Number(e.target.value) || 0 })} />
+              <select className="input" value={col.sort} onChange={(e) => onCollection({ sort: e.target.value as CollectionSort })}>
+                <option value="newest">Newest first</option>
+                <option value="recommended">Most recommended</option>
+                <option value="views">Most viewed</option>
+              </select>
+            </div>
+            <select className="input" value={col.rotateHours} onChange={(e) => onCollection({ rotateHours: Number(e.target.value) })}>
+              <option value={0}>No rotation — always the top stories</option>
+              <option value={12}>Rotate every 12 hours</option>
+              <option value={24}>Rotate daily</option>
+              <option value={168}>Rotate weekly</option>
+            </select>
+          </div>
+        )}
+        <p className="mt-1 text-[11px] text-[var(--muted)]">Every article element in this module fills from this set — never repeating a story — unless you switch that element to “Pick a specific article”. Tags and year narrow it (all must match); rotation quietly cycles which stories show over time.</p>
+      </Field>
       <Field label="Holiday effect">
         <select className="input" value={tree.effect ?? ''} onChange={(e) => onEffect((e.target.value || null) as 'snow' | 'confetti' | null)}>
           <option value="">None</option>
@@ -602,8 +641,8 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, 
   );
 }
 
-function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
-  block: Block; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
+function BlockInspector({ block, hasCollection, onPatch, onRemove, onDuplicate }: {
+  block: Block; hasCollection: boolean; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
@@ -630,7 +669,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       <div className={tab === 'content' ? '' : 'hidden'}>
       {(block.type === 'article' || block.type === 'article-image' || block.type === 'article-headline') && (
         <>
-          <ArticleFillFields s={s} set={set} />
+          <ArticleFillFields s={s} set={set} hasCollection={hasCollection} />
           {(block.type === 'article' || block.type === 'article-image') && (
             <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
           )}
@@ -646,7 +685,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       )}
       {(block.type === 'spotlight' || block.type === 'split') && (
         <>
-          <ArticleFillFields s={s} set={set} />
+          <ArticleFillFields s={s} set={set} hasCollection={hasCollection} />
           <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
           {block.type === 'spotlight' && (
             <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.overlay !== false} onChange={(e) => set('overlay', e.target.checked)} /> Overlay the headline on the image</label>
@@ -663,14 +702,18 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       )}
       {block.type === 'mosaic' && (
         <>
-          <Field label="Source">
-            <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
-              <option value="featured">Featured</option>
-              <option value="latest">Latest</option>
-              <option value="trending">Trending</option>
-              <option value="most-recommended">Most recommended</option>
-            </select>
-          </Field>
+          {hasCollection ? (
+            <p className="mb-3 rounded-lg border border-brand-500/40 bg-brand-50/40 px-3 py-2 text-[11px] text-[var(--muted)]">Filling from the module’s <strong>article collection</strong>. Clear the collection (module settings) to choose a source here instead.</p>
+          ) : (
+            <Field label="Source">
+              <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
+                <option value="featured">Featured</option>
+                <option value="latest">Latest</option>
+                <option value="trending">Trending</option>
+                <option value="most-recommended">Most recommended</option>
+              </select>
+            </Field>
+          )}
           <Field label={`Tiles — ${Number(s.count ?? 4)} stories`}>
             <input type="range" min={3} max={6} step={1} value={Number(s.count ?? 4)} onChange={(e) => set('count', Number(e.target.value))} className="w-full accent-brand-600" />
             <p className="mt-1 text-[11px] text-[var(--muted)]">A tiled grid; auto-fills the newest stories from the source, de-duped across the homepage.</p>
@@ -838,9 +881,27 @@ function HeadingSeeAllFields({ s, set }: { s: Record<string, unknown>; set: (k: 
   );
 }
 
-function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+function ArticleFillFields({ s, set, hasCollection }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void; hasCollection: boolean }) {
   const mode = String(s.mode ?? 'auto');
   const categories = useCategories();
+  // When the module has a collection, an element is simply "from the collection"
+  // (any non-pick mode) or a hand-pick. The full per-element sourcing set is only
+  // offered when there's no module collection to defer to.
+  if (hasCollection) {
+    return (
+      <>
+        <Field label="This element">
+          <select className="input" value={mode === 'pick' ? 'pick' : 'collection'} onChange={(e) => set('mode', e.target.value === 'pick' ? 'pick' : 'collection')}>
+            <option value="collection">From the module collection</option>
+            <option value="pick">Pick a specific article</option>
+          </select>
+        </Field>
+        {mode === 'pick'
+          ? <Field label="Article"><EntityPicker value={String(s.articleId ?? '')} onChange={(id) => set('articleId', id)} endpoint="/api/admin/articles/search" placeholder="Search articles…" /></Field>
+          : <p className="mb-3 text-[11px] text-[var(--muted)]">Pulls the next unused story from the module’s collection — guaranteed not to repeat another element here.</p>}
+      </>
+    );
+  }
   return (
     <>
       <Field label="Fill with">
