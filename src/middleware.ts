@@ -10,9 +10,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 // parent RS News site can embed the hub while others can't clickjack it.
 function appCsp(nonce: string): string {
   const frameAncestors = process.env.FRAME_ANCESTORS?.trim() || "'self'";
+  // `next dev` compiles client bundles with an eval-based devtool for hot reload,
+  // so development needs 'unsafe-eval' or the whole app fails to hydrate (the
+  // builder's drag/select/inspector go dead). Production bundles never use eval,
+  // so the deployed CSP stays strict — this relaxation is dev-only.
+  const scriptSrc = process.env.NODE_ENV === 'production'
+    ? `script-src 'self' 'nonce-${nonce}'`
+    : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval'`;
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",   // uploads (self), data-URI + remote https ad/cover creatives
     "media-src 'self' data: blob: https:", // video ad creatives
