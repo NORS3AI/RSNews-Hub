@@ -1014,6 +1014,25 @@ model HouseStyleRule {
   @@index([enabled, sortOrder])
 }
 
+// The "Tag glossary" — the admin-editable industry vocabulary the tag suggester
+// draws on (RS Dictionary → Tag glossary tab). Each row is one term: its
+// `canonical` tag plus the spelling/plural/phrase `variants` that map to it (a
+// comma/newline blob parsed in lib/houseStyle's splitVariants — admins never write
+// regex). `builtin` rows seed the list and can be edited or disabled but not
+// deleted; custom rows are fully removable. Mirrors HouseStyleRule intentionally.
+model TagGlossaryTerm {
+  id        String   @id @default(cuid())
+  canonical String
+  variants  String   @default("")
+  builtin   Boolean  @default(false)
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
 // A recurring "seasonal" placement: a Module Studio module that auto-appears high
 // on the public homepage during a yearly window (start month/day → end month/day,
 // 1-based; a start that sorts after the end wraps the New Year, e.g. Nov 1 → Jan 5)

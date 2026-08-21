@@ -14,6 +14,7 @@ import { docBodyToStructuredHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_S
 import { suggestTags } from './suggestTags';
 import { splitVariants } from './houseStyle';
 import { revalidateHouseStyle } from './houseStyleServer';
+import { getTagGlossary, revalidateTagGlossary } from './tagGlossaryServer';
 import { clampWindow } from './seasonal';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
@@ -236,8 +237,11 @@ export async function deleteNewsroomComment(id: string): Promise<void> {
 // products, house terms) alongside the built-in industry glossary.
 export async function suggestArticleTags(title: string, html: string): Promise<string[]> {
   await ensureStaff();
-  const known = await prisma.tag.findMany({ select: { name: true }, take: 500 });
-  return suggestTags(title || '', html || '', { vocabulary: known.map((t) => t.name), max: 8 });
+  const [known, glossary] = await Promise.all([
+    prisma.tag.findMany({ select: { name: true }, take: 500 }),
+    getTagGlossary(),
+  ]);
+  return suggestTags(title || '', html || '', { vocabulary: known.map((t) => t.name), glossary, max: 8 });
 }
 
 // Personal pin: flag/unflag a draft for the current staffer. Returns the new state.
@@ -279,10 +283,14 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
   const slug = await uniqueSlug(title, 'article');
   // Pre-fill tags from the finished prose (same suggester the composer's "Suggest
   // tags" button uses), created on the fly, so the pushed draft isn't blank-tagged.
-  // Feed it the tags the newsroom already uses so it reuses the house vocabulary.
-  const known = await prisma.tag.findMany({ select: { name: true }, take: 500 });
+  // Feed it the tags the newsroom already uses + the editable glossary so it reuses
+  // the house vocabulary.
+  const [known, glossary] = await Promise.all([
+    prisma.tag.findMany({ select: { name: true }, take: 500 }),
+    getTagGlossary(),
+  ]);
   const tagIds: string[] = [];
-  for (const name of suggestTags(title, content, { vocabulary: known.map((t) => t.name), max: 6 })) {
+  for (const name of suggestTags(title, content, { vocabulary: known.map((t) => t.name), glossary, max: 6 })) {
     const tslug = slugify(name);
     if (!tslug) continue;
     const tag = await prisma.tag.upsert({ where: { slug: tslug }, update: {}, create: { name, slug: tslug } });
@@ -375,6 +383,41 @@ export async function deleteHouseStyleRule(id: string): Promise<void> {
   if (r?.builtin) throw new Error('Built-in rules can’t be deleted — disable it instead.');
   await prisma.houseStyleRule.delete({ where: { id } });
   revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+}
+
+/* ------------------------------ Tag glossary ----------------------------- */
+// The admin-editable industry vocabulary the tag suggester draws on (RS Dictionary
+// → Tag glossary tab). One row per term: canonical tag + the variants that map to
+// it. Built-in rows can be edited or disabled but not deleted.
+
+export async function saveTagGlossaryTerm(input: { id?: string; canonical: string; variants?: string }): Promise<string> {
+  await ensureStaff();
+  const canonical = (input.canonical ?? '').trim().slice(0, 120);
+  if (!canonical) throw new Error('A glossary term needs a canonical tag.');
+  // Clean the variant blob: drop the term itself and dupes.
+  const variants = splitVariants(input.variants ?? '').filter((v) => v.toLowerCase() !== canonical.toLowerCase()).join(', ');
+  const row = input.id
+    ? await prisma.tagGlossaryTerm.update({ where: { id: input.id }, data: { canonical, variants } })
+    : await prisma.tagGlossaryTerm.create({ data: { canonical, variants, builtin: false } });
+  revalidateTagGlossary();
+  revalidatePath('/admin/house-style');
+  return row.id;
+}
+
+export async function setTagGlossaryTermEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.tagGlossaryTerm.update({ where: { id }, data: { enabled } });
+  revalidateTagGlossary();
+  revalidatePath('/admin/house-style');
+}
+
+export async function deleteTagGlossaryTerm(id: string): Promise<void> {
+  await ensureStaff();
+  const t = await prisma.tagGlossaryTerm.findUnique({ where: { id }, select: { builtin: true } });
+  if (t?.builtin) throw new Error('Built-in terms can’t be deleted — disable it instead.');
+  await prisma.tagGlossaryTerm.delete({ where: { id } });
+  revalidateTagGlossary();
   revalidatePath('/admin/house-style');
 }
 

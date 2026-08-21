@@ -39,48 +39,54 @@ const SENTENCE_START_NOISE = new Set(
     .split(' '),
 );
 
-// The pack-and-ship / print / mailbox trade's standing vocabulary. Each entry is
-// [canonical, ...variants]; any variant found in the text yields the canonical tag.
-// Multi-word terms match across a space OR hyphen ("pack and ship" / "pack-and-ship").
-const GLOSSARY: string[][] = [
-  ['e-commerce', 'ecommerce', 'e commerce'],
-  ['returns', 'return processing', 'returns management'],
-  ['fulfillment', 'fulfilment', 'order fulfillment', 'fulfillment center'],
-  ['shipping', 'shipping services'],
-  ['packaging', 'packing', 'custom packaging'],
-  ['mailbox rental', 'mailbox rentals', 'mailbox'],
-  ['mailboxes', 'private mailbox', 'private mailboxes', 'pmb'],
-  ['po box', 'po boxes', 'post office box'],
-  ['printing', 'print services', 'digital printing', 'wide-format printing', 'print shop'],
-  ['copying', 'copies', 'photocopying'],
-  ['notary', 'notary public', 'notarization', 'notarize'],
-  ['passport photos', 'passport photo'],
-  ['fingerprinting', 'live scan', 'livescan'],
-  ['shredding', 'document shredding'],
-  ['laminating', 'lamination'],
-  ['binding', 'document binding'],
-  ['signs', 'signage', 'banners'],
-  ['business cards', 'business card'],
-  ['freight', 'ltl freight', 'ltl'],
-  ['crating', 'custom crating'],
-  ['moving supplies', 'moving boxes'],
-  ['last mile', 'last-mile delivery', 'last mile delivery'],
-  ['dimensional weight', 'dim weight'],
-  ['carriers', 'carrier'],
-  ['USPS', 'usps', 'postal service', 'us postal service', 'united states postal service'],
-  ['UPS'],
-  ['FedEx', 'fedex', 'fed ex'],
-  ['DHL'],
-  ['Amazon'],
-  ['peak season', 'holiday shipping', 'holiday season'],
-  ['small business', 'small businesses'],
-  ['franchise', 'franchising', 'franchisee', 'franchisees'],
-  ['point of sale', 'pos system', 'point-of-sale'],
-  ['gift wrapping', 'gift wrap'],
-  ['greeting cards', 'greeting card'],
-  ['package acceptance', 'package receiving', 'hold for pickup'],
-  ['faxing', 'fax services'],
-  ['scanning', 'document scanning'],
+// One glossary term: its canonical tag plus the spelling/plural/phrase variants
+// that should map to it. Admins edit these on the RS Dictionary → Tag glossary tab.
+export type GlossaryEntry = { canonical: string; variants: string[] };
+
+// The pack-and-ship / print / mailbox trade's standing vocabulary — the built-in
+// seed. Any variant found in the text yields the canonical tag. Multi-word terms
+// match across a space OR hyphen ("pack and ship" / "pack-and-ship"). This list is
+// also seeded into the DB so the newsroom can extend it without a code change; the
+// server hands the live rows in via opts.glossary, falling back to this.
+export const BUILTIN_GLOSSARY: GlossaryEntry[] = [
+  { canonical: 'e-commerce', variants: ['ecommerce', 'e commerce'] },
+  { canonical: 'returns', variants: ['return processing', 'returns management'] },
+  { canonical: 'fulfillment', variants: ['fulfilment', 'order fulfillment', 'fulfillment center'] },
+  { canonical: 'shipping', variants: ['shipping services'] },
+  { canonical: 'packaging', variants: ['packing', 'custom packaging'] },
+  { canonical: 'mailbox rental', variants: ['mailbox rentals', 'mailbox'] },
+  { canonical: 'mailboxes', variants: ['private mailbox', 'private mailboxes', 'pmb'] },
+  { canonical: 'po box', variants: ['po boxes', 'post office box'] },
+  { canonical: 'printing', variants: ['print services', 'digital printing', 'wide-format printing', 'print shop'] },
+  { canonical: 'copying', variants: ['copies', 'photocopying'] },
+  { canonical: 'notary', variants: ['notary public', 'notarization', 'notarize'] },
+  { canonical: 'passport photos', variants: ['passport photo'] },
+  { canonical: 'fingerprinting', variants: ['live scan', 'livescan'] },
+  { canonical: 'shredding', variants: ['document shredding'] },
+  { canonical: 'laminating', variants: ['lamination'] },
+  { canonical: 'binding', variants: ['document binding'] },
+  { canonical: 'signs', variants: ['signage', 'banners'] },
+  { canonical: 'business cards', variants: ['business card'] },
+  { canonical: 'freight', variants: ['ltl freight', 'ltl'] },
+  { canonical: 'crating', variants: ['custom crating'] },
+  { canonical: 'moving supplies', variants: ['moving boxes'] },
+  { canonical: 'last mile', variants: ['last-mile delivery', 'last mile delivery'] },
+  { canonical: 'dimensional weight', variants: ['dim weight'] },
+  { canonical: 'carriers', variants: ['carrier'] },
+  { canonical: 'USPS', variants: ['usps', 'postal service', 'us postal service', 'united states postal service'] },
+  { canonical: 'UPS', variants: [] },
+  { canonical: 'FedEx', variants: ['fedex', 'fed ex'] },
+  { canonical: 'DHL', variants: [] },
+  { canonical: 'Amazon', variants: [] },
+  { canonical: 'peak season', variants: ['holiday shipping', 'holiday season'] },
+  { canonical: 'small business', variants: ['small businesses'] },
+  { canonical: 'franchise', variants: ['franchising', 'franchisee', 'franchisees'] },
+  { canonical: 'point of sale', variants: ['pos system', 'point-of-sale'] },
+  { canonical: 'gift wrapping', variants: ['gift wrap'] },
+  { canonical: 'greeting cards', variants: ['greeting card'] },
+  { canonical: 'package acceptance', variants: ['package receiving', 'hold for pickup'] },
+  { canonical: 'faxing', variants: ['fax services'] },
+  { canonical: 'scanning', variants: ['document scanning'] },
 ];
 
 const stripHtml = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
@@ -106,10 +112,11 @@ type Cand = { tag: string; score: number; words: string[] };
 export function suggestTags(
   title: string,
   html: string,
-  opts: { vocabulary?: string[]; max?: number } = {},
+  opts: { vocabulary?: string[]; glossary?: GlossaryEntry[]; max?: number } = {},
 ): string[] {
   const max = opts.max ?? 8;
   const vocabulary = opts.vocabulary ?? [];
+  const glossary = opts.glossary ?? BUILTIN_GLOSSARY;
   const bodyText = stripHtml(html);
   const titleText = ` ${title} `;
   const full = `${title}\n${bodyText}`;
@@ -140,8 +147,9 @@ export function suggestTags(
     if (c > 0) add(n, 1000 + c * 5 + titleBonus(n));
   }
 
-  // 2. Domain glossary — the industry's standing vocabulary.
-  for (const [canonical, ...variants] of GLOSSARY) {
+  // 2. Domain glossary — the industry's standing vocabulary (built-in or admin-edited).
+  for (const { canonical, variants } of glossary) {
+    if (!canonical.trim()) continue;
     let c = 0;
     for (const term of [canonical, ...variants]) c += countMatches(full, term);
     if (c > 0) add(canonical, 500 + c * 4 + titleBonus(canonical));
