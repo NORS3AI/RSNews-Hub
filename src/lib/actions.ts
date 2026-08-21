@@ -507,15 +507,21 @@ const ARTICLE_REVISION_MAX = 20; // per-article cap on stored revisions
 // person differs from the (named) top byline? Returns the offending card name, or
 // null. Used by every publish path so the lock can't be bypassed. Empty top byline
 // (house-team default) never conflicts.
-async function detectBylineConflict(content: string, topBylineName: string): Promise<string | null> {
-  if (!topBylineName) return null;
+// Resolve the display names of the in-article Author cards: a typed-in name wins,
+// else the linked library byline's name. Shared by the conflict check and the
+// checklist builder so the two never diverge.
+async function resolveAuthorCardNames(content: string): Promise<string[]> {
   const cards = authorCardsInHtml(content);
   const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
   const linked = linkedIds.length
     ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
     : new Map<string, string>();
-  const cardNames = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
-  return bylineMismatch(topBylineName, cardNames);
+  return cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+}
+
+async function detectBylineConflict(content: string, topBylineName: string): Promise<string | null> {
+  if (!topBylineName) return null;
+  return bylineMismatch(topBylineName, await resolveAuthorCardNames(content));
 }
 
 // Build the pre-publish checklist for an existing article, so the Articles list's
@@ -543,13 +549,7 @@ export async function getPublishChecklist(id: string): Promise<{ input: PublishI
     : null;
   const genre = a.genre ? ((await getActiveGenres()).find((g) => g.slug === a.genre)?.label || a.genre) : '';
   const ads = adSlotsInHtml(content);
-
-  const cards = authorCardsInHtml(content);
-  const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
-  const linked = linkedIds.length
-    ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
-    : new Map<string, string>();
-  const authorCards = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+  const authorCards = await resolveAuthorCardNames(content);
 
   const input: PublishInput = {
     title: a.title || '',

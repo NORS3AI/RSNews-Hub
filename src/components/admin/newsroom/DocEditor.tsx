@@ -180,18 +180,23 @@ export default function DocEditor({ doc, me, styleRules, flagged: flaggedInit, f
     startBusy(async () => { await deleteNewsroomDoc(id); router.push('/admin/newsroom'); });
   };
 
-  // Pin/unpin this draft to my personal switcher. Optimistic: flip the star and
-  // add/remove this doc from the rail immediately, then persist.
+  // Set the flag state — star + rail membership — together, so the two can never
+  // disagree. Used for the optimistic flip, the server reconcile, and the revert.
+  const applyFlag = (on: boolean) => {
+    setFlagged(on);
+    setPins((prev) => on
+      ? (prev.some((p) => p.id === id) ? prev : [{ id, title: titleRef.current, updatedAt: new Date().toISOString() }, ...prev])
+      : prev.filter((p) => p.id !== id));
+  };
+  // Pin/unpin this draft to my personal switcher. Optimistic, then reconciled to
+  // the DB's authoritative result (which may differ if the flag changed elsewhere).
   const toggleFlag = async () => {
     if (flagBusy) return;
     setFlagBusy(true);
-    const next = !flagged;
-    setFlagged(next);
-    setPins((prev) => next
-      ? (prev.some((p) => p.id === id) ? prev : [{ id, title: titleRef.current, updatedAt: new Date().toISOString() }, ...prev])
-      : prev.filter((p) => p.id !== id));
-    try { const server = await toggleNewsroomFlag(id); setFlagged(server); }
-    catch { setFlagged(!next); /* revert */ }
+    const prev = flagged;
+    applyFlag(!prev);
+    try { applyFlag(await toggleNewsroomFlag(id)); }
+    catch { applyFlag(prev); /* revert both star + rail */ }
     finally { setFlagBusy(false); }
   };
 

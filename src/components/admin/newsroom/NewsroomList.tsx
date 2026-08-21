@@ -31,10 +31,14 @@ export default function NewsroomList({ drafts, myArticles, me }: { drafts: Newsr
     Object.fromEntries(drafts.map((d) => [d.id, d.flaggedByMe])));
   useEffect(() => { setMounted(true); }, []);
 
-  // Flag/unflag a draft right from the list (no need to open it). Optimistic.
+  // Flag/unflag a draft right from the list (no need to open it). Optimistic, then
+  // reconciled to the DB's authoritative result so the star can't drift out of sync.
   const toggleFlag = (id: string) => {
-    setFlags((prev) => ({ ...prev, [id]: !prev[id] }));
-    toggleNewsroomFlag(id).catch(() => setFlags((prev) => ({ ...prev, [id]: !prev[id] })));
+    const optimistic = !flags[id];
+    setFlags((prev) => ({ ...prev, [id]: optimistic }));
+    toggleNewsroomFlag(id)
+      .then((server) => setFlags((prev) => ({ ...prev, [id]: server })))
+      .catch(() => setFlags((prev) => ({ ...prev, [id]: !optimistic })));
   };
 
   const sortedDrafts = useMemo(() => {
