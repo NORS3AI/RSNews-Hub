@@ -7,6 +7,7 @@ import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
 import SimpleUpload from './composer/SimpleUpload';
+import PublishConfirm from './composer/PublishConfirm';
 import AutoSave from './AutoSave';
 
 // Warn before leaving with unsaved edits: mark dirty on any edit in the form
@@ -55,7 +56,9 @@ export default function ArticleEditor({
         <div className="flex items-center gap-3">
           {article?.id && <AutoSave formRef={formRef} />}
           <Link href="/admin/articles" className="btn-outline btn-sm">Cancel</Link>
-          <button type="submit" className="btn-primary btn-sm">Save</button>
+          {/* data-publish-guard marks THE main Save, so the pre-publish confirm
+              intercepts only this button (not Discard, and not autosave). */}
+          <button type="submit" data-publish-guard="1" className="btn-primary btn-sm">Save</button>
         </div>
       </div>
 
@@ -71,6 +74,7 @@ export default function ArticleEditor({
       )}
 
       <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers} reservedAds={reservedAds} bylines={bylines}>
+        <PublishConfirm categories={categories} genres={genres} bylines={bylines} vendors={vendors} />
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
           <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
             <div className="card card-soft composer-panel p-3">
