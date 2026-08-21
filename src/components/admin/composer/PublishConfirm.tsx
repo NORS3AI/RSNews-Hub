@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useComposer } from './context';
-import { publishFlags, describeTiming, type PublishInput, type AdEntry, type Flag } from '@/lib/publishChecklist';
+import { publishFlags, hasBlockingFlag, describeTiming, type PublishInput, type AdEntry, type Flag } from '@/lib/publishChecklist';
 import { AlertTriangle, Check, X } from '@/components/icons';
 
 type Named = { id: string; name: string };
@@ -105,6 +105,8 @@ export default function PublishConfirm({ categories, genres, bylines, vendors }:
 
   const cancel = () => setSummary(null);
   const publish = () => {
+    // A hard-blocking conflict (byline vs Author card) can't be published past.
+    if (summary && hasBlockingFlag(summary.flags)) return;
     setSummary(null);
     confirmedRef.current = true;
     const form = formRef.current;
@@ -113,6 +115,7 @@ export default function PublishConfirm({ categories, genres, bylines, vendors }:
   };
 
   const s = summary;
+  const blocked = !!s && hasBlockingFlag(s.flags);
   const cats = s ? [s.input.primaryCategory, ...s.input.extraCategories].filter(Boolean) : [];
 
   const Field = ({ label, children, dim }: { label: string; children: React.ReactNode; dim?: boolean }) => (
@@ -136,9 +139,12 @@ export default function PublishConfirm({ categories, genres, bylines, vendors }:
             {s.flags.length > 0 && (
               <div className="mb-4 space-y-2">
                 {s.flags.map((f, i) => (
-                  <div key={i} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${f.level === 'warn' ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200' : 'border-[var(--border)] bg-[var(--bg-soft)] text-[var(--fg)]'}`}>
-                    <AlertTriangle width={15} height={15} className={`mt-0.5 shrink-0 ${f.level === 'warn' ? 'text-amber-600' : 'text-[var(--muted)]'}`} />
-                    <span>{f.text}</span>
+                  <div key={i} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    f.level === 'block' ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200'
+                    : f.level === 'warn' ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200'
+                    : 'border-[var(--border)] bg-[var(--bg-soft)] text-[var(--fg)]'}`}>
+                    <AlertTriangle width={15} height={15} className={`mt-0.5 shrink-0 ${f.level === 'block' ? 'text-red-600' : f.level === 'warn' ? 'text-amber-600' : 'text-[var(--muted)]'}`} />
+                    <span>{f.level === 'block' ? <><b>Must fix — </b>{f.text}</> : f.text}</span>
                   </div>
                 ))}
               </div>
@@ -175,9 +181,13 @@ export default function PublishConfirm({ categories, genres, bylines, vendors }:
               )}
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="mt-4 flex items-center justify-end gap-3">
+              {blocked && <span className="mr-auto text-xs font-semibold text-red-600">Fix the conflict above to publish.</span>}
               <button type="button" className="btn-outline btn-sm" onClick={cancel}>Back to edit</button>
-              <button type="button" className="btn-primary btn-sm" onClick={publish}><Check width={15} height={15} /> Confirm &amp; publish</button>
+              <button type="button" className="btn-primary btn-sm disabled:opacity-50" onClick={publish} disabled={blocked}
+                title={blocked ? 'Resolve the byline conflict first' : undefined}>
+                <Check width={15} height={15} /> Confirm &amp; publish
+              </button>
             </div>
           </div>
         </div>

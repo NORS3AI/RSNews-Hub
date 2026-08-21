@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { publishFlags, describeTiming, type PublishInput, type AdEntry } from './publishChecklist';
+import { publishFlags, hasBlockingFlag, authorCardsInHtml, bylineMismatch, describeTiming, type PublishInput, type AdEntry } from './publishChecklist';
 
 const NOW = new Date('2026-08-21T12:00:00').getTime();
 
@@ -29,13 +29,15 @@ describe('publishFlags — categories', () => {
 });
 
 describe('publishFlags — byline vs Author card', () => {
-  it('warns when the top byline and an Author card name different people', () => {
+  it('BLOCKS when the top byline and an Author card name different people', () => {
     const f = publishFlags(base({ bylineName: 'Eric Nord', authorCards: ['Jane Smith'] }));
-    expect(f.some((x) => x.level === 'warn' && x.text.includes('Eric Nord') && x.text.includes('Jane Smith'))).toBe(true);
+    expect(f.some((x) => x.level === 'block' && x.text.includes('Eric Nord') && x.text.includes('Jane Smith'))).toBe(true);
+    expect(hasBlockingFlag(f)).toBe(true);
   });
-  it('does not warn when they match (case-insensitive)', () => {
+  it('does not block or warn when they match (case-insensitive)', () => {
     const f = publishFlags(base({ bylineName: 'Eric Nord', authorCards: ['eric nord'] }));
     expect(f.some((x) => x.text.includes('Author card'))).toBe(false);
+    expect(hasBlockingFlag(f)).toBe(false);
   });
   it('notes (info) when the top is the house team but a card names someone', () => {
     const f = publishFlags(base({ bylineName: '', authorCards: ['Jane Smith'] }));
@@ -76,5 +78,42 @@ describe('publishFlags — connected vendor', () => {
 describe('publishFlags — clean article', () => {
   it('returns no flags when everything is ordinary', () => {
     expect(publishFlags(base({ bylineName: 'Eric Nord', tags: ['usps'] }))).toEqual([]);
+  });
+});
+
+describe('authorCardsInHtml — server-safe parse', () => {
+  it('pulls the name and linked byline id from Author card divs', () => {
+    const html = '<p>hi</p><div data-author="" data-name="Jane Smith" data-title="Reporter" data-bylineid="by_1"></div>';
+    expect(authorCardsInHtml(html)).toEqual([{ name: 'Jane Smith', bylineId: 'by_1' }]);
+  });
+  it('decodes HTML entities in the name', () => {
+    const html = '<div data-author="" data-name="Ben &amp; Co" data-bylineid=""></div>';
+    expect(authorCardsInHtml(html)[0].name).toBe('Ben & Co');
+  });
+  it('is empty when there are no Author cards', () => {
+    expect(authorCardsInHtml('<p>just prose</p>')).toEqual([]);
+  });
+});
+
+describe('bylineMismatch — the hard-lock check', () => {
+  it('returns the offending card name when it differs from a named top byline', () => {
+    expect(bylineMismatch('Eric Nord', ['Jane Smith'])).toBe('Jane Smith');
+  });
+  it('is null when they match (case-insensitive)', () => {
+    expect(bylineMismatch('Eric Nord', ['eric nord'])).toBeNull();
+  });
+  it('is null for the house-team default (no top name)', () => {
+    expect(bylineMismatch('', ['Jane Smith'])).toBeNull();
+  });
+});
+
+describe('hasBlockingFlag — only the byline mismatch blocks', () => {
+  const ad = (o: Partial<AdEntry> & { index: number }): AdEntry => ({ kind: 'slot', size: 'wide', brand: '', label: '', ...o });
+  it('a missing category warns but does not block', () => {
+    expect(hasBlockingFlag(publishFlags(base({ primaryCategory: '', extraCategories: [] })))).toBe(false);
+  });
+  it('two pinned advertisers warns but does not block', () => {
+    const f = publishFlags(base({ ads: [ad({ index: 1, brand: 'a', label: 'A' }), ad({ index: 2, brand: 'b', label: 'B' })] }));
+    expect(hasBlockingFlag(f)).toBe(false);
   });
 });

@@ -16,6 +16,7 @@ import { splitVariants } from './houseStyle';
 import { revalidateHouseStyle } from './houseStyleServer';
 import { getTagGlossary, revalidateTagGlossary } from './tagGlossaryServer';
 import { clampWindow } from './seasonal';
+import { authorCardsInHtml, bylineMismatch } from './publishChecklist';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -556,6 +557,25 @@ export async function saveArticle(formData: FormData) {
 
   if (!title || !content) throw new Error('Title and content are required');
   if (!CONTENT_STATUSES.includes(status as any)) throw new Error('Invalid status');
+
+  // Hard lock: an article can't PUBLISH while its top byline and an in-article
+  // Author card name different people. Mirrors the composer's pre-publish block,
+  // enforced here too so no path (autosave-then-publish, direct call) can bypass it.
+  if (status === 'PUBLISHED') {
+    const topName = bylineId
+      ? ((await prisma.byline.findUnique({ where: { id: bylineId }, select: { name: true } }))?.name ?? '')
+      : byline;
+    if (topName) {
+      const cards = authorCardsInHtml(content);
+      const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
+      const linked = linkedIds.length
+        ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
+        : new Map<string, string>();
+      const cardNames = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+      const conflict = bylineMismatch(topName, cardNames);
+      if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
+    }
+  }
 
   const excerpt = excerptInput || makeExcerpt(content);
   const readMinutes = estimateReadMinutes(content);

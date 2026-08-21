@@ -29,7 +29,44 @@ export type PublishInput = {
   authorCards: string[];    // resolved names of in-article Author cards (non-empty only)
 };
 
-export type Flag = { level: 'warn' | 'info'; text: string };
+// 'block' = must be fixed before publishing (the modal disables Confirm);
+// 'warn'  = look twice (amber, but publishable); 'info' = a heads-up.
+export type Flag = { level: 'block' | 'warn' | 'info'; text: string };
+
+/** True when any flag hard-blocks publishing. */
+export function hasBlockingFlag(flags: Flag[]): boolean {
+  return flags.some((f) => f.level === 'block');
+}
+
+const decodeEntities = (s: string) =>
+  s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+
+/** Extract the in-article Author cards from rendered article HTML (server-safe,
+ *  no DOM). Each card carries a typed-in name and/or a linked library byline id. */
+export function authorCardsInHtml(html: string): { name: string; bylineId: string }[] {
+  const out: { name: string; bylineId: string }[] = [];
+  const tagRe = /<div\b[^>]*\bdata-author\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(html || ''))) {
+    const tag = m[0];
+    const name = decodeEntities(tag.match(/data-name="([^"]*)"/i)?.[1] || '').trim();
+    const bylineId = (tag.match(/data-bylineid="([^"]*)"/i)?.[1] || '').trim();
+    out.push({ name, bylineId });
+  }
+  return out;
+}
+
+/** The first Author-card name that disagrees with a named top byline, or null when
+ *  they're consistent. Used to hard-block a conflicting publish (client + server). */
+export function bylineMismatch(topBylineName: string, cardNames: string[]): string | null {
+  const top = (topBylineName || '').trim().toLowerCase();
+  if (!top) return null; // house-team default never conflicts
+  for (const c of cardNames) {
+    const cn = (c || '').trim();
+    if (cn && cn.toLowerCase() !== top) return cn;
+  }
+  return null;
+}
 
 export type PublishTiming = { kind: 'now' | 'scheduled' | 'backdated'; label: string };
 
@@ -62,7 +99,9 @@ export function publishFlags(input: PublishInput): Flag[] {
     const card = norm(cardName);
     if (!card) continue;
     if (top && card !== top) {
-      flags.push({ level: 'warn', text: `The top byline is “${input.bylineName}”, but an in-article Author card says “${cardName}”. Confirm they should differ.` });
+      // Hard block: a named top byline and a named Author card that disagree is
+      // almost always a mistake — fix it before this can publish.
+      flags.push({ level: 'block', text: `The top byline is “${input.bylineName}”, but an in-article Author card says “${cardName}”. Make them the same person before publishing.` });
     } else if (!top && card) {
       flags.push({ level: 'info', text: `The top byline is the house team, but an in-article Author card names “${cardName}”.` });
     }
