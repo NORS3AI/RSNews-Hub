@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { publishFlags, hasBlockingFlag, authorCardsInHtml, bylineMismatch, describeTiming, type PublishInput, type AdEntry } from './publishChecklist';
+import { publishFlags, hasBlockingFlag, authorCardsInHtml, adSlotsInHtml, bylineMismatch, describeTiming, type PublishInput, type AdEntry } from './publishChecklist';
 
 const NOW = new Date('2026-08-21T12:00:00').getTime();
 
@@ -92,6 +92,25 @@ describe('authorCardsInHtml — server-safe parse', () => {
   });
   it('is empty when there are no Author cards', () => {
     expect(authorCardsInHtml('<p>just prose</p>')).toEqual([]);
+  });
+});
+
+describe('adSlotsInHtml — server-safe parse', () => {
+  it('reads ad slots in document order with brand/size, and reserved creatives', () => {
+    const html =
+      '<div data-ad-slot="" data-ad-brand="acme" data-ad-size="wide" data-ad-label="Acme"></div>' +
+      '<p>body</p>' +
+      '<div data-ad-slot="" data-ad-brand="" data-ad-size="rectangle" data-ad-label=""></div>' +
+      '<div data-ad-id="ad_9" data-ad-label="BoxCo"></div>';
+    const ads = adSlotsInHtml(html);
+    expect(ads).toEqual([
+      { index: 1, kind: 'slot', size: 'wide', brand: 'acme', label: 'Acme' },
+      { index: 2, kind: 'slot', size: 'rectangle', brand: '', label: '' },
+      { index: 3, kind: 'reserved', brand: '', label: 'BoxCo' },
+    ]);
+  });
+  it('is empty when there are no ads', () => {
+    expect(adSlotsInHtml('<p>just prose</p>')).toEqual([]);
   });
 });
 

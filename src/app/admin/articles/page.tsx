@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { setArticleStatus, deleteArticle, setAutoArchiveMonths } from '@/lib/actions';
 import { getAutoArchiveMonths } from '@/lib/autoArchive';
 import { ActionButtons } from '@/components/admin/RowActions';
+import PublishAction from '@/components/admin/PublishAction';
 import { Plus, Eye, Edit, Check } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 import { CONTENT_STATUSES } from '@/lib/constants';
@@ -180,11 +181,17 @@ function ReviewBadges({ r }: { r?: { approvals: number; openChanges: number } })
 
 function ArticleActions({ id, status }: { id: string; status: string }) {
   const actions = [] as { label: string; run: () => Promise<any>; danger?: boolean; confirm?: string }[];
-  if (status !== 'PUBLISHED') actions.push({ label: 'Publish', run: setArticleStatus.bind(null, id, 'PUBLISHED') });
+  // Publish routes through the pre-publish checklist (its own client component);
+  // the rest are plain quick-actions.
   if (status === 'PUBLISHED') actions.push({ label: 'Unpublish', run: setArticleStatus.bind(null, id, 'DRAFT') });
   if (status !== 'ARCHIVED') actions.push({ label: 'Archive', run: setArticleStatus.bind(null, id, 'ARCHIVED') });
   if (status !== 'TRASHED') actions.push({ label: 'Trash', run: setArticleStatus.bind(null, id, 'TRASHED') });
   else actions.push({ label: 'Restore', run: setArticleStatus.bind(null, id, 'DRAFT') });
   if (status === 'TRASHED') actions.push({ label: 'Delete', run: deleteArticle.bind(null, id), danger: true, confirm: 'Permanently delete this article? This cannot be undone.' });
-  return <ActionButtons actions={actions} />;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {status !== 'PUBLISHED' && <PublishAction id={id} />}
+      <ActionButtons actions={actions} />
+    </div>
+  );
 }

@@ -9,14 +9,14 @@ import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
-import { validGenreSlugs, revalidateGenres } from './genreServer';
+import { validGenreSlugs, revalidateGenres, getActiveGenres } from './genreServer';
 import { docBodyToStructuredHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
 import { suggestTags } from './suggestTags';
 import { splitVariants } from './houseStyle';
 import { revalidateHouseStyle } from './houseStyleServer';
 import { getTagGlossary, revalidateTagGlossary } from './tagGlossaryServer';
 import { clampWindow } from './seasonal';
-import { authorCardsInHtml, bylineMismatch } from './publishChecklist';
+import { authorCardsInHtml, adSlotsInHtml, bylineMismatch, type PublishInput } from './publishChecklist';
 import { ensurePreviewToken } from './reviews';
 import { resolveIntakeVendor, notifySponsorLive } from './intake';
 import { recordVendorDecision } from './vendorReview';
@@ -503,6 +503,73 @@ async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' |
 
 const ARTICLE_REVISION_MAX = 20; // per-article cap on stored revisions
 
+// Shared byline-conflict check: does the article body carry an Author card whose
+// person differs from the (named) top byline? Returns the offending card name, or
+// null. Used by every publish path so the lock can't be bypassed. Empty top byline
+// (house-team default) never conflicts.
+async function detectBylineConflict(content: string, topBylineName: string): Promise<string | null> {
+  if (!topBylineName) return null;
+  const cards = authorCardsInHtml(content);
+  const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
+  const linked = linkedIds.length
+    ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
+    : new Map<string, string>();
+  const cardNames = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+  return bylineMismatch(topBylineName, cardNames);
+}
+
+// Build the pre-publish checklist for an existing article, so the Articles list's
+// quick "Publish" can show the SAME confirmation modal the composer does. Resolves
+// names server-side; the client renders + computes the flags.
+export async function getPublishChecklist(id: string): Promise<{ input: PublishInput; ads: ReturnType<typeof adSlotsInHtml> } | null> {
+  await ensureStaff();
+  const a = await prisma.article.findUnique({
+    where: { id },
+    select: {
+      title: true, content: true, byline: true, genre: true, publishedAt: true,
+      sponsoredUntil: true, sponsorVendorId: true, breakingUntil: true, featured: true, pinned: true,
+      category: { select: { name: true } },
+      extraCategories: { select: { name: true } },
+      tags: { select: { tag: { select: { name: true } } } },
+      bylineRef: { select: { name: true } },
+    },
+  });
+  if (!a) return null;
+  const content = a.content || '';
+  const now = Date.now();
+  const bylineName = a.bylineRef?.name || (a.byline || '').trim();
+  const vendor = a.sponsorVendorId
+    ? await prisma.vendor.findUnique({ where: { id: a.sponsorVendorId }, select: { name: true } })
+    : null;
+  const genre = a.genre ? ((await getActiveGenres()).find((g) => g.slug === a.genre)?.label || a.genre) : '';
+  const ads = adSlotsInHtml(content);
+
+  const cards = authorCardsInHtml(content);
+  const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
+  const linked = linkedIds.length
+    ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
+    : new Map<string, string>();
+  const authorCards = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+
+  const input: PublishInput = {
+    title: a.title || '',
+    bylineName,
+    publishedAt: a.publishedAt ? a.publishedAt.toISOString() : '',
+    now,
+    primaryCategory: a.category?.name || '',
+    extraCategories: a.extraCategories.map((c) => c.name),
+    genre,
+    tags: a.tags.map((t) => t.tag.name),
+    connectedVendor: vendor?.name || '',
+    sponsored: !!a.sponsoredUntil || !!a.sponsorVendorId,
+    breaking: !!(a.breakingUntil && a.breakingUntil.getTime() > now),
+    featured: a.featured,
+    pinned: a.pinned,
+    ads, authorCards,
+  };
+  return { input, ads };
+}
+
 export async function saveArticle(formData: FormData) {
   const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
@@ -565,16 +632,8 @@ export async function saveArticle(formData: FormData) {
     const topName = bylineId
       ? ((await prisma.byline.findUnique({ where: { id: bylineId }, select: { name: true } }))?.name ?? '')
       : byline;
-    if (topName) {
-      const cards = authorCardsInHtml(content);
-      const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
-      const linked = linkedIds.length
-        ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
-        : new Map<string, string>();
-      const cardNames = cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
-      const conflict = bylineMismatch(topName, cardNames);
-      if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
-    }
+    const conflict = await detectBylineConflict(content, topName);
+    if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
   }
 
   const excerpt = excerptInput || makeExcerpt(content);
@@ -832,7 +891,14 @@ export async function restoreArticleRevision(revisionId: string) {
 export async function setArticleStatus(id: string, status: string) {
   await ensureStaff();
   if (!CONTENT_STATUSES.includes(status as any)) throw new Error('Invalid status');
-  const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true } });
+  const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, content: true, byline: true, bylineRef: { select: { name: true } } } });
+  // Same hard lock as the composer: the list's quick Publish can't push a byline
+  // that disagrees with an in-article Author card live either.
+  if (status === 'PUBLISHED') {
+    const topName = existing?.bylineRef?.name || (existing?.byline || '').trim();
+    const conflict = await detectBylineConflict(existing?.content || '', topName);
+    if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
+  }
   await prisma.article.update({
     where: { id },
     data: { status, publishedAt: status === 'PUBLISHED' ? existing?.publishedAt ?? new Date() : existing?.publishedAt },

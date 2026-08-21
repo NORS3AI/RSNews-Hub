@@ -56,6 +56,28 @@ export function authorCardsInHtml(html: string): { name: string; bylineId: strin
   return out;
 }
 
+/** Extract the ad slots (and reserved sponsor creatives) from rendered article
+ *  HTML, in document order, server-safe. Mirrors the composer's DOM parse. */
+export function adSlotsInHtml(html: string): AdEntry[] {
+  const out: AdEntry[] = [];
+  const re = /<div\b[^>]*\b(?:data-ad-slot|data-ad-id)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(html || ''))) {
+    const tag = m[0];
+    i += 1;
+    const label = decodeEntities(tag.match(/data-ad-label="([^"]*)"/i)?.[1] || '').trim();
+    if (/\bdata-ad-id=/i.test(tag)) {
+      out.push({ index: i, kind: 'reserved', brand: '', label });
+    } else {
+      const brand = (tag.match(/data-ad-brand="([^"]*)"/i)?.[1] || '').trim();
+      const size = (tag.match(/data-ad-size="([^"]*)"/i)?.[1] || 'wide').trim();
+      out.push({ index: i, kind: 'slot', size, brand, label });
+    }
+  }
+  return out;
+}
+
 /** The first Author-card name that disagrees with a named top byline, or null when
  *  they're consistent. Used to hard-block a conflicting publish (client + server). */
 export function bylineMismatch(topBylineName: string, cardNames: string[]): string | null {
