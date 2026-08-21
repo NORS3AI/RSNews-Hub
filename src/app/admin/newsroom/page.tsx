@@ -13,7 +13,7 @@ export default async function NewsroomPage() {
   const user = await getCurrentUser();
   const me = user ? { id: user.id, name: user.name } : { id: '', name: 'You' };
   const [drafts, myArticles] = await Promise.all([
-    listNewsroomDocSummaries(),
+    listNewsroomDocSummaries(user?.id),
     user
       ? prisma.article.findMany({ where: { authorId: user.id }, orderBy: { updatedAt: 'desc' }, take: 50, select: { id: true, title: true, status: true, updatedAt: true, publishedAt: true } })
       : Promise.resolve([]),

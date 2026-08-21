@@ -4,12 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   saveNewsroomDoc, deleteNewsroomDoc,
-  addNewsroomComment, deleteNewsroomComment, pushNewsroomDocToArticle, newsroomSync,
+  addNewsroomComment, deleteNewsroomComment, pushNewsroomDocToArticle, newsroomSync, toggleNewsroomFlag,
 } from '@/lib/actions';
-import { AUTOSAVE_MS, HEARTBEAT_MS, locateQuote, type NewsroomDocView, type NewsroomViewer, type NewsroomCommentView } from '@/lib/newsroom';
+import { AUTOSAVE_MS, HEARTBEAT_MS, locateQuote, type NewsroomDocView, type NewsroomViewer, type NewsroomCommentView, type NewsroomFlaggedDraft } from '@/lib/newsroom';
 import type { HouseStyleRule } from '@/lib/houseStyle';
 import StyleCheck from './StyleCheck';
-import { ArrowLeft, Trash, X, Check, ArrowRight, Users } from '@/components/icons';
+import { ArrowLeft, Trash, X, Check, ArrowRight, Users, Star, StarFilled } from '@/components/icons';
 
 type Me = { id: string; name: string };
 type Anchor = { start: number; end: number; text: string };
@@ -34,12 +34,15 @@ function ViewerChip({ v, me }: { v: NewsroomViewer; me: Me }) {
   );
 }
 
-export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocView; me: Me; styleRules: HouseStyleRule[] }) {
+export default function DocEditor({ doc, me, styleRules, flagged: flaggedInit, flaggedDrafts }: { doc: NewsroomDocView; me: Me; styleRules: HouseStyleRule[]; flagged: boolean; flaggedDrafts: NewsroomFlaggedDraft[] }) {
   const router = useRouter();
   const [title, setTitle] = useState(doc.title);
   const [body, setBody] = useState(doc.body);
   const [comments, setComments] = useState<NewsroomCommentView[]>(doc.comments);
   const [createdByName] = useState(doc.createdByName);
+  const [flagged, setFlagged] = useState(flaggedInit);
+  const [pins, setPins] = useState<NewsroomFlaggedDraft[]>(flaggedDrafts);
+  const [flagBusy, setFlagBusy] = useState(false);
   const [viewers, setViewers] = useState<NewsroomViewer[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -55,6 +58,9 @@ export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocVie
   const dirtyRef = useRef(false);
   const baseRef = useRef<string>(doc.updatedAt);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set while we're intentionally pushing/deleting this doc, so the sync loop
+  // doesn't see the doc "vanish" (pushedAt just set) and race us to the list.
+  const leavingRef = useRef(false);
   const id = doc.id;
 
   useEffect(() => { setMounted(true); }, []);
@@ -108,7 +114,7 @@ export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocVie
         if (cancelled) return;
         setViewers(res.viewers);
         const sd = res.doc;
-        if (!sd) { router.push('/admin/newsroom'); return; } // pushed/deleted elsewhere
+        if (!sd) { if (!leavingRef.current) router.push('/admin/newsroom'); return; } // pushed/deleted elsewhere (but not by our own push)
         setComments(sd.comments);
         if (dirtyRef.current) {
           if (sd.updatedById && sd.updatedById !== me.id && sd.updatedAt > baseRef.current) setStale(sd);
@@ -159,16 +165,40 @@ export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocVie
 
   const pushToEditor = () => {
     if (!confirm(`Push “${title}” to the article editor? It becomes a draft article and leaves the Newsroom.`)) return;
+    leavingRef.current = true; // we're driving the navigation — don't let the sync loop redirect us to the list first
     startBusy(async () => {
-      if (dirtyRef.current) await saveNewsroomDoc({ id, title, body });
-      const articleId = await pushNewsroomDocToArticle(id);
-      router.push(`/admin/articles/${articleId}`);
+      try {
+        if (dirtyRef.current) await saveNewsroomDoc({ id, title, body });
+        const articleId = await pushNewsroomDocToArticle(id);
+        router.push(`/admin/articles/${articleId}`);
+      } catch { leavingRef.current = false; /* push failed — stay put */ }
     });
   };
   const remove = () => {
     if (!confirm(`Delete “${title}”? This can’t be undone.`)) return;
+    leavingRef.current = true;
     startBusy(async () => { await deleteNewsroomDoc(id); router.push('/admin/newsroom'); });
   };
+
+  // Pin/unpin this draft to my personal switcher. Optimistic: flip the star and
+  // add/remove this doc from the rail immediately, then persist.
+  const toggleFlag = async () => {
+    if (flagBusy) return;
+    setFlagBusy(true);
+    const next = !flagged;
+    setFlagged(next);
+    setPins((prev) => next
+      ? (prev.some((p) => p.id === id) ? prev : [{ id, title: titleRef.current, updatedAt: new Date().toISOString() }, ...prev])
+      : prev.filter((p) => p.id !== id));
+    try { const server = await toggleNewsroomFlag(id); setFlagged(server); }
+    catch { setFlagged(!next); /* revert */ }
+    finally { setFlagBusy(false); }
+  };
+
+  // The switcher rail: my flagged drafts, current one first + highlighted. Uses the
+  // live title for the current doc so a rename shows without a round-trip.
+  const railItems = pins.map((p) => (p.id === id ? { ...p, title: title || 'Untitled draft' } : p));
+  const otherPins = railItems.filter((p) => p.id !== id);
 
   const words = body.trim() ? body.trim().split(/\s+/).length : 0;
 
@@ -178,8 +208,35 @@ export default function DocEditor({ doc, me, styleRules }: { doc: NewsroomDocVie
         <Link href="/admin/newsroom" className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--muted)] hover:text-[var(--fg)]">
           <ArrowLeft width={15} height={15} /> All drafts
         </Link>
-        {createdByName && <span className="text-xs text-[var(--muted)]">Started by <b className="text-[var(--fg)]">{createdByName}</b></span>}
+        <div className="flex items-center gap-3">
+          {createdByName && <span className="text-xs text-[var(--muted)]">Started by <b className="text-[var(--fg)]">{createdByName}</b></span>}
+          <button type="button" onClick={toggleFlag} disabled={flagBusy} aria-pressed={flagged}
+            title={flagged ? 'Unpin from your switcher' : 'Pin to your switcher — flip between your drafts fast'}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${flagged ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+            {flagged ? <StarFilled width={14} height={14} /> : <Star width={14} height={14} />}
+            {flagged ? 'Pinned' : 'Pin'}
+          </button>
+        </div>
       </div>
+
+      {/* Quick-switcher: my flagged drafts. Flip between in-progress stories without
+          backing out to the list. Current draft is shown first, highlighted. */}
+      {(otherPins.length > 0 || flagged) && (
+        <div className="flex items-center gap-2 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] px-2 py-1.5">
+          <span className="inline-flex shrink-0 items-center gap-1 pl-1 pr-1 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]"><StarFilled width={12} height={12} className="text-amber-500" /> Pinned</span>
+          {flagged && (
+            <span className="inline-flex max-w-[200px] shrink-0 items-center rounded-lg border border-brand-400 bg-brand-500/10 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:text-brand-300">
+              <span className="truncate">{title || 'Untitled draft'}</span>
+            </span>
+          )}
+          {otherPins.map((p) => (
+            <Link key={p.id} href={`/admin/newsroom/${p.id}`}
+              className="inline-flex max-w-[200px] shrink-0 items-center rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-xs font-medium text-[var(--fg)] hover:border-brand-400 hover:bg-brand-500/5">
+              <span className="truncate">{p.title || 'Untitled draft'}</span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         {/* Editor */}

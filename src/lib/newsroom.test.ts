@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { docBodyToArticleHtml, isPresenceActive, deriveDocTitle, docPreview, locateQuote, PRESENCE_ACTIVE_MS } from './newsroom';
+import { docBodyToArticleHtml, docBodyToBlocks, docBodyToStructuredHtml, isPresenceActive, deriveDocTitle, docPreview, locateQuote, PRESENCE_ACTIVE_MS } from './newsroom';
 
 describe('docBodyToArticleHtml', () => {
   it('splits blank-line paragraphs and keeps single newlines as <br>', () => {
@@ -13,6 +13,39 @@ describe('docBodyToArticleHtml', () => {
     expect(docBodyToArticleHtml('')).toBe('');
     expect(docBodyToArticleHtml('   \n\n  ')).toBe('');
     expect(docBodyToArticleHtml('\n\nreal\n\n\n')).toBe('<p>real</p>');
+  });
+});
+
+describe('docBodyToBlocks — push structure detection', () => {
+  it('detects a short standalone line as a sub-heading', () => {
+    const blocks = docBodyToBlocks('Intro paragraph that is a full sentence.\n\nThe Big Reveal\n\nMore prose here in a sentence.');
+    expect(blocks).toEqual([
+      { kind: 'p', text: 'Intro paragraph that is a full sentence.' },
+      { kind: 'h', text: 'The Big Reveal' },
+      { kind: 'p', text: 'More prose here in a sentence.' },
+    ]);
+  });
+  it('keeps a multi-line block as one paragraph (not a heading)', () => {
+    expect(docBodyToBlocks('Line one\nLine two')).toEqual([{ kind: 'p', text: 'Line one\nLine two' }]);
+  });
+  it('is empty for blank input', () => {
+    expect(docBodyToBlocks('   \n\n ')).toEqual([]);
+  });
+});
+
+describe('docBodyToStructuredHtml — parity with the paste importer', () => {
+  it('emits <h2> for detected sub-heads and preserves intra-paragraph <br>', () => {
+    const html = docBodyToStructuredHtml('The Setup\n\nlead line\nsecond line');
+    expect(html).toContain('<h2>The Setup</h2>');
+    expect(html).toContain('<p>lead line<br>second line</p>');
+  });
+  it('auto-places ad slots on a long enough story', () => {
+    const body = Array.from({ length: 8 }, (_, i) => `Paragraph number ${i + 1} is a real sentence.`).join('\n\n');
+    const html = docBodyToStructuredHtml(body);
+    expect(html).toContain('data-ad-slot');
+  });
+  it('is empty for blank input', () => {
+    expect(docBodyToStructuredHtml('')).toBe('');
   });
 });
 

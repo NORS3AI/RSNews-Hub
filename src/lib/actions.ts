@@ -10,7 +10,8 @@ import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './au
 import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
 import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
 import { validGenreSlugs, revalidateGenres } from './genreServer';
-import { docBodyToArticleHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
+import { docBodyToStructuredHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
+import { suggestTags } from './suggestTags';
 import { splitVariants } from './houseStyle';
 import { revalidateHouseStyle } from './houseStyleServer';
 import { clampWindow } from './seasonal';
@@ -230,6 +231,25 @@ export async function deleteNewsroomComment(id: string): Promise<void> {
   await prisma.newsroomComment.delete({ where: { id } });
 }
 
+// Personal pin: flag/unflag a draft for the current staffer. Returns the new state.
+// Per-user, so the editor's quick-switcher shows only the drafts THIS writer is
+// juggling. Idempotent — a create/delete keyed on the unique (docId, userId) pair.
+export async function toggleNewsroomFlag(docId: string): Promise<boolean> {
+  const staff = await ensureStaff();
+  const existing = await prisma.newsroomFlag.findUnique({
+    where: { docId_userId: { docId, userId: staff.id } },
+    select: { id: true },
+  });
+  if (existing) {
+    await prisma.newsroomFlag.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.newsroomFlag.create({ data: { docId, userId: staff.id } });
+  }
+  revalidatePath('/admin/newsroom');
+  revalidatePath(`/admin/newsroom/${docId}`);
+  return !existing;
+}
+
 // One-button hand-off: build a DRAFT article from the doc (prose → paragraphs),
 // soft-remove the doc from the Newsroom (pushedAt), and return the new article id
 // so the client can open the composer to format + add blocks before publishing.
@@ -243,12 +263,25 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
   const claim = await prisma.newsroomDoc.updateMany({ where: { id, pushedAt: null }, data: { pushedAt: new Date() } });
   if (claim.count === 0) throw new Error('That draft was already pushed to the article editor.');
   const title = (doc.title?.trim() || deriveDocTitle(doc.body)).slice(0, 300);
-  const content = sanitizeArticleHtml(docBodyToArticleHtml(doc.body));
+  // Structured push: detect sub-headings and auto-place ad slots, exactly like the
+  // "paste an article" importer — so a drafted story lands in the composer with the
+  // same shape a pasted one would, not one flat block of paragraphs.
+  const content = sanitizeArticleHtml(docBodyToStructuredHtml(doc.body));
   const slug = await uniqueSlug(title, 'article');
+  // Pre-fill tags from the finished prose (same suggester the composer's "Suggest
+  // tags" button uses), created on the fly, so the pushed draft isn't blank-tagged.
+  const tagIds: string[] = [];
+  for (const name of suggestTags(title, content).slice(0, 6)) {
+    const tslug = slugify(name);
+    if (!tslug) continue;
+    const tag = await prisma.tag.upsert({ where: { slug: tslug }, update: {}, create: { name, slug: tslug } });
+    tagIds.push(tag.id);
+  }
   const article = await prisma.article.create({
     data: {
       title, slug, content, excerpt: makeExcerpt(content), status: 'DRAFT',
       authorId: staff.id, readMinutes: estimateReadMinutes(content),
+      ...(tagIds.length ? { tags: { create: tagIds.map((tagId) => ({ tagId })) } } : {}),
     },
     select: { id: true },
   });

@@ -935,8 +935,24 @@ model NewsroomDoc {
   updatedAt     DateTime @updatedAt
   comments      NewsroomComment[]
   presence      NewsroomPresence[]
+  flags         NewsroomFlag[]
 
   @@index([archived, pushedAt, updatedAt])
+}
+
+// A personal "pin" on a draft. Each staffer flags the handful of drafts they're
+// actively juggling; the editor then shows a quick-switcher of just THEIR flagged
+// drafts so they can flip between them without going back to the list. Per-user
+// (unique docId+userId), so one writer's pins never clutter another's rail.
+model NewsroomFlag {
+  id        String      @id @default(cuid())
+  docId     String
+  doc       NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime    @default(now())
+
+  @@unique([docId, userId])
+  @@index([userId])
 }
 
 // A note in a doc's comments thread. The admin's name is captured automatically

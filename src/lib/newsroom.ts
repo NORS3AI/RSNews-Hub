@@ -2,6 +2,8 @@
 // the small logic the server actions and the client workspace both rely on, so it
 // stays testable and can't drift between the two.
 
+import { isLikelyHeading, withAutoAds, type ImportBlock } from './simpleImport';
+
 /** A staffer is "present" on a doc if their heartbeat is this fresh. */
 export const PRESENCE_ACTIVE_MS = 30_000;
 /** Heartbeat rows older than this are pruned (the staffer has long since left). */
@@ -44,7 +46,11 @@ export type NewsroomDocSummary = {
   createdAt: string;   // ISO
   updatedAt: string;   // ISO
   commentCount: number;
+  flaggedByMe: boolean; // is this draft pinned by the current staffer?
 };
+
+// A draft the current staffer has pinned, for the editor's quick-switcher rail.
+export type NewsroomFlaggedDraft = { id: string; title: string; updatedAt: string };
 
 // The full doc as the single-doc editor holds it (body + comment thread). The sync
 // loop returns this one doc so a co-editor's changes and notes show up live.
@@ -89,6 +95,49 @@ export function docBodyToArticleHtml(body: string): string {
     .filter(Boolean)
     .map((para) => `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
     .join('\n');
+}
+
+/**
+ * Split a prose body into typed blocks: each blank-line-separated chunk is a
+ * paragraph, unless it's a short single line that reads like a sub-heading (same
+ * heuristic the paste importer uses), in which case it's a heading. Shared logic
+ * means a story drafted in the Newsroom lands in the composer with the SAME
+ * structure a pasted story would — sub-heads detected, not one flat wall of text.
+ */
+export function docBodyToBlocks(body: string): ImportBlock[] {
+  const text = (body ?? '').replace(/\r\n/g, '\n').trim();
+  if (!text) return [];
+  return text
+    .split(/\n{2,}/)
+    .map((b) => b.trim())
+    .filter(Boolean)
+    .map((b) => (!b.includes('\n') && isLikelyHeading(b) ? { kind: 'h' as const, text: b } : { kind: 'p' as const, text: b }));
+}
+
+/** Serialize push blocks to composer HTML, preserving intra-paragraph line breaks
+ *  as <br> (blocksToHtml in simpleImport drops them; the Newsroom wants them kept). */
+export function docBlocksToArticleHtml(blocks: ImportBlock[]): string {
+  return blocks
+    .map((b) => {
+      if (b.kind === 'ad') {
+        const size = b.size === 'rectangle' ? 'rectangle' : 'wide';
+        return `<div data-ad-slot="" data-ad-brand="" data-ad-size="${size}" data-ad-label=""></div>`;
+      }
+      const text = escapeHtml(b.text || '').replace(/\n/g, '<br>');
+      return b.kind === 'h' ? `<h2>${text}</h2>` : `<p>${text}</p>`;
+    })
+    .join('\n');
+}
+
+/**
+ * The full push transform a Newsroom draft goes through on its way to the article
+ * composer: detect sub-headings, then auto-place ad slots at the ⅓/⅔ marks — the
+ * same structured HTML the "paste an article" importer produces. Empty in → ''.
+ */
+export function docBodyToStructuredHtml(body: string): string {
+  const blocks = docBodyToBlocks(body);
+  if (!blocks.length) return '';
+  return docBlocksToArticleHtml(withAutoAds(blocks));
 }
 
 /** A short single-line preview of a doc body for the tab strip / list. */

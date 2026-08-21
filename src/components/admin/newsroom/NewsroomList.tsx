@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createNewsroomDoc } from '@/lib/actions';
+import { createNewsroomDoc, toggleNewsroomFlag } from '@/lib/actions';
 import type { NewsroomDocSummary } from '@/lib/newsroom';
-import { Plus, FileText } from '@/components/icons';
+import { Plus, FileText, Star, StarFilled } from '@/components/icons';
 
 type Me = { id: string; name: string };
 type MyArticle = { id: string; title: string; status: string; updatedAt: string; publishedAt: string | null };
@@ -27,7 +27,15 @@ export default function NewsroomList({ drafts, myArticles, me }: { drafts: Newsr
   const [busy, startBusy] = useTransition();
   const [sort, setSort] = useState<Sort>('edited');
   const [mounted, setMounted] = useState(false);
+  const [flags, setFlags] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(drafts.map((d) => [d.id, d.flaggedByMe])));
   useEffect(() => { setMounted(true); }, []);
+
+  // Flag/unflag a draft right from the list (no need to open it). Optimistic.
+  const toggleFlag = (id: string) => {
+    setFlags((prev) => ({ ...prev, [id]: !prev[id] }));
+    toggleNewsroomFlag(id).catch(() => setFlags((prev) => ({ ...prev, [id]: !prev[id] })));
+  };
 
   const sortedDrafts = useMemo(() => {
     const arr = [...drafts];
@@ -67,7 +75,12 @@ export default function NewsroomList({ drafts, myArticles, me }: { drafts: Newsr
           <div className="overflow-hidden rounded-xl border border-[var(--border)]">
             {sortedDrafts.map((d, i) => (
               <Link key={d.id} href={`/admin/newsroom/${d.id}`}
-                className={`flex items-center gap-4 bg-[var(--card)] px-4 py-3 hover:bg-[var(--bg-soft)] ${i > 0 ? 'border-t border-[var(--border)]' : ''}`}>
+                className={`flex items-center gap-3 bg-[var(--card)] px-4 py-3 hover:bg-[var(--bg-soft)] ${i > 0 ? 'border-t border-[var(--border)]' : ''}`}>
+                <button type="button" title={flags[d.id] ? 'Unpin from your switcher' : 'Pin to your switcher'}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFlag(d.id); }}
+                  className={`shrink-0 transition ${flags[d.id] ? 'text-amber-500' : 'text-[var(--border)] hover:text-amber-400'}`}>
+                  {flags[d.id] ? <StarFilled width={17} height={17} /> : <Star width={17} height={17} />}
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{d.title || 'Untitled draft'}</div>
                   <div className="mt-0.5 truncate text-xs text-[var(--muted)]">
