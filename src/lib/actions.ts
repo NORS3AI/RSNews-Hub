@@ -231,6 +231,15 @@ export async function deleteNewsroomComment(id: string): Promise<void> {
   await prisma.newsroomComment.delete({ where: { id } });
 }
 
+// Tag suggestions for the composer's "Suggest tags" button. Runs on the server so
+// the suggester can reuse the newsroom's existing tag vocabulary (company names,
+// products, house terms) alongside the built-in industry glossary.
+export async function suggestArticleTags(title: string, html: string): Promise<string[]> {
+  await ensureStaff();
+  const known = await prisma.tag.findMany({ select: { name: true }, take: 500 });
+  return suggestTags(title || '', html || '', { vocabulary: known.map((t) => t.name), max: 8 });
+}
+
 // Personal pin: flag/unflag a draft for the current staffer. Returns the new state.
 // Per-user, so the editor's quick-switcher shows only the drafts THIS writer is
 // juggling. Idempotent — a create/delete keyed on the unique (docId, userId) pair.
@@ -270,8 +279,10 @@ export async function pushNewsroomDocToArticle(id: string): Promise<string> {
   const slug = await uniqueSlug(title, 'article');
   // Pre-fill tags from the finished prose (same suggester the composer's "Suggest
   // tags" button uses), created on the fly, so the pushed draft isn't blank-tagged.
+  // Feed it the tags the newsroom already uses so it reuses the house vocabulary.
+  const known = await prisma.tag.findMany({ select: { name: true }, take: 500 });
   const tagIds: string[] = [];
-  for (const name of suggestTags(title, content).slice(0, 6)) {
+  for (const name of suggestTags(title, content, { vocabulary: known.map((t) => t.name), max: 6 })) {
     const tslug = slugify(name);
     if (!tslug) continue;
     const tag = await prisma.tag.upsert({ where: { slug: tslug }, update: {}, create: { name, slug: tslug } });

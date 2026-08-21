@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import { CONTENT_STATUSES } from '@/lib/constants';
-import { suggestTags } from '@/lib/suggestTags';
+import { suggestArticleTags } from '@/lib/actions';
 import { useComposer } from './context';
 import { Sparkles } from '@/components/icons';
 
@@ -85,12 +85,22 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
     if (res.ok) setVideo(res.url); else setVidError(res.error);
     if (videoRef.current) videoRef.current.value = '';
   }
-  function onSuggestTags() {
-    const title = (document.getElementById('title') as HTMLInputElement)?.value || '';
-    const picked = suggestTags(title, html);
-    const existing = tags.split(',').map((t) => t.trim()).filter(Boolean);
-    const merged = Array.from(new Set([...existing, ...picked])).slice(0, 8);
-    setTags(merged.join(', '));
+  const [suggesting, setSuggesting] = useState(false);
+  async function onSuggestTags() {
+    if (suggesting) return;
+    setSuggesting(true);
+    try {
+      const title = (document.getElementById('title') as HTMLInputElement)?.value || '';
+      const picked = await suggestArticleTags(title, html);
+      const existing = tags.split(',').map((t) => t.trim()).filter(Boolean);
+      // Case-insensitive dedup so a suggestion already on the list isn't re-added.
+      const seen = new Set(existing.map((t) => t.toLowerCase()));
+      const merged = [...existing];
+      for (const p of picked) { if (!seen.has(p.toLowerCase())) { seen.add(p.toLowerCase()); merged.push(p); } }
+      setTags(merged.slice(0, 10).join(', '));
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   return (
@@ -279,7 +289,7 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
       <Section title="Tags">
         <div className="flex items-center justify-between">
           <span className="text-xs text-[var(--muted)]">Comma-separated.</span>
-          <button type="button" onClick={onSuggestTags} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:underline"><Sparkles width={12} height={12} />Suggest</button>
+          <button type="button" onClick={onSuggestTags} disabled={suggesting} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-600 hover:underline disabled:opacity-50"><Sparkles width={12} height={12} />{suggesting ? 'Suggesting…' : 'Suggest'}</button>
         </div>
         <input name="tags" value={tags} onChange={(e) => setTags(e.target.value)} className="input" placeholder="usps, rates, counter" />
       </Section>
