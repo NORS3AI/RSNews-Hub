@@ -64,7 +64,7 @@ export default function PublishChecklistModal({
           {input.connectedVendor && <Field label="Vendor">Locked to <b>{input.connectedVendor}</b></Field>}
           {(input.featured || input.pinned || input.breaking || input.sponsored) && (
             <Field label="Flags">
-              {[input.breaking && 'Breaking', input.featured && 'Featured', input.pinned && 'Pinned', input.sponsored && 'Sponsored'].filter(Boolean).join(' · ')}
+              {[input.breaking && 'Breaking', input.featured && 'Hero', input.pinned && 'Pinned', input.sponsored && 'Sponsored'].filter(Boolean).join(' · ')}
             </Field>
           )}
           {data.ads.length > 0 && (

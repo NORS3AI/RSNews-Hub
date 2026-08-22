@@ -218,11 +218,11 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
       <Section title="Homepage & access">
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="featured" defaultChecked={article?.featured} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
-          <span><span className="font-medium">Featured headline</span><br /><span className="text-xs text-[var(--muted)]">Eligible for the big hero.</span></span>
+          <span><span className="font-medium">Hero headline</span><br /><span className="text-xs text-[var(--muted)]">Eligible for the big hero at the top of the homepage. The newest hero-marked story holds the spot until a newer one takes it.</span></span>
         </label>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="pinned" defaultChecked={article?.pinned} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
-          <span><span className="font-medium">Pin to top</span><br /><span className="text-xs text-[var(--muted)]">Force above newer stories.</span></span>
+          <span><span className="font-medium">Pin to top of feed</span><br /><span className="text-xs text-[var(--muted)]">Sticks above newer stories in the Latest list until you un-pin it. No timer.</span></span>
         </label>
         <div>
           <label className="label" htmlFor="requirement">Who can read</label>
@@ -235,9 +235,9 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
           <p className="mt-1 text-xs text-[var(--muted)]">Blank/<code>public</code> = everyone. Or a tier / account type / affiliation key.</p>
         </div>
         <div>
-          <label className="label" htmlFor="sponsoredUntil">Featured (sponsored) until <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+          <label className="label" htmlFor="sponsoredUntil">Sponsored placement until <span className="font-normal text-[var(--muted)]">(optional)</span></label>
           <input id="sponsoredUntil" name="sponsoredUntil" type="datetime-local" defaultValue={toLocalInput(article?.sponsoredUntil)} className="input" />
-          <p className="mt-1 text-xs text-[var(--muted)]">While this date is in the future, the article floats into the <strong>Featured</strong> homepage module (below the top three) and auto-drops out when it passes. A typical paid run is ~30 days. Blank = not sponsored.</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">For paid content: while this date is in the future, the article runs in the sponsored homepage module and auto-drops out when it passes. A typical paid run is ~30 days. Blank = not sponsored. (Separate from the Hero headline above.)</p>
         </div>
       </Section>
 
