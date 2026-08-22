@@ -164,8 +164,10 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
             ))}
           </div>
         </div>
-        {/* Breaking News timer — only when the Breaking News category is picked. */}
-        {isBreakingCat && (
+        {/* Breaking News timer — appears when the Breaking News category is picked,
+            AND always for an already-breaking article so an active timer can never be
+            hidden (which would drop the field and silently clear breakingUntil on save). */}
+        {(isBreakingCat || initiallyBreaking) && (
           <div>
             <label className="label" htmlFor="breakingHours">Breaking News timer</label>
             <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
