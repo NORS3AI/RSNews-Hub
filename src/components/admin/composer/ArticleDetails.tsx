@@ -52,10 +52,14 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
   // and lets us push it to their dashboard for review. We nudge (but never force)
   // picking one when the article is filed under What's Hot.
   const whatsHotId = categories.find((c) => c.name === "What's Hot")?.id ?? '';
+  const breakingCatId = categories.find((c) => c.name === 'Breaking News')?.id ?? '';
   const [primaryCat, setPrimaryCat] = useState(article?.categoryId ?? '');
   const [extraCatSet, setExtraCatSet] = useState<Set<string>>(new Set((article?.extraCategories ?? []).map((c) => c.id)));
   const [vendorSel, setVendorSel] = useState(article?.sponsorVendorId ?? '');
   const isWhatsHot = !!whatsHotId && (primaryCat === whatsHotId || extraCatSet.has(whatsHotId));
+  // The Breaking News timer only makes sense for a Breaking News article, so it
+  // appears (under Categories) only once that category is picked (primary or extra).
+  const isBreakingCat = !!breakingCatId && (primaryCat === breakingCatId || extraCatSet.has(breakingCatId));
   const [cover, setCover] = useState(article?.coverImage as string ?? '');
   const [focus, setFocus] = useState((article?.coverFocus as string) || '50% 50%');
   const [imgError, setImgError] = useState<string | null>(null);
@@ -117,18 +121,6 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
           <input id="publishedAt" name="publishedAt" type="datetime-local" defaultValue={toLocalInput(article?.publishedAt)} className="input" />
           <p className="mt-1 text-xs text-[var(--muted)]">Blank = now. A past date backdates; a future date schedules it (needs status Published).</p>
         </div>
-        <div>
-          <label className="label" htmlFor="breakingHours">Breaking News timer</label>
-          <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
-            {initiallyBreaking && <option value="keep">Keep current</option>}
-            <option value="">{initiallyBreaking ? 'Turn off breaking' : 'Not breaking'}</option>
-            <option value="24">Breaking for 24 hours</option>
-            <option value="48">Breaking for 48 hours</option>
-            <option value="72">Breaking for 72 hours</option>
-            <option value="custom">Custom…</option>
-          </select>
-          {breaking === 'custom' && <input type="number" name="breakingCustomHours" min={1} max={720} defaultValue={48} className="input mt-2" placeholder="Hours" />}
-        </div>
       </Section>
 
       <Section title="Byline">
@@ -172,6 +164,39 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
             ))}
           </div>
         </div>
+        {/* Breaking News timer — only when the Breaking News category is picked. */}
+        {isBreakingCat && (
+          <div>
+            <label className="label" htmlFor="breakingHours">Breaking News timer</label>
+            <select id="breakingHours" name="breakingHours" value={breaking} onChange={(e) => setBreaking(e.target.value)} className="input">
+              {initiallyBreaking && <option value="keep">Keep current</option>}
+              <option value="">{initiallyBreaking ? 'Turn off breaking' : 'Not breaking'}</option>
+              <option value="24">Breaking for 24 hours</option>
+              <option value="48">Breaking for 48 hours</option>
+              <option value="72">Breaking for 72 hours</option>
+              <option value="custom">Custom…</option>
+            </select>
+            {breaking === 'custom' && <input type="number" name="breakingCustomHours" min={1} max={720} defaultValue={48} className="input mt-2" placeholder="Hours" />}
+            <p className="mt-1 text-xs text-[var(--muted)]">How long the red <strong>Breaking</strong> badge + top billing lasts, then it eases back to a normal story.</p>
+          </div>
+        )}
+        {/* Genre lives with Categories — both classify the piece. */}
+        <div>
+          <label className="label" htmlFor="genre">Genre <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+          <select id="genre" name="genre" defaultValue={article?.genre ?? ''} className="input">
+            <option value="">None</option>
+            {/* Keep the article's current genre selectable even if it was since
+                archived/removed from the list — otherwise it silently drops on save. */}
+            {article?.genre && !genres.some((g) => g.slug === article.genre) && (
+              <option value={article.genre}>{article.genre} (archived)</option>
+            )}
+            {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.{' '}
+            <a href="/admin/genres" target="_blank" rel="noreferrer" className="text-brand-600 underline">Manage genres →</a>
+          </p>
+        </div>
         {/* Connected vendor — the advertiser this piece belongs to. */}
         <div>
           <label className="label" htmlFor="sponsorVendorId">Connected vendor <span className="font-normal text-[var(--muted)]">(optional)</span></label>
@@ -208,22 +233,6 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
             <option value="vendor">Vendors</option><option value="staff">Staff</option>
           </datalist>
           <p className="mt-1 text-xs text-[var(--muted)]">Blank/<code>public</code> = everyone. Or a tier / account type / affiliation key.</p>
-        </div>
-        <div>
-          <label className="label" htmlFor="genre">Genre <span className="font-normal text-[var(--muted)]">(optional)</span></label>
-          <select id="genre" name="genre" defaultValue={article?.genre ?? ''} className="input">
-            <option value="">None</option>
-            {/* Keep the article's current genre selectable even if it was since
-                archived/removed from the list — otherwise it silently drops on save. */}
-            {article?.genre && !genres.some((g) => g.slug === article.genre) && (
-              <option value={article.genre}>{article.genre} (archived)</option>
-            )}
-            {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
-          </select>
-          <p className="mt-1 text-xs text-[var(--muted)]">
-            The nature of the piece, shown as a small badge. Use <strong>Sponsored</strong> for paid/vendor content (disclosure). Leave as None for straight news.{' '}
-            <a href="/admin/genres" target="_blank" rel="noreferrer" className="text-brand-600 underline">Manage genres →</a>
-          </p>
         </div>
         <div>
           <label className="label" htmlFor="sponsoredUntil">Featured (sponsored) until <span className="font-normal text-[var(--muted)]">(optional)</span></label>
