@@ -799,6 +799,10 @@ model Article {
   sponsorContactEmail String?
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
+  // While pinned, the article floats to the top of the Latest feed. pinnedUntil is
+  // when that auto-releases (default +7d, editor-set); a homepage-load sweep flips
+  // pinned off once it passes. Null while pinned = no expiry (legacy/manual).
+  pinnedUntil DateTime?
   views       Int       @default(0)
   // Reader endorsements ("Recommend" at the end of the article). Denormalized
   // count for fast reads/sorting; the per-reader rows (dedup + toggle) live in

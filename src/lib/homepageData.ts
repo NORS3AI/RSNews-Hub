@@ -32,6 +32,13 @@ import { cardSelect, toCard, type ArticleCard as Card } from './cards';
 export type HomepageData = Awaited<ReturnType<typeof getHomepageData>>;
 
 export async function getHomepageData() {
+  // Release expired pins before we order the feed: a pin auto-lifts once its
+  // pinnedUntil passes, so a stale story never sits at the top forever. Cheap —
+  // affects only rows whose window has closed.
+  await prisma.article.updateMany({
+    where: { pinned: true, pinnedUntil: { lt: new Date() } },
+    data: { pinned: false, pinnedUntil: null },
+  });
   const [featuredRaw, latestRaw, sponsoredRaw, categories, layout, industry, allAds, supplierAdMap] = await Promise.all([
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, featured: true }, orderBy: { publishedAt: 'desc' }, take: 3, select: cardSelect }),
     prisma.article.findMany({ where: { status: 'PUBLISHED', publishedAt: { lte: new Date() } }, orderBy: [{ pinned: 'desc' }, { publishedAt: 'desc' }], take: 20, select: cardSelect }),

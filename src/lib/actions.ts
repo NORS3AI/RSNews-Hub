@@ -589,6 +589,11 @@ export async function saveArticle(formData: FormData) {
   const coverFocus = COVER_FOCUS_OK.has(coverFocusRaw) ? coverFocusRaw : '';
   const featured = formData.get('featured') === 'on';
   const pinned = formData.get('pinned') === 'on';
+  // Pin auto-expiry: while pinned, release after `pinnedDays` (default 7, 1–365).
+  // Unpinning clears the date. A homepage-load sweep flips pinned off once it passes.
+  const pinnedDaysRaw = Number(formData.get('pinnedDays'));
+  const pinnedDays = Number.isFinite(pinnedDaysRaw) && pinnedDaysRaw > 0 ? Math.min(365, Math.round(pinnedDaysRaw)) : 7;
+  const pinnedUntil = pinned ? new Date(Date.now() + pinnedDays * 24 * 3600 * 1000) : null;
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
   const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
@@ -687,7 +692,7 @@ export async function saveArticle(formData: FormData) {
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, pinnedUntil, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
@@ -702,7 +707,7 @@ export async function saveArticle(formData: FormData) {
     const slug = await uniqueSlug(title, 'article');
     const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, pinnedUntil, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,

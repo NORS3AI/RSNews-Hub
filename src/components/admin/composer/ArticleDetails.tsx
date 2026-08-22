@@ -12,7 +12,7 @@ type Vendor = { id: string; name: string };
 type GenreOpt = { slug: string; label: string };
 type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
 type Article = {
-  status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
+  status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; pinnedUntil?: string | Date | null; categoryId: string | null;
   byline?: string | null; bylineId?: string | null;
   coverImage?: string | null; coverVideo?: string | null; coverFocus?: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
@@ -74,6 +74,17 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
   const [breaking, setBreaking] = useState<string>(initiallyBreaking ? 'keep' : '');
   const [tags, setTags] = useState(article?.tags.map((t) => t.tag.name).join(', ') ?? '');
   const extraIds = new Set((article?.extraCategories ?? []).map((c) => c.id));
+  // Pin-to-top with auto-expiry. Show the "for N days" input only while pinned;
+  // default 7, or the days remaining on an already-pinned article.
+  const initialPinDays = (() => {
+    if (article?.pinnedUntil) {
+      const ms = new Date(article.pinnedUntil).getTime() - Date.now();
+      if (ms > 0) return Math.max(1, Math.round(ms / (24 * 3600 * 1000)));
+    }
+    return 7;
+  })();
+  const [pinnedOn, setPinnedOn] = useState(!!article?.pinned);
+  const [pinDays, setPinDays] = useState(initialPinDays);
 
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
@@ -223,9 +234,18 @@ export default function ArticleDetails({ article, categories, vendors = [], byli
           <span><span className="font-medium">Hero headline</span><br /><span className="text-xs text-[var(--muted)]">Eligible for the big hero at the top of the homepage. The newest hero-marked story holds the spot until a newer one takes it.</span></span>
         </label>
         <label className="flex items-start gap-2 text-sm">
-          <input type="checkbox" name="pinned" defaultChecked={article?.pinned} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
-          <span><span className="font-medium">Pin to top of feed</span><br /><span className="text-xs text-[var(--muted)]">Sticks above newer stories in the Latest list until you un-pin it. No timer.</span></span>
+          <input type="checkbox" name="pinned" checked={pinnedOn} onChange={(e) => setPinnedOn(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-[var(--border)]" />
+          <span><span className="font-medium">Pin to top of feed</span><br /><span className="text-xs text-[var(--muted)]">Sticks above newer stories in the Latest list, then auto-releases.</span></span>
         </label>
+        {pinnedOn && (
+          <div className="ml-6 flex items-center gap-2 text-sm">
+            <span className="text-[var(--muted)]">for</span>
+            <input type="number" name="pinnedDays" min={1} max={365} value={pinDays}
+              onChange={(e) => setPinDays(Math.max(1, Math.min(365, Math.round(Number(e.target.value)) || 1)))}
+              className="input h-8 w-16 py-0 text-center" />
+            <span className="text-[var(--muted)]">days, then it un-pins itself.</span>
+          </div>
+        )}
         <div>
           <label className="label" htmlFor="requirement">Who can read</label>
           <input id="requirement" name="requirement" list="requirement-opts" defaultValue={article?.requirement ?? ''} className="input" placeholder="public" autoComplete="off" />
