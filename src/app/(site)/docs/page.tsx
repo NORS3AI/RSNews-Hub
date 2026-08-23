@@ -7,6 +7,7 @@ import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
 import { ModuleShell, ModuleEffectLayer, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
+import { treeHasBleedImage } from '@/lib/studio';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
 import ArticleCard from '@/components/ArticleCard';
@@ -264,7 +265,7 @@ export default async function DocsHome() {
           if (!card) return null;
           if (b.type === 'article-headline') {
             return (
-              <article data-hp-id={card.id} className="studio-fill card group relative overflow-hidden p-3.5" style={style}>
+              <article data-hp-id={card.id} className="studio-fill card group relative min-w-[180px] overflow-hidden p-3.5" style={style}>
                 <AdminArticleEdit id={card.id} pos="right-2 top-2" />
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}
@@ -273,7 +274,7 @@ export default async function DocsHome() {
                   : <span className="badge bg-brand-600/15 text-brand-600">Article</span>}
                 <LockBadge requirement={card.requirement} />
                 {isPartnerContent(card) && <PartnerContentBadge />}
-                <ArticleLink slug={card.slug} className="studio-fit mt-1.5 block font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
+                <ArticleLink slug={card.slug} className="studio-fit mt-1.5 line-clamp-4 font-black leading-tight tracking-tight hover:text-brand-600">{card.title}</ArticleLink>
               </article>
             );
           }
@@ -301,7 +302,7 @@ export default async function DocsHome() {
                   {card.category && <span className="badge cat-badge" style={{ '--c': card.category.color } as React.CSSProperties}>{card.category.name}</span>}
                   <LockBadge requirement={card.requirement} />
                   {isPartnerContent(card) && <PartnerContentBadge />}
-                  <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white group-hover:text-brand-300' : 'group-hover:text-brand-600'}`}>{card.title}</h3>
+                  <h3 className={`mt-1.5 line-clamp-3 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white group-hover:text-brand-300' : 'group-hover:text-brand-600'}`}>{card.title}</h3>
                   {b.settings.showDek !== false && card.excerpt && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>{card.excerpt}</p>}
                 </div>
               </ArticleLink>
@@ -327,7 +328,7 @@ export default async function DocsHome() {
                 <LockBadge requirement={card.requirement} />
                 {isPartnerContent(card) && <PartnerContentBadge />}
               </span>
-              <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight group-hover:text-brand-600">{card.title}</h3>
+              <h3 className="mt-1.5 line-clamp-3 text-xl font-black leading-tight tracking-tight group-hover:text-brand-600">{card.title}</h3>
               {b.settings.showDek !== false && card.excerpt && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">{card.excerpt}</p>}
             </div>
           );
@@ -392,7 +393,7 @@ export default async function DocsHome() {
     const solo = tree.children.length === 1 ? tree.children[0] : null;
     const soloSelfHeader = !!solo && !solo.fallbacks?.length && (solo.type === 'poll' || solo.type === 'quiz');
     return (
-      <section key={layoutId} className={`module studio-fill relative overflow-hidden ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
+      <section key={layoutId} className={`module studio-fill relative ${treeHasBleedImage(tree) ? 'overflow-visible' : 'overflow-hidden'} ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}>
         <ModuleEffectLayer tree={tree} />
         <div className="relative z-10">
           {!soloSelfHeader && <h2 className="module-title mb-4">{row.name}</h2>}

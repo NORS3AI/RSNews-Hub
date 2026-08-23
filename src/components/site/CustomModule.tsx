@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
-import { isHexColor, rsTextureUrl } from '@/lib/studio';
+import { isHexColor, rsTextureUrl, treeHasBleedImage } from '@/lib/studio';
 import CoverVideo from '@/components/site/CoverVideo';
 import Countdown from '@/components/site/Countdown';
 import Carousel from '@/components/site/Carousel';
@@ -95,7 +95,7 @@ export function ModuleShell({ shape, items }: { shape: Shape; items: { key: stri
 
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
-    <section className={`module studio-fill relative overflow-hidden ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
+    <section className={`module studio-fill relative ${treeHasBleedImage(tree) ? 'overflow-visible' : 'overflow-hidden'} ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
       <ModuleEffectLayer tree={tree} />
       <div className="relative z-10">
         {title ? <h2 className="module-title mb-4">{title}</h2> : null}
@@ -194,9 +194,9 @@ function blockInner(block: Block) {
       );
     case 'article-headline':
       return (
-        <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+        <article className="studio-fill card min-w-[180px] overflow-hidden p-3.5" style={style}>
           <span className="badge bg-brand-600/15 text-brand-600">Article</span>
-          <h3 className="studio-fit mt-1.5 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
+          <h3 className="studio-fit mt-1.5 line-clamp-4 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
         </article>
       );
     case 'article':
@@ -220,7 +220,7 @@ function blockInner(block: Block) {
           <div className="aspect-[16/9] w-full bg-[var(--bg-soft)]" aria-hidden />
           <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5' : 'p-4'}>
             <span className="badge bg-brand-600/15 text-brand-600">Spotlight</span>
-            <h3 className={`mt-1.5 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white' : ''}`}>A big featured story</h3>
+            <h3 className={`mt-1.5 line-clamp-3 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white' : ''}`}>A big featured story</h3>
             {s.showDek !== false && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>Its standfirst previews the story in the live module.</p>}
           </div>
         </article>
@@ -232,7 +232,7 @@ function blockInner(block: Block) {
       const body = (
         <div className="flex flex-col justify-center p-4">
           <span className="badge bg-brand-600/15 text-brand-600">Feature</span>
-          <h3 className="mt-1.5 text-xl font-black leading-tight tracking-tight">A split feature headline</h3>
+          <h3 className="mt-1.5 line-clamp-3 text-xl font-black leading-tight tracking-tight">A split feature headline</h3>
           {s.showDek !== false && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">A short standfirst sits alongside the image.</p>}
         </div>
       );

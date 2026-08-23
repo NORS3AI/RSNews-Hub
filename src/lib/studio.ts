@@ -77,7 +77,7 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   image: {
     label: 'Image', group: 'Media',
     description: 'A picture with manual resize.',
-    defaults: { url: '', alt: '', widthPct: 100, radius: true },
+    defaults: { url: '', alt: '', widthPct: 100, radius: true, bleed: false },
   },
   video: {
     label: 'Video', group: 'Media',
@@ -129,6 +129,13 @@ export function isBlockType(v: unknown): v is BlockType {
 export const ARTICLE_SOURCED_BLOCKS: BlockType[] = ['article', 'article-image', 'article-headline', 'spotlight', 'split'];
 export function isArticleSourced(type: BlockType): boolean {
   return ARTICLE_SOURCED_BLOCKS.includes(type);
+}
+
+/** True when a module has an image element set to "spill past the module edge".
+ *  The renderer then lets the module overflow (instead of clipping) so the
+ *  oversized image bleeds out for a dimensional overlap. */
+export function treeHasBleedImage(tree: ModuleTree): boolean {
+  return (tree.children ?? []).some((b) => b.type === 'image' && !!(b.settings as { bleed?: unknown })?.bleed);
 }
 export function blockLabel(type: BlockType): string {
   return BLOCKS[type]?.label ?? type;
@@ -416,6 +423,9 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         // Manual resize: 10%–200% of the container (>100% intentionally overflows).
         widthPct: Number.isFinite(w) ? Math.min(Math.max(Math.round(w), 10), 200) : 100,
         radius: bool(s.radius, true),
+        // Opt-in: let an oversized image spill past the module edge for a gentle
+        // dimensional overlap (the module stops clipping when any image bleeds).
+        bleed: bool(s.bleed, false),
       };
     }
     case 'video': {

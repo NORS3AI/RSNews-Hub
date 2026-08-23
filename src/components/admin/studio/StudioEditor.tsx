@@ -788,8 +788,9 @@ function BlockInspector({ block, hasCollection, onPatch, onRemove, onDuplicate }
           <Field label="Alt text"><input className="input" value={String(s.alt ?? '')} onChange={(e) => set('alt', e.target.value)} placeholder="Describe the image" /></Field>
           <Field label={`Width — ${Number(s.widthPct ?? 100)}% of the module`}>
             <input type="range" min={10} max={200} step={5} value={Number(s.widthPct ?? 100)} onChange={(e) => set('widthPct', Number(e.target.value))} className="w-full accent-brand-600" />
-            <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% intentionally overflows the module edges.</p>
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% makes it bigger than the module{s.bleed ? ' and spill past the edge' : ' (clipped at the edge unless “spill” is on)'}.</p>
           </Field>
+          <label className="mb-2 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5" checked={!!s.bleed} onChange={(e) => set('bleed', e.target.checked)} /> <span>Let it spill past the module edge <span className="text-[var(--muted)]">— for a gentle dimensional overlap. Best with a transparent-background image and Rounded corners off.</span></span></label>
           <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
         </>
       )}
