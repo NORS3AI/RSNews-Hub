@@ -145,8 +145,13 @@ function blockInner(block: Block) {
       if (!url) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Image — set a URL in settings</div>;
       }
+      // A bleeding image tucks BEHIND its module's other elements (negative z,
+      // yet still inside the module's z-10 content wrapper so it stays IN FRONT
+      // of the module's own background surface). Neighbouring modules paint on
+      // top, so a gentle spill never covers a neighbour's content.
+      const bleedZ = s.bleed ? 'relative -z-10' : '';
       // eslint-disable-next-line @next/next/no-img-element
-      return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+      return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''} ${bleedZ}`} />;
     }
     case 'video': {
       const url = String(s.url ?? '');

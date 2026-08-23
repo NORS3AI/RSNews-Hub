@@ -219,8 +219,12 @@ export default async function DocsHome() {
           if (!url) return null;
           const w = Number(b.settings.widthPct) || 100;
           const radius = b.settings.radius !== false;
+          // A bleeding image sits behind its module's other elements (negative z)
+          // yet stays inside the z-10 content wrapper, so it's above the module's
+          // own surface but never covers a neighbour's content.
+          const bleedZ = b.settings.bleed ? 'relative -z-10' : '';
           // eslint-disable-next-line @next/next/no-img-element
-          return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+          return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''} ${bleedZ}`} />;
         }
         case 'video': {
           const url = String(b.settings.url ?? '');
