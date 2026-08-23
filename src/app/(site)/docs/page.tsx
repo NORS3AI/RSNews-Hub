@@ -6,7 +6,7 @@ import { isCustomModuleId, parseTree, blockChain, inSchedule, isArticleSourced, 
 import { canViewContent, requirementLabel, brandKey } from '@/lib/entitlements';
 import { isPartnerContent, PartnerContentBadge } from '@/components/ArticleBadges';
 import { Lock } from '@/components/icons';
-import { ModuleShell, ModuleEffectLayer, shapeContainerClass, rsStyle, Eyebrow } from '@/components/site/CustomModule';
+import { ModuleShell, ModuleEffectLayer, shapeContainerClass, rsStyle, Eyebrow, StudioImage } from '@/components/site/CustomModule';
 import { treeHasBleedImage } from '@/lib/studio';
 import FeatureCarousel from '@/components/site/FeatureCarousel';
 import CouncilColumn from '@/components/site/CouncilColumn';
@@ -215,28 +215,12 @@ export default async function DocsHome() {
           return <div className="studio-fill studio-ad flex justify-center rounded-xl" style={style}>{adNode}</div>;
         }
         case 'image': {
-          const url = String(b.settings.url ?? '');
+          const url = String(b.settings.url ?? '').trim();
           if (!url) return null;
           const w = Number(b.settings.widthPct) || 100;
           const radius = b.settings.radius !== false;
-          const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
-          // A bleeding image sits behind its module's other elements (negative z)
-          // yet stays inside the z-10 content wrapper, so it's above the module's
-          // own surface. Modules later in the DOM paint on top, so in the usual
-          // spill direction it won't cover a neighbour.
-          if (b.settings.bleed) {
-            // eslint-disable-next-line @next/next/no-img-element
-            return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`${imgCls} relative -z-10`} />;
-          }
-          // Non-bleed: clip to the module column so an oversized (>100%) width
-          // never escapes just because a sibling image opted into bleed (which
-          // flips the whole module to overflow-visible). Escape stays per-image.
-          return (
-            <span className="block overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={imgCls} />
-            </span>
-          );
+          // Shared with the Studio preview so the bleed/overflow rules stay in sync.
+          return <StudioImage url={url} widthPct={w} radius={radius} bleed={!!b.settings.bleed} alt={String(b.settings.alt ?? '')} />;
         }
         case 'video': {
           const url = String(b.settings.url ?? '');
@@ -281,7 +265,7 @@ export default async function DocsHome() {
           if (!card) return null;
           if (b.type === 'article-headline') {
             return (
-              <article data-hp-id={card.id} className="studio-fill card group relative min-w-[180px] overflow-hidden p-3.5" style={style}>
+              <article data-hp-id={card.id} className="studio-fill card group relative min-w-[min(180px,100%)] overflow-hidden p-3.5" style={style}>
                 <AdminArticleEdit id={card.id} pos="right-2 top-2" />
                 {/* A tag so a headline-only element still reads as an article
                     (its category chip, or a plain "Article" fallback). */}

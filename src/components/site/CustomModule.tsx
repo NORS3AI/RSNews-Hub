@@ -93,6 +93,33 @@ export function ModuleShell({ shape, items }: { shape: Shape; items: { key: stri
   );
 }
 
+// One image renderer shared by the live homepage (docs/page) and the Studio
+// preview so the bleed / z-index / overflow rules can never drift between them.
+// Callers pass an already-trimmed, non-empty URL and own their empty-URL
+// fallback (the preview shows a placeholder; the live renderer returns null so
+// the slot falls through to its next rung).
+export function StudioImage({ url, widthPct, radius, bleed, alt }:
+  { url: string; widthPct: number; radius: boolean; bleed: boolean; alt: string }) {
+  const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
+  // A bleeding image tucks BEHIND its module's other elements (negative z, yet
+  // still inside the module's z-10 content wrapper so it stays IN FRONT of the
+  // module's own background surface). Modules later in the DOM paint on top, so
+  // in the usual spill direction it won't cover a neighbour.
+  if (bleed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={alt} style={{ width: `${widthPct}%` }} className={`${imgCls} relative -z-10`} />;
+  }
+  // Non-bleed: clip to the module column. Enabling bleed on ONE image flips the
+  // whole module to overflow-visible, so without this a *different* oversized
+  // (>100%) image that never opted in would also escape. Keeps escape opt-in.
+  return (
+    <span className="block overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={alt} style={{ width: `${widthPct}%` }} className={imgCls} />
+    </span>
+  );
+}
+
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
     <section className={`module studio-fill relative ${treeHasBleedImage(tree) ? 'overflow-visible' : 'overflow-hidden'} ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
@@ -139,31 +166,13 @@ function blockInner(block: Block) {
     case 'text':
       return <div className="prose-article text-[15px] leading-relaxed">{String(s.body ?? '')}</div>;
     case 'image': {
-      const url = String(s.url ?? '');
+      const url = String(s.url ?? '').trim();
       const w = Number(s.widthPct) || 100;
       const radius = s.radius !== false;
       if (!url) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Image — set a URL in settings</div>;
       }
-      const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
-      // A bleeding image tucks BEHIND its module's other elements (negative z,
-      // yet still inside the module's z-10 content wrapper so it stays IN FRONT
-      // of the module's own background surface). Modules later in the DOM paint
-      // on top, so in the usual spill direction it won't cover a neighbour.
-      if (s.bleed) {
-        // eslint-disable-next-line @next/next/no-img-element
-        return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`${imgCls} relative -z-10`} />;
-      }
-      // Non-bleed: clip to the module column. Enabling bleed on ONE image flips
-      // the whole module to overflow-visible, so without this a *different*
-      // oversized (>100%) image that never opted in would also escape — and
-      // without the tuck. This keeps escape strictly opt-in, per image.
-      return (
-        <span className="block overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={imgCls} />
-        </span>
-      );
+      return <StudioImage url={url} widthPct={w} radius={radius} bleed={!!s.bleed} alt={String(s.alt ?? '')} />;
     }
     case 'video': {
       const url = String(s.url ?? '');
@@ -211,7 +220,7 @@ function blockInner(block: Block) {
       );
     case 'article-headline':
       return (
-        <article className="studio-fill card min-w-[180px] overflow-hidden p-3.5" style={style}>
+        <article className="studio-fill card min-w-[min(180px,100%)] overflow-hidden p-3.5" style={style}>
           <span className="badge bg-brand-600/15 text-brand-600">Article</span>
           <h3 className="studio-fit mt-1.5 line-clamp-4 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
         </article>

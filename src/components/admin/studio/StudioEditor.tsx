@@ -458,7 +458,7 @@ export default function StudioEditor({
         {/* ---- Inspector ---- */}
         <aside>
           {selectedBlock
-            ? <BlockInspector block={selectedBlock} hasCollection={!!tree.collection} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
+            ? <BlockInspector block={selectedBlock} shape={tree.shape} hasCollection={!!tree.collection} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
             : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} onEffect={setEffect} onEffectColors={setEffectColors} onCollection={setCollection} />}
         </aside>
       </div>
@@ -657,8 +657,8 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, 
   );
 }
 
-function BlockInspector({ block, hasCollection, onPatch, onRemove, onDuplicate }: {
-  block: Block; hasCollection: boolean; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
+function BlockInspector({ block, shape, hasCollection, onPatch, onRemove, onDuplicate }: {
+  block: Block; shape: Shape; hasCollection: boolean; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
@@ -791,6 +791,9 @@ function BlockInspector({ block, hasCollection, onPatch, onRemove, onDuplicate }
             <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% makes it bigger than the module{s.bleed ? ' and spills past the edge' : ' (clipped at the edge unless “spill” is on)'}.</p>
           </Field>
           <label className="mb-2 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5" checked={!!s.bleed} onChange={(e) => set('bleed', e.target.checked)} /> <span>Let it spill past the module edge <span className="text-[var(--muted)]">— for a gentle dimensional overlap. Best with a transparent-background image and Rounded corners off.</span></span></label>
+          {!!s.bleed && shape === 'row' && (
+            <p className="mb-2 text-[11px] text-amber-700 dark:text-amber-300">Spill-out doesn’t apply in a Row module — it scrolls sideways, so the image stays clipped inside the row. Use a Column, Grid, or Card module for the overlap.</p>
+          )}
           <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
         </>
       )}
