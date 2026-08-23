@@ -44,7 +44,7 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
       <AdminArticleEdit id={a.id} />
       <div className="grid md:grid-cols-2">
         {/* Text half */}
-        <div className="relative flex min-h-[300px] flex-col justify-center bg-ink-950 p-8 text-white sm:p-10 md:min-h-[420px] lg:p-14">
+        <div className="relative flex min-h-[300px] flex-col justify-center bg-[#2b333c] p-8 text-[#f7edd8] sm:p-10 md:min-h-[420px] lg:p-14">
           {a.category && (
             <div className="mb-5 inline-flex w-fit flex-col">
               <span className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: accent }}>{a.category.name}</span>
@@ -54,15 +54,15 @@ export default function FeatureCarousel({ items }: { items: FeatureItem[] }) {
           <h2 className="max-w-xl text-3xl font-extrabold leading-[1.12] tracking-tight sm:text-4xl lg:text-[42px]">
             <button onClick={() => open(a.slug)} className="text-left hover:opacity-90">{a.title}</button>
           </h2>
-          <button onClick={() => open(a.slug)} className="mt-7 w-fit text-sm font-bold text-white underline decoration-2 underline-offset-4 hover:opacity-80">
+          <button onClick={() => open(a.slug)} className="mt-7 w-fit text-sm font-bold text-[#f7edd8] underline decoration-2 underline-offset-4 hover:opacity-80">
             Read the full story
           </button>
 
           {n > 1 && (
             <div className="mt-auto flex items-center gap-3 pt-9">
-              <button onClick={() => go(-1)} className="grid h-11 w-11 place-items-center rounded-full border border-white/25 text-white transition hover:bg-white/10" aria-label="Previous story"><ArrowLeft width={18} height={18} /></button>
-              <button onClick={() => go(1)} className="grid h-11 w-11 place-items-center rounded-full border border-white/25 text-white transition hover:bg-white/10" aria-label="Next story"><ArrowRight width={18} height={18} /></button>
-              <span className="ml-2 text-xs font-semibold text-white/50">{i + 1} / {n}</span>
+              <button onClick={() => go(-1)} className="grid h-11 w-11 place-items-center rounded-full border border-[#f7edd8]/30 text-[#f7edd8] transition hover:bg-[#f7edd8]/10" aria-label="Previous story"><ArrowLeft width={18} height={18} /></button>
+              <button onClick={() => go(1)} className="grid h-11 w-11 place-items-center rounded-full border border-[#f7edd8]/30 text-[#f7edd8] transition hover:bg-[#f7edd8]/10" aria-label="Next story"><ArrowRight width={18} height={18} /></button>
+              <span className="ml-2 text-xs font-semibold text-[#f7edd8]/55">{i + 1} / {n}</span>
             </div>
           )}
         </div>

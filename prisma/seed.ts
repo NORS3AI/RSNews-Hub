@@ -63,7 +63,7 @@ async function main() {
     { name: 'Blog', color: '#3f6fb0', description: 'Regular blog posts.' },
     { name: 'Education', color: '#5a53a8', description: 'Learning resources and how-tos.' },
     { name: 'Feature Article', color: '#8a4f97', description: 'In-depth featured stories.' },
-    { name: 'RS Council Column', color: '#9b2d3a', description: 'Columns from the RS Council.' },
+    { name: 'RS Council Column', color: '#c2622e', description: 'Columns from the RS Council.' },
     { name: 'Bulletin', color: '#5b6675', description: 'Short official notices.' },
   ];
   const categories: Record<string, string> = {};
