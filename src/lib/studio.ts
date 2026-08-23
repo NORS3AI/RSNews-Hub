@@ -133,9 +133,15 @@ export function isArticleSourced(type: BlockType): boolean {
 
 /** True when a module has an image element set to "spill past the module edge".
  *  The renderer then lets the module overflow (instead of clipping) so the
- *  oversized image bleeds out for a dimensional overlap. */
+ *  oversized image bleeds out for a dimensional overlap. Requires a real URL
+ *  (an empty-URL image renders nothing, so it shouldn't un-clip the module),
+ *  and also looks inside fallback rungs (a bleed image can be a fallback). */
 export function treeHasBleedImage(tree: ModuleTree): boolean {
-  return (tree.children ?? []).some((b) => b.type === 'image' && !!(b.settings as { bleed?: unknown })?.bleed);
+  const isBleedImage = (b?: Block): boolean =>
+    b?.type === 'image'
+    && !!(b.settings as { bleed?: unknown }).bleed
+    && !!String((b.settings as { url?: unknown }).url ?? '').trim();
+  return (tree.children ?? []).some((b) => isBleedImage(b) || (b.fallbacks ?? []).some(isBleedImage));
 }
 export function blockLabel(type: BlockType): string {
   return BLOCKS[type]?.label ?? type;

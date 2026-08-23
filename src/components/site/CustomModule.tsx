@@ -145,13 +145,25 @@ function blockInner(block: Block) {
       if (!url) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Image — set a URL in settings</div>;
       }
+      const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
       // A bleeding image tucks BEHIND its module's other elements (negative z,
       // yet still inside the module's z-10 content wrapper so it stays IN FRONT
-      // of the module's own background surface). Neighbouring modules paint on
-      // top, so a gentle spill never covers a neighbour's content.
-      const bleedZ = s.bleed ? 'relative -z-10' : '';
-      // eslint-disable-next-line @next/next/no-img-element
-      return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''} ${bleedZ}`} />;
+      // of the module's own background surface). Modules later in the DOM paint
+      // on top, so in the usual spill direction it won't cover a neighbour.
+      if (s.bleed) {
+        // eslint-disable-next-line @next/next/no-img-element
+        return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`${imgCls} relative -z-10`} />;
+      }
+      // Non-bleed: clip to the module column. Enabling bleed on ONE image flips
+      // the whole module to overflow-visible, so without this a *different*
+      // oversized (>100%) image that never opted in would also escape — and
+      // without the tuck. This keeps escape strictly opt-in, per image.
+      return (
+        <span className="block overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={imgCls} />
+        </span>
+      );
     }
     case 'video': {
       const url = String(s.url ?? '');

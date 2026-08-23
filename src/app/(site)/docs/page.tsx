@@ -219,12 +219,24 @@ export default async function DocsHome() {
           if (!url) return null;
           const w = Number(b.settings.widthPct) || 100;
           const radius = b.settings.radius !== false;
+          const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
           // A bleeding image sits behind its module's other elements (negative z)
           // yet stays inside the z-10 content wrapper, so it's above the module's
-          // own surface but never covers a neighbour's content.
-          const bleedZ = b.settings.bleed ? 'relative -z-10' : '';
-          // eslint-disable-next-line @next/next/no-img-element
-          return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''} ${bleedZ}`} />;
+          // own surface. Modules later in the DOM paint on top, so in the usual
+          // spill direction it won't cover a neighbour.
+          if (b.settings.bleed) {
+            // eslint-disable-next-line @next/next/no-img-element
+            return <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={`${imgCls} relative -z-10`} />;
+          }
+          // Non-bleed: clip to the module column so an oversized (>100%) width
+          // never escapes just because a sibling image opted into bleed (which
+          // flips the whole module to overflow-visible). Escape stays per-image.
+          return (
+            <span className="block overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt={String(b.settings.alt ?? '')} style={{ width: `${w}%` }} className={imgCls} />
+            </span>
+          );
         }
         case 'video': {
           const url = String(b.settings.url ?? '');
