@@ -7,8 +7,11 @@ import ComicImage from '@/components/site/ComicImage';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Comics — archive' };
 
-export default async function ComicsArchive({ searchParams }: { searchParams: Promise<{ series?: string }> }) {
-  const { series: seriesParam } = await searchParams;
+export default async function ComicsArchive({ searchParams }: { searchParams: Promise<{ series?: string | string[] }> }) {
+  const { series: seriesRaw } = await searchParams;
+  // A repeated ?series= param arrives as an array — take the first so the
+  // filter still applies instead of silently falling back to "all".
+  const seriesParam = Array.isArray(seriesRaw) ? seriesRaw[0] : seriesRaw;
   const comics = await getComicsArchiveData();
 
   // Series present in the archive, most-used first is overkill — keep them in

@@ -16,7 +16,10 @@ function toLocalInput(d?: Date | string | null) {
 
 export default async function AdminComics() {
   const comics = await prisma.comic.findMany({ orderBy: [{ postedAt: 'desc' }] });
-  const current = comics.find((c) => c.active);
+  // Match the homepage's selection exactly: most-recent active comic that has
+  // already posted (a future postedAt is scheduled, not yet featured).
+  const now = new Date();
+  const current = comics.find((c) => c.active && c.postedAt <= now);
   // Series suggestions: the two house strips plus any others already in use.
   const knownSeries = Array.from(new Set(['Backroom Humor', 'Counter Productive', ...comics.map((c) => c.series)]));
 

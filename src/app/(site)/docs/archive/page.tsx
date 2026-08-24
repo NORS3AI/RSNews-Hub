@@ -45,8 +45,8 @@ export default async function ArchivePage({ searchParams }: { searchParams: Prom
           <span className="flex items-center gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-600 text-white"><Smile width={22} height={22} /></span>
             <span>
-              <span className="block font-extrabold">Backroom Humor</span>
-              <span className="block text-sm text-[var(--muted)]">Every comic we&apos;ve run.</span>
+              <span className="block font-extrabold">Comics</span>
+              <span className="block text-sm text-[var(--muted)]">Every comic we&apos;ve run — Backroom Humor, Counter Productive and more.</span>
             </span>
           </span>
           <ArrowRight className="shrink-0 text-brand-600" />
