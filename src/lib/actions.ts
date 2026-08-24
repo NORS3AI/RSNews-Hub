@@ -1270,11 +1270,12 @@ export async function saveComic(formData: FormData) {
   const title = ((formData.get('title') as string) || '').trim();
   const image = ((formData.get('image') as string) || '').trim();
   const caption = ((formData.get('caption') as string) || '').trim();
+  const series = ((formData.get('series') as string) || '').trim() || 'Backroom Humor';
   const active = formData.get('active') != null;
   const postedRaw = ((formData.get('postedAt') as string) || '').trim();
   if (!title || !image) throw new Error('A title and image are required');
-  const data: { title: string; image: string; caption: string | null; active: boolean; postedAt?: Date } =
-    { title, image, caption: caption || null, active };
+  const data: { title: string; image: string; caption: string | null; series: string; active: boolean; postedAt?: Date } =
+    { title, image, caption: caption || null, series, active };
   const posted = postedRaw ? new Date(postedRaw) : null;
   if (posted && !isNaN(posted.getTime())) data.postedAt = posted;
   if (id) await prisma.comic.update({ where: { id }, data });

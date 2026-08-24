@@ -17,18 +17,22 @@ function toLocalInput(d?: Date | string | null) {
 export default async function AdminComics() {
   const comics = await prisma.comic.findMany({ orderBy: [{ postedAt: 'desc' }] });
   const current = comics.find((c) => c.active);
+  // Series suggestions: the two house strips plus any others already in use.
+  const knownSeries = Array.from(new Set(['Backroom Humor', 'Counter Productive', ...comics.map((c) => c.series)]));
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold">Backroom Humor comics</h1>
+      <h1 className="mb-1 text-2xl font-bold">Comics</h1>
       <p className="mb-5 max-w-2xl text-sm text-[var(--muted)]">
-        The most recent <strong>active</strong> comic shows on the homepage; the rest live in the comics archive. Upload a new one and mark it active to feature it, then archive the old one. {current && <>Currently featured: <strong>{current.title}</strong>.</>}
+        The most recent <strong>active</strong> comic shows on the homepage — from any series — and the slot labels itself with that comic&apos;s series. The rest live in the comics archive. Mark a new one active to feature it, then archive the old one. {current && <>Currently featured: <strong>{current.title}</strong> <span className="text-[var(--muted)]">({current.series})</span>.</>}
       </p>
+      <datalist id="comic-series-list">{knownSeries.map((s) => <option key={s} value={s} />)}</datalist>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <form action={saveComic} className="card h-fit space-y-3 p-5 lg:col-span-1">
           <h2 className="font-semibold">Add a comic</h2>
           <div><label className="label">Title</label><input name="title" required className="input" placeholder="Stamps then vs now" /></div>
+          <div><label className="label">Series</label><input name="series" list="comic-series-list" defaultValue="Backroom Humor" className="input" placeholder="Backroom Humor" /><p className="mt-1 text-xs text-[var(--muted)]">Which strip this belongs to. Pick an existing one or type a new name.</p></div>
           <AdImageInput name="image" label="Comic image" hint="Upload the artwork (JPG/PNG) or paste a URL/path." />
           <div><label className="label">Caption (optional)</label><textarea name="caption" className="input min-h-[60px]" placeholder="Shown under the comic on the homepage." /></div>
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked className="h-4 w-4" /> Feature on homepage (active)</label>
@@ -45,12 +49,13 @@ export default async function AdminComics() {
                   <span className="font-bold">{c.title}</span>
                   {c.active ? <span className="badge bg-green-100 text-green-700">On homepage</span> : <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">Archived</span>}
                 </div>
-                <div className="mt-0.5 text-xs text-[var(--muted)]">{postedLabel(c.postedAt)}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--muted)]"><span className="badge bg-brand-600/15 text-brand-600">{c.series}</span>{postedLabel(c.postedAt)}</div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-sm font-semibold text-brand-600">Edit</summary>
                   <form action={saveComic} className="mt-3 space-y-2.5 border-t border-[var(--border)] pt-3">
                     <input type="hidden" name="id" value={c.id} />
                     <div><label className="label">Title</label><input name="title" required defaultValue={c.title} className="input" /></div>
+                    <div><label className="label">Series</label><input name="series" list="comic-series-list" defaultValue={c.series} className="input" /></div>
                     <AdImageInput name="image" label="Image" defaultValue={c.image} />
                     <div><label className="label">Caption</label><textarea name="caption" defaultValue={c.caption ?? ''} className="input min-h-[50px]" /></div>
                     <div><label className="label">Posted</label><input name="postedAt" type="datetime-local" defaultValue={toLocalInput(c.postedAt)} className="input" /></div>

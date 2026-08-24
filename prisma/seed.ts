@@ -363,17 +363,22 @@ async function main() {
     });
   }
 
-  // Backroom Humor comics: one active (homepage) + two archived.
+  // Two comic strips share the homepage slot: Backroom Humor (single-panel gags)
+  // and Counter Productive (multi-panel counter mishaps). All active by default
+  // so the homepage module cycles the most-recent from either series; the slot
+  // labels itself with that comic's series. Archive individual comics from the
+  // admin to drop them out of the rotation.
   if ((await prisma.comic.count()) === 0) {
-    // All active by default so the homepage module cycles through them; archive
-    // individual comics from the admin to drop them out of the rotation.
     const comics = [
-      { title: 'Stamps then vs now', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: true, days: 40 },
-      { title: 'Keeping the lobby clean', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: true, days: 20 },
-      { title: 'Meanwhile, in Texas', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 2 },
+      { title: 'Stamps then vs now', series: 'Backroom Humor', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: true, days: 40 },
+      { title: 'Keeping the lobby clean', series: 'Backroom Humor', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: true, days: 20 },
+      { title: 'Meanwhile, in Texas', series: 'Backroom Humor', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 12 },
+      { title: 'He meant $10.14', series: 'Counter Productive', image: '/comics/cp-counter-math.png', caption: 'The new guy reads the total a little too literally.', active: true, days: 5 },
+      { title: 'Signature required', series: 'Counter Productive', image: '/comics/cp-signature.png', caption: '“Signature required.” Want to sign it!?', active: true, days: 3 },
+      { title: 'Extra secure', series: 'Counter Productive', image: '/comics/cp-tape.png', caption: 'A 6x6 box, now a 24x24 — the customer wanted it extra secure.', active: true, days: 1 },
     ];
     for (const c of comics) {
-      await prisma.comic.create({ data: { title: c.title, image: c.image, caption: c.caption, active: c.active, postedAt: new Date(Date.now() - c.days * 864e5) } });
+      await prisma.comic.create({ data: { title: c.title, series: c.series, image: c.image, caption: c.caption, active: c.active, postedAt: new Date(Date.now() - c.days * 864e5) } });
     }
   }
 

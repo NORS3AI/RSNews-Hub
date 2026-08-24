@@ -55,7 +55,7 @@ export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
   sponsored: { label: 'Featured', description: 'Paid sponsor placements, live for their run (auto-appears when a sponsor is active, hides when none). Shows a sponsored article only once it drops out of the hero / this week / trending — never crowds those.' },
   'feature-carousel': { label: 'Feature showcase', description: 'Big split banner — one story (title + image) at a time, paged left/right.', sources: ARTICLE_SOURCES, defaultSource: 'featured' },
   industry: { label: 'Industry News', description: 'Curated external links, hand-picked by staff.' },
-  comic: { label: 'Backroom Humor comic', description: 'The current comic; the rest live in the archive.' },
+  comic: { label: 'Comic', description: 'The most-recent active comic from any series (Backroom Humor, Counter Productive…); the rest live in the archive.' },
   council: { label: 'RS Council column', description: 'A tall column showing the full text of every RS Council piece.' },
   categories: { label: 'Category strip', description: 'Quick links to every category.' },
   trending: { label: 'Trending / Most read', description: 'The most-opened articles over the last 7 days (falls back to all-time when traffic is thin).' },

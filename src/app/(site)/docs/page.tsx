@@ -478,7 +478,7 @@ export default async function DocsHome() {
         return (
           <section key={id} className="module">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="module-title text-brand-600">Backroom Humor</h2>
+              <h2 className="module-title text-brand-600">{currentComic.series || 'Backroom Humor'}</h2>
               <Link href="/docs/archive/comics" className="text-sm font-semibold text-brand-600 hover:underline">View all comics</Link>
             </div>
             {/* The comic sits on a themed tile (the same nested-panel surface used

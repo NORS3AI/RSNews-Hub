@@ -94,6 +94,11 @@ model Comic {
   title     String
   image     String   // url/path or data URL
   caption   String?
+  // Which comic strip this belongs to (e.g. "Backroom Humor", "Counter
+  // Productive"). The homepage comic slot shows the most-recent active comic
+  // from ANY series and labels itself with that comic's series, so two series
+  // interleave by postedAt. The archive can filter by series.
+  series    String   @default("Backroom Humor")
   active    Boolean  @default(true)
   order     Int      @default(0)
   postedAt  DateTime @default(now())
