@@ -66,7 +66,7 @@ export default function StudioList({ modules }: { modules: Mod[] }) {
                 className={`btn-sm ${m.published ? 'btn-outline' : 'btn-primary'}`}>
                 {m.published ? <><Eye width={14} height={14} /> Unpublish</> : <><Check width={14} height={14} /> Publish</>}
               </button>
-              <button disabled={pending} onClick={() => { if (confirm(`Delete “${m.name}”? This also removes it from the homepage.`)) run(() => deleteCustomModule(m.id)); }}
+              <button disabled={pending} onClick={() => { if (confirm(`Delete “${m.name}” permanently? This also removes it from the homepage and can't be undone.`)) run(() => deleteCustomModule(m.id)); }}
                 className="btn-sm btn-danger" aria-label="Delete module"><Trash width={14} height={14} /></button>
             </li>
           ))}

@@ -5,8 +5,8 @@ import { uploadImage } from '@/lib/uploadClient';
 import { Trash } from '@/components/icons';
 
 const LABELS: Record<string, string> = {
-  adSlot: 'Ad slot', spacer: 'Blank space', pollEmbed: 'Poll', quizEmbed: 'Pop quiz',
-  ctaButton: 'Button', author: 'Author card',
+  adSlot: 'Ad slot', reservedAd: 'Sponsor ad', spacer: 'Blank space', pollEmbed: 'Poll', quizEmbed: 'Pop quiz',
+  ctaButton: 'Button', author: 'Author card', image: 'Image',
 };
 
 export default function ElementInspector() {
@@ -30,7 +30,7 @@ const advHasSize = (adv: Adv | undefined, size: string) =>
 const advHasAnyImage = (adv: Adv | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
 
 function Fields({ sel }: { sel: NonNullable<Selected> }) {
-  const { updateSelected, deleteSelected, polls, quizzes, advertisers } = useComposer();
+  const { updateSelected, deleteSelected, polls, quizzes, advertisers, reservedAds, bylines } = useComposer();
   const a = sel.attrs as Record<string, any>;
   const [busy, setBusy] = useState(false);
   // Popup shown when the chosen advertiser has no live creative in the chosen size.
@@ -99,6 +99,40 @@ function Fields({ sel }: { sel: NonNullable<Selected> }) {
         )}
       </div>
     );
+  } else if (sel.type === 'reservedAd') {
+    body = (
+      <div className="space-y-3">
+        <div>
+          <label className="label">Sponsor creative</label>
+          <select className="input" value={a.adId || ''} onChange={(e) => {
+            const id = e.target.value; const ad = reservedAds.find((x) => x.id === id);
+            updateSelected({ adId: id, adLabel: ad ? ad.brand : '' });
+          }}>
+            <option value="">Choose a reserved ad…</option>
+            {reservedAds.map((x) => <option key={x.id} value={x.id}>{x.brand} — {x.headline.slice(0, 48)}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Only ads marked <strong>Reserved</strong> (in Ads admin) appear here. Renders as a rectangle exactly where this block sits, and never enters the normal rotation.
+            {reservedAds.length === 0 && <> No reserved ads yet — add one under <strong>Ads</strong> and tick “Reserved (one-off)”.</>}
+          </p>
+        </div>
+      </div>
+    );
+  } else if (sel.type === 'image') {
+    body = (
+      <div className="space-y-2">
+        {a.src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={a.src} alt="" className="max-h-32 w-full rounded-lg border border-[var(--border)] object-contain" />
+        )}
+        <div>
+          <label className="label">Alt text</label>
+          <input className="input" defaultValue={a.alt || ''} onChange={(e) => updateSelected({ alt: e.target.value })}
+            placeholder="e.g. A driver scanning a package at the counter" />
+          <p className="mt-1 text-xs text-[var(--muted)]">Describes the image for screen readers and search. It&apos;s never shown on the page, spoken by &ldquo;Listen&rdquo;, or pulled into a clipping.</p>
+        </div>
+      </div>
+    );
   } else if (sel.type === 'spacer') {
     body = (
       <div>
@@ -148,21 +182,48 @@ function Fields({ sel }: { sel: NonNullable<Selected> }) {
         </label>
         {!inhouse && (
           <>
-            <div className="flex items-center gap-2">
-              {a.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
-              ) : <span className="grid h-10 w-10 place-items-center rounded-full bg-[var(--bg-soft)] text-xs font-bold text-[var(--muted)]">RS</span>}
-              <label className="btn-outline btn-sm cursor-pointer">{busy ? 'Uploading…' : a.avatar ? 'Change headshot' : 'Add headshot'}
-                <input type="file" accept="image/*" onChange={pickAvatar} className="hidden" /></label>
-              {a.avatar && <button type="button" onClick={() => updateSelected({ avatar: '' })} className="text-xs text-red-600 hover:underline">Remove</button>}
+            {/* Fill from the saved-byline library. Linking keeps the card live —
+                edit the person in Bylines and every linked card updates. */}
+            <div><label className="label">Use a saved byline</label>
+              <select className="input" value={String(a.bylineId || '')} onChange={(e) => {
+                const b = bylines.find((x) => x.id === e.target.value);
+                if (b) updateSelected({ bylineId: b.id, name: b.name, title: b.title ?? '', avatar: b.photo ?? '', bio: b.bio ?? '' });
+                else updateSelected({ bylineId: '' });
+              }}>
+                <option value="">Custom (fill in below)</option>
+                {bylines.map((b) => <option key={b.id} value={b.id}>{b.name}{b.title ? ` — ${b.title}` : ''}</option>)}
+              </select>
             </div>
-            <div><label className="label">Name</label>
-              <input className="input" defaultValue={a.name || ''} onChange={(e) => updateSelected({ name: e.target.value })} placeholder="Jane Writer" /></div>
-            <div><label className="label">Title / role <span className="font-normal text-[var(--muted)]">(optional)</span></label>
-              <input className="input" defaultValue={a.title || ''} onChange={(e) => updateSelected({ title: e.target.value })} placeholder="Guest columnist" /></div>
-            <div><label className="label">Bio <span className="font-normal text-[var(--muted)]">(optional)</span></label>
-              <textarea className="input min-h-[64px]" defaultValue={a.bio || ''} onChange={(e) => updateSelected({ bio: e.target.value })} placeholder="A sentence or two about them." /></div>
+            {a.bylineId ? (
+              <div className="flex items-center gap-3 rounded-lg border border-brand-500/40 bg-brand-50/40 p-2.5">
+                {a.avatar
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={a.avatar} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                  : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--card)] text-xs font-bold text-[var(--muted)]">{String(a.name || '?').slice(0, 1).toUpperCase()}</span>}
+                <div className="min-w-0 text-xs">
+                  <div className="truncate font-bold text-[var(--fg)]">{a.name}</div>
+                  <div className="text-[var(--muted)]">Linked — its photo, title &amp; bio stay in sync with the <a href="/admin/bylines" target="_blank" rel="noreferrer" className="text-brand-600 underline">Bylines</a> library. Pick “Custom” to type a one-off.</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  {a.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  ) : <span className="grid h-10 w-10 place-items-center rounded-full bg-[var(--bg-soft)] text-xs font-bold text-[var(--muted)]">RS</span>}
+                  <label className="btn-outline btn-sm cursor-pointer">{busy ? 'Uploading…' : a.avatar ? 'Change headshot' : 'Add headshot'}
+                    <input type="file" accept="image/*" onChange={pickAvatar} className="hidden" /></label>
+                  {a.avatar && <button type="button" onClick={() => updateSelected({ avatar: '' })} className="text-xs text-red-600 hover:underline">Remove</button>}
+                </div>
+                <div><label className="label">Name</label>
+                  <input className="input" defaultValue={a.name || ''} onChange={(e) => updateSelected({ name: e.target.value })} placeholder="Jane Writer" /></div>
+                <div><label className="label">Title / role <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+                  <input className="input" defaultValue={a.title || ''} onChange={(e) => updateSelected({ title: e.target.value })} placeholder="Guest columnist" /></div>
+                <div><label className="label">Bio <span className="font-normal text-[var(--muted)]">(optional)</span></label>
+                  <textarea className="input min-h-[64px]" defaultValue={a.bio || ''} onChange={(e) => updateSelected({ bio: e.target.value })} placeholder="A sentence or two about them." /></div>
+              </>
+            )}
           </>
         )}
       </div>

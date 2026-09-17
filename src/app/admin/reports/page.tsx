@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { generatePerformanceReport } from '@/lib/actions';
 import { recentQuarters } from '@/lib/reports';
-import { formatDate } from '@/lib/utils';
+import { listReportTemplates } from '@/lib/reportTemplates';
+import { formatDate, formatDateUTC } from '@/lib/utils';
+import { BarChart } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,18 +14,33 @@ const statusChip: Record<string, string> = {
 };
 
 export default async function AdminReports() {
-  const [vendors, reports] = await Promise.all([
+  const [vendors, reports, templates] = await Promise.all([
     prisma.vendor.findMany({ orderBy: { name: 'asc' }, select: { id: true, name: true } }),
     prisma.performanceReport.findMany({ orderBy: [{ periodStart: 'desc' }, { createdAt: 'desc' }], include: { vendor: { select: { name: true } } } }),
+    listReportTemplates(),
   ]);
   const quarters = recentQuarters(new Date(), 6);
 
   return (
     <div className="max-w-5xl">
-      <h1 className="mb-1 text-2xl font-bold">Performance reports</h1>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">Performance reports</h1>
+        <Link href="/admin/reports/builder" className="btn-outline btn-sm inline-flex items-center gap-1.5"><BarChart width={14} height={14} />Report builder</Link>
+      </div>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports.
+        Auto-draft a quarterly ad-performance summary for a vendor from the analytics we already collect, review and add a note, then <strong>publish</strong> it to their dashboard. Vendors only ever see published reports. For a custom, exportable report (whole-site or one advertiser, your choice of charts) use the <strong>Report builder</strong>.
       </p>
+
+      {templates.length > 0 && (
+        <div className="card mb-6 p-4">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Saved report templates · one press for fresh numbers</div>
+          <div className="flex flex-wrap gap-2">
+            {templates.map((t) => (
+              <Link key={t.id} href={`/admin/reports/builder?${t.query}`} className="btn-outline btn-sm inline-flex items-center gap-1.5"><BarChart width={14} height={14} />{t.name}</Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Generate */}
@@ -34,15 +51,15 @@ export default async function AdminReports() {
           ) : (
             <>
               <div>
-                <label className="label">Vendor</label>
-                <select name="vendorId" required className="input" defaultValue="">
+                <label className="label" htmlFor="report-vendor">Vendor</label>
+                <select id="report-vendor" name="vendorId" required className="input" defaultValue="">
                   <option value="" disabled>Choose a vendor…</option>
                   {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="label">Quarter</label>
-                <select name="periodStart" required className="input" defaultValue={quarters[0]?.start.toISOString()}>
+                <label className="label" htmlFor="report-quarter">Quarter</label>
+                <select id="report-quarter" name="periodStart" required className="input" defaultValue={quarters[0]?.start.toISOString()}>
                   {quarters.map((q) => <option key={q.label} value={q.start.toISOString()}>{q.label}</option>)}
                 </select>
                 <p className="mt-1 text-xs text-[var(--muted)]">Only completed quarters are listed. Re-generating refreshes the numbers and returns the report to draft.</p>
@@ -62,7 +79,7 @@ export default async function AdminReports() {
                 <span className={`badge ${statusChip[r.status] ?? ''}`}>{r.status}</span>
               </div>
               <div className="mt-1 text-sm text-[var(--muted)]">
-                {formatDate(r.periodStart)} → {formatDate(r.periodEnd)}
+                {formatDateUTC(r.periodStart)} → {formatDateUTC(r.periodEnd)}
                 {r.publishedAt && <> · published {formatDate(r.publishedAt)}</>}
               </div>
             </Link>

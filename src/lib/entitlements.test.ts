@@ -86,7 +86,7 @@ describe('requirementLabel', () => {
   it('maps known tokens and passes through affiliations', () => {
     expect(requirementLabel('')).toBe('everyone');
     expect(requirementLabel('premium')).toBe('RS Premium');
-    expect(requirementLabel('packagehub')).toBe('Package Hub');
+    expect(requirementLabel('packagehub')).toBe('PackageHub');
     expect(requirementLabel('CustomNetwork')).toBe('CustomNetwork');
   });
 });

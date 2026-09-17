@@ -15,6 +15,9 @@
 
 import { prisma } from './db';
 import { linkSource } from './industry';
+import { testimonialNudges } from './testimonials';
+import { expiringSavedSuppliersFor, newSuppliersFor } from './suppliers';
+import { canViewContent, type AccountLike } from './entitlements';
 
 export const INDUSTRY = 'industry';
 export const ALL = 'all';
@@ -61,7 +64,12 @@ function resolveFilter(keys: TopicKey[]) {
 
 /** Gather new content in the given topics between `since` and `now`. Shared by
  *  the email digest and the on-site notification feed. */
-export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take = 40) {
+// `viewer` decides which gated articles are visible. Default `null` = only
+// open ('' / public) articles — the safe choice for the broadcast email digest,
+// which reaches unverified addresses and can't check any single recipient's
+// tier. The on-site feed passes the signed-in account so a member sees exactly
+// what they're entitled to (never a Premium/PackageHub headline they can't open).
+export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take = 40, viewer: AccountLike | null = null) {
   const f = resolveFilter(keys);
   const wantIndustry = f.industry;
   const wantArticles = f.all || f.slugs.length > 0;
@@ -74,14 +82,23 @@ export async function gatherSince(keys: TopicKey[], since: Date, now: Date, take
       ? prisma.article.findMany({
           where: {
             status: 'PUBLISHED', publishedAt: { gt: since, lte: now },
+            // No viewer (broadcast digest) → let the DB return only open articles
+            // so gated posts don't consume the `take` window and push public ones
+            // out of range. The canViewContent pass below still guards every row.
+            ...(viewer ? {} : { requirement: { in: ['', 'public', 'all'] } }),
             ...(f.all ? {} : { OR: [{ category: { slug: { in: f.slugs } } }, { extraCategories: { some: { slug: { in: f.slugs } } } }] }),
           },
           orderBy: { publishedAt: 'desc' }, take,
-          select: { title: true, slug: true, publishedAt: true, category: { select: { name: true, color: true } } },
+          select: { title: true, slug: true, publishedAt: true, requirement: true, category: { select: { name: true, color: true } } },
         })
       : Promise.resolve([]),
   ]);
-  return { industry, articles };
+  // Drop gated articles the viewer can't open, then project to exactly the fields
+  // callers consume (the gate token itself never leaves this function).
+  const visible = articles
+    .filter((a) => canViewContent(viewer, a.requirement))
+    .map((a) => ({ title: a.title, slug: a.slug, publishedAt: a.publishedAt, category: a.category }));
+  return { industry, articles: visible };
 }
 
 // ─────────────────────────── Account notifications ──────────────────────────
@@ -113,7 +130,7 @@ export async function setAccountTopics(userId: string, keys: TopicKey[]): Promis
 }
 
 export type FeedItem = {
-  type: 'industry' | 'article';
+  type: 'industry' | 'article' | 'testimonial' | 'supplier-new' | 'supplier-expiring';
   title: string; href: string; date: Date;
   meta?: string; categoryName?: string; categoryColor?: string; unread: boolean;
 };
@@ -121,20 +138,63 @@ export type FeedItem = {
 /** The shared account bell: recent items in followed topics, newest first, each
  *  flagged unread if it landed after the account last opened Notifications. */
 export async function notificationFeed(userId: string, limit = 50): Promise<{ items: FeedItem[]; unread: number; hasTopics: boolean }> {
-  const [keys, user] = await Promise.all([
+  const [keys, user, nudges, expiring, newSuppliers] = await Promise.all([
     getAccountTopics(userId),
-    prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { notificationsSeenAt: true, accountType: true, tier: true, affiliations: true, vendorBrand: true } }),
+    testimonialNudges(userId),
+    expiringSavedSuppliersFor(userId),
+    newSuppliersFor(userId),
   ]);
-  if (!keys.length) return { items: [], unread: 0, hasTopics: false };
-
   const now = new Date();
+  const seenAt = user?.notificationsSeenAt ?? new Date(0);
+  const shortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Supplier + testimonial items reach a reader whether or not they follow any
+  // topics — they're tied to suppliers the reader saved / the directory, not to
+  // topic subscriptions.
+  const nudgeItems: FeedItem[] = [
+    ...nudges.map((n): FeedItem => ({
+      type: 'testimonial',
+      title: `Share your experience with ${n.vendorName}`,
+      href: `/docs/suppliers/${n.vendorId}?recommend=1`,
+      date: n.createdAt,
+      meta: 'You saved them — a quick testimonial helps other stores',
+      unread: n.createdAt > seenAt,
+    })),
+    // A saved supplier is leaving the directory: warn with the removal date so
+    // the store can copy their notes before the entry is deactivated.
+    ...expiring.map((e): FeedItem => ({
+      type: 'supplier-expiring',
+      title: `${e.name} is leaving the Phone Book`,
+      href: `/docs/suppliers/${e.vendorId}`,
+      date: e.endedAt,
+      meta: `Your saved contact + notes go away ${shortDate(e.removeOn)} — save anything you need`,
+      unread: e.endedAt > seenAt,
+    })),
+    // A new premium supplier joined the directory.
+    ...newSuppliers.map((n): FeedItem => ({
+      type: 'supplier-new',
+      title: `New supplier: ${n.name}`,
+      href: `/docs/suppliers/${n.vendorId}`,
+      date: n.premiumSince,
+      meta: 'Just added to the Phone Book directory',
+      unread: n.premiumSince > seenAt,
+    })),
+  ];
+
+  if (!keys.length) {
+    const items = nudgeItems.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return { items: items.slice(0, limit), unread: items.filter((i) => i.unread).length, hasTopics: false };
+  }
+
   const since = new Date(now.getTime() - 60 * 24 * 3600 * 1000); // last 60 days of activity
   // Gather generously so the unread count reflects everything recent, not just
   // what fits the display slice (each source is capped, so pull extra).
-  const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100));
-  const seenAt = user?.notificationsSeenAt ?? new Date(0);
+  // Pass the signed-in account so the bell shows only what this member can open.
+  const { industry, articles } = await gatherSince(keys, since, now, Math.max(limit, 100), user);
 
   const all: FeedItem[] = [
+    ...nudgeItems,
     ...industry.map((l): FeedItem => ({
       type: 'industry', title: l.title, href: l.url, date: l.postedAt,
       meta: `${l.author} · ${linkSource(l.url, l.source)}`, unread: l.postedAt > seenAt,

@@ -8,9 +8,23 @@
 
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { brandKey } from './entitlements';
+import { brandKey, entitlementsOf, isVendor, type AccountLike } from './entitlements';
 
 export { brandKey };
+
+/** True when this account is a vendor whose brand maps to an ACTIVE premium
+ *  supplier record. The vendor dashboard, its account-page link, and the sidebar
+ *  nav item are ALL gated on this — access is coupled to the admin "Premium
+ *  supplier" switch, so removing that status closes the phone-book listing and
+ *  the dashboard together. */
+export async function isActiveVendor(account: AccountLike | null | undefined): Promise<boolean> {
+  const ent = entitlementsOf(account ?? {});
+  if (!isVendor(ent)) return false;
+  const brand = brandKey(ent.vendorBrand);
+  if (!brand) return false;
+  const v = await prisma.vendor.findUnique({ where: { brandKey: brand }, select: { premium: true } });
+  return !!v?.premium;
+}
 
 // Either the base client or a transaction client — so callers can run these
 // inside a `prisma.$transaction(...)` for atomicity (e.g. JotForm ingest).
@@ -28,19 +42,17 @@ export function sameVendor(a: unknown, b: unknown): boolean {
  * vendor, and the first-seen display name is preserved (a later spelling won't
  * clobber it).
  *
- * `contactEmail` (when provided — i.e. a JotForm order carried one) ALWAYS wins
- * and refreshes the vendor's contact, because the email on the latest order is
- * the most current person to reach for reminders. Omitting it (e.g. an
- * admin-created campaign) leaves any existing address untouched.
+ * The per-ORDER contact person lives on the AdCampaign (the order), not here — so
+ * this only resolves identity and never touches the vendor's admin-curated,
+ * publicly-rendered phone-book contact.
  */
-export async function findOrCreateVendor(name: string, db: Db = prisma, contactEmail?: string): Promise<string> {
+export async function findOrCreateVendor(name: string, db: Db = prisma): Promise<string> {
   const key = brandKey(name);
   if (!key) throw new Error('A vendor name is required');
-  const email = contactEmail?.trim() || undefined;
   const vendor = await db.vendor.upsert({
     where: { brandKey: key },
-    update: email ? { contactEmail: email } : {},
-    create: { name: name.trim(), brandKey: key, contactEmail: email },
+    update: {},
+    create: { name: name.trim(), brandKey: key },
     select: { id: true },
   });
   return vendor.id;

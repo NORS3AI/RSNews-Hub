@@ -16,7 +16,7 @@ import { optimizeImage, optimizeConfig } from './optimize';
 import { LocalAdapter } from './local';
 import { S3Adapter } from './s3';
 
-export { validateImage, validateMedia, assetKey, sniffImage, sniffVideo, KEY_RE, contentTypeForKey } from './sniff';
+export { validateImage, validateMedia, assetKey, audioKey, sniffImage, sniffVideo, KEY_RE, AUDIO_KEY_RE, isServableKey, contentTypeForKey } from './sniff';
 export { optimizeImage, optimizeConfig, keepOptimized, shouldOptimize } from './optimize';
 export type { StorageAdapter, PutResult } from './types';
 export { uploadDir } from './local';

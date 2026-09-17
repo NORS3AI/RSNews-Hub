@@ -1,0 +1,135 @@
+'use client';
+import { useState, useTransition } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { RANGES, rangeLabel, type Viz } from '@/lib/reportData';
+import { saveReportTemplateAction, deleteReportTemplateAction } from '@/lib/actions';
+import { ExternalLink } from '@/components/icons';
+
+type SectionMeta = { id: string; title: string; allowed: Viz[] };
+export type TemplateMeta = { id: string; name: string; query: string };
+const VIZ_LABEL: Record<Viz, string> = { stats: 'Stat tiles', bar: 'Bar chart', pie: 'Pie chart', table: 'Table', trend: 'Trend line' };
+
+/** The report builder's control panel. Every change re-navigates with the new
+ *  querystring so the server re-renders the preview; the same querystring feeds
+ *  the printable export and any saved template. */
+export default function ReportControls({
+  scope, days, brand, advertisers, sections, hide, vizMap, exportHref, templates, currentQuery,
+}: {
+  scope: 'site' | 'advertiser'; days: number; brand: string; advertisers: string[];
+  sections: SectionMeta[]; hide: string[]; vizMap: Record<string, string>; exportHref: string;
+  templates: TemplateMeta[]; currentQuery: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const hidden = new Set(hide);
+  const [pending, startTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+
+  function go(next: { scope?: string; brand?: string; days?: number; hide?: Set<string>; viz?: Record<string, string> }) {
+    const p = new URLSearchParams();
+    const s = next.scope ?? scope;
+    p.set('scope', s);
+    p.set('days', String(next.days ?? days));
+    const b = next.brand ?? brand;
+    if (s === 'advertiser' && b) p.set('brand', b);
+    const h = next.hide ?? hidden;
+    if (h.size) p.set('hide', [...h].join(','));
+    const vm = next.viz ?? vizMap;
+    const vizStr = Object.entries(vm).map(([k, v]) => `${k}:${v}`).join(',');
+    if (vizStr) p.set('viz', vizStr);
+    router.push(`${pathname}?${p.toString()}`);
+  }
+
+  function saveTemplate() {
+    const n = name.trim();
+    if (!n) return;
+    startTransition(async () => {
+      await saveReportTemplateAction(n, currentQuery);
+      setName(''); setSaving(false); router.refresh();
+    });
+  }
+  function removeTemplate(id: string) {
+    startTransition(async () => { await deleteReportTemplateAction(id); router.refresh(); });
+  }
+
+  return (
+    <div className="card mb-6 p-4">
+      {/* Saved templates — one press re-opens this report with fresh numbers. */}
+      <div className="mb-4 border-b border-[var(--border)] pb-3">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Saved templates</div>
+        <div className="flex flex-wrap items-center gap-2">
+          {templates.length === 0 && <span className="text-sm text-[var(--muted)]">None yet — set up a report below, then save it to reuse in one click.</span>}
+          {templates.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card-2)] pl-3 text-sm">
+              <button type="button" onClick={() => router.push(`${pathname}?${t.query}`)} disabled={pending} className="py-1 font-semibold hover:text-brand-600" title="Load this report with current numbers">{t.name}</button>
+              <button type="button" onClick={() => removeTemplate(t.id)} disabled={pending} aria-label={`Delete ${t.name}`} className="px-2 py-1 text-[var(--muted)] hover:text-red-600">×</button>
+            </span>
+          ))}
+          {saving ? (
+            <span className="inline-flex items-center gap-1">
+              <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveTemplate(); if (e.key === 'Escape') { setSaving(false); setName(''); } }} maxLength={80} placeholder="Template name…" className="input h-8 w-44 py-0.5 text-sm" />
+              <button type="button" onClick={saveTemplate} disabled={pending || !name.trim()} className="btn-primary btn-sm">Save</button>
+              <button type="button" onClick={() => { setSaving(false); setName(''); }} className="btn-ghost btn-sm">Cancel</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setSaving(true)} className="btn-outline btn-sm">+ Save this as a template</button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block">
+          <span className="label !mb-1 text-xs">Report</span>
+          <select value={scope} onChange={(e) => go({ scope: e.target.value, hide: new Set(), viz: {} })} className="input h-9 w-auto py-1 text-sm">
+            <option value="site">Whole site</option>
+            <option value="advertiser">One advertiser</option>
+          </select>
+        </label>
+        {scope === 'advertiser' && (
+          <label className="block">
+            <span className="label !mb-1 text-xs">Advertiser</span>
+            <select value={brand} onChange={(e) => go({ brand: e.target.value })} className="input h-9 w-auto py-1 text-sm">
+              <option value="" disabled>Choose…</option>
+              {advertisers.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="block">
+          <span className="label !mb-1 text-xs">Range</span>
+          <select value={days} onChange={(e) => go({ days: Number(e.target.value) })} className="input h-9 w-auto py-1 text-sm">
+            {RANGES.map((d) => <option key={d} value={d}>{rangeLabel(d)}</option>)}
+          </select>
+        </label>
+        <a href={exportHref} target="_blank" rel="noopener noreferrer" className="btn-primary btn-sm ml-auto">Open printable report <ExternalLink width={13} height={13} /></a>
+      </div>
+
+      {sections.length > 0 && (
+        <div className="mt-4 border-t border-[var(--border)] pt-3">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-[var(--muted)]">Include &amp; show as</div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {sections.map((s) => {
+              const on = !hidden.has(s.id);
+              const cur = vizMap[s.id] ?? '';
+              return (
+                <div key={s.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2">
+                  <label className="flex flex-1 items-center gap-2 text-sm font-medium">
+                    <input type="checkbox" checked={on} onChange={() => { const h = new Set(hidden); if (on) h.add(s.id); else h.delete(s.id); go({ hide: h }); }} className="h-4 w-4" />
+                    {s.title}
+                  </label>
+                  {s.allowed.length > 1 && (
+                    <select value={cur || s.allowed[0]} disabled={!on}
+                      onChange={(e) => go({ viz: { ...vizMap, [s.id]: e.target.value } })}
+                      className="input h-8 w-auto py-0.5 text-xs disabled:opacity-40">
+                      {s.allowed.map((v) => <option key={v} value={v}>{VIZ_LABEL[v]}</option>)}
+                    </select>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

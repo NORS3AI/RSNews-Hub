@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { bylineRefSelect } from '@/lib/byline';
+import { resolveContentBylines } from '@/lib/bylineServer';
 import { getCurrentUser } from '@/lib/auth';
 import { canViewContent } from '@/lib/entitlements';
+import { getRecommendState } from '@/lib/articleRecommend';
+import { activeViewAs } from '@/lib/viewAsServer';
+import { applyViewAs } from '@/lib/viewAs';
 import { getRelatedArticles } from '@/lib/recommend';
-import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
+import { pickArticleAds, loadBrandArticleAds, resolveReservedArticleAds, resolveArticleLockBrand } from '@/lib/adsServer';
 import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +20,9 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
     where: { slug: params.slug },
     include: {
       category: { select: { name: true, slug: true, color: true } },
+      extraCategories: { select: { name: true, slug: true, color: true } },
       author: { select: { name: true } },
+      bylineRef: { select: bylineRefSelect },
       tags: { select: { tag: { select: { name: true, slug: true } } } },
     },
   });
@@ -31,7 +38,10 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // Access gate — same rule as the page. Never return a gated body here; the
   // modal falls back to the full page (which renders the locked teaser) on 403.
   const user = await getCurrentUser();
-  if (!canViewContent(user, article.requirement)) {
+  // Honor admin "View as" so the modal locks/unlocks the same way the page does.
+  const viewingAs = await activeViewAs(user);
+  const gateAccount = viewingAs ? applyViewAs(user, viewingAs) : user;
+  if (!canViewContent(gateAccount, article.requirement)) {
     return NextResponse.json({ error: 'Locked', requirement: article.requirement }, { status: 403 });
   }
 
@@ -40,17 +50,26 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
   // Competitor suppression keys off the article's tags (+ title) — curated
   // business names — not the whole body (avoids stray-word false positives).
   const adSafeContext = `${article.title} ${adTagText}`;
-  const [related, next, ads, embeds, slotAds] = await Promise.all([
+  // If this article is CONNECTED to a vendor, hard-lock every in-article ad to
+  // that vendor — MUST mirror the full page, or the modal (the primary reading
+  // surface for logged-in readers) leaks a competitor's ad into their piece.
+  const lockBrand = await resolveArticleLockBrand(article.sponsorVendorId);
+  const [related, next, ads, embeds, slotAds, reservedAdMap] = await Promise.all([
     getRelatedArticles(article.id, 3),
     prisma.article.findFirst({
       where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
       orderBy: { publishedAt: 'desc' },
       select: { title: true, slug: true },
     }),
-    pickArticleAds(adContext, 'modal', '', adSafeContext),
+    pickArticleAds(adContext, 'modal', '', adSafeContext, lockBrand),
     resolveArticleEmbeds(article.content, user?.id),
-    loadBrandArticleAds(article.content),
+    loadBrandArticleAds(article.content, lockBrand),
+    resolveReservedArticleAds(article.content, lockBrand),
   ]);
+
+  // The reader's recommend state (count + whether this account has recommended).
+  // Recommending is account-only, so an anonymous reader is simply "not recommended".
+  const recommend = await getRecommendState(article.id, user ? { userId: user.id } : null, article.recommends);
 
   return NextResponse.json({
     article: {
@@ -59,19 +78,34 @@ export async function GET(_req: Request, props: { params: Promise<{ slug: string
       slug: article.slug,
       content: article.content,
       coverImage: article.coverImage,
+      coverVideo: article.coverVideo,
       status: article.status,
       readMinutes: article.readMinutes,
       views: article.views,
+      recommends: recommend.recommends,
       publishedAt: article.publishedAt,
+      byline: article.byline,
+      bylineRef: article.bylineRef,
       author: article.author,
       category: article.category,
+      extraCategories: article.extraCategories,
+      breakingUntil: article.breakingUntil,
+      genre: article.genre,
       tags: article.tags.map((t) => t.tag),
+      audioUrl: article.audioStatus === 'READY' ? article.audioUrl : null,
     },
     related: related.map((r) => ({ id: r.id, title: r.title, slug: r.slug, category: r.category })),
     next,
     ads,
     embeds,
     slotAds,
+    reservedAds: reservedAdMap,
+    // Live values for in-article Author cards linked to a library byline.
+    bylines: await resolveContentBylines(article.content),
+    // Vendor-connected sponsored piece? Drives per-sponsored-article ad attribution
+    // in the reader modal (mirrors the full page). See ArticleModalProvider.
+    sponsored: !!article.sponsorVendorId,
     loggedIn: !!user,
+    recommended: recommend.recommended,
   });
 }

@@ -31,7 +31,7 @@ export default async function AdminPages() {
                 p.status === 'PUBLISHED'
                   ? { label: 'Unpublish', run: setPageStatus.bind(null, p.id, 'DRAFT') }
                   : { label: 'Publish', run: setPageStatus.bind(null, p.id, 'PUBLISHED') },
-                { label: 'Delete', run: deletePage.bind(null, p.id), danger: true, confirm: `Delete page "${p.title}"?` },
+                { label: 'Delete', run: deletePage.bind(null, p.id), danger: true, confirm: `Delete page "${p.title}" permanently? This can't be undone.` },
               ]} />
             </div>
           </div>

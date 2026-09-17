@@ -47,6 +47,12 @@ export async function totalEventCount(): Promise<number> {
   return prisma.analyticsEvent.count();
 }
 
+// The member roster (id + first-seen date) for activation/retention. `createdAt`
+// is the member's first provisioned visit. Members only — staff/vendor excluded.
+export async function loadMembers(): Promise<{ id: string; createdAt: Date }[]> {
+  return prisma.user.findMany({ where: { accountType: 'MEMBER' }, select: { id: true, createdAt: true } });
+}
+
 // Resolve audience attributes for the userIds present in a set of events, with
 // tenure pre-bucketed against `now`, so the pure segmentation engine stays DB-free.
 export async function loadUserInfo(events: Ev[], now: Date): Promise<UserInfoMap> {

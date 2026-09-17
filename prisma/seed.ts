@@ -12,7 +12,7 @@ function readMinutes(c: string) {
 }
 
 async function main() {
-  console.log('Seeding RSNews Hub…');
+  console.log('Seeding RS News Hub…');
 
   // Admin credentials come from the environment. Demo defaults are used only
   // outside production; in production they are REQUIRED so no site ever ships
@@ -35,7 +35,7 @@ async function main() {
       passwordHash: adminPass,
       role: 'ADMIN',
       status: 'ACTIVE',
-      bio: 'The RSNews Hub administrator.',
+      bio: 'The RS News Hub administrator.',
     },
   });
 
@@ -63,7 +63,7 @@ async function main() {
     { name: 'Blog', color: '#3f6fb0', description: 'Regular blog posts.' },
     { name: 'Education', color: '#5a53a8', description: 'Learning resources and how-tos.' },
     { name: 'Feature Article', color: '#8a4f97', description: 'In-depth featured stories.' },
-    { name: 'RS Council Column', color: '#9b2d3a', description: 'Columns from the RS Council.' },
+    { name: 'RS Council Column', color: '#c2622e', description: 'Columns from the RS Council.' },
     { name: 'Bulletin', color: '#5b6675', description: 'Short official notices.' },
   ];
   const categories: Record<string, string> = {};
@@ -84,8 +84,8 @@ async function main() {
   }
 
   const articles = [
-    { title: 'Introducing RSNews Hub', category: 'Feature Article', tags: ['announcement', 'release'], featured: true, coverImage: '/covers/cover-intro.jpg',
-      content: `<p>Today we are thrilled to launch <strong>RSNews Hub</strong>, a modern home for our articles, guides and announcements.</p><p>The Hub brings together everything in one searchable, mobile-friendly place. You can browse by category, follow tags, subscribe to topics you care about, and get personalized recommendations based on what you read.</p><h2>What you can do</h2><ul><li>Read articles with a clean, distraction-free reader.</li><li>Discover related content automatically.</li><li>Subscribe to categories and never miss an update.</li></ul><p>We're just getting started. Welcome aboard.</p>` },
+    { title: 'Introducing RS News Hub', category: 'Feature Article', tags: ['announcement', 'release'], featured: true, coverImage: '/covers/cover-intro.jpg',
+      content: `<p>Today we are thrilled to launch <strong>RS News Hub</strong>, a modern home for our articles, guides and announcements.</p><p>The Hub brings together everything in one searchable, mobile-friendly place. You can browse by category, follow tags, subscribe to topics you care about, and get personalized recommendations based on what you read.</p><h2>What you can do</h2><ul><li>Read articles with a clean, distraction-free reader.</li><li>Discover related content automatically.</li><li>Subscribe to categories and never miss an update.</li></ul><p>We're just getting started. Welcome aboard.</p>` },
     { title: 'How Our Recommendation Engine Works', category: 'Blog', tags: ['ai', 'performance', 'best-practices'],
       content: `<p>Great content is only useful if people can find it. Our recommendation engine scores every article against what you're reading using a blend of shared tags and category affinity.</p><h2>Content-based scoring</h2><p>When you finish an article, we look at its tags and category, then rank other published pieces by overlap. Shared tags are weighted heavily, with a bonus for same-category matches.</p><h2>Personalization</h2><p>Over time, your reading history builds an interest profile that powers your personalized feed on the home page.</p>` },
     { title: 'A Practical Guide to Writing Great Articles', category: 'Education', tags: ['tutorial', 'best-practices', 'design'],
@@ -161,8 +161,99 @@ async function main() {
     where: { slug: 'about' },
     update: {},
     create: {
-      title: 'About RSNews Hub', slug: 'about', status: 'PUBLISHED',
-      content: `<p>RSNews Hub is our central place for news, articles and documentation. It's built to be fast, accessible and easy to search.</p><p>Have feedback? We'd love to hear it.</p>`,
+      title: 'About RS News Hub', slug: 'about', status: 'PUBLISHED',
+      content: `<p>RS News Hub is our central place for news, articles and documentation. It's built to be fast, accessible and easy to search.</p><p>Have feedback? We'd love to hear it.</p>`,
+    },
+  });
+
+  // Legal pages — starting TEMPLATES. Edit them in Admin → Pages and have them
+  // reviewed by counsel before public launch; fill the [bracketed] blanks with
+  // your real business name, address, jurisdiction and contact addresses.
+  // `update: {}` keeps any admin edits on re-seed.
+  await prisma.page.upsert({
+    where: { slug: 'privacy' },
+    update: {},
+    create: {
+      title: 'Privacy Policy', slug: 'privacy', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<p>This Privacy Policy explains how RS News Hub ("we", "us") collects, uses and protects information when you use this site.</p>
+<h2>Information we collect</h2>
+<ul><li><strong>Account information</strong> — if you sign in as a member, we keep your name, email and account preferences.</li><li><strong>Content you submit</strong> — newsletter sign-ups, poll and quiz responses, saved articles and clippings.</li><li><strong>Usage information</strong> — pages viewed, articles read and general device/browser details, collected with first-party analytics to understand what readers find useful.</li><li><strong>Cookies</strong> — small files used to keep you signed in, remember your preferences (like theme) and measure readership.</li></ul>
+<h2>How we use information</h2>
+<p>To operate the site, keep you signed in, remember your preferences, send the newsletter you asked for, understand what content is valuable, and keep the service secure.</p>
+<h2>Cookies &amp; analytics</h2>
+<p>We use first-party analytics only. You can decline analytics cookies from the notice shown on your first visit; declining does not affect signing in or your saved preferences.</p>
+<h2>How information is shared</h2>
+<p>We do not sell your personal information. We share it only with service providers who help us run the site (for example hosting and email delivery), and where required by law.</p>
+<h2>Your choices</h2>
+<p>You can unsubscribe from the newsletter at any time using the link in each email, update or delete your account, and request a copy of your data by contacting us. To exercise these rights, email <a href="mailto:[privacy@yourdomain.com]">[privacy@yourdomain.com]</a>.</p>
+<h2>Data retention</h2>
+<p>We keep information for as long as your account is active or as needed to provide the service, then delete or anonymize it.</p>
+<h2>Where we operate — U.S. audience</h2>
+<p>RS News Hub is operated in the United States and is intended for readers and businesses located in the United States. We do not target or direct our services to individuals in the European Union, the United Kingdom, or other regions. If you access the site from outside the United States, you do so on your own initiative and are responsible for compliance with your local laws.</p>
+<h2>Children</h2>
+<p>This site is not directed to children under [13/16], and we do not knowingly collect their information.</p>
+<h2>Changes</h2>
+<p>We may update this policy; material changes will be posted here with a new "last updated" date.</p>
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:[privacy@yourdomain.com]">[privacy@yourdomain.com]</a> or write to [Your business name and address].</p>`,
+    },
+  });
+  await prisma.page.upsert({
+    where: { slug: 'terms' },
+    update: {},
+    create: {
+      title: 'Terms of Service', slug: 'terms', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<p>These Terms of Service ("Terms") govern your use of RS News Hub. By using the site, you agree to these Terms.</p>
+<h2>The service</h2>
+<p>RS News Hub provides news, articles and related content. We may add, change or remove features at any time.</p>
+<h2>Accounts</h2>
+<p>If you create or sign in to an account, you are responsible for keeping your credentials secure and for activity under your account. You must provide accurate information and be old enough to form a binding contract.</p>
+<h2>Acceptable use</h2>
+<p>Don't misuse the service: no unlawful activity, no attempts to breach security, no scraping or overloading the site, and no infringing or harmful content in anything you submit.</p>
+<h2>Content &amp; intellectual property</h2>
+<p>Articles, branding and site content are owned by us or our licensors and may not be copied or redistributed without permission, except as the site's sharing features allow. Anything you submit, you grant us permission to display in connection with the service.</p>
+<h2>Advertising &amp; third-party links</h2>
+<p>The site may show advertising and link to third-party sites. We are not responsible for third-party content or practices.</p>
+<h2>Disclaimers</h2>
+<p>The service is provided "as is" without warranties of any kind. We do not guarantee the site will be uninterrupted, error-free or that content is complete or accurate.</p>
+<h2>Limitation of liability</h2>
+<p>To the fullest extent permitted by law, we are not liable for indirect, incidental or consequential damages arising from your use of the service.</p>
+<h2>Changes to these Terms</h2>
+<p>We may update these Terms; continued use after changes means you accept them.</p>
+<h2>Governing law</h2>
+<p>These Terms are governed by the laws of [State/Country], without regard to conflict-of-laws rules.</p>
+<h2>Contact</h2>
+<p>Questions? Email <a href="mailto:[legal@yourdomain.com]">[legal@yourdomain.com]</a>.</p>`,
+    },
+  });
+  await prisma.page.upsert({
+    where: { slug: 'copyright' },
+    update: {},
+    create: {
+      title: 'Copyright & DMCA', slug: 'copyright', status: 'PUBLISHED',
+      content: `<p><em>Last updated: [DATE]. This is a starting template — please have it reviewed by legal counsel and replace the [bracketed] details before relying on it.</em></p>
+<h2>Copyright</h2>
+<p>© ${new Date().getFullYear()} [Your business name]. All articles, images, branding and other content on RS News Hub are protected by copyright and owned by us or our licensors, except for third-party material (such as advertisements or linked industry news) which remains the property of its respective owners. You may not copy, reproduce, republish or redistribute our content without written permission, except as the site's built-in sharing and clipping features expressly allow.</p>
+<h2>Using our content</h2>
+<p>Short quotations with attribution and a link back are generally welcome. For anything more — reprints, syndication, commercial use — contact <a href="mailto:[legal@yourdomain.com]">[legal@yourdomain.com]</a>.</p>
+<h2>Copyright complaints (DMCA)</h2>
+<p>We respect the intellectual-property rights of others and respond to notices of alleged infringement that comply with the U.S. Digital Millennium Copyright Act (DMCA) and comparable laws. If you believe content on this site infringes your copyright, send a written notice to our designated agent that includes all of the following:</p>
+<ul>
+<li>Your physical or electronic signature.</li>
+<li>Identification of the copyrighted work you claim has been infringed.</li>
+<li>Identification of the material you claim is infringing, with enough detail (such as a URL) for us to locate it.</li>
+<li>Your name, mailing address, telephone number and email address.</li>
+<li>A statement that you have a good-faith belief the use is not authorized by the copyright owner, its agent or the law.</li>
+<li>A statement, under penalty of perjury, that the information in your notice is accurate and that you are the copyright owner or authorized to act on the owner's behalf.</li>
+</ul>
+<h2>Designated agent</h2>
+<p>Send DMCA notices to our copyright agent:<br>[Agent name]<br>[Your business name]<br>[Mailing address]<br>Email: <a href="mailto:[dmca@yourdomain.com]">[dmca@yourdomain.com]</a></p>
+<h2>Counter-notice</h2>
+<p>If you believe material you posted was removed in error, you may send a counter-notice to the same agent with the information required by the DMCA. We may restore the material unless the original complainant files a court action.</p>
+<h2>Repeat infringers</h2>
+<p>We may, in appropriate circumstances, disable or terminate accounts of users who are repeat infringers.</p>`,
     },
   });
 
@@ -272,17 +363,22 @@ async function main() {
     });
   }
 
-  // Backroom Humor comics: one active (homepage) + two archived.
+  // Two comic strips share the homepage slot: Backroom Humor (single-panel gags)
+  // and Counter Productive (multi-panel counter mishaps). All active by default
+  // so the homepage module cycles the most-recent from either series; the slot
+  // labels itself with that comic's series. Archive individual comics from the
+  // admin to drop them out of the rotation.
   if ((await prisma.comic.count()) === 0) {
-    // All active by default so the homepage module cycles through them; archive
-    // individual comics from the admin to drop them out of the rotation.
     const comics = [
-      { title: 'Stamps then vs now', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: true, days: 40 },
-      { title: 'Keeping the lobby clean', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: true, days: 20 },
-      { title: 'Meanwhile, in Texas', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 2 },
+      { title: 'Stamps then vs now', series: 'Backroom Humor', image: '/comics/comic-stamps.jpg', caption: 'Back in 1987, licking a few stamps a day was considered part of a balanced diet.', active: true, days: 40 },
+      { title: 'Keeping the lobby clean', series: 'Backroom Humor', image: '/comics/comic-lobby.jpg', caption: 'Some mailbox holders collect their mail. Others simply relocate it six feet to the left.', active: true, days: 20 },
+      { title: 'Meanwhile, in Texas', series: 'Backroom Humor', image: '/comics/comic-texas.jpg', caption: 'Packing 101 teaches the basics. Packing 102 covers Texas.', active: true, days: 12 },
+      { title: 'He meant $10.14', series: 'Counter Productive', image: '/comics/cp-counter-math.png', caption: 'The new guy reads the total a little too literally.', active: true, days: 5 },
+      { title: 'Signature required', series: 'Counter Productive', image: '/comics/cp-signature.png', caption: '“Signature required.” Want to sign it!?', active: true, days: 3 },
+      { title: 'Extra secure', series: 'Counter Productive', image: '/comics/cp-tape.png', caption: 'A 6x6 box, now a 24x24 — the customer wanted it extra secure.', active: true, days: 1 },
     ];
     for (const c of comics) {
-      await prisma.comic.create({ data: { title: c.title, image: c.image, caption: c.caption, active: c.active, postedAt: new Date(Date.now() - c.days * 864e5) } });
+      await prisma.comic.create({ data: { title: c.title, series: c.series, image: c.image, caption: c.caption, active: c.active, postedAt: new Date(Date.now() - c.days * 864e5) } });
     }
   }
 

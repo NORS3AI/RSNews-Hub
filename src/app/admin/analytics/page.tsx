@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { loadEvents, totalEventCount, loadUserInfo } from '@/lib/analytics/query';
+import { loadEvents, totalEventCount, loadUserInfo, loadMembers, rangeDays } from '@/lib/analytics/query';
+import { aggregateActivation, aggregateNewVsReturning, aggregateCohortReturn } from '@/lib/analytics/retention';
+import Tile from '@/components/admin/StatTile';
 import { aggregateAds, aggregateEngagement, aggregateReading, aggregateClips, aggregateOverview, aggregateVideo, aggregateThemes, ctr } from '@/lib/analytics/metrics';
 import { aggregateAudience, AUDIENCE_DIMS, type AudienceDim } from '@/lib/analytics/audience';
 import { loadDailySeries, retentionDays } from '@/lib/analytics/rollup';
@@ -21,6 +23,7 @@ function fmtMs(ms: number) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 const pctStr = (n: number) => `${Math.round(n * 100)}%`;
+const pctOf = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '—');
 const nf = (n: number) => n.toLocaleString();
 
 export default async function AnalyticsPage(props: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -36,8 +39,13 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
   const adLabel = (AD_SPLITS.find((s) => s[0] === adSplit) ?? (['', 'Placement'] as const))[1];
   const artLabel = (ART_SPLITS.find((s) => s[0] === artSplit) ?? (['', 'Module'] as const))[1];
 
-  const [{ events, capped }, total, series] = await Promise.all([loadEvents(days), totalEventCount(), loadDailySeries(new Date(), days)]);
+  const [{ events, capped }, total, series, members] = await Promise.all([loadEvents(days), totalEventCount(), loadDailySeries(new Date(), days), loadMembers()]);
   const ov = aggregateOverview(events);
+  // Member activation + retention — are invited members showing up, doing
+  // something, and coming back? (signed-in accounts only)
+  const act = aggregateActivation(members, events);
+  const cohort = aggregateCohortReturn(members, events, rangeDays(days).since);
+  const activePerDay = aggregateNewVsReturning(members, events).map((d) => ({ key: d.day, count: d.newMembers + d.returningMembers }));
 
   // Trend series from the daily rollups (survives raw-event pruning).
   const sum = (pick: (d: (typeof series)[number]) => number) => series.reduce((a, d) => a + pick(d), 0);
@@ -92,10 +100,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
         </div>
         {hasTrend ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Sparkline label="Pageviews" value={nf(totals.pageviews)} points={trend.pageviews} sub={`${nf(totals.pageviews)} in ${days}d`} />
-            <Sparkline label="Visitors / day" value={nf(avgVisitors)} points={trend.visitors} sub="avg per day" />
-            <Sparkline label="Article opens" value={nf(totals.opens)} points={trend.opens} sub={`${nf(totals.opens)} in ${days}d`} />
-            <Sparkline label="Ad CTR" value={pctStr(ctr(totals.clk, totals.view || totals.imp))} points={trend.ctr} sub="clicks ÷ viewable" />
+            <Sparkline label="Pageviews" value={nf(totals.pageviews)} points={trend.pageviews} sub={`${nf(totals.pageviews)} in ${days}d`} tip="Total pages loaded per day over the window, from the daily rollups. The line shows the day-by-day trend; the number is the window total." />
+            <Sparkline label="Visitors / day" value={nf(avgVisitors)} points={trend.visitors} sub="avg per day" tip="Average distinct visitors per day across the window. The line is each day's visitor count." />
+            <Sparkline label="Article opens" value={nf(totals.opens)} points={trend.opens} sub={`${nf(totals.opens)} in ${days}d`} tip="Times an article was opened to read, per day. The number is the window total." />
+            <Sparkline label="Ad CTR" value={pctStr(ctr(totals.clk, totals.view || totals.imp))} points={trend.ctr} sub="clicks ÷ viewable" tip="Ad click-through rate = clicks ÷ viewable impressions. Using viewable (not all) impressions means a low-placed ad isn't unfairly compared with a top one." />
           </div>
         ) : (
           <div className="card p-5 text-sm text-[var(--muted)]">
@@ -120,12 +128,12 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Hub overview</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Visitors" value={nf(ov.visitors)} />
-              <Tile label="Sessions" value={nf(ov.sessions)} />
-              <Tile label="Pageviews" value={nf(ov.pageviews)} />
-              <Tile label="Article opens" value={nf(ov.articleOpens)} />
-              <Tile label="Opens / session" value={String(ov.opensPerSession)} />
-              <Tile label="Signed-in" value={nf(ov.loggedInVisitors)} />
+              <Tile label="Visitors" value={nf(ov.visitors)} tip="Distinct people who loaded any hub page in this window — counted by browser for guests, by account for signed-in members." />
+              <Tile label="Sessions" value={nf(ov.sessions)} tip="Browsing sessions. A session ends after about 30 minutes of inactivity, so one person can have several over the window." />
+              <Tile label="Pageviews" value={nf(ov.pageviews)} tip="Total pages loaded, including repeat views of the same page. Always higher than Visitors." />
+              <Tile label="Article opens" value={nf(ov.articleOpens)} tip="Times an article was opened to read (reader view or modal), across everyone." />
+              <Tile label="Opens / session" value={String(ov.opensPerSession)} tip="Average articles opened per session — a quick gauge of how deep a typical visit goes." />
+              <Tile label="Signed-in" value={nf(ov.loggedInVisitors)} tip="Of the visitors, how many were logged-in members. The rest browsed anonymously." />
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <BarList title="By device" rows={ov.byDevice} />
@@ -133,16 +141,36 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             </div>
           </section>
 
+          {/* ---------- Members: activation & retention ---------- */}
+          <section>
+            <SectionTitle>Members — activation &amp; retention</SectionTitle>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile label="Members" value={nf(act.members)} hint="have opened the hub" tip="Members who've opened the hub at least once. An account is created on a member's first visit, so this is 'members reached' — not your full RS News roster, which lives on the parent site until people show up." />
+              <Tile label={`Active · ${days}d`} value={nf(act.active)} hint={`${pctOf(act.active, act.members)} of members`} tip="Members who did anything at all in the hub during this window." />
+              <Tile label={`Engaged · ${days}d`} value={nf(act.engaged)} hint={`${pctOf(act.engaged, act.active)} of active`} tip="Members who took a real action — opened or read an article, saved, recommended, clipped, or searched — not just landed on a page." />
+              <Tile label="Came back" value={nf(act.returned)} hint={`${pctOf(act.returned, act.active)} of active`} tip="Members active on 2 or more different days in this window. The core 'is it sticky?' signal." />
+              <Tile label={`New · ${days}d`} value={nf(cohort.cohortSize)} hint="joined this window" tip="Members who opened the hub for the very first time during this window." />
+              <Tile label="New-member return" value={pctOf(cohort.returned, cohort.cohortSize)} hint={`${nf(cohort.returned)} came back`} tip="Of those brand-new members, the share who came back on a later day. The single clearest 'worth returning to' number." />
+            </div>
+            <div className="mt-3">
+              <BarList title="Active members / day (new + returning)" rows={activePerDay} />
+            </div>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">
+              <strong>Engaged</strong> = took a real action (opened/read an article, saved, recommended, clipped, searched) — not just landed.
+              <strong> Came back</strong> = active on 2+ different days. <strong>New-member return</strong> = of members who first appeared in this window, the share who returned on a later day — the clearest signal the hub is worth coming back to. These count signed-in accounts only; anonymous traffic is in Hub overview above.
+            </p>
+          </section>
+
           {/* ---------- Audience segmentation ---------- */}
           <section>
             <SectionTitle>Audience — who is engaging</SectionTitle>
             <Compare current={audSplit} options={AUDIENCE_DIMS as unknown as [string, string][]} makeHref={(v) => url({ audSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: audLabel }, { key: 'visitors', label: 'Visitors', type: 'int' }, { key: 'sessions', label: 'Sessions', type: 'int' }, { key: 'pageviews', label: 'Pageviews', type: 'int' }, { key: 'articleOpens', label: 'Opens', type: 'int' }, { key: 'opensPerSession', label: 'Opens/session', type: 'num' }]}
+              columns={[{ key: 'key', label: audLabel }, { key: 'visitors', label: 'Visitors', type: 'int', tip: 'Distinct people in this segment.' }, { key: 'sessions', label: 'Sessions', type: 'int', tip: 'Browsing sessions (a visit ends after ~30 min idle).' }, { key: 'pageviews', label: 'Pageviews', type: 'int', tip: 'Total pages loaded by this segment.' }, { key: 'articleOpens', label: 'Opens', type: 'int', tip: 'Articles opened to read by this segment.' }, { key: 'opensPerSession', label: 'Opens/session', type: 'num', tip: 'Average articles opened per session — depth of visit.' }]}
               rows={audience.slice(0, 50)}
               filename={`audience-by-${audSplit}-${days}d`}
             />
-            <p className="mt-1.5 text-xs text-[var(--muted)]">Anonymous visitors show as <strong>Guest</strong>. <strong>Account type</strong> (member/vendor/staff), <strong>region</strong> and <strong>store type</strong> come from each account; set them on <Link href="/admin/users" className="text-brand-600 hover:underline">Users</Link>. <strong>Tenure</strong> is measured from signup.</p>
+            <p className="mt-1.5 text-xs text-[var(--muted)]">Anonymous visitors show as <strong>Guest</strong>. <strong>Account type</strong> (member/vendor/staff), <strong>region</strong> and <strong>store type</strong> come from each account; set them on <Link href="/admin/users" className="text-brand-600 underline">Users</Link>. <strong>Tenure</strong> is measured from signup.</p>
           </section>
 
           {/* ---------- Ads ---------- */}
@@ -153,7 +181,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             </div>
             <Compare current={adSplit} options={AD_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ adSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: adLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'viewable', label: 'Viewable', type: 'int' }, { key: 'aboveFoldPct', label: 'Above fold', type: 'pct01' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              columns={[{ key: 'key', label: adLabel }, { key: 'impressions', label: 'Impr.', type: 'int', tip: 'Impressions — times the ad was rendered on a page.' }, { key: 'viewable', label: 'Viewable', type: 'int', tip: 'Impressions that actually scrolled into the reader’s view.' }, { key: 'aboveFoldPct', label: 'Above fold', type: 'pct01', tip: 'Share of impressions shown at the top of the page, visible without scrolling.' }, { key: 'avgDwellMs', label: 'Avg dwell', type: 'ms', tip: 'Average time the ad spent in view — a proxy for attention.' }, { key: 'clicks', label: 'Clicks', type: 'int', tip: 'Times readers clicked the ad.' }, { key: 'ctr', label: 'CTR', type: 'pct01', tip: 'Click-through rate = clicks ÷ viewable impressions.' }]}
               rows={ads.slice(0, 50)}
               filename={`ads-by-${adSplit}-${days}d`}
             />
@@ -179,7 +207,7 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             <SectionTitle>Articles &amp; modules — what presentation wins</SectionTitle>
             <Compare current={artSplit} options={ART_SPLITS as unknown as [string, string][]} makeHref={(v) => url({ artSplit: v })} />
             <ReportTable
-              columns={[{ key: 'key', label: artLabel }, { key: 'impressions', label: 'Impr.', type: 'int' }, { key: 'clicks', label: 'Clicks', type: 'int' }, { key: 'ctr', label: 'CTR', type: 'pct01' }]}
+              columns={[{ key: 'key', label: artLabel }, { key: 'impressions', label: 'Impr.', type: 'int', tip: 'Impressions — times this article card/module was shown to a reader.' }, { key: 'clicks', label: 'Clicks', type: 'int', tip: 'Times readers clicked through to the article.' }, { key: 'ctr', label: 'CTR', type: 'pct01', tip: 'Click-through rate = clicks ÷ impressions.' }]}
               rows={eng.slice(0, 50)}
               filename={`articles-by-${artSplit}-${days}d`}
             />
@@ -189,11 +217,13 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           {/* ---------- Reading outcomes ---------- */}
           <section>
             <SectionTitle>Reading — outcome</SectionTitle>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Tile label="Avg active read" value={fmtMs(reading.avgActiveMs)} />
-              <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} />
-              <Tile label="Unique readers" value={nf(reading.uniqueReaders)} />
-              <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile label="Avg active read" value={fmtMs(reading.avgActiveMs)} tip="Average time readers were actively engaged with an article — idle time is excluded, so this is real attention, not just how long the tab was open." />
+              <Tile label="Avg scroll depth" value={pctStr(reading.avgScrollPct / 100)} tip="On average, how far down the article readers scrolled before leaving." />
+              <Tile label="Unique readers" value={nf(reading.uniqueReaders)} tip="Distinct people who opened at least one article in this window." />
+              <Tile label="Quick bounces" value={nf(reading.bounces)} hint="opened <5s" tip="Article opens abandoned in under 5 seconds — a sign the piece didn't hook them (or was opened by mistake)." />
+              <Tile label="Recommends" value={nf(reading.recommends)} hint="cast in range" tip="Times readers hit 'Recommend' on an article during this window (each press counts)." />
+              <Tile label="Recommenders" value={nf(reading.recommenders)} hint="unique readers" tip="Distinct people who recommended at least one article — the headcount behind the recommends." />
             </div>
             <div className="mt-3">
               <BarList title="Scroll reach" rows={[
@@ -209,13 +239,13 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
           <section>
             <SectionTitle>Clippings</SectionTitle>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
-              <Tile label="Saves" value={nf(clips.saves)} />
-              <Tile label="Savers" value={nf(clips.savers)} />
-              <Tile label="Comics" value={nf(clips.byKind.comic)} />
-              <Tile label="Quotes" value={nf(clips.byKind.quote)} />
-              <Tile label="Downloads" value={nf(clips.downloads)} />
-              <Tile label="Expands" value={nf(clips.expands)} />
-              <Tile label="Deletes" value={nf(clips.deletes)} />
+              <Tile label="Saves" value={nf(clips.saves)} tip="Clippings saved — a quote image or comic a reader kept to their collection." />
+              <Tile label="Savers" value={nf(clips.savers)} tip="Distinct people who saved at least one clipping." />
+              <Tile label="Comics" value={nf(clips.byKind.comic)} tip="Saved clippings that are comics." />
+              <Tile label="Quotes" value={nf(clips.byKind.quote)} tip="Saved clippings that are quote images (a highlighted passage turned into a shareable graphic)." />
+              <Tile label="Downloads" value={nf(clips.downloads)} tip="Times a saved clipping was downloaded as an image file." />
+              <Tile label="Expands" value={nf(clips.expands)} tip="Times a clipping was opened to full size." />
+              <Tile label="Deletes" value={nf(clips.deletes)} tip="Saved clippings a reader later removed from their collection." />
             </div>
           </section>
 
@@ -225,10 +255,10 @@ export default async function AnalyticsPage(props: { searchParams: Promise<Recor
             {themes.totalUsers > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Tile label="Light" value={`${nf(themes.rows[0].users)}`} hint={pctStr(themes.rows[0].pct)} />
-                  <Tile label="Dark" value={`${nf(themes.rows[1].users)}`} hint={pctStr(themes.rows[1].pct)} />
-                  <Tile label="RS Mode" value={`${nf(themes.rows[2].users)}`} hint={pctStr(themes.rows[2].pct)} />
-                  <Tile label="Theme switches" value={nf(themes.switches)} hint="deliberate toggles" />
+                  <Tile label="Light" value={`${nf(themes.rows[0].users)}`} hint={pctStr(themes.rows[0].pct)} tip="People whose most recent theme this window was Light mode." />
+                  <Tile label="Dark" value={`${nf(themes.rows[1].users)}`} hint={pctStr(themes.rows[1].pct)} tip="People whose most recent theme this window was Dark mode." />
+                  <Tile label="RS Mode" value={`${nf(themes.rows[2].users)}`} hint={pctStr(themes.rows[2].pct)} tip="People whose most recent theme this window was RS Mode (the branded look)." />
+                  <Tile label="Theme switches" value={nf(themes.switches)} hint="deliberate toggles" tip="Times someone actively changed their theme — a signal of how much people fiddle with the appearance." />
                 </div>
                 <div className="mt-3">
                   <BarList title={`Share of ${nf(themes.totalUsers)} visitors`} rows={themes.rows.map((r) => ({ key: r.label, count: Math.round(r.pct * 100) }))} suffix="%" max={100} />
@@ -251,14 +281,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-2.5 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{children}</h2>;
 }
 
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="card p-3.5">
-      <div className="text-2xl font-black leading-none tracking-tight">{value}</div>
-      <div className="mt-1 text-xs font-semibold text-[var(--muted)]">{label}{hint ? <span className="ml-1 font-normal opacity-70">· {hint}</span> : ''}</div>
-    </div>
-  );
-}
+// Tile is the shared admin StatTile (imported at top) — kept as a local alias so
+// this page's many <Tile .../> call sites stay unchanged.
 
 function Compare({ current, options, makeHref }: { current: string; options: [string, string][]; makeHref: (v: string) => string }) {
   return (

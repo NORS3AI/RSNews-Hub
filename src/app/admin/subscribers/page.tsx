@@ -30,8 +30,8 @@ export default async function AdminSubscribers() {
           <div className="card p-5">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold">Daily digest</h2>
-              <span className={`badge ${status.emailReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'}`}>
-                {status.emailReady ? 'SendGrid connected' : 'Email: log-only'}
+              <span className={`badge ${!status.enabled ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : status.emailReady ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'}`}>
+                {!status.enabled ? 'Paused' : status.emailReady ? 'SendGrid connected' : 'Email: log-only'}
               </span>
             </div>
             <dl className="mb-4 grid grid-cols-2 gap-3 text-sm">
@@ -39,7 +39,7 @@ export default async function AdminSubscribers() {
               <div><dt className="text-[var(--muted)]">Pending items</dt><dd className="text-2xl font-bold">{status.pending}</dd></div>
               <div className="col-span-2"><dt className="text-[var(--muted)]">Last sent</dt><dd className="font-semibold">{fmt(status.lastSentAt)}</dd></div>
             </dl>
-            <NewsletterAdmin emailReady={status.emailReady} />
+            <NewsletterAdmin emailReady={status.emailReady} enabled={status.enabled} />
           </div>
         </div>
 

@@ -1,18 +1,21 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
-import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup } from '@/lib/actions';
+import { saveVendorContact, saveCompetitorGroup, deleteCompetitorGroup, setAdUpdateUrl } from '@/lib/actions';
+import { AD_UPDATE_URL_KEY } from '@/lib/vendorReports';
 import { formatDate } from '@/lib/utils';
+import { Mail } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminVendors() {
-  const [vendors, adBrandRows, groups] = await Promise.all([
+  const [vendors, adBrandRows, groups, adUpdateUrlRow] = await Promise.all([
     prisma.vendor.findMany({
       orderBy: { name: 'asc' },
       include: { _count: { select: { campaigns: true, reports: true } } },
     }),
     prisma.ad.findMany({ distinct: ['brand'], orderBy: { brand: 'asc' }, select: { brand: true } }),
     prisma.competitorGroup.findMany({ orderBy: { createdAt: 'asc' } }),
+    prisma.setting.findUnique({ where: { key: AD_UPDATE_URL_KEY } }),
   ]);
   const missingEmail = vendors.filter((v) => !v.contactEmail).length;
   // Every advertiser we can group: distinct ad brands + any vendor names not yet running an ad.
@@ -23,7 +26,7 @@ export default async function AdminVendors() {
     <div className="max-w-4xl">
       <h1 className="mb-1 text-2xl font-bold">Vendors</h1>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        Every advertiser is one vendor record — campaigns and performance reports hang off it. The <strong>contact email</strong> is where flight (&ldquo;fresh ads needed&rdquo;) and renewal reminders are sent. <strong>Each new JotForm order refreshes it</strong> to the email on that order (always the current person); set or fix it here in between orders, or when a submission didn&apos;t include one.
+        Every advertiser is one vendor record — campaigns and performance reports hang off it. The <strong>contact email</strong> here is the vendor&apos;s official on-file address (also shown in the reader phone book). Each order&apos;s own contact (the person who submitted that JotForm) rides on the campaign; &ldquo;fresh ads needed&rdquo; and renewal reminders go to that order&apos;s contact first, falling back to this address. Set or fix this one here.
       </p>
 
       {missingEmail > 0 && (
@@ -32,6 +35,15 @@ export default async function AdminVendors() {
         </div>
       )}
 
+      <form action={setAdUpdateUrl} className="mb-6 flex flex-wrap items-end gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card">
+        <div className="min-w-64 flex-1">
+          <label className="label text-xs">&ldquo;Update your ads&rdquo; link (shown to advertisers on their dashboard)</label>
+          <input name="url" type="url" defaultValue={adUpdateUrlRow?.value ?? ''} placeholder="https://form.jotform.com/… or your VP app URL" className="input h-9" />
+        </div>
+        <button className="btn-outline btn-sm">Save link</button>
+        <span className="w-full text-xs text-[var(--muted)] sm:w-auto sm:flex-1">Where the &ldquo;Update your ads&rdquo; button sends advertisers to submit fresh creatives. Leave blank to hide the button.</span>
+      </form>
+
       {vendors.length === 0 ? (
         <p className="text-[var(--muted)]">No vendors yet. They&apos;re created when a campaign is made or a JotForm submission arrives.</p>
       ) : (
@@ -39,12 +51,12 @@ export default async function AdminVendors() {
           {vendors.map((v) => (
             <div key={v.id} className="card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-bold">{v.name}</div>
+                <Link href={`/admin/vendors/${v.id}`} className="font-bold hover:text-brand-600 hover:underline">{v.name}{v.premium ? <span className="ml-2 badge bg-brand-600/15 align-middle text-[10px] text-brand-600">Premium</span> : null}</Link>
                 <div className="flex flex-wrap items-center gap-1.5 text-xs">
                   <span className="badge bg-[var(--bg-soft)]">{v._count.campaigns} campaign{v._count.campaigns === 1 ? '' : 's'}</span>
                   <span className="badge bg-[var(--bg-soft)]">{v._count.reports} report{v._count.reports === 1 ? '' : 's'}</span>
                   {v.contactEmail
-                    ? <span className="badge bg-green-100 text-green-700">✉ {v.contactEmail}</span>
+                    ? <span className="badge inline-flex items-center gap-1 bg-green-100 text-green-700"><Mail width={11} height={11} />{v.contactEmail}</span>
                     : <span className="badge bg-amber-100 text-amber-800">no email</span>}
                 </div>
               </div>

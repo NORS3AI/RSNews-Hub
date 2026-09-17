@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { savePerformanceReportSummary, publishPerformanceReport, unpublishPerformanceReport } from '@/lib/actions';
 import { parseSnapshot } from '@/lib/reports';
 import ReportView from '@/components/ReportView';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateUTC } from '@/lib/utils';
 import { ArrowLeft } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,8 @@ export default async function AdminReportDetail(props: { params: Promise<{ id: s
   const report = await prisma.performanceReport.findUnique({ where: { id }, include: { vendor: { select: { name: true } } } });
   if (!report) notFound();
 
+  const me = await getCurrentUser();
+  const isAdmin = me?.role === 'ADMIN'; // publish/unpublish are ADMIN-only
   const snapshot = parseSnapshot(report.metrics);
   const published = report.status === 'PUBLISHED';
   const saveSummary = savePerformanceReportSummary.bind(null, report.id);
@@ -29,7 +32,7 @@ export default async function AdminReportDetail(props: { params: Promise<{ id: s
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">{report.vendor.name} · {report.periodLabel}</h1>
-          <p className="text-sm text-[var(--muted)]">{formatDate(report.periodStart)} → {formatDate(report.periodEnd)}</p>
+          <p className="text-sm text-[var(--muted)]">{formatDateUTC(report.periodStart)} → {formatDateUTC(report.periodEnd)}</p>
         </div>
         <span className={`badge ${published ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
           {published ? `Published ${report.publishedAt ? formatDate(report.publishedAt) : ''}` : 'Draft'}
@@ -50,13 +53,16 @@ export default async function AdminReportDetail(props: { params: Promise<{ id: s
       </form>
 
       <div className="flex items-center gap-2">
-        {published ? (
+        {/* Publish/unpublish is ADMIN-only — don't show a button that would just
+            throw for an EDITOR. */}
+        {isAdmin && (published ? (
           <form action={unpublish}><button className="btn-secondary btn-sm">Unpublish</button></form>
         ) : (
           <form action={publish}><button className="btn-primary btn-sm">Publish to vendor</button></form>
-        )}
+        ))}
         <p className="text-xs text-[var(--muted)]">
           {published ? 'This report is live on the vendor’s dashboard.' : 'Not visible to the vendor until published.'}
+          {!isAdmin && ' Only an admin can publish or unpublish.'}
         </p>
       </div>
     </div>

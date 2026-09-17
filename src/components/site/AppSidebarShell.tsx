@@ -6,7 +6,7 @@ import SearchBar from '@/components/SearchBar';
 import StarStrip from './StarStrip';
 import SiteFooter from '@/components/SiteFooter';
 import SubscribePopup, { NOTIF_CHANGED } from './SubscribePopup';
-import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors } from '@/components/icons';
+import { Home, Clock, Layers, Archive, Bell, Menu, Sun, Moon, Stamp, ChevronRight, Scissors, Star, Book, Megaphone } from '@/components/icons';
 import { BrandMark } from '@/components/BrandLogo';
 import { SITE_NAME } from '@/lib/constants';
 import { classNames } from '@/lib/utils';
@@ -15,10 +15,12 @@ type U = { id: string; name: string; role: string } | null;
 
 const NAV = [
   { href: '/docs', label: 'Home', icon: Home, exact: true },
+  { href: '/docs/favorites', label: 'Favorites', icon: Star },
   { href: '/docs/history', label: 'History', icon: Clock },
   { href: '/docs/clippings', label: 'Clippings', icon: Scissors },
   { href: '/docs/categories', label: 'Categories', icon: Layers },
   { href: '/docs/archive', label: 'Archive', icon: Archive },
+  { href: '/docs/suppliers', label: 'Phone Book', icon: Book },
   { href: '/docs/notifications', label: 'Notifications', icon: Bell },
 ];
 
@@ -57,7 +59,11 @@ function ThemeItem({ collapsed }: { collapsed: boolean }) {
   );
 }
 
-export default function AppSidebarShell({ user, children }: { user: U; children: React.ReactNode }) {
+export default function AppSidebarShell({ user, children, announcement, isVendor = false }: { user: U; children: React.ReactNode; announcement?: React.ReactNode; isVendor?: boolean }) {
+  // Vendor accounts get a direct link to their dashboard, right under Home.
+  const nav = isVendor
+    ? [NAV[0], { href: '/docs/vendor', label: 'Your Dashboard', icon: Megaphone }, ...NAV.slice(1)]
+    : NAV;
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -94,6 +100,8 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
 
   return (
     <div className="flex min-h-screen">
+      {/* Skip link — first focusable element, for keyboard/screen-reader users. */}
+      <a href="#main-content" className="sr-only rounded-lg bg-brand-600 px-4 py-2 font-bold text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[300]">Skip to content</a>
       {/* Sidebar */}
       <aside
         className={classNames(
@@ -104,9 +112,10 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
         )}
       >
         <div className={classNames('flex items-center px-2 pb-3 pt-1', collapsed ? 'justify-center' : 'justify-between')}>
-          <Link href="/docs" className="flex min-w-0 items-center gap-2.5 font-extrabold">
-            <BrandMark size={36} priority className="shrink-0 rounded-[8px]" />
-            {!collapsed && <span className="truncate text-[17px]">{SITE_NAME}</span>}
+          <Link href="/docs" aria-label={`${SITE_NAME} — home`} className="flex min-w-0 items-center gap-2 font-extrabold">
+            {/* Decorative here — the link's aria-label + adjacent text name it. */}
+            <BrandMark size={34} priority alt="" className="shrink-0 rounded-[8px]" />
+            {!collapsed && <span className="truncate whitespace-nowrap text-[16px]">{SITE_NAME}</span>}
           </Link>
           {!collapsed && (
             <button onClick={toggleCollapse} className="hidden h-8 w-8 place-items-center rounded-lg text-[var(--header-fg)]/60 hover:bg-white/10 hover:text-[var(--header-fg)] lg:grid" aria-label="Collapse menu">
@@ -122,7 +131,7 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
         )}
 
         <nav className="flex flex-col gap-1">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <Link key={n.href} href={n.href}
               className={classNames(
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors',
@@ -160,16 +169,19 @@ export default function AppSidebarShell({ user, children }: { user: U; children:
 
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex items-center gap-3 bg-[color-mix(in_srgb,var(--bg)_70%,#000_6%)] px-4 py-3 backdrop-blur lg:px-7 lg:py-4">
+        {/* Site-wide announcement strip (dismissible; scrolls away above the nav). */}
+        {announcement}
+        <header className="sticky top-0 z-30 flex items-center gap-3 bg-[color-mix(in_srgb,var(--bg)_70%,#000_6%)] px-4 py-3 backdrop-blur lg:px-7 lg:py-4">
           <button onClick={() => setMobileOpen(true)} className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[10px] bg-[var(--card)] text-[var(--fg)] shadow-[var(--shadow-card)] lg:hidden" aria-label="Open menu">
             <Menu width={22} height={22} />
           </button>
           <div className="w-full max-w-xl"><SearchBar /></div>
-        </div>
+        </header>
 
-        <div className="px-4 lg:px-7"><StarStrip /></div>
-
-        <main className="flex-1">{children}</main>
+        <main id="main-content" className="flex-1">
+          <div className="px-4 lg:px-7"><StarStrip /></div>
+          {children}
+        </main>
         <SiteFooter />
       </div>
 

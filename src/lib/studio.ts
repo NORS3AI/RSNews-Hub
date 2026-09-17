@@ -24,7 +24,8 @@ export function isShape(v: unknown): v is Shape {
 
 export type BlockType =
   | 'article' | 'article-image' | 'article-headline'
-  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image';
+  | 'spotlight' | 'split' | 'mosaic'
+  | 'ad' | 'poll' | 'quiz' | 'heading' | 'text' | 'image' | 'video' | 'countdown';
 
 // Palette groups — let the builder collapse whole categories of blocks.
 export type BlockGroup = 'Articles' | 'Media' | 'Interactive' | 'Content';
@@ -53,6 +54,21 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     description: 'Headline only — fills the row and shrinks to fit.',
     defaults: { mode: 'auto', source: 'latest' },
   },
+  spotlight: {
+    label: 'Spotlight', group: 'Articles',
+    description: 'One big story — large cover image with the headline overlaid.',
+    defaults: { mode: 'auto', source: 'featured', showDek: true, overlay: true },
+  },
+  split: {
+    label: 'Split feature', group: 'Articles',
+    description: 'Two-up: cover image on one side, headline + dek on the other.',
+    defaults: { mode: 'auto', source: 'featured', showDek: true, imageSide: 'left' },
+  },
+  mosaic: {
+    label: 'Mosaic', group: 'Articles',
+    description: 'A tiled grid of several stories — one large, the rest small.',
+    defaults: { source: 'latest', count: 4 },
+  },
   ad: {
     label: 'Ad', group: 'Media',
     description: 'Ad slot — auto-fits the container.',
@@ -61,7 +77,12 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
   image: {
     label: 'Image', group: 'Media',
     description: 'A picture with manual resize.',
-    defaults: { url: '', alt: '', widthPct: 100, radius: true },
+    defaults: { url: '', alt: '', widthPct: 100, radius: true, bleed: false },
+  },
+  video: {
+    label: 'Video', group: 'Media',
+    description: 'An autoplaying, muted, looping video with a still poster fallback.',
+    defaults: { url: '', poster: '', widthPct: 100, radius: true },
   },
   poll: {
     label: 'Poll', group: 'Interactive',
@@ -83,6 +104,11 @@ export const BLOCKS: Record<BlockType, BlockDef> = {
     description: 'Freeform rich text.',
     defaults: { body: '' },
   },
+  countdown: {
+    label: 'Countdown', group: 'Content',
+    description: 'A big countdown timer to a date (e.g. an expo). Ticks live.',
+    defaults: { targetAt: '', title: '', href: '' },
+  },
 };
 export const BLOCK_IDS = Object.keys(BLOCKS) as BlockType[];
 export const BLOCK_GROUPS: BlockGroup[] = ['Articles', 'Media', 'Interactive', 'Content'];
@@ -91,6 +117,31 @@ export function blocksInGroup(group: BlockGroup): BlockType[] {
 }
 export function isBlockType(v: unknown): v is BlockType {
   return typeof v === 'string' && v in BLOCKS;
+}
+
+// Block types that resolve a single article via the full sourcing model
+// (auto / category / tag / year / pick — see articleFill). The homepage MUST
+// prefetch pick/tag/year/category pools for these, and the inventory resolves
+// them the same way. Single-sourced here so a new article-driven element can't
+// silently miss the prefetch (which renders it blank) — the studio test asserts
+// this set stays in sync with the block catalog. NOTE: `mosaic` shows articles
+// too but is source-only (no pick/tag/year), so it is deliberately NOT here.
+export const ARTICLE_SOURCED_BLOCKS: BlockType[] = ['article', 'article-image', 'article-headline', 'spotlight', 'split'];
+export function isArticleSourced(type: BlockType): boolean {
+  return ARTICLE_SOURCED_BLOCKS.includes(type);
+}
+
+/** True when a module has an image element set to "spill past the module edge".
+ *  The renderer then lets the module overflow (instead of clipping) so the
+ *  oversized image bleeds out for a dimensional overlap. Requires a real URL
+ *  (an empty-URL image renders nothing, so it shouldn't un-clip the module),
+ *  and also looks inside fallback rungs (a bleed image can be a fallback). */
+export function treeHasBleedImage(tree: ModuleTree): boolean {
+  const isBleedImage = (b?: Block): boolean =>
+    b?.type === 'image'
+    && !!(b.settings as { bleed?: unknown }).bleed
+    && !!String((b.settings as { url?: unknown }).url ?? '').trim();
+  return (tree.children ?? []).some((b) => isBleedImage(b) || (b.fallbacks ?? []).some(isBleedImage));
 }
 export function blockLabel(type: BlockType): string {
   return BLOCKS[type]?.label ?? type;
@@ -140,8 +191,50 @@ export type ModuleTree = {
   rsColor?: string | null;
   // Optional invisible expiry (days). 0 = never. Anchored at publish time.
   expireDays?: number;
+  // The width this module prefers on the homepage, in row-units (1 = ⅓, 2 = ⅔,
+  // 3 = full). Seeds the layout's per-instance `span` when the module is first
+  // placed; an admin can still override it per-placement in Homepage layout.
+  defaultSpan?: number;
+  // Optional festive animation painted behind the module's content (over its
+  // background, under every element). 'snow' or 'confetti'; null/absent = off.
+  effect?: 'snow' | 'confetti' | null;
+  // Up to 3 hex colors for confetti (ignored by snow). Empty = built-in defaults.
+  effectColors?: string[];
+  // Optional module-level article collection. When set (a category is chosen),
+  // every article element in the module fills itself from this pool by default —
+  // guaranteed distinct within the module — unless the element is switched to
+  // "pick a specific article". `rotateHours` quietly cycles which slice shows.
+  // null/absent = off (elements use their own per-element sourcing).
+  collection?: ModuleCollection | null;
   children: Block[];
 };
+
+// A module-level query that article elements draw from. `categorySlug` is the
+// anchor (empty = the whole collection is off). `tags` narrow to articles
+// carrying ANY of them; `year` narrows to that calendar year; `genre` narrows to
+// that editorial genre (a slug, empty = any); all set filters are AND-ed. `sort`
+// orders the pool; `rotateHours` (0 = off) advances which slice shows each period
+// so the module refreshes itself over time.
+export type CollectionSort = 'newest' | 'recommended' | 'views';
+export type ModuleCollection = {
+  categorySlug: string;
+  tags: string[];
+  year: number;
+  genre: string;
+  sort: CollectionSort;
+  rotateHours: number;
+};
+const COLLECTION_SORTS: readonly CollectionSort[] = ['newest', 'recommended', 'views'];
+// Allowed rotation cadences, in hours: off / 12h / daily / weekly.
+export const COLLECTION_ROTATE_CHOICES: readonly number[] = [0, 12, 24, 168];
+
+/** Clamp a span to 1–3 (⅓ / ⅔ / full); anything missing/invalid → 3. Kept here
+ *  (not imported from homepage.ts) so studio.ts stays dependency-free and the
+ *  homepage↔studio import stays one-directional. */
+export function clampTreeSpan(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 3 ? n : 3;
+}
 
 // Hard caps so a malformed/hostile payload can't blow up the renderer or DB.
 export const MAX_BLOCKS = 40;
@@ -216,7 +309,10 @@ export function normalizeTree(input: unknown): ModuleTree {
   }
   const days = Number(obj.expireDays);
   const expireDays = Number.isInteger(days) && days > 0 ? Math.min(days, 3650) : 0;
-  return { shape, rsColor: color(obj.rsColor), expireDays, children };
+  const effect: 'snow' | 'confetti' | null = obj.effect === 'snow' || obj.effect === 'confetti' ? obj.effect : null;
+  const effectColors = (Array.isArray(obj.effectColors) ? obj.effectColors : []).filter(isHexColor).slice(0, 3);
+  const collection = normalizeCollection(obj.collection);
+  return { shape, rsColor: color(obj.rsColor), expireDays, defaultSpan: clampTreeSpan(obj.defaultSpan), effect, effectColors, collection, children };
 }
 
 function normalizeBlock(input: unknown, index: number, allowFallbacks = true): Block | null {
@@ -275,6 +371,21 @@ function bool(v: unknown, dflt: boolean): boolean {
 
 // Per-type settings whitelist — only known keys survive, so the DB never stores
 // (and the renderer never reads) arbitrary attacker-controlled fields.
+// Admin-authored block links are rendered as real anchors on the PUBLIC homepage,
+// so restrict them to safe schemes — mirrors the article sanitizer's allowlist
+// (http/https/mailto + relative path/anchor). Blocks javascript:/data:/vbscript:
+// and protocol-relative (//host) URLs, which would otherwise execute or redirect.
+// Applied on normalize, which runs on every read (parseTree), so it also strips
+// any link stored before this guard existed.
+function safeHref(raw: unknown): string {
+  const v = str(raw, 500).trim();
+  if (!v) return '';
+  if (v.startsWith('//')) return '';                           // protocol-relative (//host) → drop
+  if (v.startsWith('/') || v.startsWith('#')) return v;        // relative path / anchor
+  if (/^https?:\/\//i.test(v) || /^mailto:/i.test(v)) return v; // explicit safe scheme
+  return '';                                                    // everything else dropped
+}
+
 function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
   const s = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const d = BLOCKS[type].defaults;
@@ -289,8 +400,23 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
       };
     case 'article-headline':
       return { ...articleFill(s) };
+    case 'spotlight':
+      // One big story: full article sourcing + an overlay toggle (text over image
+      // vs below it).
+      return { ...articleFill(s), showDek: bool(s.showDek, true), overlay: bool(s.overlay, true) };
+    case 'split':
+      // Two-up feature: full article sourcing + which side the image sits on.
+      return { ...articleFill(s), showDek: bool(s.showDek, true), imageSide: s.imageSide === 'right' ? 'right' : 'left' };
+    case 'mosaic': {
+      // A tiled grid; auto-fills `count` stories (3–6) from a pool.
+      const n = Number(s.count);
+      return { source: articleSource(s.source), count: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 3), 6) : 4 };
+    }
     case 'ad': {
-      const ok = ['leaderboard', 'video', 'vertical', 'square', 'rectangle'];
+      // Four real formats: leaderboard (banner), rectangle, video (16:9), and
+      // vertical (the tall "skyscraper"). 'square' was retired — it collapsed to
+      // rectangle on the live page; an old stored 'square' normalizes to rectangle.
+      const ok = ['leaderboard', 'video', 'vertical', 'rectangle'];
       // `vendor` (an advertiser/brand key) locks the slot to that advertiser's
       // creatives only — a sponsor spotlight. '' = any advertiser.
       return { format: ok.includes(String(s.format)) ? String(s.format) : 'rectangle', vendor: str(s.vendor, 80).trim() };
@@ -301,6 +427,20 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
         url: str(s.url, 2000),
         alt: str(s.alt, 300),
         // Manual resize: 10%–200% of the container (>100% intentionally overflows).
+        widthPct: Number.isFinite(w) ? Math.min(Math.max(Math.round(w), 10), 200) : 100,
+        radius: bool(s.radius, true),
+        // Opt-in: let an oversized image spill past the module edge for a gentle
+        // dimensional overlap (the module stops clipping when any image bleeds).
+        bleed: bool(s.bleed, false),
+      };
+    }
+    case 'video': {
+      // Mirror the image case (no `case 'video'` here previously silently wiped a
+      // video block's settings on save via the default branch — losing the URL).
+      const w = Number(s.widthPct);
+      return {
+        url: str(s.url, 2000),
+        poster: str(s.poster, 2000),
         widthPct: Number.isFinite(w) ? Math.min(Math.max(Math.round(w), 10), 200) : 100,
         radius: bool(s.radius, true),
       };
@@ -327,12 +467,20 @@ function normalizeSettings(type: BlockType, input: unknown): BlockSettings {
     }
     case 'text':
       return { body: str(s.body, 4000) };
+    case 'countdown': {
+      let targetAt = '';
+      if (typeof s.targetAt === 'string' && s.targetAt.trim()) {
+        const dt = new Date(s.targetAt);
+        if (!isNaN(dt.getTime())) targetAt = dt.toISOString();
+      }
+      return { targetAt, title: str(s.title, 120), href: safeHref(s.href), doneLabel: str(s.doneLabel, 40) };
+    }
     default:
       return { ...d };
   }
 }
 
-const ARTICLE_SOURCE_VALUES = ['featured', 'latest', 'trending'] as const;
+const ARTICLE_SOURCE_VALUES = ['featured', 'latest', 'trending', 'most-recommended'] as const;
 function articleSource(v: unknown): string {
   return typeof v === 'string' && (ARTICLE_SOURCE_VALUES as readonly string[]).includes(v) ? v : 'latest';
 }
@@ -342,9 +490,11 @@ function articleSource(v: unknown): string {
 //   tag  → auto-fill from articles carrying a tag/keyword
 //   year → auto-fill from a given year (throwbacks)
 //   pick → a specific hand-picked article
-export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick' | 'category';
+export type ArticleMode = 'auto' | 'tag' | 'year' | 'pick' | 'category' | 'collection';
 function articleFill(s: Record<string, unknown>): BlockSettings {
-  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' || s.mode === 'category' ? s.mode : 'auto';
+  const mode: ArticleMode = s.mode === 'tag' || s.mode === 'year' || s.mode === 'pick' || s.mode === 'category' || s.mode === 'collection' ? s.mode : 'auto';
+  // collection → fill from the module's shared collection pool (see ModuleCollection).
+  if (mode === 'collection') return { mode };
   // category → newest published articles in a chosen category (primary or extra).
   if (mode === 'category') return { mode, categorySlug: str(s.categorySlug, 60) };
   if (mode === 'tag') return { mode, tag: str(s.tag, 60), source: articleSource(s.source) };
@@ -354,6 +504,63 @@ function articleFill(s: Record<string, unknown>): BlockSettings {
   }
   if (mode === 'pick') return { mode, articleId: str(s.articleId, 40) };
   return { mode: 'auto', source: articleSource(s.source) };
+}
+
+// Coerce arbitrary input into a ModuleCollection, or null when off. A collection
+// with no category is treated as off (nothing to draw from).
+export function normalizeCollection(input: unknown): ModuleCollection | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  const categorySlug = str(o.categorySlug, 60).trim().toLowerCase();
+  if (!categorySlug) return null;
+  const tags = [...new Set((Array.isArray(o.tags) ? o.tags : [])
+    .map((t) => str(t, 60).trim().toLowerCase()).filter(Boolean))].slice(0, 6);
+  const y = Number(o.year);
+  const year = Number.isInteger(y) && y >= 1990 && y <= 2100 ? y : 0;
+  const genre = str(o.genre, 40).trim().toLowerCase();
+  const sort: CollectionSort = COLLECTION_SORTS.includes(o.sort as CollectionSort) ? (o.sort as CollectionSort) : 'newest';
+  const r = Number(o.rotateHours);
+  const rotateHours = COLLECTION_ROTATE_CHOICES.includes(r) ? r : 0;
+  return { categorySlug, tags, year, genre, sort, rotateHours };
+}
+
+// A stable key for a collection's query — used to prefetch/share one article
+// pool across every element (and module) that asks for the same thing. Tags are
+// sorted so order doesn't fragment the key.
+export function collectionKey(c: ModuleCollection): string {
+  return [c.categorySlug, [...c.tags].sort().join('+'), c.year, c.genre, c.sort].join('|');
+}
+
+// Deterministic, cron-free rotation offset into a collection pool. Buckets time
+// into `rotateHours` windows and advances by `step` (how many the module shows)
+// each window, so the visible slice cycles through the whole pool over time and
+// is identical for every reader within a window. Returns 0 when rotation is off.
+export function collectionOffset(rotateHours: number, poolLen: number, step: number, nowMs: number): number {
+  if (rotateHours <= 0 || poolLen <= 0 || step <= 0) return 0;
+  const bucket = Math.floor(nowMs / (rotateHours * 3_600_000));
+  return (((bucket * step) % poolLen) + poolLen) % poolLen;
+}
+
+// Rotate a pool so element `i` reads from `pool[(offset + i) % len]`.
+export function rotatePool<T>(pool: T[], offset: number): T[] {
+  if (!pool.length || offset % pool.length === 0) return pool;
+  const k = ((offset % pool.length) + pool.length) % pool.length;
+  return pool.slice(k).concat(pool.slice(0, k));
+}
+
+// How many stories a module draws from its collection in one render — the
+// rotation step, so each period advances past exactly the set currently shown.
+// Only primary rungs consume (fallbacks fill only when promoted); a mosaic
+// consumes its whole tile count, every other article slot consumes one; a
+// hand-picked element consumes none from the pool. Minimum 1.
+export function collectionStep(children: Block[]): number {
+  let n = 0;
+  for (const b of children) {
+    if (b.settings?.mode === 'pick') continue;
+    if (b.type === 'mosaic') n += Math.min(Math.max(Number(b.settings?.count) || 4, 3), 6);
+    else if (isArticleSourced(b.type)) n += 1;
+  }
+  return n || 1;
 }
 
 /* ----------------------------- Serialization ----------------------------- */

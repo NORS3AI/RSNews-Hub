@@ -11,7 +11,7 @@ import { planByKey, planEnd, generateFlights } from './adPlans';
 import { sendEmail } from './email';
 import { renderTemplate } from './emailTemplates';
 import { findOrCreateVendor } from './vendors';
-import { campaignIsPaid } from './payments';
+import { campaignIsPaid, paymentRequired } from './payments';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -23,6 +23,8 @@ export type CreateCampaignInput = {
   endAt?: Date | null;   // required for seasonal plans; else derived from the plan length
   notes?: string;
   status?: string;       // 'ACTIVE' (admin-created) | 'DRAFT' (e.g. JotForm — needs review)
+  contactName?: string;  // the person who placed THIS order (from their submission)
+  contactEmail?: string; // their email — who we contact about this order (go-live, reminders)
 };
 
 /** Create a campaign and its flights. Returns the campaign id. Pass `db` to run
@@ -38,6 +40,11 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
   // id, not by the free-text label.
   const vendorId = input.vendorId ?? (await findOrCreateVendor(input.vendorName, db));
 
+  // Store the order contact, but only a well-formed email (defense-in-depth: don't
+  // persist an unsendable string that could shadow the vendor's fallback address).
+  const emailRaw = input.contactEmail?.trim();
+  const contactEmail = emailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : null;
+
   const flights = generateFlights(input.startAt, endAt, plan.flightDays);
   const campaign = await db.adCampaign.create({
     data: {
@@ -48,6 +55,8 @@ export async function createCampaign(input: CreateCampaignInput, db: Db = prisma
       endAt,
       allowsVideo: plan.allowsVideo,
       notes: input.notes || null,
+      contactName: input.contactName?.trim() || null,
+      contactEmail,
       status: input.status === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
       flights: { create: flights.map((f) => ({ index: f.index, startAt: f.startAt, endAt: f.endAt })) },
     },
@@ -104,15 +113,15 @@ async function anchorToGoLive(campaignId: string, now: Date): Promise<void> {
   if (ops.length) await prisma.$transaction(ops);
 }
 
-/** Schedule a flight ("Go"): it must have at least one creative AND the campaign's
- *  payment must be confirmed (a campaign can't go live before then — confirm it
- *  in the admin; JotForm confirms it automatically when the vendor pays there).
+/** Schedule a flight ("Go"): it must have at least one creative. A confirmed
+ *  payment is only required when ADS_REQUIRE_PAYMENT is on — by default no money
+ *  crosses the hub, so approval isn't gated on payment.
  *  The first go-live re-anchors the paid window to now (see anchorToGoLive). */
 export async function scheduleFlight(flightId: string): Promise<void> {
   const flight = await prisma.adFlight.findUnique({ where: { id: flightId }, select: { campaignId: true, _count: { select: { ads: true } } } });
   if (!flight) throw new Error('Flight not found');
   if (flight._count.ads === 0) throw new Error('Add at least one creative before scheduling this flight');
-  if (!(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
+  if (paymentRequired() && !(await campaignIsPaid(flight.campaignId))) throw new Error('Payment for this campaign isn’t confirmed yet — confirm it before this flight can go live.');
   await anchorToGoLive(flight.campaignId, new Date());
   await prisma.adFlight.update({ where: { id: flightId }, data: { status: 'SCHEDULED' } });
   await notifyAdsLive(flight.campaignId);
@@ -124,16 +133,24 @@ export async function scheduleFlight(flightId: string): Promise<void> {
 async function notifyAdsLive(campaignId: string): Promise<void> {
   const c = await prisma.adCampaign.findUnique({
     where: { id: campaignId },
-    select: { vendorName: true, liveNotifiedAt: true, vendor: { select: { contactEmail: true } } },
+    select: { vendorName: true, liveNotifiedAt: true, contactName: true, contactEmail: true, vendor: { select: { contactEmail: true } } },
   });
   if (!c || c.liveNotifiedAt) return;
-  const to = c.vendor?.contactEmail;
+  // Email the person who placed THIS order; fall back to the vendor's curated
+  // phone-book address.
+  const to = c.contactEmail || c.vendor?.contactEmail;
   if (!to) return; // no address yet — leave unnotified so a later go-live can still send
   const dashboardUrl = `${process.env.SITE_URL || ''}/docs/vendor`;
   const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  const { subject, text, html } = await renderTemplate('ads_live', { vendorName: c.vendorName, date, dashboardUrl });
+  // Greet the person who placed this order, falling back to the company name.
+  const contactName = c.contactName || c.vendorName;
+  const { subject, text, html } = await renderTemplate('ads_live', { contactName, vendorName: c.vendorName, date, dashboardUrl });
+  // Claim the one-time notify ATOMICALLY (mirrors notifySponsorLive) so two
+  // concurrent go-lives can't both read null and both send. Release on failure.
+  const claim = await prisma.adCampaign.updateMany({ where: { id: campaignId, liveNotifiedAt: null }, data: { liveNotifiedAt: new Date() } });
+  if (claim.count === 0) return;
   const r = await sendEmail({ to, subject, text, html });
-  if (r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: new Date() } });
+  if (!r.ok) await prisma.adCampaign.update({ where: { id: campaignId }, data: { liveNotifiedAt: null } });
 }
 
 /** Pull a scheduled flight back to review (stops it serving immediately). */

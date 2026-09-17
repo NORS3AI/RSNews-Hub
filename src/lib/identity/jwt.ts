@@ -57,6 +57,8 @@ export function memberFromClaims(p: Record<string, unknown>): Member | null {
     vendorBrand: str(p.vendorBrand) || str(p.brand),
     region: str(p.region),
     storeType: str(p.storeType),
+    storeName: str(p.storeName) || str(p.store) || str(p.companyName),
+    memberCode: str(p.memberCode) || str(p.memberId) || str(p.code),
     isStaff: roles.includes('admin') || roles.includes('staff') || accountType === 'STAFF',
   };
 }

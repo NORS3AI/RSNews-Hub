@@ -4,7 +4,7 @@ import { toCsv } from '@/lib/analytics/csv';
 import { Download, ChevronUp, ChevronDown } from '@/components/icons';
 
 export type ColType = 'text' | 'int' | 'num' | 'pct01' | 'ms';
-export type Col = { key: string; label: string; type?: ColType };
+export type Col = { key: string; label: string; type?: ColType; tip?: string };
 type Row = Record<string, string | number>;
 
 const nf = (n: number) => Number(n).toLocaleString();
@@ -14,6 +14,17 @@ function fmt(v: string | number, type?: ColType): string {
   if (type === 'num') return Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (type === 'pct01') return `${Math.round(Number(v) * 100)}%`;
   if (type === 'ms') { const s = Math.round(Number(v) / 1000); return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`; }
+  return String(v);
+}
+
+// CSV wants RAW numbers (no thousands commas, no %/s units) so cells land in
+// Excel/Sheets as real numbers — summable and sortable. Percentages export as a
+// plain number (50, not "50%"); durations as seconds. Text passes through.
+function csvVal(v: string | number, type?: ColType): string | number {
+  if (v == null || v === '') return '';
+  if (type === 'pct01') return Math.round(Number(v) * 1000) / 10; // e.g. 50 or 12.5
+  if (type === 'ms') return Math.round(Number(v) / 1000); // seconds
+  if (type === 'int' || type === 'num') return Number(v);
   return String(v);
 }
 
@@ -42,7 +53,7 @@ export default function ReportTable({ columns, rows, filename }: { columns: Col[
 
   function exportCsv() {
     const headers = columns.map((c) => c.label);
-    const body = sorted.map((r) => columns.map((c) => fmt(r[c.key], c.type)));
+    const body = sorted.map((r) => columns.map((c) => csvVal(r[c.key], c.type)));
     const csv = toCsv(headers, body);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -66,8 +77,8 @@ export default function ReportTable({ columns, rows, filename }: { columns: Col[
               {columns.map((c, i) => {
                 const active = c.key === sortKey;
                 return (
-                  <th key={c.key} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`}>
-                    <button onClick={() => sortBy(c.key)} className={`inline-flex items-center gap-1 hover:text-[var(--fg)] ${active ? 'text-[var(--fg)]' : ''}`}>
+                  <th key={c.key} className={`px-3 py-2.5 font-bold ${i === 0 ? '' : 'text-right'}`} title={c.tip}>
+                    <button onClick={() => sortBy(c.key)} className={`inline-flex items-center gap-1 hover:text-[var(--fg)] ${active ? 'text-[var(--fg)]' : ''} ${c.tip ? 'cursor-help decoration-dotted underline-offset-2 [text-decoration-line:underline]' : ''}`}>
                       {c.label}
                       {active && (dir === 1 ? <ChevronUp width={12} height={12} /> : <ChevronDown width={12} height={12} />)}
                     </button>

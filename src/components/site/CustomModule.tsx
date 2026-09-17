@@ -1,6 +1,17 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { ModuleTree, Block, Shape } from '@/lib/studio';
-import { isHexColor, rsTextureUrl } from '@/lib/studio';
+import { isHexColor, rsTextureUrl, treeHasBleedImage } from '@/lib/studio';
+import CoverVideo from '@/components/site/CoverVideo';
+import Countdown from '@/components/site/Countdown';
+import Carousel from '@/components/site/Carousel';
+import ModuleEffect from '@/components/site/ModuleEffect';
+
+// The optional festive overlay (snow/confetti) for a module, or null when off.
+// Sits behind the content; the module section must be `relative` and the content
+// wrapped in `relative z-10` so elements paint above it. See ModuleEffect.
+export function ModuleEffectLayer({ tree }: { tree: ModuleTree }) {
+  return tree.effect ? <ModuleEffect effect={tree.effect} colors={tree.effectColors} /> : null;
+}
 
 // Renders a Module Studio composition tree into a real homepage module. Pure and
 // presentational — the same component draws the Studio canvas preview and the
@@ -61,21 +72,66 @@ export function shapeContainerClass(shape: Shape): string {
   return shape === 'sidebar' ? 'studio-sidebar max-w-xs' : '';
 }
 
+// Lays out a module's already-rendered children in its shape. A `row` is drawn
+// through the SAME arrow Carousel the built-in homepage card rows use — click
+// arrows on desktop when it overflows, swipe on touch, arrows auto-hidden when
+// everything fits. Every other shape keeps its CSS grid/flex. One place, so a
+// hand-built Studio row and a coded card row behave identically. Each item's
+// `key` is preserved; `node` is the slot's rendered content (eyebrow + block).
+export function ModuleShell({ shape, items }: { shape: Shape; items: { key: string; node: ReactNode }[] }) {
+  if (shape === 'row') {
+    return (
+      <Carousel itemWidth="w-64">
+        {items.map((it) => <div key={it.key}>{it.node}</div>)}
+      </Carousel>
+    );
+  }
+  return (
+    <div className={SHAPE_INNER[shape]}>
+      {items.map((it) => <div key={it.key} className={childWidthClass(shape)}>{it.node}</div>)}
+    </div>
+  );
+}
+
+// One image renderer shared by the live homepage (docs/page) and the Studio
+// preview so the bleed / z-index / overflow rules can never drift between them.
+// Callers pass an already-trimmed, non-empty URL and own their empty-URL
+// fallback (the preview shows a placeholder; the live renderer returns null so
+// the slot falls through to its next rung).
+export function StudioImage({ url, widthPct, radius, bleed, alt }:
+  { url: string; widthPct: number; radius: boolean; bleed: boolean; alt: string }) {
+  const imgCls = `h-auto max-w-none ${radius ? 'rounded-xl' : ''}`;
+  // A bleeding image tucks BEHIND its module's other elements (negative z, yet
+  // still inside the module's z-10 content wrapper so it stays IN FRONT of the
+  // module's own background surface). Modules later in the DOM paint on top, so
+  // in the usual spill direction it won't cover a neighbour.
+  if (bleed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={alt} style={{ width: `${widthPct}%` }} className={`${imgCls} relative -z-10`} />;
+  }
+  // Non-bleed: clip to the module column. Enabling bleed on ONE image flips the
+  // whole module to overflow-visible, so without this a *different* oversized
+  // (>100%) image that never opted in would also escape. Keeps escape opt-in.
+  return (
+    <span className="block overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={alt} style={{ width: `${widthPct}%` }} className={imgCls} />
+    </span>
+  );
+}
+
 export default function CustomModule({ tree, title }: { tree: ModuleTree; title?: string }) {
   return (
-    <section className={`module studio-fill ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
-      {title ? <h2 className="module-title mb-4">{title}</h2> : null}
-      {tree.children.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">This module is empty.</p>
-      ) : (
-        <div className={SHAPE_INNER[tree.shape]}>
-          {tree.children.map((b) => (
-            <div key={b.id} className={childWidthClass(tree.shape)}>
-              <BlockView block={b} />
-            </div>
-          ))}
-        </div>
-      )}
+    <section className={`module studio-fill relative ${treeHasBleedImage(tree) ? 'overflow-visible' : 'overflow-hidden'} ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)} data-shape={tree.shape}>
+      <ModuleEffectLayer tree={tree} />
+      <div className="relative z-10">
+        {title ? <h2 className="module-title mb-4">{title}</h2> : null}
+        {tree.children.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">This module is empty.</p>
+        ) : (
+          <ModuleShell shape={tree.shape} items={tree.children.map((b) => ({ key: b.id, node: <BlockView block={b} /> }))} />
+        )}
+      </div>
     </section>
   );
 }
@@ -110,18 +166,40 @@ function blockInner(block: Block) {
     case 'text':
       return <div className="prose-article text-[15px] leading-relaxed">{String(s.body ?? '')}</div>;
     case 'image': {
-      const url = String(s.url ?? '');
+      const url = String(s.url ?? '').trim();
       const w = Number(s.widthPct) || 100;
       const radius = s.radius !== false;
       if (!url) {
         return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Image — set a URL in settings</div>;
       }
-      // eslint-disable-next-line @next/next/no-img-element
-      return <img src={url} alt={String(s.alt ?? '')} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+      return <StudioImage url={url} widthPct={w} radius={radius} bleed={!!s.bleed} alt={String(s.alt ?? '')} />;
+    }
+    case 'video': {
+      const url = String(s.url ?? '');
+      const w = Number(s.widthPct) || 100;
+      const radius = s.radius !== false;
+      if (!url) {
+        return <div className="grid aspect-[16/9] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Video — upload one in settings</div>;
+      }
+      return <CoverVideo src={url} poster={String(s.poster ?? '') || null} style={{ width: `${w}%` }} className={`h-auto max-w-none ${radius ? 'rounded-xl' : ''}`} />;
+    }
+    case 'countdown': {
+      const target = String(s.targetAt ?? '');
+      if (!target) return <div className="grid min-h-[90px] w-full place-items-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] text-xs text-[var(--muted)]">Countdown — set a date in settings</div>;
+      const title = String(s.title ?? '');
+      const href = String(s.href ?? '');
+      const doneLabel = String(s.doneLabel ?? '') || "It's here!";
+      return (
+        <div className="flex flex-col items-center gap-4 py-2">
+          {title && <h2 className="text-center text-2xl font-black tracking-tight sm:text-3xl">{title}</h2>}
+          <Countdown target={target} variant="big" doneLabel={doneLabel} />
+          {href && <span className="btn-primary btn-sm">Learn more →</span>}
+        </div>
+      );
     }
     case 'ad': {
       const format = String(s.format ?? 'rectangle');
-      const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : format === 'vertical' ? 'min-h-[250px]' : format === 'square' ? 'min-h-[200px]' : 'min-h-[90px]';
+      const h = format === 'leaderboard' ? 'min-h-[60px]' : format === 'video' ? 'min-h-[150px]' : format === 'vertical' ? 'min-h-[280px]' : 'min-h-[90px]';
       return (
         <div className={`studio-fill studio-ad grid ${h} place-items-center rounded-xl border border-[var(--border)] bg-[var(--card-2)] p-4 text-center`} style={style}>
           <span className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">{format === 'video' ? 'Video ad' : 'Advertisement'}</span>
@@ -142,9 +220,9 @@ function blockInner(block: Block) {
       );
     case 'article-headline':
       return (
-        <article className="studio-fill card overflow-hidden p-3.5" style={style}>
+        <article className="studio-fill card min-w-[min(180px,100%)] overflow-hidden p-3.5" style={style}>
           <span className="badge bg-brand-600/15 text-brand-600">Article</span>
-          <h3 className="studio-fit mt-1.5 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
+          <h3 className="studio-fit mt-1.5 line-clamp-4 font-black leading-tight tracking-tight">Sample headline that fills the row</h3>
         </article>
       );
     case 'article':
@@ -159,6 +237,48 @@ function blockInner(block: Block) {
             {s.showDek !== false && <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">A short standfirst previewing the story sits here in the live module.</p>}
           </div>
         </article>
+      );
+    }
+    case 'spotlight': {
+      const overlay = s.overlay !== false;
+      return (
+        <article className="studio-fill relative overflow-hidden rounded-2xl border border-[var(--border)]" style={style}>
+          <div className="aspect-[16/9] w-full bg-[var(--bg-soft)]" aria-hidden />
+          <div className={overlay ? 'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-5' : 'p-4'}>
+            <span className="badge bg-brand-600/15 text-brand-600">Spotlight</span>
+            <h3 className={`mt-1.5 line-clamp-3 text-2xl font-black leading-tight tracking-tight ${overlay ? 'text-white' : ''}`}>A big featured story</h3>
+            {s.showDek !== false && <p className={`mt-1 line-clamp-2 text-sm ${overlay ? 'text-white/80' : 'text-[var(--muted)]'}`}>Its standfirst previews the story in the live module.</p>}
+          </div>
+        </article>
+      );
+    }
+    case 'split': {
+      const right = s.imageSide === 'right';
+      const img = <div className="min-h-[130px] w-full bg-[var(--bg-soft)]" aria-hidden />;
+      const body = (
+        <div className="flex flex-col justify-center p-4">
+          <span className="badge bg-brand-600/15 text-brand-600">Feature</span>
+          <h3 className="mt-1.5 line-clamp-3 text-xl font-black leading-tight tracking-tight">A split feature headline</h3>
+          {s.showDek !== false && <p className="mt-1 line-clamp-3 text-sm text-[var(--muted)]">A short standfirst sits alongside the image.</p>}
+        </div>
+      );
+      return (
+        <article className="studio-fill card grid overflow-hidden sm:grid-cols-2" style={style}>
+          {right ? <>{body}{img}</> : <>{img}{body}</>}
+        </article>
+      );
+    }
+    case 'mosaic': {
+      const count = Math.min(Math.max(Number(s.count) || 4, 3), 6);
+      return (
+        <div className="studio-fill grid grid-cols-2 gap-2 sm:grid-cols-3" style={style}>
+          {Array.from({ length: count }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-lg border border-[var(--border)]">
+              <div className="aspect-[16/10] w-full bg-[var(--bg-soft)]" aria-hidden />
+              <div className="p-2"><div className="h-2.5 w-full rounded bg-[var(--bg-soft)]" /><div className="mt-1 h-2.5 w-2/3 rounded bg-[var(--bg-soft)]" /></div>
+            </div>
+          ))}
+        </div>
       );
     }
     default:

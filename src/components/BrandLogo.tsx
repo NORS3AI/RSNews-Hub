@@ -12,9 +12,9 @@ const LIGHT = { src: '/brand/rsnews-hub-logo-light.png', w: 412, h: 347 };
 const DARK = { src: '/brand/rsnews-hub-logo-dark.png', w: 412, h: 347 };
 
 /** The compact 2×2 icon mark. Give it a pixel height; width follows the ratio. */
-export function BrandMark({ size = 36, className = '', priority = false }: { size?: number; className?: string; priority?: boolean }) {
+export function BrandMark({ size = 36, className = '', priority = false, alt = 'RS News Hub' }: { size?: number; className?: string; priority?: boolean; alt?: string }) {
   return (
-    <Image src={ICON.src} alt="RS News Hub" width={Math.round((size * ICON.w) / ICON.h)} height={size}
+    <Image src={ICON.src} alt={alt} width={Math.round((size * ICON.w) / ICON.h)} height={size}
       priority={priority} className={className} style={{ height: size, width: 'auto' }} />
   );
 }
@@ -27,14 +27,15 @@ export function BrandLockup({
   height = 96, variant = 'auto', className = '', priority = false,
 }: { height?: number; variant?: 'auto' | 'light' | 'dark'; className?: string; priority?: boolean }) {
   const w = (a: typeof LIGHT) => Math.round((height * a.w) / a.h);
-  const common = (a: typeof LIGHT) => ({ src: a.src, width: w(a), height, alt: 'RS News Hub', priority, style: { height, width: 'auto' as const } });
+  const common = (a: typeof LIGHT) => ({ src: a.src, width: w(a), height, priority, style: { height, width: 'auto' as const } });
+  const ALT = 'RS News Hub';
 
-  if (variant === 'light') return <Image {...common(LIGHT)} className={className} />;
-  if (variant === 'dark') return <Image {...common(DARK)} className={className} />;
+  if (variant === 'light') return <Image {...common(LIGHT)} alt={ALT} className={className} />;
+  if (variant === 'dark') return <Image {...common(DARK)} alt={ALT} className={className} />;
   return (
     <>
-      <Image {...common(LIGHT)} className={`block dark:hidden ${className}`} />
-      <Image {...common(DARK)} className={`hidden dark:block ${className}`} />
+      <Image {...common(LIGHT)} alt={ALT} className={`block dark:hidden ${className}`} />
+      <Image {...common(DARK)} alt={ALT} className={`hidden dark:block ${className}`} />
     </>
   );
 }

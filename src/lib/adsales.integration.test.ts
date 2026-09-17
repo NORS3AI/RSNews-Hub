@@ -30,7 +30,7 @@ async function purge(vendorName: string) {
 const day = 86_400_000;
 
 describe('payment-confirmation go-live gate', () => {
-  it('blocks scheduling until confirmed, then allows it', async () => {
+  it('by default schedules without a payment (no money crosses the hub)', async () => {
     const name = brand('GateCo');
     const vendorId = await findOrCreateVendor(name);
     const campaignId = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT' });
@@ -39,15 +39,34 @@ describe('payment-confirmation go-live gate', () => {
     await assignAdsToFlight(flight!.id, [ad.id]);
 
     expect(await campaignIsPaid(campaignId)).toBe(false);
-    await expect(scheduleFlight(flight!.id)).rejects.toThrow(/confirm/i);
-    expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).not.toBe('SCHEDULED');
-
-    await markCampaignPaid(campaignId, 30000);
-    expect(await campaignIsPaid(campaignId)).toBe(true);
-    await scheduleFlight(flight!.id);
+    await scheduleFlight(flight!.id); // not gated on payment by default
     expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).toBe('SCHEDULED');
 
     await purge(name);
+  });
+
+  it('gates go-live on a confirmed payment when ADS_REQUIRE_PAYMENT is on', async () => {
+    const prev = process.env.ADS_REQUIRE_PAYMENT;
+    process.env.ADS_REQUIRE_PAYMENT = 'true';
+    try {
+      const name = brand('GateCoPay');
+      const vendorId = await findOrCreateVendor(name);
+      const campaignId = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT' });
+      const flight = await prisma.adFlight.findFirst({ where: { campaignId }, orderBy: { index: 'asc' } });
+      const ad = await prisma.ad.create({ data: { brand: name, headline: 'x', active: false } });
+      await assignAdsToFlight(flight!.id, [ad.id]);
+
+      expect(await campaignIsPaid(campaignId)).toBe(false);
+      await expect(scheduleFlight(flight!.id)).rejects.toThrow(/confirm/i);
+
+      await markCampaignPaid(campaignId, 30000);
+      await scheduleFlight(flight!.id);
+      expect((await prisma.adFlight.findUnique({ where: { id: flight!.id } }))!.status).toBe('SCHEDULED');
+
+      await purge(name);
+    } finally {
+      if (prev === undefined) delete process.env.ADS_REQUIRE_PAYMENT; else process.env.ADS_REQUIRE_PAYMENT = prev;
+    }
   });
 
   it('refuses to schedule a flight with no creative even when confirmed', async () => {
@@ -61,15 +80,20 @@ describe('payment-confirmation go-live gate', () => {
   });
 });
 
-describe('vendor contact email (JotForm freshness)', () => {
-  it('a later order overwrites the email; a no-email call leaves it', async () => {
+describe('order contact lives on the campaign (per-order paper trail)', () => {
+  it('each order archives its own contact on the campaign; the vendor’s public contactEmail is never touched', async () => {
     const name = brand('FreshCo');
-    const id = await findOrCreateVendor(name, prisma, 'first@v.com');
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('first@v.com');
-    await findOrCreateVendor(name, prisma, 'second@v.com');
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('second@v.com');
-    await findOrCreateVendor(name); // no email → untouched
-    expect((await prisma.vendor.findUnique({ where: { id } }))!.contactEmail).toBe('second@v.com');
+    const vendorId = await findOrCreateVendor(name);
+    // Two orders on the same vendor by DIFFERENT people — John for one, Kelly for
+    // the next. Each contact stays with its own campaign.
+    const c1 = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT', contactName: 'John Smith', contactEmail: 'john@v.com' });
+    const c2 = await createCampaign({ vendorName: name, vendorId, plan: 'quarter', startAt: new Date(), status: 'DRAFT', contactName: 'Kelly Green', contactEmail: 'kelly@v.com' });
+    const camp1 = await prisma.adCampaign.findUnique({ where: { id: c1 }, select: { contactName: true, contactEmail: true } });
+    const camp2 = await prisma.adCampaign.findUnique({ where: { id: c2 }, select: { contactName: true, contactEmail: true } });
+    expect(camp1).toMatchObject({ contactName: 'John Smith', contactEmail: 'john@v.com' });
+    expect(camp2).toMatchObject({ contactName: 'Kelly Green', contactEmail: 'kelly@v.com' });
+    // The vendor's public phone-book contact is never written by an order.
+    expect((await prisma.vendor.findUnique({ where: { id: vendorId } }))!.contactEmail).toBeNull();
     await purge(name);
   });
 });
@@ -101,11 +125,12 @@ describe('reminder emails', () => {
     const noName = brand('NoEmail');
 
     for (const [name, email] of [[withName, 'ads@hasemail.com'], [noName, null]] as const) {
-      const vendorId = await findOrCreateVendor(name, prisma, email ?? undefined);
+      const vendorId = await findOrCreateVendor(name);
       // Active campaign ending in ~20d (renewal due <30d). Replace the auto-split
       // flights with an explicit pair: flight 1 live, flight 2 AWAITING starting
-      // ~10d out (fresh-ads due <21d) — the two nudges the test exercises.
-      const campaign = await createCampaign({ vendorName: name, vendorId, plan: 'half', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 20 * day), status: 'ACTIVE' });
+      // ~10d out (fresh-ads due <21d) — the two nudges the test exercises. The
+      // order contact (who to remind) is on the campaign.
+      const campaign = await createCampaign({ vendorName: name, vendorId, plan: 'half', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 20 * day), status: 'ACTIVE', contactEmail: email ?? undefined });
       await prisma.adFlight.deleteMany({ where: { campaignId: campaign } });
       await prisma.adFlight.createMany({ data: [
         { campaignId: campaign, index: 1, status: 'SCHEDULED', startAt: new Date(now.getTime() - 70 * day), endAt: new Date(now.getTime() + 10 * day) },

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import LogoutButton from './LogoutButton';
-import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight } from './icons';
+import { Grid, FileText, Layers, Tag, Users, Home, Menu, X, Archive, Megaphone, Newspaper, BarChart, Sparkles, Check, Eye, Mail, Calendar, Clock, ChevronDown, ChevronRight, ExternalLink, Book, Quote } from './icons';
 import { BrandMark } from './BrandLogo';
 
 type NavLink = { href: string; label: string; icon: typeof Grid; exact?: boolean; adminOnly?: boolean };
@@ -19,30 +19,39 @@ const groups: NavGroup[] = [
   ] },
   { title: 'Homepage', links: [
     { href: '/admin/homepage', label: 'Homepage layout', icon: Home },
-    { href: '/admin/studio', label: 'Module Studio', icon: Grid },
+    { href: '/admin/homepage/inventory', label: 'Homepage inventory', icon: Layers },
+    { href: '/admin/announcement', label: 'Announcement bar', icon: Megaphone },
     { href: '/admin/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/admin/seasonal', label: 'Seasonal modules', icon: Sparkles },
   ] },
   { title: 'Create content', links: [
+    { href: '/admin/newsroom', label: 'Newsroom', icon: Book },
     { href: '/admin/articles', label: 'Articles', icon: FileText },
     { href: '/admin/industry', label: 'Industry News', icon: Newspaper },
     { href: '/admin/polls', label: 'Polls', icon: BarChart },
     { href: '/admin/quizzes', label: 'Pop Quiz', icon: Check },
     { href: '/admin/comics', label: 'Comics', icon: Sparkles },
+    { href: '/admin/studio', label: 'Module Studio', icon: Grid },
     { href: '/admin/pages', label: 'Pages', icon: Archive },
   ] },
   { title: 'Organize', links: [
     { href: '/admin/categories', label: 'Categories', icon: Layers },
+    { href: '/admin/genres', label: 'Genres', icon: Tag },
     { href: '/admin/tags', label: 'Tags', icon: Tag },
+    { href: '/admin/bylines', label: 'Bylines', icon: Users },
+    { href: '/admin/house-style', label: 'RS Dictionary', icon: Quote },
   ] },
   { title: 'Advertising', links: [
     { href: '/admin/ads', label: 'Ad management', icon: Megaphone },
     { href: '/admin/campaigns', label: 'Ad campaigns', icon: Megaphone },
     { href: '/admin/vendors', label: 'Vendors', icon: Users },
+    { href: '/admin/intake', label: 'Sponsored articles', icon: Newspaper },
     { href: '/admin/reports', label: 'Performance reports', icon: BarChart },
   ] },
   { title: 'System', links: [
     { href: '/admin/email-templates', label: 'Email templates', icon: Mail },
     { href: '/admin/subscribers', label: 'Subscribers', icon: Mail },
+    { href: '/admin/integrations', label: 'Integrations', icon: ExternalLink, adminOnly: true },
     { href: '/admin/users', label: 'Users (CRM)', icon: Users, adminOnly: true },
   ] },
 ];
@@ -122,7 +131,7 @@ export default function AdminShell({
           </button>
           <Link href="/admin" className="flex items-center gap-2 font-bold">
             <BrandMark size={30} priority className="rounded-[6px]" />
-            <span className="hidden sm:inline">RSNews Admin</span>
+            <span className="hidden sm:inline">RS News Admin</span>
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <Link href="/docs" className={`btn-ghost btn-sm ${ghost}`}><Home width={15} height={15} /> <span className="hidden sm:inline">View site</span></Link>

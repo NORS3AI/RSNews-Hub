@@ -3,14 +3,15 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useTra
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, MAX_BLOCKS, MAX_FALLBACKS,
-  type ModuleTree, type Block, type BlockType, type Shape,
+  BLOCKS, BLOCK_GROUPS, BLOCK_IDS, blocksInGroup, SHAPES, SHAPE_IDS, makeBlock, blockChain, clampTreeSpan, MAX_BLOCKS, MAX_FALLBACKS,
+  type ModuleTree, type Block, type BlockType, type Shape, type ModuleCollection, type CollectionSort,
 } from '@/lib/studio';
-import CustomModule, { BlockView, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
+import CustomModule, { BlockView, ModuleEffectLayer, shapeInnerClass, childWidthClass, shapeContainerClass, rsStyle } from '@/components/site/CustomModule';
 import { saveCustomModuleTree, renameCustomModule, setCustomModulePublished } from '@/lib/actions';
+import { uploadImage, uploadVideo } from '@/lib/uploadClient';
 import EntityPicker from '@/components/admin/studio/EntityPicker';
 import RsColorPicker from '@/components/admin/studio/RsColorPicker';
-import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X } from '@/components/icons';
+import { ArrowLeft, Plus, Grip, Trash, Copy, Check, ChevronDown, ChevronRight, Eye, X, Lock } from '@/components/icons';
 
 function newId(): string {
   try { return 'b' + crypto.randomUUID().slice(0, 8); } catch { return 'b' + Date.now().toString(36); }
@@ -24,10 +25,15 @@ export type CatOption = { name: string; slug: string };
 const CategoriesContext = createContext<CatOption[]>([]);
 const useCategories = () => useContext(CategoriesContext);
 
+// Editorial genres, shared like categories for the collection's genre filter.
+export type GenreOption = { label: string; slug: string };
+const GenresContext = createContext<GenreOption[]>([]);
+const useGenres = () => useContext(GenresContext);
+
 // Advertisers (+ which image shapes each can fill) for the ad block's advertiser
 // picker and its "no creative in that shape" popup. Shared via context like
 // categories so it doesn't thread through every inspector level.
-export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean };
+export type Advertiser = { key: string; brand: string; wide: boolean; rect: boolean; video: boolean; tall: boolean };
 const AdvertisersContext = createContext<Advertiser[]>([]);
 const useAdvertisers = () => useContext(AdvertisersContext);
 
@@ -35,20 +41,19 @@ const useAdvertisers = () => useContext(AdvertisersContext);
 // slot (e.g. Square fits a sidebar; Leaderboard is a wide banner).
 const AD_VARIANTS: { label: string; format: string }[] = [
   { label: 'Ad — rectangle', format: 'rectangle' },
-  { label: 'Ad — square', format: 'square' },
-  { label: 'Ad — vertical', format: 'vertical' },
   { label: 'Ad — leaderboard', format: 'leaderboard' },
   { label: 'Ad — video', format: 'video' },
+  { label: 'Ad — skyscraper', format: 'vertical' },
 ];
 // Which image creative each ad format needs, and helpers for the advertiser
 // "no creative in that shape" popup (mirrors the article maker's ad slot).
-const AD_FORMAT_SHAPE: Record<string, 'wide' | 'rect' | 'video'> = { leaderboard: 'wide', video: 'video', rectangle: 'rect', square: 'rect', vertical: 'rect' };
-const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false : shape === 'wide' ? adv.wide : shape === 'video' ? adv.video : adv.rect;
-const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video);
+const AD_FORMAT_SHAPE: Record<string, 'wide' | 'rect' | 'video' | 'tall'> = { leaderboard: 'wide', video: 'video', rectangle: 'rect', vertical: 'tall' };
+const advImgShape = (adv: Advertiser | undefined, shape: string) => !adv ? false : shape === 'wide' ? adv.wide : shape === 'video' ? adv.video : shape === 'tall' ? adv.tall : adv.rect;
+const advAnyImg = (adv: Advertiser | undefined) => !!adv && (adv.wide || adv.rect || adv.video || adv.tall);
 
 export default function StudioEditor({
-  id, name: initialName, published, initialTree, categories = [], advertisers = [],
-}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[]; advertisers?: Advertiser[] }) {
+  id, name: initialName, published, initialTree, categories = [], advertisers = [], genres = [],
+}: { id: string; name: string; published: boolean; initialTree: ModuleTree; categories?: CatOption[]; advertisers?: Advertiser[]; genres?: GenreOption[] }) {
   const router = useRouter();
   const [tree, setTree] = useState<ModuleTree>(initialTree);
   const [name, setName] = useState(initialName);
@@ -65,6 +70,27 @@ export default function StudioEditor({
   const [saving, startSave] = useTransition();
   const drag = useRef<DragState>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  // A `row` reader-side is one arrow-scrolled strip. On the builder canvas we
+  // instead "chop" it into stacked strips that keep the row's true card ratio,
+  // with an orange marker on each cut end showing the row continues. Measure the
+  // canvas so the number of cards per strip reflows as it grows (e.g. when the
+  // left palette is collapsed) or shrinks.
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [perRow, setPerRow] = useState(3);
+  // Re-run when the row canvas first mounts (empty → first block, so the ref
+  // element exists) as well as on shape change — hoisted so the deps array stays
+  // a simple value (lint) and the ResizeObserver actually attaches.
+  const canvasMounted = tree.shape === 'row' && tree.children.length > 0;
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const CARD = 200, GAP = 16; // target card width + column gap, px
+    const compute = () => setPerRow(Math.max(1, Math.floor((el.clientWidth + GAP) / (CARD + GAP))));
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [canvasMounted]);
   const [past, setPast] = useState<ModuleTree[]>([]);
   const [future, setFuture] = useState<ModuleTree[]>([]);
   // Permutation preview: which rung of each slot's priority stack to show on the
@@ -141,6 +167,18 @@ export default function StudioEditor({
   const setShape = (shape: Shape) => mutate((t) => { t.shape = shape; return t; });
   const setContainerColor = (c: string | null) => mutate((t) => { t.rsColor = c; return t; });
   const setExpireDays = (d: number) => mutate((t) => { t.expireDays = d > 0 ? d : 0; return t; });
+  const setDefaultSpan = (n: number) => mutate((t) => { t.defaultSpan = clampTreeSpan(n); return t; });
+  const setEffect = (e: 'snow' | 'confetti' | null) => mutate((t) => { t.effect = e; if (!e) t.effectColors = []; return t; });
+  const setEffectColors = (cols: string[]) => mutate((t) => { t.effectColors = cols.slice(0, 3); return t; });
+  // Module-level article collection. Merges a patch; clearing the category turns
+  // the whole collection off (elements fall back to their own sourcing).
+  const setCollection = (patch: Partial<ModuleCollection> | null) => mutate((t) => {
+    if (patch === null) { t.collection = null; return t; }
+    const cur: ModuleCollection = t.collection ?? { categorySlug: '', tags: [], year: 0, genre: '', sort: 'newest', rotateHours: 0 };
+    const next: ModuleCollection = { ...cur, ...patch };
+    t.collection = next.categorySlug ? next : null;
+    return t;
+  });
   function patchSelected(patch: Partial<Block> | { settings: Record<string, unknown> }) {
     if (!selectedBlock) return;
     mutate((t) => {
@@ -195,8 +233,65 @@ export default function StudioEditor({
     });
   }
 
+  // One draggable canvas slot, shared by every shape. `i` is the block's GLOBAL
+  // index so drops reorder correctly even when a row is chopped into strips.
+  const renderSlot = (b: Block, i: number, widthClass: string) => {
+    const chain = blockChain(b);
+    const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
+    return (
+      <div key={b.id} className={widthClass}
+        onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
+        onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
+        <BlockFrame
+          selected={selected === b.id}
+          over={overIndex === i}
+          onSelect={(e) => { e.stopPropagation(); setSelected(b.id); }}
+          onDragStart={() => { drag.current = { kind: 'move', index: i }; }}
+          onDragEnd={() => { drag.current = null; setOverIndex(null); }}
+          onRemove={(e) => { e.stopPropagation(); removeBlock(b.id); }}
+          onDuplicate={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
+          label={BLOCKS[b.type].label}
+          chain={chain}
+          rung={rung}
+          onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
+          scheduled={!!(b.startAt || b.endAt)}
+          gateLabel={b.requirement ? (AUDIENCES.find((a) => a.value === b.requirement)?.label ?? b.requirement) : undefined}
+        >
+          <BlockView block={chain[rung]} />
+        </BlockFrame>
+      </div>
+    );
+  };
+  // The "drop at the very end" affordance.
+  const trailingZone = (widthClass: string) => (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
+      onDrop={(e) => { e.stopPropagation(); onDropAt(tree.children.length); }}
+      className={`${widthClass} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
+      {overIndex === tree.children.length ? 'Drop here' : ''}
+    </div>
+  );
+  // Chop a row's blocks into strips of `perRow`, carrying each block's global index.
+  const rowStrips: { block: Block; index: number }[][] = [];
+  if (tree.shape === 'row') {
+    for (let i = 0; i < tree.children.length; i += perRow) {
+      rowStrips.push(tree.children.slice(i, i + perRow).map((block, k) => ({ block, index: i + k })));
+    }
+  }
+  // Orange "this row continues" marker on a chopped strip's cut edge: a flush bar
+  // plus a chevron pointing the way the row runs on.
+  const ContinueMarker = ({ side }: { side: 'left' | 'right' }) => (
+    <div aria-hidden title={side === 'left' ? 'Continued from the strip above' : 'Continues on the next strip'}>
+      <div className="pointer-events-none absolute inset-y-3 z-20 w-1 rounded-full bg-brand-500" style={{ [side]: 0 }} />
+      <div className="pointer-events-none absolute top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-brand-600 text-white shadow" style={{ [side]: -12 }}>
+        <ChevronRight width={14} height={14} className={side === 'left' ? 'rotate-180' : ''} />
+      </div>
+    </div>
+  );
+
   return (
     <CategoriesContext.Provider value={categories}>
+    <GenresContext.Provider value={genres}>
     <AdvertisersContext.Provider value={advertisers}>
     <div className="mx-auto max-w-6xl">
       {/* Top bar */}
@@ -238,7 +333,7 @@ export default function StudioEditor({
 
       <div className="grid gap-4 lg:grid-cols-[180px_1fr_300px]">
         {/* ---- Palette ---- */}
-        <aside className="space-y-4">
+        <aside className="composer-panel space-y-4 self-start rounded-2xl p-3">
           <Panel title="Shape">
             <div className="grid grid-cols-2 gap-1.5">
               {SHAPE_IDS.map((s) => (
@@ -293,7 +388,7 @@ export default function StudioEditor({
         {/* ---- Canvas ---- */}
         <div>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas</span>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-[var(--muted)]">Canvas <span className="ml-1 rounded bg-[var(--card-2)] px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal text-[var(--muted)]">{clampTreeSpan(tree.defaultSpan) === 1 ? '⅓ width' : clampTreeSpan(tree.defaultSpan) === 2 ? '⅔ width' : 'Full width'}</span></span>
             <div className="flex items-center gap-2">
               {/* Preview the module in the same three themes a reader can pick. */}
               <div className="inline-flex overflow-hidden rounded-lg border border-[var(--border)] text-xs font-semibold">
@@ -312,62 +407,59 @@ export default function StudioEditor({
               </button>
             </div>
           </div>
+          {/* One fixed canvas size for every shape — it grows only when the left
+              palette is collapsed (see the editor grid). The true per-span width
+              is shown by the "Preview" button. A row stays a row but is "chopped"
+              into separated strips stacked down the canvas, so the whole row is
+              visible while building; orange markers on the cut ends show it runs on. */}
           <div className={`mx-auto w-full max-w-4xl rounded-2xl ${previewClass}`}>
-            <section className={`module studio-fill mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
-              onClick={() => setSelected(null)}>
-              {tree.children.length === 0 ? (
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
-                  onDrop={() => onDropAt(0)}
-                  className={`grid min-h-[160px] place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-[var(--muted)] ${overIndex === 0 ? 'border-brand-500 bg-brand-50/50' : 'border-[var(--border)]'}`}>
-                  Drag an element here, or click one in the palette.
-                </div>
-              ) : (
-                <div className={shapeInnerClass(tree.shape)}>
-                  {tree.children.map((b, i) => {
-                    const chain = blockChain(b);
-                    const rung = Math.min(rungPreview[b.id] ?? 0, chain.length - 1);
-                    return (
-                    <div key={b.id} className={childWidthClass(tree.shape)}
-                      onDragOver={(e) => { e.preventDefault(); setOverIndex(i); }}
-                      onDrop={(e) => { e.stopPropagation(); onDropAt(i); }}>
-                      <BlockFrame
-                        selected={selected === b.id}
-                        over={overIndex === i}
-                        onSelect={(e) => { e.stopPropagation(); setSelected(b.id); }}
-                        onDragStart={() => { drag.current = { kind: 'move', index: i }; }}
-                        onDragEnd={() => { drag.current = null; setOverIndex(null); }}
-                        onRemove={(e) => { e.stopPropagation(); removeBlock(b.id); }}
-                        onDuplicate={(e) => { e.stopPropagation(); duplicateBlock(b.id); }}
-                        label={BLOCKS[b.type].label}
-                        chain={chain}
-                        rung={rung}
-                        onRung={(k) => setRungPreview((r) => ({ ...r, [b.id]: k }))}
-                        scheduled={!!(b.startAt || b.endAt)}
-                        gateLabel={b.requirement ? (AUDIENCES.find((a) => a.value === b.requirement)?.label ?? b.requirement) : undefined}
-                      >
-                        <BlockView block={chain[rung]} />
-                      </BlockFrame>
-                    </div>
-                  ); })}
-                  {/* trailing append zone */}
+            {tree.children.length === 0 ? (
+              <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+                onClick={() => setSelected(null)}>
+                <ModuleEffectLayer tree={tree} />
+                <div className="relative z-10">
                   <div
-                    onDragOver={(e) => { e.preventDefault(); setOverIndex(tree.children.length); }}
-                    onDrop={(e) => { e.stopPropagation(); onDropAt(tree.children.length); }}
-                    className={`${childWidthClass(tree.shape)} grid min-h-[44px] place-items-center rounded-lg border border-dashed text-xs text-[var(--muted)] ${overIndex === tree.children.length ? 'border-brand-500 bg-brand-50/50' : 'border-transparent'}`}>
-                    {overIndex === tree.children.length ? 'Drop here' : ''}
+                    onDragOver={(e) => { e.preventDefault(); setOverIndex(0); }}
+                    onDrop={() => onDropAt(0)}
+                    className={`grid min-h-[160px] place-items-center rounded-xl border-2 border-dashed p-6 text-center text-sm text-[var(--muted)] ${overIndex === 0 ? 'border-brand-500 bg-brand-50/50' : 'border-[var(--border)]'}`}>
+                    Drag an element here, or click one in the palette.
                   </div>
                 </div>
-              )}
-            </section>
+              </section>
+            ) : tree.shape === 'row' ? (
+              <div ref={canvasRef} className="min-h-[200px] space-y-4" onClick={() => setSelected(null)}>
+                {rowStrips.map((strip, si) => (
+                  <section key={si} className="module studio-fill relative min-h-[92px]" style={rsStyle(tree.rsColor)}>
+                    <ModuleEffectLayer tree={tree} />
+                    {si > 0 && <ContinueMarker side="left" />}
+                    {si < rowStrips.length - 1 && <ContinueMarker side="right" />}
+                    <div className="relative z-10 grid gap-4" style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}>
+                      {strip.map(({ block, index }) => renderSlot(block, index, 'min-w-0'))}
+                    </div>
+                  </section>
+                ))}
+                {trailingZone('w-full')}
+              </div>
+            ) : (
+              <section className={`module studio-fill relative mx-auto min-h-[200px] ${shapeContainerClass(tree.shape)}`} style={rsStyle(tree.rsColor)}
+                onClick={() => setSelected(null)}>
+                <ModuleEffectLayer tree={tree} />
+                <div className="relative z-10">
+                  <div className={shapeInnerClass(tree.shape)}>
+                    {tree.children.map((b, i) => renderSlot(b, i, childWidthClass(tree.shape)))}
+                    {trailingZone(childWidthClass(tree.shape))}
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
         </div>
 
         {/* ---- Inspector ---- */}
         <aside>
           {selectedBlock
-            ? <BlockInspector block={selectedBlock} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
-            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} />}
+            ? <BlockInspector block={selectedBlock} shape={tree.shape} hasCollection={!!tree.collection} onPatch={patchSelected} onRemove={() => removeBlock(selectedBlock.id)} onDuplicate={() => duplicateBlock(selectedBlock.id)} />
+            : <ModuleInspector tree={tree} onShape={setShape} onColor={setContainerColor} onExpireDays={setExpireDays} onDefaultSpan={setDefaultSpan} onEffect={setEffect} onEffectColors={setEffectColors} onCollection={setCollection} />}
         </aside>
       </div>
 
@@ -402,6 +494,7 @@ export default function StudioEditor({
       )}
     </div>
     </AdvertisersContext.Provider>
+    </GenresContext.Provider>
     </CategoriesContext.Provider>
   );
 }
@@ -442,7 +535,7 @@ function BlockFrame({ selected, over, label, children, onSelect, onDragStart, on
       {(hasFallbacks || scheduled || gateLabel) && (
         <div className="mt-1 flex flex-wrap items-center gap-1 rounded-lg border border-dashed border-[var(--border)] bg-[var(--card-2)] px-1.5 py-1 text-[10px]" onClick={(e) => e.stopPropagation()}>
           {scheduled && <span className="rounded bg-amber-100 px-1.5 py-0.5 font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" title="This element has a schedule window">⏱ Scheduled</span>}
-          {gateLabel && <span className="rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Audience-gated element">🔒 {gateLabel}</span>}
+          {gateLabel && <span className="inline-flex items-center gap-1 rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" title="Audience-gated element"><Lock width={11} height={11} />{gateLabel}</span>}
           {hasFallbacks && <span className="font-bold uppercase tracking-wide text-[var(--muted)]">If empty:</span>}
           {hasFallbacks && chain!.map((r, k) => (
             <button key={k} type="button" onClick={() => onRung?.(k)}
@@ -465,14 +558,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function InspectorShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-card lg:sticky lg:top-4">
+    <div className="composer-panel card-soft rounded-xl border border-[var(--border)] p-4 lg:sticky lg:top-4">
       <div className="mb-3 text-sm font-black uppercase tracking-[0.12em] text-[var(--muted)]">{title}</div>
       {children}
     </div>
   );
 }
 
-function ModuleInspector({ tree, onShape, onColor, onExpireDays }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void }) {
+const WIDTH_PRESETS: { value: number; label: string; hint: string }[] = [
+  { value: 1, label: '⅓', hint: 'One-third — three across a row' },
+  { value: 2, label: '⅔', hint: 'Two-thirds — pairs with a ⅓ module' },
+  { value: 3, label: 'Full', hint: 'Full width — its own row' },
+];
+
+const DEFAULT_CONFETTI = ['#E97D34', '#f7edd8', '#b23b2e'];
+
+function ModuleInspector({ tree, onShape, onColor, onExpireDays, onDefaultSpan, onEffect, onEffectColors, onCollection }: { tree: ModuleTree; onShape: (s: Shape) => void; onColor: (c: string | null) => void; onExpireDays: (d: number) => void; onDefaultSpan: (n: number) => void; onEffect: (e: 'snow' | 'confetti' | null) => void; onEffectColors: (c: string[]) => void; onCollection: (patch: Partial<ModuleCollection> | null) => void }) {
+  const span = clampTreeSpan(tree.defaultSpan);
+  const cats = useCategories();
+  const genres = useGenres();
+  const col = tree.collection;
   return (
     <InspectorShell title="Module">
       <Field label="Shape">
@@ -480,7 +585,69 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays }: { tree: Modul
           {SHAPE_IDS.map((s) => <option key={s} value={s}>{SHAPES[s].label}</option>)}
         </select>
       </Field>
+      <Field label="Homepage width">
+        <div className="inline-flex w-full overflow-hidden rounded-lg border border-[var(--border)]">
+          {WIDTH_PRESETS.map((w) => (
+            <button key={w.value} type="button" title={w.hint} onClick={() => onDefaultSpan(w.value)}
+              className={`flex-1 px-2 py-1.5 text-xs font-semibold transition ${span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}>
+              {w.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[11px] text-[var(--muted)]">The width this module takes when first placed on the homepage. You can still override it per-placement in Homepage layout. Everything collapses to full width on phones.</p>
+      </Field>
       <Field label="Background"><RsColorPicker value={tree.rsColor} onChange={onColor} /></Field>
+      <Field label="Article collection">
+        <select className="input" value={col?.categorySlug ?? ''} onChange={(e) => onCollection(e.target.value ? { categorySlug: e.target.value } : null)}>
+          <option value="">Off — each element chooses its own</option>
+          {cats.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+        </select>
+        {col && (
+          <div className="mt-2 space-y-2">
+            <input className="input" placeholder="Tags — optional, comma-separated" value={(col.tags ?? []).join(', ')}
+              onChange={(e) => onCollection({ tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 6) })} />
+            <select className="input" value={col.genre ?? ''} onChange={(e) => onCollection({ genre: e.target.value })}>
+              <option value="">Any genre</option>
+              {genres.map((g) => <option key={g.slug} value={g.slug}>{g.label}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <input type="number" min={1990} max={2100} className="input" placeholder="Year — optional"
+                value={col.year || ''} onChange={(e) => onCollection({ year: Number(e.target.value) || 0 })} />
+              <select className="input" value={col.sort} onChange={(e) => onCollection({ sort: e.target.value as CollectionSort })}>
+                <option value="newest">Newest first</option>
+                <option value="recommended">Most recommended</option>
+                <option value="views">Most viewed</option>
+              </select>
+            </div>
+            <select className="input" value={col.rotateHours} onChange={(e) => onCollection({ rotateHours: Number(e.target.value) })}>
+              <option value={0}>No rotation — always the top stories</option>
+              <option value={12}>Rotate every 12 hours</option>
+              <option value={24}>Rotate daily</option>
+              <option value={168}>Rotate weekly</option>
+            </select>
+          </div>
+        )}
+        <p className="mt-1 text-[11px] text-[var(--muted)]">Every article element in this module fills from this set — never repeating a story — unless you switch that element to “Pick a specific article”. Tags, genre, and year narrow it (all must match); rotation quietly cycles which stories show over time.</p>
+      </Field>
+      <Field label="Holiday effect">
+        <select className="input" value={tree.effect ?? ''} onChange={(e) => onEffect((e.target.value || null) as 'snow' | 'confetti' | null)}>
+          <option value="">None</option>
+          <option value="snow">Snow</option>
+          <option value="confetti">Confetti</option>
+        </select>
+        {tree.effect === 'confetti' && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[11px] text-[var(--muted)]">Colors</span>
+            {[0, 1, 2].map((i) => (
+              <input key={i} type="color" aria-label={`Confetti color ${i + 1}`}
+                value={tree.effectColors?.[i] ?? DEFAULT_CONFETTI[i]}
+                onChange={(e) => onEffectColors([0, 1, 2].map((j) => (j === i ? e.target.value : (tree.effectColors?.[j] ?? DEFAULT_CONFETTI[j]))))}
+                className="h-8 w-10 rounded border border-[var(--border)] bg-[var(--card-2)] p-0.5" />
+            ))}
+          </div>
+        )}
+        <p className="mt-1 text-[11px] text-[var(--muted)]">A gentle animated overlay behind this module — for a holiday or a celebration. It pauses when off-screen and honors “reduce motion”, and adds no page-load weight (it&apos;s drawn in the browser, no images).</p>
+      </Field>
       <Field label="Auto-remove after (days)">
         <input type="number" min={0} className="input" value={Number(tree.expireDays) || 0} onChange={(e) => onExpireDays(Math.max(0, Number(e.target.value) || 0))} />
         <p className="mt-1 text-[11px] text-[var(--muted)]">0 = never. Invisible timer starts when you publish; the module drops off the homepage when it elapses (logged in the activity log).</p>
@@ -490,8 +657,8 @@ function ModuleInspector({ tree, onShape, onColor, onExpireDays }: { tree: Modul
   );
 }
 
-function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
-  block: Block; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
+function BlockInspector({ block, shape, hasCollection, onPatch, onRemove, onDuplicate }: {
+  block: Block; shape: Shape; hasCollection: boolean; onPatch: (p: any) => void; onRemove: () => void; onDuplicate: () => void;
 }) {
   const s = block.settings;
   const set = (k: string, v: unknown) => onPatch({ settings: { [k]: v } });
@@ -518,7 +685,7 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       <div className={tab === 'content' ? '' : 'hidden'}>
       {(block.type === 'article' || block.type === 'article-image' || block.type === 'article-headline') && (
         <>
-          <ArticleFillFields s={s} set={set} />
+          <ArticleFillFields s={s} set={set} hasCollection={hasCollection} />
           {(block.type === 'article' || block.type === 'article-image') && (
             <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
           )}
@@ -530,6 +697,43 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
               </select>
             </Field>
           )}
+        </>
+      )}
+      {(block.type === 'spotlight' || block.type === 'split') && (
+        <>
+          <ArticleFillFields s={s} set={set} hasCollection={hasCollection} />
+          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.showDek !== false} onChange={(e) => set('showDek', e.target.checked)} /> Show standfirst (dek)</label>
+          {block.type === 'spotlight' && (
+            <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.overlay !== false} onChange={(e) => set('overlay', e.target.checked)} /> Overlay the headline on the image</label>
+          )}
+          {block.type === 'split' && (
+            <Field label="Image side">
+              <select className="input" value={String(s.imageSide ?? 'left')} onChange={(e) => set('imageSide', e.target.value)}>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+            </Field>
+          )}
+        </>
+      )}
+      {block.type === 'mosaic' && (
+        <>
+          {hasCollection ? (
+            <p className="mb-3 rounded-lg border border-brand-500/40 bg-brand-50/40 px-3 py-2 text-[11px] text-[var(--muted)]">Filling from the module’s <strong>article collection</strong>. Clear the collection (module settings) to choose a source here instead.</p>
+          ) : (
+            <Field label="Source">
+              <select className="input" value={String(s.source ?? 'latest')} onChange={(e) => set('source', e.target.value)}>
+                <option value="featured">Featured</option>
+                <option value="latest">Latest</option>
+                <option value="trending">Trending</option>
+                <option value="most-recommended">Most recommended</option>
+              </select>
+            </Field>
+          )}
+          <Field label={`Tiles — ${Number(s.count ?? 4)} stories`}>
+            <input type="range" min={3} max={6} step={1} value={Number(s.count ?? 4)} onChange={(e) => set('count', Number(e.target.value))} className="w-full accent-brand-600" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">A tiled grid; auto-fills the newest stories from the source, de-duped across the homepage.</p>
+          </Field>
         </>
       )}
       {block.type === 'ad' && (() => {
@@ -544,15 +748,15 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         if (adv?.wide) alts.push({ format: 'leaderboard', label: 'Leaderboard' });
         if (adv?.rect) alts.push({ format: 'rectangle', label: 'Rectangle' });
         if (adv?.video) alts.push({ format: 'video', label: 'Video' });
+        if (adv?.tall) alts.push({ format: 'vertical', label: 'Skyscraper' });
         return (
           <>
             <Field label="Ad format">
               <select className="input" value={fmt} onChange={(e) => set('format', e.target.value)}>
                 <option value="rectangle">Rectangle (medium)</option>
-                <option value="square">Square (fits a sidebar)</option>
-                <option value="vertical">Vertical (skyscraper)</option>
                 <option value="leaderboard">Leaderboard (wide banner)</option>
-                <option value="video">Video</option>
+                <option value="video">Video (widescreen 16:9)</option>
+                <option value="vertical">Skyscraper (tall vertical)</option>
               </select>
             </Field>
             <Field label="Advertiser">
@@ -582,6 +786,26 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
         <>
           <Field label="Image URL"><input className="input" value={String(s.url ?? '')} onChange={(e) => set('url', e.target.value)} placeholder="https://…" /></Field>
           <Field label="Alt text"><input className="input" value={String(s.alt ?? '')} onChange={(e) => set('alt', e.target.value)} placeholder="Describe the image" /></Field>
+          <Field label={`Width — ${Number(s.widthPct ?? 100)}% of the module`}>
+            <input type="range" min={10} max={200} step={5} value={Number(s.widthPct ?? 100)} onChange={(e) => set('widthPct', Number(e.target.value))} className="w-full accent-brand-600" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% makes it bigger than the module{s.bleed ? ' and spills past the edge' : ' (clipped at the edge unless “spill” is on)'}.</p>
+          </Field>
+          <label className="mb-2 flex items-start gap-2 text-sm"><input type="checkbox" className="mt-0.5" checked={!!s.bleed} onChange={(e) => set('bleed', e.target.checked)} /> <span>Let it spill past the module edge <span className="text-[var(--muted)]">— for a gentle dimensional overlap. Best with a transparent-background image and Rounded corners off.</span></span></label>
+          {!!s.bleed && shape === 'row' && (
+            <p className="mb-2 text-[11px] text-amber-700 dark:text-amber-300">Spill-out doesn’t apply in a Row module — it scrolls sideways, so the image stays clipped inside the row. Use a Column, Grid, or Card module for the overlap.</p>
+          )}
+          <label className="mb-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={s.radius !== false} onChange={(e) => set('radius', e.target.checked)} /> Rounded corners</label>
+        </>
+      )}
+      {block.type === 'video' && (
+        <>
+          <Field label="Video (mp4/webm)">
+            <MediaUploadField kind="video" value={String(s.url ?? '')} onChange={(u) => set('url', u)} placeholder="https://… or upload" />
+            <p className="mt-1 text-[11px] text-[var(--muted)]">Autoplays muted &amp; looping. Viewers with reduced-motion get the poster + play controls.</p>
+          </Field>
+          <Field label="Poster image (shown before it plays / fallback)">
+            <MediaUploadField kind="image" value={String(s.poster ?? '')} onChange={(u) => set('poster', u)} placeholder="https://… or upload" />
+          </Field>
           <Field label={`Width — ${Number(s.widthPct ?? 100)}% of the module`}>
             <input type="range" min={10} max={200} step={5} value={Number(s.widthPct ?? 100)} onChange={(e) => set('widthPct', Number(e.target.value))} className="w-full accent-brand-600" />
             <p className="mt-1 text-[11px] text-[var(--muted)]">Over 100% intentionally overflows the module edges.</p>
@@ -621,6 +845,13 @@ function BlockInspector({ block, onPatch, onRemove, onDuplicate }: {
       )}
       {block.type === 'text' && (
         <Field label="Body"><textarea className="input min-h-[120px]" value={String(s.body ?? '')} onChange={(e) => set('body', e.target.value)} /></Field>
+      )}
+      {block.type === 'countdown' && (
+        <>
+          <Field label="Title (above the timer)"><input className="input" value={String(s.title ?? '')} onChange={(e) => set('title', e.target.value)} placeholder="RS Expo 2026" /></Field>
+          <Field label="Count down to"><input type="datetime-local" className="input" value={String(s.targetAt ?? '').slice(0, 16)} onChange={(e) => set('targetAt', e.target.value)} /></Field>
+          <Field label="Button link (optional)"><input className="input" value={String(s.href ?? '')} onChange={(e) => set('href', e.target.value)} placeholder="/docs/page/expo" /></Field>
+        </>
       )}
       </div>
 
@@ -670,9 +901,27 @@ function HeadingSeeAllFields({ s, set }: { s: Record<string, unknown>; set: (k: 
   );
 }
 
-function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void }) {
+function ArticleFillFields({ s, set, hasCollection }: { s: Record<string, unknown>; set: (k: string, v: unknown) => void; hasCollection: boolean }) {
   const mode = String(s.mode ?? 'auto');
   const categories = useCategories();
+  // When the module has a collection, an element is simply "from the collection"
+  // (any non-pick mode) or a hand-pick. The full per-element sourcing set is only
+  // offered when there's no module collection to defer to.
+  if (hasCollection) {
+    return (
+      <>
+        <Field label="This element">
+          <select className="input" value={mode === 'pick' ? 'pick' : 'collection'} onChange={(e) => set('mode', e.target.value === 'pick' ? 'pick' : 'collection')}>
+            <option value="collection">From the module collection</option>
+            <option value="pick">Pick a specific article</option>
+          </select>
+        </Field>
+        {mode === 'pick'
+          ? <Field label="Article"><EntityPicker value={String(s.articleId ?? '')} onChange={(id) => set('articleId', id)} endpoint="/api/admin/articles/search" placeholder="Search articles…" /></Field>
+          : <p className="mb-3 text-[11px] text-[var(--muted)]">Pulls the next unused story from the module’s collection — guaranteed not to repeat another element here.</p>}
+      </>
+    );
+  }
   return (
     <>
       <Field label="Fill with">
@@ -690,6 +939,7 @@ function ArticleFillFields({ s, set }: { s: Record<string, unknown>; set: (k: st
             <option value="featured">Featured</option>
             <option value="latest">Latest</option>
             <option value="trending">Trending</option>
+            <option value="most-recommended">Most recommended</option>
           </select>
         </Field>
       )}
@@ -837,7 +1087,7 @@ const AUDIENCES: { value: string; label: string }[] = [
   { value: '', label: 'Everyone (public)' },
   { value: 'member', label: 'Signed-in members' },
   { value: 'premium', label: 'RS Premium' },
-  { value: 'packagehub', label: 'Package Hub' },
+  { value: 'packagehub', label: 'PackageHub' },
   { value: 'vendor', label: 'Vendors' },
   { value: 'staff', label: 'Staff' },
 ];
@@ -879,19 +1129,22 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
   const s = block.settings;
   switch (block.type) {
     case 'article': case 'article-image': case 'article-headline':
+    case 'spotlight': case 'split': case 'mosaic':
       return (
         <select className="input !h-8 !py-1 text-xs" value={String(s.source ?? 'latest')} onChange={(e) => onSet('source', e.target.value)}>
-          <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option>
+          <option value="featured">Featured</option><option value="latest">Latest</option><option value="trending">Trending</option><option value="most-recommended">Most recommended</option>
         </select>
       );
     case 'ad':
       return (
         <select className="input !h-8 !py-1 text-xs" value={String(s.format ?? 'rectangle')} onChange={(e) => onSet('format', e.target.value)}>
-          <option value="rectangle">Rectangle</option><option value="square">Square</option><option value="vertical">Vertical</option><option value="leaderboard">Leaderboard</option><option value="video">Video</option>
+          <option value="rectangle">Rectangle</option><option value="leaderboard">Leaderboard</option><option value="video">Video</option><option value="vertical">Skyscraper</option>
         </select>
       );
     case 'image':
       return <input className="input !h-8 !py-1 text-xs" value={String(s.url ?? '')} onChange={(e) => onSet('url', e.target.value)} placeholder="Image URL" />;
+    case 'video':
+      return <input className="input !h-8 !py-1 text-xs" value={String(s.url ?? '')} onChange={(e) => onSet('url', e.target.value)} placeholder="Video URL" />;
     case 'poll':
       return <EntityPicker value={String(s.pollId ?? '')} onChange={(id) => onSet('pollId', id)} endpoint="/api/admin/polls/search" placeholder="Poll (or leave for active)…" />;
     case 'quiz':
@@ -905,3 +1158,31 @@ function FallbackControl({ block, onSet }: { block: Block; onSet: (k: string, v:
   }
 }
 
+
+// URL field + upload button used by the Studio Video block (video + poster).
+// Mirrors the article editor: upload to /api/uploads, or paste a URL directly.
+function MediaUploadField({ kind, value, onChange, placeholder }: {
+  kind: 'image' | 'video'; value: string; onChange: (url: string) => void; placeholder?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return;
+    setErr(null); setBusy(true);
+    const res = kind === 'video' ? await uploadVideo(file) : await uploadImage(file);
+    setBusy(false);
+    if (res.ok) onChange(res.url); else setErr(res.error);
+    if (ref.current) ref.current.value = '';
+  }
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input className="input" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+        <button type="button" onClick={() => ref.current?.click()} disabled={busy} className="btn-outline btn-sm shrink-0">{busy ? '…' : 'Upload'}</button>
+      </div>
+      <input ref={ref} type="file" accept={kind === 'video' ? 'video/mp4,video/webm' : 'image/*'} onChange={pick} className="hidden" />
+      {err && <p className="mt-1 text-[11px] text-red-600">{err}</p>}
+    </div>
+  );
+}

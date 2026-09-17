@@ -1,11 +1,19 @@
 'use client';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { moveHomeModule, toggleHomeModule, toggleHomeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource } from '@/lib/actions';
-import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip } from '@/components/icons';
+import { moveHomeModule, toggleHomeModule, toggleHomeLock, toggleHomeSizeLock, reorderHomeModules, resetHomeLayout, setHomeModuleSource, setHomeModuleSpan } from '@/lib/actions';
+import { ChevronUp, ChevronDown, Check, Eye, Lock, LockOpen, Grip, StarFilled } from '@/components/icons';
 
 type Source = { value: string; label: string };
-type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sources: Source[] | null; source: string | null };
+type Row = { id: string; label: string; description: string; enabled: boolean; locked: boolean; sizeLocked: boolean; sources: Source[] | null; source: string | null; span: number };
+
+// Width choices, in row-units. The homepage packs modules into rows of 3 units;
+// on narrow screens everything collapses to full width regardless.
+const WIDTHS: { value: number; label: string; hint: string }[] = [
+  { value: 1, label: '⅓', hint: 'One-third — three fit across a row' },
+  { value: 2, label: '⅔', hint: 'Two-thirds — pairs with a ⅓ module' },
+  { value: 3, label: 'Full', hint: 'Full width — its own row' },
+];
 
 export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
   const [rows, setRows] = useState<Row[]>(modules);
@@ -33,7 +41,7 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
   return (
     <div>
       <div className="mb-3 flex items-center gap-3 rounded-xl border border-dashed border-brand-300 bg-brand-50 p-4 dark:bg-brand-950/40">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">★</span>
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white"><StarFilled width={16} height={16} /></span>
         <div className="flex-1">
           <div className="font-semibold">Headline block <span className="ml-1 text-xs font-normal text-[var(--muted)]">(pinned — always first)</span></div>
           <div className="text-sm text-[var(--muted)]">Lead story + supporting headlines. This never moves.</div>
@@ -85,6 +93,28 @@ export default function HomeLayoutEditor({ modules }: { modules: Row[] }) {
                   </select>
                 </label>
               )}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-[var(--muted)]">
+                Width:
+                <div className="inline-flex overflow-hidden rounded-md border border-[var(--border)]">
+                  {WIDTHS.map((w) => (
+                    <button
+                      key={w.value}
+                      type="button"
+                      disabled={pending || m.sizeLocked}
+                      title={m.sizeLocked ? 'Width is locked' : w.hint}
+                      onClick={() => run(() => setHomeModuleSpan(m.id, w.value))}
+                      className={`px-2 py-1 text-xs font-semibold transition disabled:opacity-40 ${m.span === w.value ? 'bg-brand-600 text-white' : 'bg-[var(--card-2)] text-[var(--fg)] hover:bg-[var(--bg-soft)]'}`}
+                    >
+                      {w.label}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" disabled={pending} onClick={() => run(() => toggleHomeSizeLock(m.id))}
+                  title={m.sizeLocked ? 'Width locked — click to unlock' : 'Lock this width'}
+                  className={`inline-flex items-center rounded-md border p-1 transition ${m.sizeLocked ? 'border-brand-600 bg-brand-600 text-white' : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--fg)]'}`}>
+                  {m.sizeLocked ? <Lock width={12} height={12} /> : <LockOpen width={12} height={12} />}
+                </button>
+              </div>
             </div>
 
             <button disabled={pending} onClick={() => run(() => toggleHomeLock(m.id))}

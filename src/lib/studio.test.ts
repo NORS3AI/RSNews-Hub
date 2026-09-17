@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeTree, emptyTree, makeBlock, serializeTree, parseTree, isHexColor,
   MAX_BLOCKS, MAX_FALLBACKS, blockChain, inSchedule, customModuleId, isCustomModuleId, customIdOf,
+  BLOCK_IDS, ARTICLE_SOURCED_BLOCKS, isArticleSourced,
+  normalizeCollection, collectionKey, collectionOffset, rotatePool, collectionStep,
 } from './studio';
 
 describe('studio tree model', () => {
@@ -80,6 +82,83 @@ describe('studio tree model', () => {
     expect(normalizeTree({}).expireDays).toBe(0);
   });
 
+  it('normalizes the holiday effect + confetti colors', () => {
+    expect(normalizeTree({}).effect).toBe(null);
+    expect(normalizeTree({ effect: 'snow' }).effect).toBe('snow');
+    expect(normalizeTree({ effect: 'confetti' }).effect).toBe('confetti');
+    expect(normalizeTree({ effect: 'fireworks' }).effect).toBe(null); // unknown → off
+    // colors: only valid hex, capped at 3
+    const t = normalizeTree({ effect: 'confetti', effectColors: ['#E97D34', 'red', '#fff', '#000', '#123456'] });
+    expect(t.effectColors).toEqual(['#E97D34', '#fff', '#000']);
+  });
+
+  it('normalizes a module article collection', () => {
+    expect(normalizeTree({}).collection).toBe(null);
+    // no category → the whole collection is off
+    expect(normalizeCollection({ tags: ['x'] })).toBe(null);
+    const c = normalizeCollection({
+      categorySlug: 'Blogs', tags: ['A', ' ', 'b', 'a', 'c', 'd', 'e', 'f', 'g'],
+      year: 2022, genre: 'History', sort: 'recommended', rotateHours: 24,
+    });
+    expect(c).toEqual({ categorySlug: 'blogs', tags: ['a', 'b', 'c', 'd', 'e', 'f'], year: 2022, genre: 'history', sort: 'recommended', rotateHours: 24 });
+    // invalid sort/year/rotate fall back to safe defaults; genre defaults to '' (any)
+    const d = normalizeCollection({ categorySlug: 'news', sort: 'bogus', year: 1200, rotateHours: 7 });
+    expect(d).toEqual({ categorySlug: 'news', tags: [], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
+    // survives a serialize/parse round-trip on the tree
+    const t = parseTree(serializeTree(normalizeTree({ collection: { categorySlug: 'blogs', sort: 'views' } })));
+    expect(t.collection?.categorySlug).toBe('blogs');
+    expect(t.collection?.sort).toBe('views');
+  });
+
+  it('collectionStep counts how many stories a module draws from its collection', () => {
+    const t = (children: unknown[]) => collectionStep(children as never);
+    const art = (mode?: string) => ({ id: 'x', type: 'article-image', settings: mode ? { mode } : {}, children: [] });
+    const mosaic = (count: number) => ({ id: 'm', type: 'mosaic', settings: { count }, children: [] });
+    // three single-article slots → 3
+    expect(t([art(), art(), art()])).toBe(3);
+    // a hand-pick consumes nothing from the pool
+    expect(t([art(), art('pick'), art()])).toBe(2);
+    // a mosaic consumes its whole tile count (clamped 3–6), not 1
+    expect(t([mosaic(6)])).toBe(6);
+    expect(t([mosaic(99)])).toBe(6);
+    expect(t([mosaic(1)])).toBe(3);
+    expect(t([art(), mosaic(4)])).toBe(5);
+    // non-article blocks don't count; floor is 1
+    expect(t([{ id: 'h', type: 'heading', settings: {}, children: [] }])).toBe(1);
+  });
+
+  it('collectionKey is stable regardless of tag order', () => {
+    const a = collectionKey({ categorySlug: 'blogs', tags: ['x', 'y'], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
+    const b = collectionKey({ categorySlug: 'blogs', tags: ['y', 'x'], year: 0, genre: '', sort: 'newest', rotateHours: 0 });
+    expect(a).toBe(b);
+    // a different filter yields a different key
+    expect(collectionKey({ categorySlug: 'blogs', tags: [], year: 2022, genre: '', sort: 'newest', rotateHours: 0 })).not.toBe(a);
+    // a different genre yields a different key too
+    expect(collectionKey({ categorySlug: 'blogs', tags: ['x', 'y'], year: 0, genre: 'history', sort: 'newest', rotateHours: 0 })).not.toBe(a);
+  });
+
+  it('collectionOffset rotates deterministically by the clock', () => {
+    const hourMs = 3_600_000;
+    // off → always 0
+    expect(collectionOffset(0, 10, 3, 999 * hourMs)).toBe(0);
+    // daily rotation, step 3, pool 10: bucket = floor(hours/24)
+    expect(collectionOffset(24, 10, 3, 0)).toBe(0);          // bucket 0
+    expect(collectionOffset(24, 10, 3, 24 * hourMs)).toBe(3); // bucket 1 → 3
+    expect(collectionOffset(24, 10, 3, 48 * hourMs)).toBe(6); // bucket 2 → 6
+    expect(collectionOffset(24, 10, 3, 72 * hourMs)).toBe(9); // bucket 3 → 9
+    expect(collectionOffset(24, 10, 3, 96 * hourMs)).toBe(2); // bucket 4 → 12 % 10
+    // guards
+    expect(collectionOffset(24, 0, 3, 24 * hourMs)).toBe(0);
+  });
+
+  it('rotatePool wraps the pool without dropping items', () => {
+    expect(rotatePool([1, 2, 3, 4], 0)).toEqual([1, 2, 3, 4]);
+    expect(rotatePool([1, 2, 3, 4], 1)).toEqual([2, 3, 4, 1]);
+    expect(rotatePool([1, 2, 3, 4], 4)).toEqual([1, 2, 3, 4]); // full turn
+    expect(rotatePool([1, 2, 3, 4], 6)).toEqual([3, 4, 1, 2]); // wraps
+    expect(rotatePool([], 3)).toEqual([]);
+  });
+
   it('whitelists settings keys — unknown fields are stripped', () => {
     const t = normalizeTree({ children: [{ type: 'ad', settings: { format: 'leaderboard', evil: '<script>' } }] });
     expect(t.children[0].settings).toEqual({ format: 'leaderboard', vendor: '' });
@@ -96,6 +175,32 @@ describe('studio tree model', () => {
     expect(t.children[2].settings).toEqual({ mode: 'auto', source: 'trending' });
   });
 
+  it('ad formats: keeps the four real shapes; retired square → rectangle', () => {
+    const fmt = (f: string) => (normalizeTree({ children: [{ type: 'ad', settings: { format: f } }] }).children[0].settings as { format: string }).format;
+    expect(fmt('leaderboard')).toBe('leaderboard');
+    expect(fmt('rectangle')).toBe('rectangle');
+    expect(fmt('video')).toBe('video');
+    expect(fmt('vertical')).toBe('vertical');   // the skyscraper
+    expect(fmt('square')).toBe('rectangle');    // retired → collapses to rectangle
+  });
+
+  it('video block preserves its settings on normalize (no data loss)', () => {
+    const t = normalizeTree({ children: [
+      { type: 'video', settings: { url: 'https://x/y.mp4', poster: 'https://x/p.png', widthPct: 500, radius: false } },
+    ] });
+    expect(t.children[0].settings).toMatchObject({ url: 'https://x/y.mp4', poster: 'https://x/p.png', widthPct: 200, radius: false });
+  });
+
+  it('countdown href only allows safe schemes (blocks javascript:/data:)', () => {
+    const mk = (href: string) => (normalizeTree({ children: [{ type: 'countdown', settings: { targetAt: '2030-01-01T00:00:00.000Z', href } }] }).children[0].settings as { href: string }).href;
+    expect(mk('javascript:alert(document.cookie)')).toBe(''); // stripped
+    expect(mk('data:text/html,<script>1</script>')).toBe(''); // stripped
+    expect(mk('//evil.com')).toBe('');                        // protocol-relative stripped
+    expect(mk('https://example.com/sale')).toBe('https://example.com/sale'); // kept
+    expect(mk('/docs/category/deals')).toBe('/docs/category/deals');         // relative kept
+    expect(mk('mailto:sales@x.com')).toBe('mailto:sales@x.com');             // kept
+  });
+
   it('round-trips through serialize/parse', () => {
     const t = normalizeTree({ shape: 'grid', children: [makeBlock('heading', 'h'), makeBlock('text', 't')] });
     expect(parseTree(serializeTree(t))).toEqual(t);
@@ -109,7 +214,7 @@ describe('studio tree model', () => {
   it('normalizes a fallback chain: one level deep, capped, bad rungs dropped', () => {
     const t = normalizeTree({ children: [
       { type: 'poll', settings: { pollId: 'p1' }, fallbacks: [
-        { type: 'ad', settings: { format: 'square' } },
+        { type: 'ad', settings: { format: 'leaderboard' } },
         { type: 'bogus', settings: {} },                                   // dropped (unknown type)
         { type: 'article-headline', settings: { source: 'latest' },
           fallbacks: [{ type: 'ad', settings: {} }] },                      // nested fallback stripped
@@ -119,7 +224,7 @@ describe('studio tree model', () => {
     const slot = t.children[0];
     expect(slot.type).toBe('poll');
     expect(slot.fallbacks!.length).toBeLessThanOrEqual(MAX_FALLBACKS);
-    expect(slot.fallbacks![0].settings).toEqual({ format: 'square', vendor: '' });
+    expect(slot.fallbacks![0].settings).toEqual({ format: 'leaderboard', vendor: '' });
     expect(slot.fallbacks![1].type).toBe('article-headline');             // bogus was dropped
     expect(slot.fallbacks![1].fallbacks).toBeUndefined();                 // no nesting
     expect(blockChain(slot)[0]).toBe(slot);                                // chain = primary + fallbacks
@@ -171,5 +276,23 @@ describe('studio tree model', () => {
     expect(isCustomModuleId('latest')).toBe(false);
     expect(customIdOf('custom:abc')).toBe('abc');
     expect(customIdOf('latest')).toBeNull();
+  });
+
+  // Drift guard: the homepage prefetch and the admin inventory both rely on
+  // isArticleSourced() to decide which blocks need pick/tag/year/category pools.
+  // If someone adds a new article-driven element and forgets to classify it, it
+  // would render blank live (the exact bug the audit caught) — this test forces
+  // the decision by pinning the set and asserting every entry is a real block.
+  it('isArticleSourced covers exactly the sourcing-driven blocks', () => {
+    expect([...ARTICLE_SOURCED_BLOCKS].sort()).toEqual(
+      ['article', 'article-headline', 'article-image', 'spotlight', 'split'].sort(),
+    );
+    for (const t of ARTICLE_SOURCED_BLOCKS) expect(BLOCK_IDS).toContain(t);
+    expect(isArticleSourced('spotlight')).toBe(true);
+    expect(isArticleSourced('split')).toBe(true);
+    // mosaic shows articles but is source-only (no pick/tag/year) → not "sourced".
+    expect(isArticleSourced('mosaic')).toBe(false);
+    expect(isArticleSourced('ad')).toBe(false);
+    expect(isArticleSourced('poll')).toBe(false);
   });
 });

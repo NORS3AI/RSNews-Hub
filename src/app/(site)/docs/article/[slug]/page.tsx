@@ -1,38 +1,33 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { getRelatedArticles } from '@/lib/recommend';
-import ArticleCard from '@/components/ArticleCard';
+import { getArticlePageData, getArticleMeta } from '@/lib/articleData';
+import RecommendButton from '@/components/site/RecommendButton';
+import RecommendCount from '@/components/site/RecommendCount';
+import { RecommendProvider } from '@/components/site/RecommendProvider';
 import ReadTracker from '@/components/ReadTracker';
 import SubscribeButton from '@/components/SubscribeButton';
 import StarButton from '@/components/site/StarButton';
 import ShareButton from '@/components/site/ShareButton';
-import InArticleAd from '@/components/InArticleAd';
+import ListenButton from '@/components/site/ListenButton';
+import CoverVideo from '@/components/site/CoverVideo';
+import AdWithOptions from '@/components/site/AdWithOptions';
 import ArticleContent from '@/components/site/ArticleContent';
-import { pickArticleAds, loadBrandArticleAds } from '@/lib/adsServer';
-import { resolveArticleEmbeds } from '@/lib/articleEmbeds';
-import { entitlementsOf, canViewContent, requirementLabel } from '@/lib/entitlements';
-import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon } from '@/components/icons';
+import ArticleByline from '@/components/site/ArticleByline';
+import { resolveByline } from '@/lib/byline';
+import { requirementLabel } from '@/lib/entitlements';
+import { isBreaking, PartnerContentBadge, isPartnerContent } from '@/components/ArticleBadges';
+import { GenreBadge } from '@/components/site/GenresProvider';
+import PreviewReviewBar from '@/components/site/PreviewReviewBar';
+import ReadingProgress from '@/components/site/ReadingProgress';
+import { Clock, Eye, ArrowRight, ArrowLeft, Tag as TagIcon, Lock, Zap } from '@/components/icons';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-async function getArticle(slug: string) {
-  return prisma.article.findUnique({
-    where: { slug },
-    include: {
-      category: true,
-      author: { select: { name: true, bio: true } },
-      tags: { select: { tag: true } },
-    },
-  });
-}
-
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const params = await props.params;
-  const a = await prisma.article.findUnique({ where: { slug: params.slug }, select: { title: true, excerpt: true, coverImage: true, publishedAt: true } });
+  const a = await getArticleMeta(params.slug);
   if (!a) return { title: 'Not found' };
   const description = a.excerpt ?? undefined;
   const images = a.coverImage ? [a.coverImage] : undefined;
@@ -45,47 +40,28 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
   };
 }
 
-export default async function ArticlePage(props: { params: Promise<{ slug: string }> }) {
+export default async function ArticlePage(props: { params: Promise<{ slug: string }>; searchParams: Promise<{ preview?: string; dash?: string }> }) {
   const params = await props.params;
-  const article = await getArticle(params.slug);
-  if (!article || (article.status !== 'PUBLISHED' && article.status !== 'ARCHIVED')) notFound();
-  // Scheduled (future-dated) articles are not yet public.
-  if (article.status === 'PUBLISHED' && article.publishedAt && article.publishedAt > new Date()) notFound();
-
-  const user = await getCurrentUser();
-
-  // Access gate (e.g. Package Hub–only content). Enforced here, server-side,
-  // before any content is read or a view is tracked.
-  if (!canViewContent(user, article.requirement)) {
-    return <LockedArticle article={article} signedIn={!!user} />;
-  }
-
-  const [related, next] = await Promise.all([
-    getRelatedArticles(article.id, 3),
-    prisma.article.findFirst({
-      where: { status: 'PUBLISHED', publishedAt: { lt: article.publishedAt ?? new Date() }, id: { not: article.id } },
-      orderBy: { publishedAt: 'desc' },
-      select: { title: true, slug: true, excerpt: true },
-    }),
-  ]);
-
-  const adTagText = article.tags.map(({ tag }) => tag.name).join(' ');
-  const adContext = `${article.title} ${article.content} ${adTagText}`;
-  // Competitor suppression matches the article's TAGS (+ title) — curated business
-  // names — not the full body, so a stray word can't hide an ad.
-  const adSafeContext = `${article.title} ${adTagText}`;
-  // A visiting vendor sees their own brand's ads surfaced first.
-  const favorBrand = entitlementsOf(user ?? {}).vendorBrand;
-  const [ads, embeds, slotAds] = await Promise.all([
-    pickArticleAds(adContext, 'article', favorBrand, adSafeContext),
-    resolveArticleEmbeds(article.content, user?.id),
-    loadBrandArticleAds(article.content),
-  ]);
-  const inlineAds = [ads.top, ads.bottom].filter(Boolean) as NonNullable<typeof ads.top>[];
+  const sp = await props.searchParams;
+  // The Information layer owns the fetch + the access decision, returning one of
+  // three outcomes. `&dash=1` means the vendor opened this from their dashboard —
+  // they respond there, so the in-preview review button is hidden.
+  const result = await getArticlePageData(params.slug, { previewParam: sp?.preview, previewFromDashboard: sp?.dash === '1' });
+  if (result.kind === 'notFound') notFound();
+  if (result.kind === 'locked') return <LockedArticle article={result.article} />;
+  const {
+    article, isPreview, previewFromDashboard, signedIn,
+    related, next, recommend,
+    ads, inlineAds, embeds, slotAds, reservedAdMap, supplierAdMap, savedSupplierIds, adAttribution, bylineCards,
+  } = result;
+  const byline = resolveByline(article.bylineRef, article.byline);
 
   return (
     <>
-      <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />
+      <ReadingProgress />
+      {isPreview
+        ? <PreviewReviewBar slug={article.slug} token={article.previewToken!} hideReview={previewFromDashboard} />
+        : <ReadTracker articleId={article.id} title={article.title} slug={article.slug} />}
       <div className="container-reader py-8 sm:py-12">
         <Link href="/docs" className="mb-6 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--fg)]">
           <ArrowLeft width={16} height={16} /> All articles
@@ -94,26 +70,41 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
         {/* Reading surface — a cream card so the body is readable on the textured
             page surround, matching the in-app reader modal. */}
         <div className="card p-6 sm:p-9 lg:p-10">
+        <RecommendProvider articleId={article.id} initialCount={recommend.recommends} initialOn={recommend.recommended} signedIn={signedIn}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
+          {isBreaking(article.breakingUntil) && <span className="badge inline-flex items-center gap-1 animate-pulse bg-red-600 text-white"><Zap width={12} height={12} /> Breaking</span>}
+          {/* FTC disclosure: any vendor-connected piece (a premium supplier's What's
+              Hot article) or a 'sponsored' one shows one clear "Partner content" tag,
+              which supersedes the plain 'sponsored' genre chip. */}
+          {isPartnerContent(article) && <PartnerContentBadge />}
+          <GenreBadge genre={article.genre} partner={isPartnerContent(article)} />
           {article.category && (
             <Link href={`/docs/category/${article.category.slug}`} className="badge cat-badge"
               style={{ '--c': article.category.color } as React.CSSProperties}>
               {article.category.name}
             </Link>
           )}
+          {article.extraCategories.map((c) => (
+            <Link key={c.slug} href={`/docs/category/${c.slug}`} className="badge cat-badge"
+              style={{ '--c': c.color } as React.CSSProperties}>
+              {c.name}
+            </Link>
+          ))}
           {article.status === 'ARCHIVED' && <span className="badge bg-amber-100 text-amber-700">Archived</span>}
         </div>
 
         <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
 
         <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[var(--muted)]">
-          {article.author && <span>By {article.author.name}</span>}
+          <ArticleByline byline={byline} />
           <span>{formatDate(article.publishedAt ?? article.createdAt)}</span>
           <span className="flex items-center gap-1"><Clock width={14} height={14} />{article.readMinutes} min read</span>
           <span className="flex items-center gap-1"><Eye width={14} height={14} />{article.views} views</span>
+          <RecommendCount />
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
+          {article.audioStatus === 'READY' && article.audioUrl && <ListenButton src={article.audioUrl} />}
           <StarButton item={{ id: article.id, title: article.title, slug: article.slug }} variant="inline" />
           <ShareButton slug={article.slug} title={article.title} />
           {article.category && (
@@ -121,18 +112,20 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
           )}
         </div>
 
-        {article.coverImage && (
+        {article.coverVideo ? (
+          <CoverVideo src={article.coverVideo} poster={article.coverImage} className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />
+        ) : article.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           (<img src={article.coverImage} alt="" className="mt-8 aspect-[16/9] w-full rounded-xl object-cover" />)
-        )}
+        ) : null}
 
-        <div className="my-6"><InArticleAd ad={ads.top} slot="article-top" size="in-article" /></div>
+        <div className="my-6"><AdWithOptions ad={ads.top} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-top" size="in-article" placeholder={false} adContext={adAttribution} /></div>
 
-        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={article.author?.name || ''}>
-          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} pollData={embeds.polls} quizData={embeds.quizzes} loggedIn={!!user} />
+        <article className="prose-article mt-8" data-reader data-slug={article.slug} data-title={article.title} data-author={byline.name}>
+          <ArticleContent html={article.content} ads={inlineAds} adBySlot={slotAds} adById={reservedAdMap} pollData={embeds.polls} quizData={embeds.quizzes} bylines={bylineCards} loggedIn={signedIn} adContext={adAttribution} />
         </article>
 
-        <div className="my-8 flex justify-center"><InArticleAd ad={ads.bottom} slot="article-bottom" size="rectangle" /></div>
+        <div className="my-8 flex justify-center"><AdWithOptions ad={ads.bottom} suppliers={supplierAdMap} savedIds={savedSupplierIds} signedIn={signedIn} slot="article-bottom" size="rectangle" placeholder={false} adContext={adAttribution} /></div>
 
         {article.tags.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-6">
@@ -143,39 +136,52 @@ export default async function ArticlePage(props: { params: Promise<{ slug: strin
             ))}
           </div>
         )}
-        </div>
 
-        {/* Next article */}
-        {next && (
-          <Link href={`/docs/article/${next.slug}`}
-            className="card mt-10 flex items-center justify-between gap-4 p-5 transition-shadow hover:shadow-md">
-            <div className="min-w-0">
-              <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</div>
-              <div className="mt-1 truncate font-semibold">{next.title}</div>
-            </div>
-            <ArrowRight className="shrink-0 text-brand-600" />
-          </Link>
-        )}
-      </div>
+        {/* End-of-article endorsement — placed right before Read next / related.
+            Only a PUBLISHED article can be recommended (the API gates on it), so
+            the button is hidden on an archived piece (the count still shows). */}
+        {article.status === 'PUBLISHED' && <RecommendButton />}
 
-      {/* Related — the recommendation engine */}
-      {related.length > 0 && (
-        <div className="border-t border-[var(--border)] bg-[var(--bg-soft)]">
-          <div className="container-page py-10">
-            <h2 className="mb-5 text-lg font-bold">If you read this, you might like…</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {related.map((a) => <ArticleCard key={a.id} article={a} />)}
-            </div>
+        {/* Read next + related — kept INSIDE the reading card at the bottom, compact,
+            so the full page matches the in-app reader modal (not a separate,
+            oversized full-width module). */}
+        {(next || related.length > 0) && (
+          <div className="mt-8 space-y-6 border-t border-[var(--border)] pt-6">
+            {next && (
+              <Link href={`/docs/article/${next.slug}`}
+                className="card card-soft card-hover flex items-center justify-between gap-4 p-5">
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</span>
+                  <span className="mt-1 block truncate font-semibold">{next.title}</span>
+                </span>
+                <ArrowRight className="shrink-0 text-brand-600" />
+              </Link>
+            )}
+            {related.length > 0 && (
+              <div>
+                <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--muted)]">If you read this, you might like…</h2>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {related.slice(0, 3).map((r) => (
+                    <Link key={r.id} href={`/docs/article/${r.slug}`} className="card card-soft card-hover p-4">
+                      {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
+                      <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+        )}
+        </RecommendProvider>
         </div>
-      )}
+      </div>
     </>
   );
 }
 
 // Access-gated article: the title/excerpt are shown as a teaser, but the content
 // is withheld and no read is tracked. `requirement` labels who it's for.
-function LockedArticle({ article, signedIn }: { article: { title: string; excerpt: string | null; requirement: string; category: { name: string; slug: string; color: string } | null }; signedIn: boolean }) {
+function LockedArticle({ article }: { article: { title: string; excerpt: string | null; requirement: string; category: { name: string; slug: string; color: string } | null } }) {
   const who = requirementLabel(article.requirement);
   return (
     <div className="container-reader py-8 sm:py-12">
@@ -190,14 +196,12 @@ function LockedArticle({ article, signedIn }: { article: { title: string; excerp
       <h1 className="text-3xl font-bold leading-tight sm:text-4xl">{article.title}</h1>
       {article.excerpt && <p className="mt-4 text-lg text-[var(--muted)]">{article.excerpt}</p>}
 
-      <div className="card mt-8 p-8 text-center">
-        <p className="text-base font-semibold">This article is for {who}.</p>
-        <p className="mx-auto mt-2 max-w-md text-sm text-[var(--muted)]">
-          {signedIn
-            ? `Your account doesn’t include ${who} access. If you think this is a mistake, contact RS News.`
-            : `Sign in on the main RS News site with a ${who} account to read it.`}
-        </p>
-        {!signedIn && <Link href="/login?next=/docs" className="btn-primary btn-sm mt-4 inline-flex">Sign in</Link>}
+      {/* Locked notice: state the membership it's behind, and nothing more — no
+          upsell, no redirect. */}
+      <div className="card mt-8 flex flex-col items-center p-8 text-center">
+        <Lock width={26} height={26} className="text-[var(--muted)]" />
+        <p className="mt-3 text-base font-semibold">This article is locked</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">Available to {who}{who.toLowerCase().endsWith('s') ? '' : ' members'}.</p>
       </div>
     </div>
   );

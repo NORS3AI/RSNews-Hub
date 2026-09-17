@@ -1,21 +1,20 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
-import { publishedArticles } from '@/lib/queries';
+import { getTagData, getTagMeta } from '@/lib/tagData';
 import ArticleCard from '@/components/ArticleCard';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const t = await prisma.tag.findUnique({ where: { slug: params.slug } });
+  const t = await getTagMeta(params.slug);
   return { title: t ? `#${t.name}` : 'Tag' };
 }
 
 export default async function TagPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const tag = await prisma.tag.findUnique({ where: { slug: params.slug } });
-  if (!tag) notFound();
-  const articles = await publishedArticles({ tags: { some: { tagId: tag.id } } });
+  const data = await getTagData(params.slug);
+  if (!data) notFound();
+  const { tag, articles } = data;
   return (
     <div className="container-page py-8 sm:py-10">
       <h1 className="mb-6 text-2xl font-bold">#{tag.name}</h1>

@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db';
-import { publishedArticles } from '@/lib/queries';
+import { getCategoryData, getCategoryMeta } from '@/lib/categoryData';
 import ArticleCard from '@/components/ArticleCard';
 import SubscribeButton from '@/components/SubscribeButton';
 
@@ -8,15 +7,15 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const c = await prisma.category.findUnique({ where: { slug: params.slug } });
+  const c = await getCategoryMeta(params.slug);
   return { title: c ? c.name : 'Category' };
 }
 
 export default async function CategoryPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const category = await prisma.category.findUnique({ where: { slug: params.slug } });
-  if (!category) notFound();
-  const articles = await publishedArticles({ categoryId: category.id });
+  const data = await getCategoryData(params.slug);
+  if (!data) notFound();
+  const { category, articles } = data;
 
   return (
     <div className="container-page py-8 sm:py-10">

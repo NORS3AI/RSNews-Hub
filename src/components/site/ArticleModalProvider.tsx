@@ -1,24 +1,40 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { X, Clock, Eye, ArrowRight, Tag as TagIcon } from '@/components/icons';
+import RecommendButton from './RecommendButton';
+import RecommendCount from './RecommendCount';
+import { RecommendProvider } from './RecommendProvider';
 import { formatDate } from '@/lib/utils';
+import { useScrollLock } from '@/lib/useScrollLock';
+import ArticleBadges, { isPartnerContent } from '@/components/ArticleBadges';
 import InArticleAd from '@/components/InArticleAd';
 import type { AdRow } from '@/lib/ads';
 import ArticleContent, { type LivePoll, type LiveQuiz } from '@/components/site/ArticleContent';
+import ArticleByline from './ArticleByline';
+import { resolveByline } from '@/lib/byline';
 import StarButton from './StarButton';
 import ShareButton from './ShareButton';
+import ListenButton from './ListenButton';
+import CoverVideo from './CoverVideo';
 import { useSaved } from './StarProvider';
 import { track } from '@/lib/analytics/track';
+import { analyticsDeclined } from '@/lib/consent';
 
 type ModalArticle = {
-  id: string; title: string; slug: string; content: string; coverImage: string | null;
-  status: string; readMinutes: number; views: number; publishedAt: string | null;
+  id: string; title: string; slug: string; content: string; coverImage: string | null; coverVideo?: string | null;
+  status: string; readMinutes: number; views: number; recommends: number; publishedAt: string | null;
+  byline?: string | null;
+  bylineRef?: { id: string; name: string; title: string | null; photo: string | null } | null;
   author: { name: string } | null;
   category: { name: string; slug: string; color: string } | null;
+  extraCategories?: { name: string; slug: string; color: string }[];
+  breakingUntil?: string | null;
+  genre?: string;
   tags: { name: string; slug: string }[];
+  audioUrl?: string | null;
 };
 type Related = { id: string; title: string; slug: string; category: { name: string; color: string } | null };
-type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; loggedIn?: boolean };
+type Payload = { article: ModalArticle; related: Related[]; next: { title: string; slug: string } | null; ads?: { top: AdRow | null; bottom: AdRow | null }; embeds?: { polls: LivePoll[]; quizzes: LiveQuiz[] }; slotAds?: Record<string, AdRow>; reservedAds?: Record<string, AdRow>; bylines?: Record<string, { name: string; title: string; avatar: string; bio: string }>; sponsored?: boolean; loggedIn?: boolean; recommended?: boolean };
 
 type Ctx = { openArticle: (slug: string) => void; close: () => void };
 const ModalCtx = createContext<Ctx | null>(null);
@@ -33,6 +49,9 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
   const [slug, setSlug] = useState<string | null>(null);
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  // Reading-progress (0–100): how far through the article the reader has scrolled,
+  // shown as a bar that fills under the modal's sticky header.
+  const [progress, setProgress] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const { recordHistory } = useSaved();
@@ -49,8 +68,10 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
       const json: Payload = await res.json();
       setData(json);
       recordHistory({ id: json.article.id, title: json.article.title, slug: json.article.slug });
-      // Record the read (bumps views + feeds recommendations) after a short dwell.
+      // Record the read (bumps views + feeds recommendations) after a short
+      // dwell — analytics, so it respects the reader's consent opt-out.
       setTimeout(() => {
+        if (analyticsDeclined()) return;
         fetch('/api/reading', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ articleId: json.article.id }), keepalive: true,
@@ -94,16 +115,20 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('popstate', onPop);
   }, [load, clear]);
 
-  // Escape closes; lock body scroll while open.
+  // Escape closes; lock body scroll while open (ref-counted, so a nested overlay
+  // like an in-article ad zoom closing doesn't unlock scroll behind this modal).
+  useScrollLock(!!slug);
   useEffect(() => {
-    if (!slug) { document.body.classList.remove('modal-open'); return; }
-    document.body.classList.add('modal-open');
+    if (!slug) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('keydown', onKey); document.body.classList.remove('modal-open'); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [slug, close]);
 
   const a = data?.article;
+  // Per-sponsored-article ad attribution, mirroring the full page — so an ad seen
+  // in the reader modal is attributed to this article (and flagged sponsored).
+  const adCtx = a ? { articleId: a.id, articleSlug: a.slug, sponsored: !!data?.sponsored } : undefined;
 
   // Reading analytics: open event, active reading time (visible only), and
   // scroll-depth milestones (25/50/75/100). Finalized as a `read` event when the
@@ -127,8 +152,13 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
       props: { category: art.category?.slug, title: art.title } });
 
     const el = scrollRef.current;
+    setProgress(0); // a fresh article starts unread
     const onScroll = () => {
       const r = readRef.current; if (!r || !el) return;
+      // Visual progress bar: 0 at the top, 100 at the bottom (how far scrolled).
+      const denom = el.scrollHeight - el.clientHeight;
+      setProgress(denom > 0 ? Math.min(100, Math.max(0, (el.scrollTop / denom) * 100)) : 0);
+      // Analytics depth uses the bottom-edge fraction (unchanged).
       const pct = Math.min(100, Math.round(((el.scrollTop + el.clientHeight) / Math.max(1, el.scrollHeight)) * 100));
       if (pct > r.maxPct) r.maxPct = pct;
       for (const m of [25, 50, 75, 100]) {
@@ -161,31 +191,42 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                 </div>
               </div>
 
+              {/* Reading-progress bar — fills as the reader scrolls toward the end. */}
+              <div className="h-[3px] w-full shrink-0 bg-[var(--border)]" aria-hidden="true">
+                <div className="h-full bg-brand-500 transition-[width] duration-150 ease-out" style={{ width: `${progress}%` }} />
+              </div>
+
               {/* Scrollable body */}
               <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
                 {loading && !a && <ModalSkeleton />}
                 {a && (
+                  <RecommendProvider key={a.id} articleId={a.id} initialCount={a.recommends} initialOn={!!data?.recommended} signedIn={!!data?.loggedIn}>
                   <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-8">
+                    <ArticleBadges className="mb-3" category={a.category} extraCategories={a.extraCategories} breakingUntil={a.breakingUntil} genre={a.genre} partner={isPartnerContent({ sponsored: !!data?.sponsored, genre: a.genre })} />
                     {a.status === 'ARCHIVED' && <div className="mb-4"><span className="badge bg-amber-100 text-amber-700">Archived</span></div>}
                     <h1 className="text-2xl font-bold leading-tight sm:text-3xl">{a.title}</h1>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--muted)]">
-                      {a.author && <span>By {a.author.name}</span>}
+                      <ArticleByline byline={resolveByline(a.bylineRef, a.byline)} />
                       <span>{formatDate(a.publishedAt)}</span>
                       <span className="flex items-center gap-1"><Clock width={14} height={14} />{a.readMinutes} min read</span>
                       <span className="flex items-center gap-1"><Eye width={14} height={14} />{a.views} views</span>
+                      <RecommendCount />
                     </div>
+                    {a.audioUrl && <div className="mt-4"><ListenButton src={a.audioUrl} /></div>}
 
-                    {a.coverImage && (
+                    {a.coverVideo ? (
+                      <CoverVideo src={a.coverVideo} poster={a.coverImage} className="mt-6 aspect-[16/9] w-full rounded-xl object-cover" />
+                    ) : a.coverImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.coverImage} alt="" className="mt-6 aspect-[16/9] w-full rounded-xl object-cover" />
-                    )}
+                    ) : null}
 
                     {/* In-article ad #1 — contextually safe (never a competitor of a brand in the copy) */}
-                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" /></div>
+                    <div className="my-6"><InArticleAd ad={data?.ads?.top ?? null} slot="modal-top" size="in-article" placeholder={false} adContext={adCtx} /></div>
 
-                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={a.author?.name || ''}>
+                    <article className="prose-article" data-reader data-slug={a.slug} data-title={a.title} data-author={resolveByline(a.bylineRef, a.byline).name}>
                       <ArticleContent html={a.content} ads={[data?.ads?.top, data?.ads?.bottom].filter(Boolean) as AdRow[]}
-                        adBySlot={data?.slotAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} loggedIn={!!data?.loggedIn} />
+                        adBySlot={data?.slotAds ?? {}} adById={data?.reservedAds ?? {}} pollData={data?.embeds?.polls ?? []} quizData={data?.embeds?.quizzes ?? []} bylines={data?.bylines ?? {}} loggedIn={!!data?.loggedIn} adContext={adCtx} />
                     </article>
 
                     {a.tags.length > 0 && (
@@ -198,11 +239,15 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                     )}
 
                     {/* In-article ad #2 — contextually safe */}
-                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" /></div>
+                    <div className="my-8 flex justify-center"><InArticleAd ad={data?.ads?.bottom ?? null} slot="modal-bottom" size="rectangle" placeholder={false} adContext={adCtx} /></div>
+
+                    {/* End-of-article endorsement — you finished, so you can judge it.
+                        Hidden on archived pieces (the recommend API gates on PUBLISHED). */}
+                    {a.status === 'PUBLISHED' && <RecommendButton />}
 
                     {data?.next && (
                       <button onClick={() => openArticle(data.next!.slug)}
-                        className="card card-hover flex w-full items-center justify-between gap-4 p-5 text-left">
+                        className="card card-soft card-hover flex w-full items-center justify-between gap-4 p-5 text-left">
                         <span className="min-w-0">
                           <span className="block text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Read next</span>
                           <span className="mt-1 block truncate font-semibold">{data.next.title}</span>
@@ -217,7 +262,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                         <div className="grid gap-3 sm:grid-cols-3">
                           {data.related.map((r) => (
                             <button key={r.id} onClick={() => openArticle(r.slug)}
-                              className="card card-hover p-4 text-left">
+                              className="card card-soft card-hover p-4 text-left">
                               {r.category && <span className="cat-ink text-xs font-bold" style={{ '--c': r.category.color } as React.CSSProperties}>{r.category.name}</span>}
                               <span className="mt-1 block text-[17px] font-extrabold leading-tight tracking-tight">{r.title}</span>
                             </button>
@@ -226,6 +271,7 @@ export function ArticleModalProvider({ children }: { children: React.ReactNode }
                       </div>
                     )}
                   </div>
+                  </RecommendProvider>
                 )}
               </div>
             </div>

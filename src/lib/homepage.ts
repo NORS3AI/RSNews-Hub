@@ -3,12 +3,14 @@ import { isCustomModuleId } from './studio';
 
 export type ModuleId =
   | 'recommended'
+  | 'sponsored'
   | 'feature-carousel'
   | 'industry'
   | 'comic'
   | 'council'
   | 'categories'
   | 'trending'
+  | 'rediscover'
   | 'latest'
   | 'ad-leaderboard'
   | 'ad-rectangles';
@@ -18,7 +20,20 @@ export type ModuleId =
 // articles it pulls from without changing the layout order.
 // `id` is a catalog ModuleId OR a namespaced custom-module id (`custom:<id>`),
 // so builder-made modules share the same ordered/lockable layout list.
-export type HomeModule = { id: string; enabled: boolean; locked?: boolean; source?: string };
+// `span` is the module's width in row-units (1, 2 or 3). Modules pack into rows
+// of up to 3 units and share each row proportionally; 3 = full width (its own
+// row). Defaults to 3 so existing layouts are unchanged. Purely proportional —
+// on narrow screens every module collapses to full width (see the homepage grid).
+// `locked` freezes the module's position (reorder lock); `sizeLocked` freezes
+// its width (so the ⅓/⅔/full control is disabled). Two independent locks, both
+// toggleable from the on-homepage admin toolbar and the layout editor.
+export type HomeModule = { id: string; enabled: boolean; locked?: boolean; sizeLocked?: boolean; source?: string; span?: number };
+
+/** Clamp a stored span to 1–3; anything missing/invalid → 3 (full width). */
+export function clampSpan(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= 3 ? n : 3;
+}
 
 function isKnownId(id: string): boolean {
   return id in MODULE_CATALOG || isCustomModuleId(id);
@@ -32,16 +47,19 @@ export const ARTICLE_SOURCES: ModuleSource[] = [
   { value: 'featured', label: 'Featured articles' },
   { value: 'latest', label: 'Latest articles' },
   { value: 'trending', label: 'Most read / trending' },
+  { value: 'most-recommended', label: 'Most recommended' },
 ];
 
 export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
   recommended: { label: 'Recommended for you', description: 'Personalized picks from reading history.' },
+  sponsored: { label: 'Featured', description: 'Paid sponsor placements, live for their run (auto-appears when a sponsor is active, hides when none). Shows a sponsored article only once it drops out of the hero / this week / trending — never crowds those.' },
   'feature-carousel': { label: 'Feature showcase', description: 'Big split banner — one story (title + image) at a time, paged left/right.', sources: ARTICLE_SOURCES, defaultSource: 'featured' },
   industry: { label: 'Industry News', description: 'Curated external links, hand-picked by staff.' },
-  comic: { label: 'Backroom Humor comic', description: 'The current comic; the rest live in the archive.' },
+  comic: { label: 'Comic', description: 'The most-recent active comic from any series (Backroom Humor, Counter Productive…); the rest live in the archive.' },
   council: { label: 'RS Council column', description: 'A tall column showing the full text of every RS Council piece.' },
   categories: { label: 'Category strip', description: 'Quick links to every category.' },
-  trending: { label: 'Trending / Most read', description: 'The most-viewed published articles.' },
+  trending: { label: 'Trending / Most read', description: 'The most-opened articles over the last 7 days (falls back to all-time when traffic is thin).' },
+  rediscover: { label: 'Rediscover', description: 'Older stories from the back catalog, rotating to a fresh set each day.' },
   latest: { label: 'Latest articles', description: 'The main chronological grid of stories.' },
   'ad-leaderboard': { label: 'Ad — leaderboard', description: 'Full-width banner ad slot.' },
   'ad-rectangles': { label: 'Ad — rectangle row', description: 'A row of medium-rectangle ad slots.' },
@@ -50,6 +68,10 @@ export const MODULE_CATALOG: Record<ModuleId, ModuleDef> = {
 // The hero/headline block is intentionally NOT in this list — it is always
 // pinned to the very top and cannot be reordered.
 export const DEFAULT_LAYOUT: HomeModule[] = [
+  // Sits at the very top of the scrollable modules — just under the pinned hero
+  // and "Published this week" — so an active sponsor is high on the page. It
+  // renders nothing (and takes no space) when there are no live sponsors.
+  { id: 'sponsored', enabled: true, locked: false },
   { id: 'recommended', enabled: true, locked: false },
   { id: 'industry', enabled: true, locked: false },
   { id: 'feature-carousel', enabled: true, locked: false, source: 'featured' },
@@ -57,8 +79,9 @@ export const DEFAULT_LAYOUT: HomeModule[] = [
   { id: 'council', enabled: true, locked: false },
   { id: 'ad-leaderboard', enabled: true, locked: false },
   { id: 'categories', enabled: true, locked: false },
-  { id: 'latest', enabled: true, locked: false },
-  { id: 'trending', enabled: true, locked: false },
+  { id: 'latest', enabled: true, locked: false, span: 2 },
+  { id: 'trending', enabled: true, locked: false, span: 1 },
+  { id: 'rediscover', enabled: true, locked: false, span: 1 },
   { id: 'ad-rectangles', enabled: true, locked: false },
 ];
 
@@ -82,16 +105,16 @@ function reconcile(value: string): HomeModule[] {
   const parsed = JSON.parse(value) as HomeModule[];
   const known = parsed
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.sizeLocked ? { sizeLocked: true } : {}), ...(m.source ? { source: m.source } : {}) }));
   const present = new Set(known.map((m) => m.id));
-  for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked });
+  for (const def of DEFAULT_LAYOUT) if (!present.has(def.id)) known.push({ ...def, enabled: !!def.enabled, locked: !!def.locked, span: clampSpan(def.span) });
   return known.length ? known : DEFAULT_LAYOUT;
 }
 
 function cleanLayout(layout: HomeModule[]) {
   return layout
     .filter((m) => isKnownId(m.id))
-    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, ...(m.source ? { source: m.source } : {}) }));
+    .map((m) => ({ id: m.id, enabled: !!m.enabled, locked: !!m.locked, span: clampSpan(m.span), ...(m.sizeLocked ? { sizeLocked: true } : {}), ...(m.source ? { source: m.source } : {}) }));
 }
 
 // LIVE layout — what the public homepage renders.
@@ -151,7 +174,12 @@ export async function hasDraftChanges(): Promise<boolean> {
 // order only rearranges the unlocked ones among the remaining slots.
 export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeModule[] {
   const byId = new Map(current.map((m) => [m.id, m]));
+  // Dedupe first (as applyLiveReorder does): a repeated id would make
+  // proposedUnlocked longer than the unlocked slots, writing one module into two
+  // slots and dropping another. Keep first occurrence only.
+  const seen = new Set<string>();
   const proposedUnlocked = orderedIds
+    .filter((id) => (seen.has(id) ? false : (seen.add(id), true)))
     .map((id) => byId.get(id as ModuleId))
     .filter((m): m is HomeModule => !!m && !m.locked);
   const out: HomeModule[] = [];
@@ -162,6 +190,45 @@ export function applyReorder(current: HomeModule[], orderedIds: string[]): HomeM
   return out;
 }
 
+// Reorder honoring BOTH locks and visibility: a module that is locked OR hidden
+// keeps its absolute slot; only the enabled+unlocked modules are rearranged, in
+// the order given. `orderedVisibleIds` is the new order of the currently-visible
+// modules (what an admin dragged on the live homepage). Used by on-page arrange.
+export function applyLiveReorder(current: HomeModule[], orderedVisibleIds: string[]): HomeModule[] {
+  const byId = new Map(current.map((m) => [m.id, m]));
+  // Dedupe first: a repeated id would make `movable` longer than the fill slots,
+  // duplicating one module and dropping another. Keep first occurrence only, so a
+  // malformed/replayed request can never corrupt the shared layout.
+  const seen = new Set<string>();
+  const ordered = orderedVisibleIds.filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
+  const idset = new Set(ordered);
+  // Only modules the caller actually listed take part in the shuffle; a slot is a
+  // "fill slot" only if its module is enabled, unlocked AND present in the list.
+  // Enabled-but-omitted modules (e.g. one that rendered empty) stay pinned, so
+  // the id→slot mapping can't drift.
+  const movable = ordered
+    .map((id) => byId.get(id))
+    .filter((m): m is HomeModule => !!m && m.enabled && !m.locked);
+  const isFill = (m: HomeModule) => m.enabled && !m.locked && idset.has(m.id);
+  const out: HomeModule[] = [];
+  let i = 0;
+  for (const m of current) out.push(isFill(m) ? movable[i++] ?? m : m);
+  return out;
+}
+
+// Persist an on-homepage drag: reorder LIVE (published immediately) and, if a
+// pending draft exists, apply the same id-order to it — so a later "Go Live"
+// can't silently revert what an admin just arranged on the page.
+export async function reorderLiveLayout(orderedVisibleIds: string[]): Promise<void> {
+  const live = await getHomeLayout();
+  await saveHomeLayout(applyLiveReorder(live, orderedVisibleIds));
+  const draftRow = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (draftRow) {
+    try { await saveDraftLayout(applyLiveReorder(reconcile(draftRow.value), orderedVisibleIds)); }
+    catch { /* leave a malformed draft alone */ }
+  }
+}
+
 export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
   const clean = cleanLayout(layout);
   await prisma.setting.upsert({
@@ -169,4 +236,23 @@ export async function saveHomeLayout(layout: HomeModule[]): Promise<void> {
     update: { value: JSON.stringify(clean) },
     create: { key: KEY, value: JSON.stringify(clean) },
   });
+}
+
+// Apply a mutation to one module in the LIVE layout (published immediately) and,
+// if a pending draft exists, the same module in the draft — so an in-context
+// toggle from the live homepage takes effect now AND survives a later Go Live.
+// Used by the on-homepage admin toolbar (locks), where staging via draft would
+// be invisible (the homepage renders live).
+export async function patchModuleLive(id: string, patch: (m: HomeModule) => void): Promise<void> {
+  const live = await getHomeLayout();
+  const lm = live.find((x) => x.id === id);
+  if (lm) { patch(lm); await saveHomeLayout(live); }
+  const draftRow = await prisma.setting.findUnique({ where: { key: DRAFT_KEY } });
+  if (draftRow) {
+    try {
+      const draft = reconcile(draftRow.value);
+      const dm = draft.find((x) => x.id === id);
+      if (dm) { patch(dm); await saveDraftLayout(draft); }
+    } catch { /* leave a malformed draft alone */ }
+  }
 }

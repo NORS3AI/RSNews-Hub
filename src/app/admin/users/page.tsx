@@ -24,7 +24,7 @@ export default async function AdminUsers(props: { searchParams: Promise<{ q?: st
   const users = await prisma.user.findMany({
     where: {
       AND: [
-        q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }] } : {},
+        q ? { OR: [{ name: { contains: q, mode: 'insensitive' as const } }, { email: { contains: q, mode: 'insensitive' as const } }] } : {},
         status && ['ACTIVE', 'SUSPENDED', 'BANNED'].includes(status) ? { status } : {},
       ],
     },
@@ -41,7 +41,7 @@ export default async function AdminUsers(props: { searchParams: Promise<{ q?: st
 
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={q} placeholder="Search name or email…" className="input max-w-xs" />
-        <select name="status" defaultValue={status ?? ''} className="input max-w-[160px]">
+        <select name="status" aria-label="Filter by account status" defaultValue={status ?? ''} className="input max-w-[160px]">
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="SUSPENDED">Suspended</option>

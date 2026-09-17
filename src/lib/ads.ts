@@ -21,9 +21,12 @@ export type AdRow = {
   competitors: string;   // comma-separated rival terms — hide this ad if any appear in the article
   imageWide?: string | null; // wide banner creative (~3:1) for the in-article slot
   imageRect?: string | null; // rectangle creative (~1.2:1) for the bottom slot
+  imageTall?: string | null; // tall skyscraper creative (~1:3) for a vertical module slot
   video?: string | null;     // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster?: string | null; // poster shown before play / under reduced-motion
   active: boolean;
+  house?: boolean;           // RS-owned house ad — the ONLY safe lock fallback
+  reserved?: boolean;        // one-off hand-picked creative; never in rotation
   // Optional self-scheduling window for a manually-added (non-flighted) ad, so a
   // one-off outside advertiser can go live/come down on a date without a full
   // campaign. Both null = always-on (a house ad for our own brands). Ignored for
@@ -34,10 +37,17 @@ export type AdRow = {
   // active; a flighted ad is live only when its flight is SCHEDULED and now is
   // inside the window — so it auto-comes-down at the flight's end.
   flightId?: string | null;
+  flightIndex?: number | null;       // 1-based batch number within the campaign
   flightStatus?: string | null;      // 'SCHEDULED' | 'AWAITING' | 'REVIEW' | 'ENDED'
   flightStartAt?: Date | string | null;
   flightEndAt?: Date | string | null;
 };
+
+// Article context an in-article ad carries into analytics, so an ad impression/
+// click can be attributed to the specific article it ran in — and flagged when
+// that article is a vendor-connected sponsored piece. Threaded from the reader
+// (page + modal) down to InArticleAd, which folds it into the tracked props.
+export type AdContext = { articleId?: string | null; articleSlug?: string | null; sponsored?: boolean };
 
 /** Whether an ad may be served right now: house ad (active) vs flighted-in-window. Pure. */
 export function adIsLive(ad: AdRow, now: Date): boolean {
@@ -85,9 +95,13 @@ export const DEFAULT_ADS: AdRow[] = [
     headline: 'Stripe — accept payments and grow revenue with a few lines of code.',
     cta: 'Get started', href: '#', accent: '#5a54d6',
     keywords: 'Stripe', competitors: 'Square, PayPal, Adyen, Braintree', active: true },
-  { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RSNews Hub',
+  { id: 'seed-rsnews-pro', brand: 'RSNews Pro', label: 'RS News Hub',
     headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.',
-    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '', active: true },
+    cta: 'Upgrade', href: '#', accent: '#E97D34', keywords: '', competitors: '',
+    // House skyscraper creative — the safe fallback for any tall (vertical) ad
+    // slot until a paying advertiser uploads their own, so a column skyscraper
+    // never collapses to empty. house:true keeps it competitor-safe everywhere.
+    imageTall: '/ads/rsnews-pro-tall.svg', active: true, house: true },
   { id: 'seed-clouddesk', brand: 'CloudDesk', label: 'Support software',
     headline: 'CloudDesk — the helpdesk your team will actually enjoy using.',
     cta: 'Try it free', href: '#', accent: '#2b7a8c', keywords: '', competitors: '', active: true },
@@ -134,7 +148,7 @@ function seedFrom(s: string): number {
  * - Prefers an ad relevant to the article (its own brand is mentioned).
  * - Otherwise a neutral ad (no keywords and no competitors).
  */
-export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = '', safeText?: string): AdRow | null {
+export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: string, now: Date = new Date(), favorBrand = '', safeText?: string, lockBrand = ''): AdRow | null {
   const hay = normalize(articleText);
   // Competitor suppression checks the article's TAGS (curated business names) when
   // provided — precise, no body-text false positives. Relevance still uses the
@@ -142,6 +156,22 @@ export function pickInArticleAd(ads: AdRow[], articleText: string, slotSeed: str
   const safeHay = safeText != null ? normalize(safeText) : hay;
   const safe = ads.filter((a) => adIsLive(a, now) && adIsSafe(a, safeHay));
   if (!safe.length) return null;
+
+  // HARD LOCK (a vendor-connected article, e.g. What's Hot): show ONLY that
+  // vendor's creative; if they have none for this slot, fall back to a true RS
+  // house ad (our own brands — no flight, no schedule window). NEVER another
+  // advertiser, so a competitor can never appear in a vendor's article.
+  const lock = lockBrand.trim().toLowerCase();
+  if (lock) {
+    const mine = safe.filter((a) => a.brand.trim().toLowerCase() === lock);
+    if (mine.length) return mine[seedFrom(slotSeed) % mine.length];
+    // Fallback is EXPLICIT house ads only (a.house) — never "no flight/schedule",
+    // because an always-on outside advertiser has neither and would be a rival.
+    // If no house ad is on file, the slot collapses (null) rather than risk one.
+    const house = safe.filter((a) => a.house);
+    if (house.length) return house[seedFrom(slotSeed) % house.length];
+    return null;
+  }
 
   // Preference order:
   //  1. the VISITING VENDOR's own live ads (favorBrand) — show them their brand,
@@ -170,9 +200,12 @@ export function adsAreRivals(a: AdRow, b: AdRow): boolean {
 }
 
 /** Pick the two in-article ads (top + bottom); the bottom is never a rival of the top. */
-export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '', safeText?: string) {
-  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand, safeText);
-  const rest = top ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
-  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand, safeText);
+export function pickTwoInArticleAds(ads: AdRow[], articleText: string, prefix: string, now: Date = new Date(), favorBrand = '', safeText?: string, lockBrand = '') {
+  const top = pickInArticleAd(ads, articleText, `${prefix}-top`, now, favorBrand, safeText, lockBrand);
+  // When locked to a vendor we WANT the same vendor in both slots, so don't apply
+  // the same-brand rivalry exclusion (which would otherwise push the bottom to a
+  // house ad). Unlocked, the bottom is still kept off a rival of the top.
+  const rest = top && !lockBrand ? ads.filter((a) => !adsAreRivals(a, top)) : ads;
+  const bottom = pickInArticleAd(rest, articleText, `${prefix}-bottom`, now, favorBrand, safeText, lockBrand);
   return { top, bottom };
 }

@@ -57,6 +57,12 @@ describe('sanitizeArticleHtml — article composer elements survive a save', () 
     expect(out).not.toContain('style');
   });
 
+  it('keeps the reserved sponsor-ad marker (data-ad-id + label) so it survives a save', () => {
+    const out = sanitizeArticleHtml('<div data-ad-id="cmabc123" data-ad-label="PackWise"></div>');
+    expect(out).toContain('data-ad-id="cmabc123"');
+    expect(out).toContain('data-ad-label="PackWise"');
+  });
+
   it('keeps poll and quiz embed markers', () => {
     const out = sanitizeArticleHtml('<div data-poll="p1" data-label="Best tool?"></div><div data-quiz="q1"></div>');
     expect(out).toContain('data-poll="p1"');

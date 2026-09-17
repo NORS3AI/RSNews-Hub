@@ -3,6 +3,8 @@ import { timingSafeEqual } from 'crypto';
 import { requireAdmin } from '@/lib/auth';
 import { advanceLifecycle } from '@/lib/campaigns';
 import { sendDueReminders } from '@/lib/adReminders';
+import { sweepSponsorGoLiveNotifications } from '@/lib/intake';
+import { sweepExpiredSavedSuppliers } from '@/lib/suppliers';
 import { recordJobRun } from '@/lib/jobHealth';
 import { captureError, log } from '@/lib/logger';
 
@@ -33,9 +35,15 @@ export async function POST(req: Request) {
     const now = new Date();
     const lifecycle = await advanceLifecycle(now);
     const reminders = await sendDueReminders(now);
-    await recordJobRun('ads-maintenance', { ...lifecycle, ...reminders });
-    log.info('ad maintenance complete', { ...lifecycle, ...reminders });
-    return NextResponse.json({ ok: true, ...lifecycle, ...reminders });
+    // Backstop: notify sponsors whose SCHEDULED article has since gone live (the
+    // low-latency trigger is the opportunistic homepage sweep).
+    const sponsorGoLive = await sweepSponsorGoLiveNotifications();
+    // Deactivate saved phone-book entries whose supplier lost premium > grace ago
+    // (soft — notes retained for a possible rejoin). Warned in-feed during grace.
+    const savedSuppliers = await sweepExpiredSavedSuppliers(now);
+    await recordJobRun('ads-maintenance', { ...lifecycle, ...reminders, sponsorGoLive, ...savedSuppliers });
+    log.info('ad maintenance complete', { ...lifecycle, ...reminders, sponsorGoLive, ...savedSuppliers });
+    return NextResponse.json({ ok: true, ...lifecycle, ...reminders, sponsorGoLive, ...savedSuppliers });
   } catch (e) {
     captureError(e, { route: 'ads/maintenance' });
     return NextResponse.json({ ok: false, error: 'maintenance failed' }, { status: 500 });

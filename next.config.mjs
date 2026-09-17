@@ -27,6 +27,9 @@ const nextConfig = {
         { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         { key: 'X-DNS-Prefetch-Control', value: 'off' },
         { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+        // Force HTTPS on repeat visits. Browsers ignore this over plain HTTP, so
+        // it's safe to send always; the edge/proxy still terminates TLS.
+        { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
       ],
     }];
   },

@@ -1,36 +1,11 @@
 import { prisma } from './db';
+import { RECOMMENDABLE_STATUSES } from './constants';
+import { expandQuery } from './searchSynonyms';
+import { cardSelect, toCard, type ArticleCard } from './cards';
 
-export type ArticleCard = {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string | null;
-  coverImage: string | null;
-  publishedAt: Date | null;
-  views: number;
-  readMinutes: number;
-  category: { name: string; slug: string; color: string } | null;
-  tags: { name: string; slug: string }[];
-  requirement?: string;
-};
-
-const cardSelect = {
-  id: true,
-  title: true,
-  slug: true,
-  excerpt: true,
-  coverImage: true,
-  publishedAt: true,
-  views: true,
-  readMinutes: true,
-  requirement: true,
-  category: { select: { name: true, slug: true, color: true } },
-  tags: { select: { tag: { select: { name: true, slug: true } } } },
-} as const;
-
-function toCard(a: any): ArticleCard {
-  return { ...a, tags: (a.tags ?? []).map((t: any) => t.tag) };
-}
+// The canonical card shape/select/mapper now live in ./cards; re-exported here so
+// existing `import { ArticleCard } from '@/lib/recommend'` call sites keep working.
+export { cardSelect, toCard, type ArticleCard };
 
 /**
  * Content-based recommendation. Given an article, score every other published
@@ -48,7 +23,7 @@ export async function getRelatedArticles(articleId: string, limit = 4): Promise<
 
   const candidates = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED', publishedAt: { lte: new Date() },
+      status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() },
       id: { not: articleId },
       OR: [
         tagIds.length ? { tags: { some: { tagId: { in: tagIds } } } } : {},
@@ -75,7 +50,7 @@ export async function getRelatedArticles(articleId: string, limit = 4): Promise<
   if (picks.length < limit) {
     const have = new Set([articleId, ...picks.map((p) => p.id)]);
     const filler = await prisma.article.findMany({
-      where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, id: { notIn: [...have] } },
+      where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, id: { notIn: [...have] } },
       orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
       select: cardSelect,
       take: limit - picks.length,
@@ -123,7 +98,7 @@ export async function getPersonalizedFeed(
 
   const candidates = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED', publishedAt: { lte: new Date() },
+      status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() },
       id: { notIn: [...readIds] },
       OR: [
         topTags.length ? { tags: { some: { tagId: { in: topTags } } } } : {},
@@ -154,12 +129,116 @@ export async function getPersonalizedFeed(
 
 export async function trendingArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
   const rows = await prisma.article.findMany({
-    where: { status: 'PUBLISHED', publishedAt: { lte: new Date() }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
+    where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
     orderBy: [{ views: 'desc' }, { publishedAt: 'desc' }],
     select: cardSelect,
     take: limit,
   });
   return rows.map(toCard);
+}
+
+/**
+ * "Most recommended" — articles readers endorsed with the end-of-article
+ * Recommend, ranked by that count. Only surfaces pieces with at least one
+ * recommend (recommends > 0), so an unendorsed article never fills the slot; the
+ * module simply shows fewer (or nothing) until readers weigh in.
+ */
+export async function mostRecommendedArticles(limit = 6, excludeIds: string[] = []): Promise<ArticleCard[]> {
+  const rows = await prisma.article.findMany({
+    where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, recommends: { gt: 0 }, id: excludeIds.length ? { notIn: excludeIds } : undefined },
+    orderBy: [{ recommends: 'desc' }, { publishedAt: 'desc' }, { id: 'asc' }], // id = stable final tiebreaker
+    select: cardSelect,
+    take: limit,
+  });
+  return rows.map(toCard);
+}
+
+/**
+ * "Trending right now" — the most-opened articles over a rolling recent window
+ * (default 7 days), so the list reflects what readers are actually reading this
+ * week rather than all-time view totals. Popularity is measured from
+ * `article_open` analytics events. When the window is thin (a quiet stretch or a
+ * brand-new site) it backfills with all-time trending so the slot never looks
+ * empty. Returns cards in descending recent-popularity order.
+ */
+export async function trendingWindowArticles(limit = 5, days = 7, excludeIds: string[] = []): Promise<ArticleCard[]> {
+  const since = new Date(Date.now() - days * 24 * 3600 * 1000);
+  const exclude = new Set(excludeIds);
+
+  // Count recent opens per article; pull a buffer so status/exclusion filtering
+  // below still leaves enough candidates.
+  const grouped = await prisma.analyticsEvent.groupBy({
+    by: ['subjectId'],
+    where: { type: 'article_open', subjectType: 'article', subjectId: { not: null }, createdAt: { gte: since } },
+    _count: { subjectId: true },
+    orderBy: { _count: { subjectId: 'desc' } },
+    take: limit * 5,
+  });
+
+  const rankedIds = grouped
+    .map((g) => g.subjectId as string)
+    .filter((id) => id && !exclude.has(id));
+
+  let picks: ArticleCard[] = [];
+  if (rankedIds.length) {
+    // Only surface articles still eligible for the homepage; keep the popularity
+    // ordering from the grouping (findMany doesn't preserve `in` order).
+    const rows = await prisma.article.findMany({
+      where: { id: { in: rankedIds }, status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() } },
+      select: cardSelect,
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    picks = rankedIds.map((id) => byId.get(id)).filter(Boolean).map(toCard).slice(0, limit);
+  }
+
+  // Backfill from all-time trending when the recent window is thin.
+  if (picks.length < limit) {
+    const have = new Set([...exclude, ...picks.map((p) => p.id)]);
+    const filler = await trendingArticles(limit - picks.length, [...have]);
+    picks = [...picks, ...filler];
+  }
+  return picks;
+}
+
+// Small deterministic RNG (mulberry32) so a given day seed always yields the
+// same shuffle — the Rediscover module rotates once per day, not per request.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s |= 0; s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * "Rediscover" — resurfaces older stories from the back catalog, rotating to a
+ * different set each day. The freshest handful are skipped (they live in Latest /
+ * This week), then the remaining pool is shuffled with a day-derived seed and the
+ * top `limit` returned. Deterministic within a UTC day, different the next day.
+ * Returns [] until there is enough back catalog to draw from, so the module
+ * simply hides on a young site.
+ */
+export async function rediscoverArticles(limit = 5, excludeIds: string[] = [], skipFreshest = 6): Promise<ArticleCard[]> {
+  const exclude = new Set(excludeIds);
+  // Candidate pool: everything eligible, newest first, minus the freshest few.
+  const rows = await prisma.article.findMany({
+    where: { status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() }, id: exclude.size ? { notIn: [...exclude] } : undefined },
+    orderBy: { publishedAt: 'desc' },
+    select: cardSelect,
+    skip: skipFreshest,
+    take: 60,
+  });
+  if (!rows.length) return [];
+  const daySeed = Math.floor(Date.now() / (24 * 3600 * 1000));
+  return seededShuffle(rows, daySeed).slice(0, limit).map(toCard);
 }
 
 /**
@@ -170,17 +249,22 @@ export async function trendingArticles(limit = 6, excludeIds: string[] = []): Pr
 export async function smartSearch(query: string, limit = 20): Promise<ArticleCard[]> {
   const q = query.trim();
   if (!q) return [];
-  const terms = q.split(/\s+/).filter(Boolean).slice(0, 8);
+  // Expand with curated synonyms (the reader's words at full weight, synonyms at
+  // half) so "post office" can find a "USPS" story, etc. Purely lexical, no AI.
+  const weighted = expandQuery(q, 8);
+  if (!weighted.length) return [];
 
   const rows = await prisma.article.findMany({
     where: {
-      status: 'PUBLISHED', publishedAt: { lte: new Date() },
-      OR: terms.flatMap((t) => [
-        { title: { contains: t } },
-        { excerpt: { contains: t } },
-        { content: { contains: t } },
-        { category: { name: { contains: t } } },
-        { tags: { some: { tag: { name: { contains: t } } } } },
+      status: { in: RECOMMENDABLE_STATUSES }, publishedAt: { lte: new Date() },
+      // `mode: insensitive` matters on PostgreSQL, where `contains` is otherwise
+      // case-SENSITIVE (SQLite's LIKE was not) — without it "usps" misses "USPS".
+      OR: weighted.flatMap(({ term: t }) => [
+        { title: { contains: t, mode: 'insensitive' as const } },
+        { excerpt: { contains: t, mode: 'insensitive' as const } },
+        { content: { contains: t, mode: 'insensitive' as const } },
+        { category: { name: { contains: t, mode: 'insensitive' as const } } },
+        { tags: { some: { tag: { name: { contains: t, mode: 'insensitive' as const } } } } },
       ]),
     },
     select: { ...cardSelect, content: true },
@@ -194,14 +278,14 @@ export async function smartSearch(query: string, limit = 20): Promise<ArticleCar
       const excerpt = (a.excerpt ?? '').toLowerCase();
       const content = (a.content ?? '').toLowerCase();
       const tagNames = (a.tags as any[]).map((t) => t.tag.name.toLowerCase());
-      for (const term of terms) {
-        const t = term.toLowerCase();
-        if (title.includes(t)) score += 10;
-        if (title.startsWith(t)) score += 5;
-        if (excerpt.includes(t)) score += 4;
-        if (tagNames.some((n) => n.includes(t))) score += 4;
-        if (a.category?.name.toLowerCase().includes(t)) score += 3;
-        if (content.includes(t)) score += 1;
+      for (const { term, weight } of weighted) {
+        const t = term; // already normalized + lowercased by expandQuery
+        if (title.includes(t)) score += 10 * weight;
+        if (title.startsWith(t)) score += 5 * weight;
+        if (excerpt.includes(t)) score += 4 * weight;
+        if (tagNames.some((n) => n.includes(t))) score += 4 * weight;
+        if (a.category?.name.toLowerCase().includes(t)) score += 3 * weight;
+        if (content.includes(t)) score += 1 * weight;
       }
       score += Math.min(3, Math.log10((a.views ?? 0) + 1));
       return { a, score };

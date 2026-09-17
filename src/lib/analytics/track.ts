@@ -1,5 +1,6 @@
 'use client';
 import type { ClientEvent } from './types';
+import { analyticsDeclined } from '@/lib/consent';
 
 // Lightweight client tracker: queues events and flushes them in batches (via
 // sendBeacon on page-hide) so a page render never waits on analytics.
@@ -20,6 +21,7 @@ function getSession(): string {
 
 export function track(ev: ClientEvent): void {
   if (typeof window === 'undefined') return;
+  if (analyticsDeclined()) return; // reader opted out — do not collect
   queue.push({ ...ev, sessionId: ev.sessionId || getSession(), path: ev.path || location.pathname });
   if (queue.length >= 20) { flush(); return; }
   if (!flushTimer) flushTimer = setTimeout(() => flush(), 2500);

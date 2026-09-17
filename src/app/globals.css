@@ -4,7 +4,7 @@
 
 :root {
   --bg: #2b333c;          /* dark textured page surround */
-  --bg-soft: #333d47;
+  --bg-soft: #ece3d0;     /* soft surface ON cream cards (table heads, chips, hovers) — must stay light so --fg text reads */
   --fg: #241d13;
   --muted: #6f6553;
   --border: #e6dcc9;
@@ -14,6 +14,8 @@
   --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
+  --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
+  --composer-panel: #d7dde5;   /* admin editor side panels — a gray that breaks up the white */
 }
 .dark {
   --bg: #171310;
@@ -27,14 +29,18 @@
   --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(0,0,0,.55), 0 30px 60px rgba(0,0,0,.72);
   --shadow-hover: 0 6px 16px rgba(0,0,0,.6), 0 48px 88px rgba(0,0,0,.82);
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.4), 0 3px 8px rgba(0,0,0,.4);
+  --composer-panel: #20262f;
 }
 /* Explicit light palette (mirrors :root) so a subtree can force Light even when
    an ancestor is .dark — used by the article Preview's theme switch. */
 .light {
-  --bg: #2b333c; --bg-soft: #333d47; --fg: #241d13; --muted: #6f6553;
+  --bg: #2b333c; --bg-soft: #ece3d0; --fg: #241d13; --muted: #6f6553;
   --border: #e6dcc9; --card: #fdfaf4; --card-2: #f2ece0; --header: #22262e; --header-fg: #eef1f6;
   --shadow-card: 0 3px 8px rgba(28,18,6,.28), 0 30px 60px rgba(18,11,3,.46);
   --shadow-hover: 0 6px 16px rgba(28,18,6,.32), 0 48px 88px rgba(18,11,3,.58);
+  --shadow-soft: 0 1px 2px rgba(28,18,6,.10), 0 3px 8px rgba(18,11,3,.10);
+  --composer-panel: #d7dde5;
   --rs-cream-wash: 1;
 }
 
@@ -45,7 +51,7 @@
    an aged vintage-mailer (postmarks + RS stamps) on the cream surfaces. Module
    shapes are unchanged — a background image is clipped to the existing radius.
    `--rs-cream-wash` (0 = raw stamps, 1 = flat cream) is the readability dial. */
-.rs { --rs-cream-wash: 0.42; --fg: #3d2a19; }   /* body text = dark brown, not black */
+.rs { --rs-cream-wash: 0.42; --fg: #3d2a19; --composer-panel: #d8cdba; }   /* body text = dark brown, not black */
 
 /* Page surround: RS Mode keeps the default gray textured surround (unchanged). */
 
@@ -191,6 +197,26 @@ body::before {
 
   /* Modular cards — cream surface with a dark drop shadow. */
   .card { @apply rounded-xl border border-[var(--border)] bg-[var(--card)]; box-shadow: var(--shadow-card); }
+  /* A far softer drop shadow — for cards nested INSIDE the reading card (Read next,
+     related) so the shadow doesn't bleed over the article text. */
+  .card-soft { box-shadow: var(--shadow-soft); }
+  /* Admin article-editor side panels (element palette + inspector): a flat gray
+     surface (no RS texture) that breaks up the white page. */
+  .composer-panel { background-color: var(--composer-panel) !important; background-image: none !important; }
+  /* RS mode: the editor/builder side panels go DARK SLATE with cream text. We just
+     re-point the palette vars on the panel, so every label/input/select/muted-text
+     inside cascades to the dark surface automatically (the middle canvas is left
+     light — this scopes only to .composer-panel). */
+  .rs .composer-panel {
+    --composer-panel: #333c4a;   /* dark slate panel */
+    --fg: #f1ece1;               /* cream text */
+    --muted: #b7b1a4;            /* muted cream */
+    --border: #4b5563;           /* visible slate border */
+    --card: #2b333e;             /* nested surfaces (tab pill) */
+    --card-2: #2b333e;           /* input fields */
+    --bg-soft: #2b333e;
+    color: #f1ece1;
+  }
   .card-hover { @apply transition-all duration-200 hover:-translate-y-0.5; }
   .card-hover:hover { box-shadow: var(--shadow-hover); }
   /* Large framed panel that can hold nested cards (module-in-module). */
@@ -231,6 +257,40 @@ body::before {
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
+/* Electric-blue ring for the Homepage-inventory "Show on homepage" highlighter.
+   Applied client-side (see HomepageHighlight); cleared on refresh. */
+.hp-highlight {
+  outline: 3px solid #2f81f7;
+  outline-offset: 3px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 6px rgba(47, 129, 247, 0.28);
+  animation: hp-pulse 1.3s ease-in-out 3;
+  scroll-margin-top: 90px;
+}
+@keyframes hp-pulse {
+  0%, 100% { box-shadow: 0 0 0 6px rgba(47, 129, 247, 0.28); }
+  50% { box-shadow: 0 0 0 11px rgba(47, 129, 247, 0.10); }
+}
+
+/* Scroll reveal (homepage modules) + endless-feed card fade-in. The reveal
+   hidden state is only ever added by JS (see ScrollReveal), so no-JS stays fully
+   visible. Reduced-motion disables both. */
+.reveal-init { opacity: 0; transform: translateY(16px); }
+.reveal-init.revealed { opacity: 1; transform: none; transition: opacity .55s ease, transform .55s ease; }
+@keyframes feedIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.feed-in { animation: feedIn .5s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal-init, .reveal-init.revealed { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .feed-in { animation: none !important; }
+}
+
+/* Dark mode: orange surfaces (Published this week, Industry News, orange house
+   ads) drop from the bright brand orange to a deeper BLOOD orange so they don't
+   glare against the dark page. Not brown — a darker orange-red. Overrides the
+   bg-brand-600 utility these surfaces carry. RS Mode (.rs) is unaffected. */
+.dark .module-orange,
+.dark .ad-orange { background-color: #b5330f !important; }
+
 /* Tidy scrollbar for the Industry News module */
 .industry-scroll::-webkit-scrollbar { width: 10px; }
 .industry-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 3px solid transparent; background-clip: content-box; }
@@ -245,7 +305,9 @@ body.modal-open { overflow: hidden; }
 .composer-surface p.is-editor-empty:first-child::before {
   content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none;
 }
-.composer-surface .ProseMirror-selectednode { border-radius: 12px; box-shadow: 0 0 0 2px #E97D34; }
+/* Selected element in the composer canvas: a single soft-orange highlight box
+   (JotForm-style), so it's obvious which element the right panel is editing. */
+.composer-surface .ProseMirror-selectednode { border-radius: 8px; outline: 2px solid rgba(233,125,52,.9); outline-offset: 3px; box-shadow: 0 0 0 4px rgba(233,125,52,.14); }
 
 /* Divider */
 .prose-article hr, .composer-surface hr { border: 0; border-top: 2px solid var(--border); margin: 2rem 0; }
@@ -282,3 +344,10 @@ body.modal-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* Announcement-bar message ticker (opt-in). Two copies of the text scroll one
+   full copy-width, so the loop is seamless. The global reduced-motion rule above
+   near-freezes the animation, leaving it effectively static for those users. */
+@keyframes ann-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ann-marquee { display: inline-flex; white-space: nowrap; will-change: transform; animation: ann-marquee 22s linear infinite; }
+.ann-marquee:hover { animation-play-state: paused; }

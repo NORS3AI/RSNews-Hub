@@ -1,20 +1,41 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { reconcileArticleAudio, generateArticleAudio } from './articleAudio';
 import { requireAdmin, hashPassword, getCurrentUser, getSessionUser } from './auth';
-import { slugify, estimateReadMinutes, makeExcerpt } from './utils';
+import { slugify, estimateReadMinutes, makeExcerpt, safeLinkHref } from './utils';
+import { normalizeGenre, genreSlugify, SPONSORED_GENRE } from './genre';
+import { validGenreSlugs, revalidateGenres, getActiveGenres } from './genreServer';
+import { docBodyToStructuredHtml, deriveDocTitle, PRESENCE_ACTIVE_MS, PRESENCE_STALE_MS, type NewsroomViewer, type NewsroomCommentView, type NewsroomDocView } from './newsroom';
+import { suggestTags } from './suggestTags';
+import { splitVariants } from './houseStyle';
+import { revalidateHouseStyle } from './houseStyleServer';
+import { getTagGlossary, revalidateTagGlossary } from './tagGlossaryServer';
+import { clampWindow } from './seasonal';
+import { authorCardsInHtml, adSlotsInHtml, bylineMismatch, type PublishInput } from './publishChecklist';
+import { ensurePreviewToken } from './reviews';
+import { resolveIntakeVendor, notifySponsorLive } from './intake';
+import { recordVendorDecision } from './vendorReview';
 import { CONTENT_STATUSES, USER_STATUSES, ROLES, ACCOUNT_TYPES } from './constants';
-import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
+import { getHomeLayout, saveHomeLayout, getDraftLayout, saveDraftLayout, publishDraftLayout, discardDraftLayout, applyReorder, reorderLiveLayout, clampSpan, patchModuleLive, DEFAULT_LAYOUT, MODULE_CATALOG, type ModuleId } from './homepage';
 import { parseQuizBlocks, resolveClosesAt } from './quiz';
 import { rollupDays, recentDayKeys, pruneOldEvents } from './analytics/rollup';
 import { sanitizeArticleHtml } from './sanitize';
 import { createCampaign, assignAdsToFlight, scheduleFlight, pauseFlight, cancelCampaign } from './campaigns';
+import { reactivateSavedSuppliers } from './suppliers';
 import { generateReportDraft, updateReportSummary, publishReport, unpublishReport, quarterOf } from './reports';
 import { markCampaignPaid, parseAmountToCents } from './payments';
-import { updateVendorContact } from './vendors';
+import { updateVendorContact, vendorIdForBrand, isActiveVendor } from './vendors';
+import { entitlementsOf, isVendor } from './entitlements';
+import { AD_UPDATE_URL_KEY, REPORT_PERIODS } from './vendorReports';
 import { EMAIL_TEMPLATES } from './emailTemplates';
+import { setNewsletterEnabled } from './newsletter';
+import { upsertAnnouncement, deleteAnnouncement, toggleStar as toggleAnnouncementStarLib, setLiveAnnouncement, setAnnouncementEnabled, type AnnouncementInput } from './announcement';
+import { saveReportTemplate, renameReportTemplate, deleteReportTemplate } from './reportTemplates';
 import { emptyTree, serializeTree, parseTree, isShape, type Shape } from './studio';
 import { materializeModulePolls } from './studioPolls';
 
@@ -27,6 +48,444 @@ async function ensureAdmin() {
   const u = await getCurrentUser();
   if (!u || u.role !== 'ADMIN') throw new Error('Admin only');
   return u;
+}
+
+/** Admin: turn the whole email-digest feature on or off. When off, no digests
+ *  send and the reader subscribe UI hides the email option (on-site
+ *  notifications keep working). */
+export async function setDigestEnabled(on: boolean): Promise<void> {
+  await ensureStaff();
+  await setNewsletterEnabled(on);
+  revalidatePath('/admin/subscribers');
+}
+
+/* --------------------- Announcement bar (library) ------------------------ */
+// Save/edit/star/delete a message in the library, choose which is live, and the
+// master on/off — all separate, so "save" never publishes or flips on/off.
+
+export async function saveAnnouncementMessage(input: AnnouncementInput): Promise<string> {
+  await ensureStaff();
+  const id = await upsertAnnouncement(input);
+  revalidatePath('/admin/announcement');
+  return id;
+}
+export async function deleteAnnouncementMessage(id: string): Promise<void> {
+  await ensureStaff();
+  await deleteAnnouncement(id);
+  revalidatePath('/admin/announcement');
+}
+export async function toggleAnnouncementStar(id: string): Promise<void> {
+  await ensureStaff();
+  await toggleAnnouncementStarLib(id);
+  revalidatePath('/admin/announcement');
+}
+export async function showAnnouncementMessage(id: string): Promise<void> {
+  await ensureStaff();
+  await setLiveAnnouncement(id);
+  revalidatePath('/admin/announcement');
+}
+export async function setAnnouncementBarEnabled(on: boolean): Promise<void> {
+  await ensureStaff();
+  await setAnnouncementEnabled(on);
+  revalidatePath('/admin/announcement');
+}
+
+/* ------------------------------ Byline library ---------------------------- */
+// Reusable author identities (photo + name + title). Saving/editing here updates
+// every article that uses the byline (a title change, a new photo); archiving
+// hides it from the picker without touching articles that already reference it.
+export async function saveByline(input: { id?: string; name: string; title?: string | null; photo?: string | null; bio?: string | null }): Promise<string> {
+  await ensureStaff();
+  const name = (input.name ?? '').trim().slice(0, 120);
+  if (!name) throw new Error('A byline needs a name.');
+  const title = (input.title ?? '').trim().slice(0, 120) || null;
+  const photo = (input.photo ?? '').trim().slice(0, 2000) || null;
+  const bio = (input.bio ?? '').trim().slice(0, 600) || null;
+  const row = input.id
+    ? await prisma.byline.update({ where: { id: input.id }, data: { name, title, photo, bio } })
+    : await prisma.byline.create({ data: { name, title, photo, bio } });
+  revalidatePath('/admin/bylines');
+  return row.id;
+}
+export async function setBylineArchived(id: string, archived: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.byline.update({ where: { id }, data: { archived } });
+  revalidatePath('/admin/bylines');
+}
+
+/* --------------------------- Genres (editorial) -------------------------- */
+// The editorial-genre list is admin-editable (label + tint color). Built-in
+// genres keep their slug forever (logic and saved articles reference the slug),
+// but their label/color can be edited. The 'sponsored' genre is fully protected —
+// it drives paid-content (FTC) disclosure — so it can't be archived or deleted.
+// Custom genres (History, Education…) are free-form and fully removable.
+
+async function uniqueGenreSlug(label: string): Promise<string> {
+  const base = genreSlugify(label) || 'genre';
+  let slug = base;
+  let n = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const found = await prisma.genre.findUnique({ where: { slug } });
+    if (!found) return slug;
+    slug = `${base}_${++n}`;
+  }
+}
+
+export async function saveGenre(input: { id?: string; label: string; color?: string }): Promise<string> {
+  await ensureStaff();
+  const label = (input.label ?? '').trim().slice(0, 60);
+  if (!label) throw new Error('A genre needs a label.');
+  const color = /^#[0-9a-fA-F]{6}$/.test((input.color ?? '').trim()) ? (input.color as string).trim() : '#64748b';
+  // Editing keeps the slug stable (articles + logic reference it); only a new
+  // genre mints a slug from its label.
+  const row = input.id
+    ? await prisma.genre.update({ where: { id: input.id }, data: { label, color } })
+    : await prisma.genre.create({ data: { slug: await uniqueGenreSlug(label), label, color, builtin: false } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+  return row.id;
+}
+
+export async function setGenreArchived(id: string, archived: boolean): Promise<void> {
+  await ensureStaff();
+  const g = await prisma.genre.findUnique({ where: { id }, select: { slug: true } });
+  if (g?.slug === SPONSORED_GENRE) throw new Error('The Sponsored genre powers paid-content disclosure and can’t be archived.');
+  await prisma.genre.update({ where: { id }, data: { archived } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+}
+
+export async function deleteGenre(id: string): Promise<void> {
+  await ensureStaff();
+  const g = await prisma.genre.findUnique({ where: { id }, select: { builtin: true, slug: true } });
+  if (!g) return;
+  if (g.builtin) throw new Error('Built-in genres can’t be deleted — archive it instead.');
+  await prisma.genre.delete({ where: { id } });
+  // Clear the genre off any article that still carries it, so no article is left
+  // pointing at a genre that no longer resolves (which would show a blank badge).
+  await prisma.article.updateMany({ where: { genre: g.slug }, data: { genre: '' } });
+  revalidateGenres();
+  revalidatePath('/admin/genres');
+  revalidateTag('reader-content');
+}
+
+/* ------------------------------ Newsroom -------------------------------- */
+// The shared drafts space. Any staffer can create/edit/comment on any doc.
+// Authorship is captured automatically (name snapshots) so comments read
+// "who said what" without anyone typing their name, and presence is a
+// lightweight heartbeat (no websockets — the client polls newsroomSync).
+
+export async function createNewsroomDoc(): Promise<string> {
+  const staff = await ensureStaff();
+  const row = await prisma.newsroomDoc.create({
+    data: { createdById: staff.id, createdByName: staff.name, updatedById: staff.id, updatedByName: staff.name },
+  });
+  revalidatePath('/admin/newsroom');
+  return row.id;
+}
+
+// Autosave target — called frequently, so it does NOT revalidate (the client's
+// sync loop propagates the change to other viewers). A blank title is derived
+// from the first line so a tab always has a readable name.
+export async function saveNewsroomDoc(input: { id: string; title: string; body: string }): Promise<{ ok: true; at: string }> {
+  const staff = await ensureStaff();
+  const body = (input.body ?? '').slice(0, 100_000);
+  const title = ((input.title ?? '').trim() || deriveDocTitle(body)).slice(0, 200);
+  const row = await prisma.newsroomDoc.update({
+    where: { id: input.id },
+    data: { title, body, updatedById: staff.id, updatedByName: staff.name },
+    select: { updatedAt: true },
+  });
+  return { ok: true, at: row.updatedAt.toISOString() };
+}
+
+export async function deleteNewsroomDoc(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.newsroomDoc.delete({ where: { id } });
+  revalidatePath('/admin/newsroom');
+}
+
+// Prisma select + mapper for a comment view (shared by add + sync). Keeps the
+// anchor (quote/offset) attached so the client can jump to the highlighted passage.
+const newsroomCommentSelect = { id: true, authorName: true, body: true, quote: true, quoteStart: true, createdAt: true } as const;
+function toCommentView(c: { id: string; authorName: string; body: string; quote: string | null; quoteStart: number | null; createdAt: Date }): NewsroomCommentView {
+  return { id: c.id, authorName: c.authorName, body: c.body, quote: c.quote, quoteStart: c.quoteStart, createdAt: c.createdAt.toISOString() };
+}
+
+export async function addNewsroomComment(input: { docId: string; body: string; quote?: string | null; quoteStart?: number | null }): Promise<NewsroomCommentView> {
+  const staff = await ensureStaff();
+  const body = (input.body ?? '').trim().slice(0, 4000);
+  if (!body) throw new Error('Write a note first.');
+  const quote = (input.quote ?? '').trim().slice(0, 500) || null;
+  const quoteStart = quote && typeof input.quoteStart === 'number' && input.quoteStart >= 0 ? Math.floor(input.quoteStart) : null;
+  const row = await prisma.newsroomComment.create({
+    data: { docId: input.docId, authorId: staff.id, authorName: staff.name, body, quote, quoteStart },
+    select: newsroomCommentSelect,
+  });
+  return toCommentView(row);
+}
+
+export async function deleteNewsroomComment(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.newsroomComment.delete({ where: { id } });
+}
+
+// Tag suggestions for the composer's "Suggest tags" button. Runs on the server so
+// the suggester can reuse the newsroom's existing tag vocabulary (company names,
+// products, house terms) alongside the built-in industry glossary.
+export async function suggestArticleTags(title: string, html: string): Promise<string[]> {
+  await ensureStaff();
+  const [known, glossary] = await Promise.all([
+    prisma.tag.findMany({ select: { name: true }, take: 500 }),
+    getTagGlossary(),
+  ]);
+  return suggestTags(title || '', html || '', { vocabulary: known.map((t) => t.name), glossary, max: 8 });
+}
+
+// Personal pin: flag/unflag a draft for the current staffer. Returns the new state.
+// Per-user, so the editor's quick-switcher shows only the drafts THIS writer is
+// juggling. Idempotent — a create/delete keyed on the unique (docId, userId) pair.
+export async function toggleNewsroomFlag(docId: string): Promise<boolean> {
+  const staff = await ensureStaff();
+  const existing = await prisma.newsroomFlag.findUnique({
+    where: { docId_userId: { docId, userId: staff.id } },
+    select: { id: true },
+  });
+  if (existing) {
+    await prisma.newsroomFlag.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.newsroomFlag.create({ data: { docId, userId: staff.id } });
+  }
+  revalidatePath('/admin/newsroom');
+  revalidatePath(`/admin/newsroom/${docId}`);
+  return !existing;
+}
+
+// One-button hand-off: build a DRAFT article from the doc (prose → paragraphs),
+// soft-remove the doc from the Newsroom (pushedAt), and return the new article id
+// so the client can open the composer to format + add blocks before publishing.
+export async function pushNewsroomDocToArticle(id: string): Promise<string> {
+  const staff = await ensureStaff();
+  const doc = await prisma.newsroomDoc.findUnique({ where: { id }, select: { title: true, body: true, pushedAt: true } });
+  if (!doc) throw new Error('That draft no longer exists.');
+  if (doc.pushedAt) throw new Error('That draft was already pushed to the article editor.');
+  // Atomically claim the doc BEFORE creating the article, so two people pushing
+  // the same draft at once can't each mint a duplicate draft article.
+  const claim = await prisma.newsroomDoc.updateMany({ where: { id, pushedAt: null }, data: { pushedAt: new Date() } });
+  if (claim.count === 0) throw new Error('That draft was already pushed to the article editor.');
+  const title = (doc.title?.trim() || deriveDocTitle(doc.body)).slice(0, 300);
+  // Structured push: detect sub-headings and auto-place ad slots, exactly like the
+  // "paste an article" importer — so a drafted story lands in the composer with the
+  // same shape a pasted one would, not one flat block of paragraphs.
+  const content = sanitizeArticleHtml(docBodyToStructuredHtml(doc.body));
+  const slug = await uniqueSlug(title, 'article');
+  // Pre-fill tags from the finished prose (same suggester the composer's "Suggest
+  // tags" button uses), created on the fly, so the pushed draft isn't blank-tagged.
+  // Feed it the tags the newsroom already uses + the editable glossary so it reuses
+  // the house vocabulary.
+  const [known, glossary] = await Promise.all([
+    prisma.tag.findMany({ select: { name: true }, take: 500 }),
+    getTagGlossary(),
+  ]);
+  const tagIds: string[] = [];
+  for (const name of suggestTags(title, content, { vocabulary: known.map((t) => t.name), glossary, max: 6 })) {
+    const tslug = slugify(name);
+    if (!tslug) continue;
+    const tag = await prisma.tag.upsert({ where: { slug: tslug }, update: {}, create: { name, slug: tslug } });
+    tagIds.push(tag.id);
+  }
+  const article = await prisma.article.create({
+    data: {
+      title, slug, content, excerpt: makeExcerpt(content), status: 'DRAFT',
+      authorId: staff.id, readMinutes: estimateReadMinutes(content),
+      ...(tagIds.length ? { tags: { create: tagIds.map((tagId) => ({ tagId })) } } : {}),
+    },
+    select: { id: true },
+  });
+  revalidatePath('/admin/newsroom');
+  revalidatePath('/admin/articles');
+  return article.id;
+}
+
+// The live loop for the single-doc editor: refresh my presence on this doc, prune
+// stale rows, and return who else is here + this one doc (body + comment thread),
+// so a co-editor's changes and notes show up within a few seconds. Scoped to one
+// doc (not the whole list) so it stays cheap with dozens of drafts in flight.
+export async function newsroomSync(input: { docId?: string; editing?: boolean }): Promise<{ viewers: NewsroomViewer[]; doc: NewsroomDocView | null }> {
+  const staff = await ensureStaff();
+  const now = Date.now();
+  if (!input.docId) return { viewers: [], doc: null };
+  await prisma.newsroomPresence.upsert({
+    where: { docId_userId: { docId: input.docId, userId: staff.id } },
+    create: { docId: input.docId, userId: staff.id, userName: staff.name, editing: !!input.editing },
+    update: { userName: staff.name, editing: !!input.editing, lastSeen: new Date() },
+  });
+  // Opportunistic prune of long-gone heartbeats.
+  await prisma.newsroomPresence.deleteMany({ where: { lastSeen: { lt: new Date(now - PRESENCE_STALE_MS) } } });
+
+  const [presence, doc] = await Promise.all([
+    prisma.newsroomPresence.findMany({
+      where: { docId: input.docId, lastSeen: { gte: new Date(now - PRESENCE_ACTIVE_MS) } },
+      orderBy: { lastSeen: 'desc' },
+      select: { userId: true, userName: true, editing: true },
+    }),
+    prisma.newsroomDoc.findUnique({
+      where: { id: input.docId },
+      select: {
+        id: true, title: true, body: true, archived: true, pushedAt: true, updatedAt: true, updatedById: true, updatedByName: true, createdByName: true,
+        comments: { orderBy: { createdAt: 'asc' }, select: newsroomCommentSelect },
+      },
+    }),
+  ]);
+
+  return {
+    viewers: presence.map((p) => ({ userId: p.userId, userName: p.userName, editing: p.editing })),
+    doc: doc && !doc.archived && !doc.pushedAt
+      ? { id: doc.id, title: doc.title, body: doc.body, updatedAt: doc.updatedAt.toISOString(), updatedById: doc.updatedById, updatedByName: doc.updatedByName, createdByName: doc.createdByName, comments: doc.comments.map(toCommentView) }
+      : null,
+  };
+}
+
+/* ------------------------- House-style rule book ------------------------- */
+// The admin-editable dictionary the Newsroom's style checker enforces. Admins
+// enter a canonical spelling + the off-house variants to catch (plain text, never
+// regex). Built-in rows can be edited or disabled but not deleted.
+
+export async function saveHouseStyleRule(input: { id?: string; canonical: string; variants?: string; forceLowercase?: boolean; message?: string | null }): Promise<string> {
+  await ensureStaff();
+  const canonical = (input.canonical ?? '').trim().slice(0, 120);
+  if (!canonical) throw new Error('A rule needs a canonical spelling.');
+  // Normalize the variant blob to a clean comma-separated list (drops the term
+  // itself and dupes; the checker also matches wrong-case canonicals on its own).
+  const variants = splitVariants(input.variants ?? '').filter((v) => v.toLowerCase() !== canonical.toLowerCase()).join(', ');
+  const forceLowercase = !!input.forceLowercase;
+  const message = (input.message ?? '').trim().slice(0, 300) || null;
+  const row = input.id
+    ? await prisma.houseStyleRule.update({ where: { id: input.id }, data: { canonical, variants, forceLowercase, message } })
+    : await prisma.houseStyleRule.create({ data: { canonical, variants, forceLowercase, message, builtin: false } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+  return row.id;
+}
+
+export async function setHouseStyleRuleEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.houseStyleRule.update({ where: { id }, data: { enabled } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+}
+
+export async function deleteHouseStyleRule(id: string): Promise<void> {
+  await ensureStaff();
+  const r = await prisma.houseStyleRule.findUnique({ where: { id }, select: { builtin: true } });
+  if (r?.builtin) throw new Error('Built-in rules can’t be deleted — disable it instead.');
+  await prisma.houseStyleRule.delete({ where: { id } });
+  revalidateHouseStyle();
+  revalidatePath('/admin/house-style');
+}
+
+/* ------------------------------ Tag glossary ----------------------------- */
+// The admin-editable industry vocabulary the tag suggester draws on (RS Dictionary
+// → Tag glossary tab). One row per term: canonical tag + the variants that map to
+// it. Built-in rows can be edited or disabled but not deleted.
+
+export async function saveTagGlossaryTerm(input: { id?: string; canonical: string; variants?: string }): Promise<string> {
+  await ensureStaff();
+  const canonical = (input.canonical ?? '').trim().slice(0, 120);
+  if (!canonical) throw new Error('A glossary term needs a canonical tag.');
+  // Clean the variant blob: drop the term itself and dupes.
+  const variants = splitVariants(input.variants ?? '').filter((v) => v.toLowerCase() !== canonical.toLowerCase()).join(', ');
+  const row = input.id
+    ? await prisma.tagGlossaryTerm.update({ where: { id: input.id }, data: { canonical, variants } })
+    : await prisma.tagGlossaryTerm.create({ data: { canonical, variants, builtin: false } });
+  revalidateTagGlossary();
+  revalidatePath('/admin/house-style');
+  return row.id;
+}
+
+export async function setTagGlossaryTermEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.tagGlossaryTerm.update({ where: { id }, data: { enabled } });
+  revalidateTagGlossary();
+  revalidatePath('/admin/house-style');
+}
+
+export async function deleteTagGlossaryTerm(id: string): Promise<void> {
+  await ensureStaff();
+  const t = await prisma.tagGlossaryTerm.findUnique({ where: { id }, select: { builtin: true } });
+  if (t?.builtin) throw new Error('Built-in terms can’t be deleted — disable it instead.');
+  await prisma.tagGlossaryTerm.delete({ where: { id } });
+  revalidateTagGlossary();
+  revalidatePath('/admin/house-style');
+}
+
+/* --------------------------- Seasonal modules ---------------------------- */
+// A Module Studio module scheduled onto the homepage during a recurring yearly
+// window. The homepage renders active ones as a band on top (see homepageData);
+// these actions just manage the schedules.
+
+function revalidateSeasonal() {
+  revalidatePath('/admin/seasonal');
+  revalidatePath('/docs');
+  revalidateTag('reader-content');
+}
+
+export async function saveSeasonalSchedule(input: { id?: string; label: string; moduleId: string; startMonth: number; startDay: number; endMonth: number; endDay: number; priority?: number }): Promise<string> {
+  await ensureStaff();
+  const label = (input.label ?? '').trim().slice(0, 120);
+  const moduleId = (input.moduleId ?? '').trim();
+  if (!label) throw new Error('Give the seasonal placement a name.');
+  if (!moduleId) throw new Error('Pick a module to feature.');
+  const mod = await prisma.customModule.findUnique({ where: { id: moduleId }, select: { id: true } });
+  if (!mod) throw new Error('That module no longer exists.');
+  const win = clampWindow({ startMonth: input.startMonth, startDay: input.startDay, endMonth: input.endMonth, endDay: input.endDay });
+  const priority = Number.isFinite(input.priority) ? Math.max(0, Math.min(999, Math.round(input.priority as number))) : 0;
+  const data = { label, moduleId, ...win, priority };
+  const row = input.id
+    ? await prisma.seasonalModule.update({ where: { id: input.id }, data })
+    : await prisma.seasonalModule.create({ data });
+  revalidateSeasonal();
+  return row.id;
+}
+
+export async function setSeasonalEnabled(id: string, enabled: boolean): Promise<void> {
+  await ensureStaff();
+  await prisma.seasonalModule.update({ where: { id }, data: { enabled } });
+  revalidateSeasonal();
+}
+
+export async function deleteSeasonalSchedule(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.seasonalModule.delete({ where: { id } });
+  revalidateSeasonal();
+}
+
+/* --------------------- Report builder templates -------------------------- */
+// Save/delete a named Report-builder configuration. A template stores only the
+// querystring; regenerating always recomputes live numbers, so there's nothing
+// to refresh — pressing a template just re-opens the builder with fresh data.
+
+export async function saveReportTemplateAction(name: string, query: string): Promise<string> {
+  await ensureStaff();
+  const id = await saveReportTemplate(name, query);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
+  return id;
+}
+export async function renameReportTemplateAction(id: string, name: string): Promise<void> {
+  await ensureStaff();
+  await renameReportTemplate(id, name);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
+}
+export async function deleteReportTemplateAction(id: string): Promise<void> {
+  await ensureStaff();
+  await deleteReportTemplate(id);
+  revalidatePath('/admin/reports');
+  revalidatePath('/admin/reports/builder');
 }
 
 async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' | 'tag', ignoreId?: string) {
@@ -42,6 +501,75 @@ async function uniqueSlug(base: string, model: 'article' | 'page' | 'category' |
 
 /* ------------------------------- Articles ------------------------------- */
 
+const ARTICLE_REVISION_MAX = 20; // per-article cap on stored revisions
+
+// Shared byline-conflict check: does the article body carry an Author card whose
+// person differs from the (named) top byline? Returns the offending card name, or
+// null. Used by every publish path so the lock can't be bypassed. Empty top byline
+// (house-team default) never conflicts.
+// Resolve the display names of the in-article Author cards: a typed-in name wins,
+// else the linked library byline's name. Shared by the conflict check and the
+// checklist builder so the two never diverge.
+async function resolveAuthorCardNames(content: string): Promise<string[]> {
+  const cards = authorCardsInHtml(content);
+  const linkedIds = cards.filter((c) => !c.name && c.bylineId).map((c) => c.bylineId);
+  const linked = linkedIds.length
+    ? new Map((await prisma.byline.findMany({ where: { id: { in: linkedIds } }, select: { id: true, name: true } })).map((b) => [b.id, b.name]))
+    : new Map<string, string>();
+  return cards.map((c) => c.name || linked.get(c.bylineId) || '').filter(Boolean);
+}
+
+async function detectBylineConflict(content: string, topBylineName: string): Promise<string | null> {
+  if (!topBylineName) return null;
+  return bylineMismatch(topBylineName, await resolveAuthorCardNames(content));
+}
+
+// Build the pre-publish checklist for an existing article, so the Articles list's
+// quick "Publish" can show the SAME confirmation modal the composer does. Resolves
+// names server-side; the client renders + computes the flags.
+export async function getPublishChecklist(id: string): Promise<{ input: PublishInput; ads: ReturnType<typeof adSlotsInHtml> } | null> {
+  await ensureStaff();
+  const a = await prisma.article.findUnique({
+    where: { id },
+    select: {
+      title: true, content: true, byline: true, genre: true, publishedAt: true,
+      sponsoredUntil: true, sponsorVendorId: true, breakingUntil: true, featured: true, pinned: true,
+      category: { select: { name: true } },
+      extraCategories: { select: { name: true } },
+      tags: { select: { tag: { select: { name: true } } } },
+      bylineRef: { select: { name: true } },
+    },
+  });
+  if (!a) return null;
+  const content = a.content || '';
+  const now = Date.now();
+  const bylineName = a.bylineRef?.name || (a.byline || '').trim();
+  const vendor = a.sponsorVendorId
+    ? await prisma.vendor.findUnique({ where: { id: a.sponsorVendorId }, select: { name: true } })
+    : null;
+  const genre = a.genre ? ((await getActiveGenres()).find((g) => g.slug === a.genre)?.label || a.genre) : '';
+  const ads = adSlotsInHtml(content);
+  const authorCards = await resolveAuthorCardNames(content);
+
+  const input: PublishInput = {
+    title: a.title || '',
+    bylineName,
+    publishedAt: a.publishedAt ? a.publishedAt.toISOString() : '',
+    now,
+    primaryCategory: a.category?.name || '',
+    extraCategories: a.extraCategories.map((c) => c.name),
+    genre,
+    tags: a.tags.map((t) => t.tag.name),
+    connectedVendor: vendor?.name || '',
+    sponsored: !!a.sponsoredUntil || !!a.sponsorVendorId,
+    breaking: !!(a.breakingUntil && a.breakingUntil.getTime() > now),
+    featured: a.featured,
+    pinned: a.pinned,
+    ads, authorCards,
+  };
+  return { input, ads };
+}
+
 export async function saveArticle(formData: FormData) {
   const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
@@ -52,12 +580,48 @@ export async function saveArticle(formData: FormData) {
   const status = (formData.get('status') as string) || 'DRAFT';
   const categoryId = (formData.get('categoryId') as string) || '';
   const coverImage = ((formData.get('coverImage') as string) || '').trim();
+  const coverVideo = ((formData.get('coverVideo') as string) || '').trim();
+  // Focal point: accept only the 9 known object-position values; anything else
+  // (incl. a forged value) → null (center). Defense-in-depth so the value can
+  // never be a surprise if it's ever interpolated into a raw style string.
+  const COVER_FOCUS_OK = new Set(['0% 0%', '50% 0%', '100% 0%', '0% 50%', '50% 50%', '100% 50%', '0% 100%', '50% 100%', '100% 100%']);
+  const coverFocusRaw = ((formData.get('coverFocus') as string) || '').trim();
+  const coverFocus = COVER_FOCUS_OK.has(coverFocusRaw) ? coverFocusRaw : '';
   const featured = formData.get('featured') === 'on';
   const pinned = formData.get('pinned') === 'on';
+  // Pin auto-expiry: while pinned, release after `pinnedDays` (default 7, 1–365).
+  // Unpinning clears the date. A homepage-load sweep flips pinned off once it passes.
+  const pinnedDaysRaw = Number(formData.get('pinnedDays'));
+  const pinnedDays = Number.isFinite(pinnedDaysRaw) && pinnedDaysRaw > 0 ? Math.min(365, Math.round(pinnedDaysRaw)) : 7;
+  const pinnedUntil = pinned ? new Date(Date.now() + pinnedDays * 24 * 3600 * 1000) : null;
   // Access gate token; normalize 'public' → '' (open) and lowercase for matching.
   const requirementRaw = ((formData.get('requirement') as string) || '').trim().toLowerCase();
   const requirement = requirementRaw === 'public' ? '' : requirementRaw;
+  // Optional editorial genre — whitelisted to a known (admin-editable) slug or
+  // '' (none). Validated against the live genre list so custom genres are allowed.
+  const genre = normalizeGenre(formData.get('genre'), await validGenreSlugs());
+  // Optional connected vendor (the advertiser this piece belongs to — sponsored or
+  // a What's Hot article). Verified to be a real vendor id, else cleared. Drives the
+  // in-article ad lock + the "send to dashboard" default. '' → null (not connected).
+  // ADMIN-ONLY to change: connecting a piece to a vendor triggers a go-live email to
+  // that vendor's contact and locks the article's ads to their brand, so a lower-trust
+  // EDITOR must not be able to point an article at an arbitrary (e.g. competitor)
+  // premium vendor — the same rule confirmIntakeVendor enforces. Editors keep the
+  // existing connection untouched (resolved per create/edit branch below).
+  const isAdmin = staff.role === 'ADMIN';
+  const sponsorVendorIdRaw = ((formData.get('sponsorVendorId') as string) || '').trim();
+  const sponsorVendorId = sponsorVendorIdRaw
+    ? (await prisma.vendor.findUnique({ where: { id: sponsorVendorIdRaw }, select: { id: true } }))?.id ?? null
+    : null;
   const excerptInput = ((formData.get('excerpt') as string) || '').trim();
+  // Byline: a chosen library byline (photo + name + title) wins; the free-text
+  // field is a one-off name (or empty → the house team default). Validate the id
+  // so a stale reference can't FK-error the save; unknown → treated as none.
+  const bylineIdRaw = ((formData.get('bylineId') as string) || '').trim();
+  const bylineId = bylineIdRaw
+    ? (await prisma.byline.findUnique({ where: { id: bylineIdRaw }, select: { id: true } }))?.id ?? null
+    : null;
+  const byline = ((formData.get('byline') as string) || '').trim().slice(0, 120);
   const tagsRaw = ((formData.get('tags') as string) || '').trim();
   const publishedAtRaw = ((formData.get('publishedAt') as string) || '').trim();
   const publishedAtInput = publishedAtRaw ? new Date(publishedAtRaw) : null;
@@ -65,6 +629,17 @@ export async function saveArticle(formData: FormData) {
 
   if (!title || !content) throw new Error('Title and content are required');
   if (!CONTENT_STATUSES.includes(status as any)) throw new Error('Invalid status');
+
+  // Hard lock: an article can't PUBLISH while its top byline and an in-article
+  // Author card name different people. Mirrors the composer's pre-publish block,
+  // enforced here too so no path (autosave-then-publish, direct call) can bypass it.
+  if (status === 'PUBLISHED') {
+    const topName = bylineId
+      ? ((await prisma.byline.findUnique({ where: { id: bylineId }, select: { name: true } }))?.name ?? '')
+      : byline;
+    const conflict = await detectBylineConflict(content, topName);
+    if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
+  }
 
   const excerpt = excerptInput || makeExcerpt(content);
   const readMinutes = estimateReadMinutes(content);
@@ -92,28 +667,47 @@ export async function saveArticle(formData: FormData) {
     const hours = breakingRaw === 'custom' ? Number(formData.get('breakingCustomHours')) : Number(breakingRaw);
     breakingUntil = Number.isFinite(hours) && hours > 0 ? new Date(Date.now() + Math.min(hours, 24 * 365) * 3600 * 1000) : null;
   }
+  // Sponsored/Featured window end. Blank → null (not sponsored). Any valid date
+  // is accepted (an admin may set a past date to end a run early).
+  const sponsoredRaw = ((formData.get('sponsoredUntil') as string) || '').trim();
+  const sponsoredUntil = sponsoredRaw ? (isNaN(new Date(sponsoredRaw).getTime()) ? null : new Date(sponsoredRaw)) : null;
 
+  let savedId = id;
   if (id) {
-    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true } });
+    const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, status: true, title: true, content: true, excerpt: true, authorId: true, slug: true, sponsorVendorId: true } });
     if (!existing) throw new Error('Article not found');
-    const slug = await uniqueSlug(title, 'article', id);
+    // Editors can't change the vendor connection — keep whatever's already set.
+    const sponsorVendorIdResolved = isAdmin ? sponsorVendorId : existing.sponsorVendorId;
+    // Snapshot the prior version before overwriting — only when the body actually
+    // changed — so an editor can roll back. Capped per article.
+    if (existing.content !== content) {
+      await prisma.articleRevision.create({ data: { articleId: id, title: existing.title, content: existing.content, excerpt: existing.excerpt, authorId: existing.authorId } });
+      const extra = await prisma.articleRevision.findMany({ where: { articleId: id }, orderBy: { createdAt: 'desc' }, skip: ARTICLE_REVISION_MAX, select: { id: true } });
+      if (extra.length) await prisma.articleRevision.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
+    }
+    // Keep the existing slug stable on edit — renaming the title must NOT change
+    // a live article's URL (would break bookmarks, shares, SEO, saved-item links).
+    // A new slug is only minted if the article somehow has none yet.
+    const slug = existing.slug || await uniqueSlug(title, 'article', id);
     await prisma.article.update({
       where: { id },
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: sponsorVendorIdResolved, featured, pinned, pinnedUntil, readMinutes,
         categoryId: categoryId || null,
         extraCategories: { set: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil, // undefined leaves it unchanged (Prisma ignores undefined)
         // Explicit date wins (backdate or schedule); otherwise keep existing or stamp now on publish.
         publishedAt: hasPubDate ? publishedAtInput : (nowPublished ? existing.publishedAt ?? new Date() : existing.publishedAt),
         tags: { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) },
+        // A deliberate Save supersedes any autosaved draft — clear it.
+        draftTitle: null, draftContent: null, draftExcerpt: null, draftCover: null, draftSavedAt: null,
       },
     });
   } else {
     const slug = await uniqueSlug(title, 'article');
-    await prisma.article.create({
+    const created = await prisma.article.create({
       data: {
-        title, slug, content, excerpt, coverImage: coverImage || null, status, requirement, featured, pinned, readMinutes,
+        title, slug, content, excerpt, byline: byline || null, bylineId, coverImage: coverImage || null, coverVideo: coverVideo || null, coverFocus: coverFocus || null, status, requirement, genre, sponsoredUntil, sponsorVendorId: isAdmin ? sponsorVendorId : null, featured, pinned, pinnedUntil, readMinutes,
         categoryId: categoryId || null, authorId: staff.id,
         extraCategories: { connect: extraCategoryIds.map((cid) => ({ id: cid })) },
         breakingUntil: breakingUntil ?? null,
@@ -121,29 +715,214 @@ export async function saveArticle(formData: FormData) {
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
     });
+    savedId = created.id;
+  }
+
+  // "Listen to article" audio: flag it for (re)generation if the spoken text
+  // changed, then synthesize in the background so the save isn't blocked. No-ops
+  // safely when ElevenLabs isn't configured.
+  if (savedId) {
+    try {
+      await reconcileArticleAudio(savedId);
+      const audioId = savedId;
+      after(() => generateArticleAudio(audioId).catch(() => {}));
+    } catch { /* never let audio break a save */ }
+  }
+
+  // Stage-two intake notify: when a sponsored, vendor-linked article first goes
+  // live, tell the vendor (premium → email push; else copy-paste note for the
+  // admin). notifySponsorLive self-guards on sponsorNotifiedAt + PUBLISHED, so
+  // this is a no-op for ordinary articles and for re-saves of an already-live one.
+  if (savedId && nowPublished) {
+    const liveId = savedId;
+    after(() => notifySponsorLive(liveId).catch(() => {}));
   }
 
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
+  revalidateTag('reader-content'); // refresh cached category/tag/list pages now
   redirect('/admin/articles');
+}
+
+/** Admin: confirm which vendor a held sponsored-intake submission belongs to
+ *  (confirm-before-merge), binding the draft article to it. `vendorId` is an
+ *  existing vendor id or the literal 'new' to create one from the submitted name.
+ *  ADMIN-only (not EDITOR): binding a sponsor to a vendor drives the go-live
+ *  email + sponsorship attribution, so a lower-trust editor must not be able to
+ *  re-point a draft to an arbitrary (e.g. competitor) premium vendor. */
+export async function confirmIntakeVendor(formData: FormData) {
+  await ensureAdmin();
+  const submissionId = String(formData.get('submissionId') || '').trim();
+  const vendorId = String(formData.get('vendorId') || '').trim();
+  if (!submissionId || !vendorId) throw new Error('Pick a vendor to confirm.');
+  await resolveIntakeVendor(submissionId, vendorId);
+  revalidatePath('/admin/intake');
+}
+
+/** Admin: push an article to a vendor's dashboard for review. Each call is a NEW
+ *  round (a fresh pending item + a timestamped paper-trail row); a re-push after
+ *  edits does not disturb earlier rounds. Ensures a preview token so the vendor can
+ *  see the draft. Works for sponsored articles and What's Hot pieces.
+ *  ADMIN-only (not EDITOR): pushing shares a private draft-preview link with an
+ *  external vendor, so — like confirmIntakeVendor — a lower-trust editor must not be
+ *  able to leak an arbitrary draft to an arbitrary advertiser. */
+export async function pushArticleToVendorReview(formData: FormData) {
+  await ensureAdmin();
+  const articleId = String(formData.get('articleId') || '').trim();
+  const vendorId = String(formData.get('vendorId') || '').trim();
+  if (!articleId || !vendorId) throw new Error('Pick a vendor to send this to.');
+  const [article, vendor] = await Promise.all([
+    prisma.article.findUnique({ where: { id: articleId }, select: { id: true } }),
+    prisma.vendor.findUnique({ where: { id: vendorId }, select: { id: true } }),
+  ]);
+  if (!article) throw new Error('Article not found');
+  if (!vendor) throw new Error('Vendor not found');
+  await ensurePreviewToken(articleId); // so the vendor can preview the draft on their dashboard
+  await prisma.vendorReviewRequest.create({ data: { articleId, vendorId } });
+  revalidatePath(`/admin/articles/${articleId}`);
+  revalidatePath('/docs/vendor');
+}
+
+/** Vendor: answer a review pushed to their dashboard — Approve or Request changes,
+ *  ONCE. The decision locks the row (no reopen/flip) and is mirrored into the admin
+ *  Hub feedback (an ArticleReview) so it shows alongside link-reviewer responses. */
+export async function submitVendorReviewDecision(formData: FormData) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  const requestId = String(formData.get('requestId') || '').trim();
+  const decision = String(formData.get('decision') || '').trim();
+  const message = String(formData.get('message') || '').trim().slice(0, 5000);
+  if (!requestId || (decision !== 'approve' && decision !== 'change')) throw new Error('Choose approve or request changes.');
+  if (decision === 'change' && !message) throw new Error('Add a note describing the changes you’d like.');
+
+  const req = await prisma.vendorReviewRequest.findUnique({ where: { id: requestId }, select: { vendorId: true, articleId: true } });
+  if (!req) throw new Error('Review not found');
+  // Ownership: the signed-in account must BE this vendor.
+  const ent = entitlementsOf(u);
+  if (!isVendor(ent)) throw new Error('This review is for the advertiser.');
+  // Coupled to the premium switch: a de-listed vendor can't act on reviews either.
+  if (!(await isActiveVendor(u))) throw new Error('The advertiser dashboard is available to active premium suppliers only.');
+  const myVendorId = await vendorIdForBrand(ent.vendorBrand);
+  if (!myVendorId || myVendorId !== req.vendorId) throw new Error('This review isn’t yours.');
+
+  // Atomic lock + mirror into the admin Hub. Only the first response wins.
+  const vendor = await prisma.vendor.findUnique({ where: { id: req.vendorId }, select: { name: true } });
+  const ok = await recordVendorDecision({
+    requestId, articleId: req.articleId, decision, message,
+    firstName: u.name || vendor?.name || 'Vendor',
+    lastName: `(${vendor?.name || 'vendor'})`,
+  });
+  if (!ok) throw new Error('You’ve already responded to this review.');
+  revalidatePath('/docs/vendor');
+  revalidatePath(`/admin/articles/${req.articleId}`);
+}
+
+// Background autosave for an article being edited. Persists the easily-lost work
+// (title + body + excerpt + cover) WITHOUT touching status or publishedAt — an
+// autosave never publishes, never reschedules, and never navigates. Only updates
+// an existing article; brand-new drafts are still protected by the unsaved-changes
+// guard until their first manual Save. Returns a timestamp for the "Autosaved …"
+// indicator. Never throws for the client — returns ok:false instead.
+export async function autosaveArticle(formData: FormData): Promise<{ ok: boolean; at: number }> {
+  const now = Date.now();
+  try {
+    await ensureStaff();
+    const id = (formData.get('id') as string) || '';
+    if (!id) return { ok: false, at: now };
+    const title = ((formData.get('title') as string) || '').trim();
+    const content = sanitizeArticleHtml(((formData.get('content') as string) || '').trim());
+    if (!title && !content) return { ok: false, at: now };
+    const coverImage = ((formData.get('coverImage') as string) || '').trim();
+    const excerptInput = ((formData.get('excerpt') as string) || '').trim();
+
+    const existing = await prisma.article.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) return { ok: false, at: now };
+    // Write to the DRAFT columns only — never the live content. Safe for any
+    // status (a PUBLISHED article's readers keep seeing the saved version until a
+    // deliberate Save promotes the draft). The editor loads these back on reopen.
+    await prisma.article.update({
+      where: { id },
+      data: {
+        draftTitle: title || null,
+        draftContent: content || null,
+        draftExcerpt: excerptInput || (content ? makeExcerpt(content) : null),
+        draftCover: coverImage || null,
+        draftSavedAt: new Date(),
+      },
+    });
+    return { ok: true, at: Date.now() };
+  } catch {
+    return { ok: false, at: now };
+  }
+}
+
+// Throw away an article's autosaved draft, so the editor reloads the live copy.
+export async function discardDraft(id: string) {
+  await ensureStaff();
+  if (!id) return;
+  await prisma.article.update({
+    where: { id },
+    data: { draftTitle: null, draftContent: null, draftExcerpt: null, draftCover: null, draftSavedAt: null },
+  });
+  revalidatePath('/admin/articles');
+  redirect(`/admin/articles/${id}`);
+}
+
+// Roll an article back to a stored revision. The current version is snapshotted
+// first (so a restore is itself undoable), then the article's title/body/excerpt
+// are replaced. Status and publish date are left untouched.
+export async function restoreArticleRevision(revisionId: string) {
+  await ensureStaff();
+  const rev = await prisma.articleRevision.findUnique({ where: { id: revisionId } });
+  if (!rev) throw new Error('Revision not found');
+  const current = await prisma.article.findUnique({ where: { id: rev.articleId }, select: { title: true, content: true, excerpt: true, authorId: true } });
+  if (!current) throw new Error('Article not found');
+  if (current.content !== rev.content) {
+    await prisma.articleRevision.create({ data: { articleId: rev.articleId, title: current.title, content: current.content, excerpt: current.excerpt, authorId: current.authorId } });
+    const extra = await prisma.articleRevision.findMany({ where: { articleId: rev.articleId }, orderBy: { createdAt: 'desc' }, skip: ARTICLE_REVISION_MAX, select: { id: true } });
+    if (extra.length) await prisma.articleRevision.deleteMany({ where: { id: { in: extra.map((e) => e.id) } } });
+  }
+  await prisma.article.update({
+    where: { id: rev.articleId },
+    data: { title: rev.title, content: rev.content, excerpt: rev.excerpt || makeExcerpt(rev.content), readMinutes: estimateReadMinutes(rev.content) },
+  });
+  revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+  revalidateTag('reader-content');
+  // Navigate back to the editor so it remounts with the restored content.
+  redirect(`/admin/articles/${rev.articleId}`);
 }
 
 export async function setArticleStatus(id: string, status: string) {
   await ensureStaff();
   if (!CONTENT_STATUSES.includes(status as any)) throw new Error('Invalid status');
-  const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true } });
+  const existing = await prisma.article.findUnique({ where: { id }, select: { publishedAt: true, content: true, byline: true, bylineRef: { select: { name: true } } } });
+  // Same hard lock as the composer: the list's quick Publish can't push a byline
+  // that disagrees with an in-article Author card live either.
+  if (status === 'PUBLISHED') {
+    const topName = existing?.bylineRef?.name || (existing?.byline || '').trim();
+    const conflict = await detectBylineConflict(existing?.content || '', topName);
+    if (conflict) throw new Error(`Byline conflict: the top byline is “${topName}” but an in-article Author card says “${conflict}”. Make them the same person before publishing.`);
+  }
   await prisma.article.update({
     where: { id },
     data: { status, publishedAt: status === 'PUBLISHED' ? existing?.publishedAt ?? new Date() : existing?.publishedAt },
   });
+  // Publishing from the list quick-action must fire the sponsor go-live notify too
+  // (same as the full editor's saveArticle). notifySponsorLive self-guards on
+  // genre/sponsorVendorId/sponsorNotifiedAt, so it's a no-op for ordinary articles.
+  if (status === 'PUBLISHED') after(() => notifySponsorLive(id).catch(() => {}));
   revalidatePath('/admin/articles');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 export async function deleteArticle(id: string) {
   await ensureStaff();
   await prisma.article.delete({ where: { id } });
   revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 /* ------------------------------- Categories ------------------------------ */
@@ -161,6 +940,7 @@ export async function saveCategory(formData: FormData) {
   revalidatePath('/admin/categories');
   revalidatePath('/docs/categories');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 export async function deleteCategory(id: string) {
@@ -169,40 +949,85 @@ export async function deleteCategory(id: string) {
   revalidatePath('/admin/categories');
   revalidatePath('/docs/categories');
   revalidatePath('/docs');
+  revalidateTag('reader-content');
 }
 
 /* ----------------------------- Ad management ----------------------------- */
 
 export async function saveAd(formData: FormData) {
-  await ensureStaff();
+  const staff = await ensureStaff();
   const id = (formData.get('id') as string) || '';
   const brand = ((formData.get('brand') as string) || '').trim();
   const headline = ((formData.get('headline') as string) || '').trim();
   const label = ((formData.get('label') as string) || '').trim();
   const cta = ((formData.get('cta') as string) || '').trim() || 'Learn more';
-  const href = ((formData.get('href') as string) || '').trim() || '#';
+  // Only http(s) or a site-relative path — never javascript:/data:/'//host'.
+  const href = safeLinkHref(formData.get('href'), '#');
   const accent = ((formData.get('accent') as string) || '').trim() || '#E97D34';
   const keywords = ((formData.get('keywords') as string) || '').trim();
   const competitors = ((formData.get('competitors') as string) || '').trim();
   const imageWide = ((formData.get('imageWide') as string) || '').trim();
   const imageRect = ((formData.get('imageRect') as string) || '').trim();
+  const imageTall = ((formData.get('imageTall') as string) || '').trim();
   const video = ((formData.get('video') as string) || '').trim();
   const videoPoster = ((formData.get('videoPoster') as string) || '').trim();
   const active = formData.get('active') != null;
+  // Reserved = a hand-placed one-off; kept out of rotation (see loadAds).
+  // House = an RS-owned creative; the ONLY safe fallback inside a vendor-locked
+  // article (see pickInArticleAd). Never set this on an outside advertiser's ad.
+  // BOTH are cross-vendor-safety flags → ADMIN-only: a lower-trust EDITOR must not
+  // be able to flag an outside advertiser as `house` (which could then surface
+  // inside a competitor's locked article). Editors keep whatever's already set.
+  const isAdmin = staff.role === 'ADMIN';
+  let reserved = formData.get('reserved') != null;
+  let house = formData.get('house') != null;
+  if (!isAdmin) {
+    const cur = id ? await prisma.ad.findUnique({ where: { id }, select: { reserved: true, house: true } }) : null;
+    reserved = cur?.reserved ?? false;
+    house = cur?.house ?? false;
+  }
   const parseDate = (v: string) => { const s = (v || '').trim(); if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? null : d; };
   const liveFrom = parseDate(formData.get('liveFrom') as string);
   const liveUntil = parseDate(formData.get('liveUntil') as string);
   if (!brand || !headline) throw new Error('Brand and headline are required');
-  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, video: video || null, videoPoster: videoPoster || null, active, liveFrom, liveUntil };
+  const data = { brand, headline, label: label || null, cta, href, accent, keywords, competitors, imageWide: imageWide || null, imageRect: imageRect || null, imageTall: imageTall || null, video: video || null, videoPoster: videoPoster || null, active, reserved, house, liveFrom, liveUntil };
   if (id) await prisma.ad.update({ where: { id }, data });
   else await prisma.ad.create({ data });
   revalidatePath('/admin/ads');
   revalidatePath('/docs');
 }
 
+/* ------------------- Draft preview links + approvals --------------------- */
+
+/** Generate (once) + return the article's private preview token. Staff only. */
+export async function ensureArticlePreviewLink(articleId: string): Promise<string> {
+  await ensureStaff();
+  return ensurePreviewToken(articleId);
+}
+/** Mark a change request handled so it stops holding "Changes requested". */
+export async function resolveArticleReview(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.articleReview.updateMany({ where: { id }, data: { resolved: true } });
+}
+export async function deleteArticleReview(id: string): Promise<void> {
+  await ensureStaff();
+  await prisma.articleReview.deleteMany({ where: { id } });
+}
+
 export async function deleteAd(id: string) {
   await ensureStaff();
   await prisma.ad.delete({ where: { id } });
+  revalidatePath('/admin/ads');
+  revalidatePath('/docs');
+}
+
+// One-click fix when the auto-slotter guessed wrong on an import: swap the wide
+// banner and rectangle images.
+export async function swapAdImages(id: string) {
+  await ensureStaff();
+  const ad = await prisma.ad.findUnique({ where: { id }, select: { imageWide: true, imageRect: true } });
+  if (!ad) return;
+  await prisma.ad.update({ where: { id }, data: { imageWide: ad.imageRect, imageRect: ad.imageWide } });
   revalidatePath('/admin/ads');
   revalidatePath('/docs');
 }
@@ -277,7 +1102,32 @@ export async function updatePoll(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   const closes = closesRaw ? new Date(closesRaw) : null;
   if (!question) throw new Error('Question is required');
-  await prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } });
+
+  // Non-destructive option editing. Each submitted row carries its existing
+  // option id (or blank for a new one). Editing a label keeps the same row, so
+  // its votes are preserved; new rows are created; a row that was removed is
+  // deleted ONLY when it has zero votes — we never silently drop a real tally.
+  const ids = formData.getAll('optId').map(String);
+  const labels = formData.getAll('optLabel').map((v) => String(v).trim());
+  const rows = labels.map((label, i) => ({ id: ids[i] || '', label })).filter((r) => r.label).slice(0, 8);
+  if (rows.length < 2) throw new Error('A poll needs at least 2 options');
+
+  const existing = await prisma.pollOption.findMany({ where: { pollId: id }, select: { id: true, votes: true } });
+  // Only ids that actually belong to THIS poll may be updated — a client id that
+  // isn't ours is treated as a new option, never used to write another poll's row.
+  const ownIds = new Set(existing.map((o) => o.id));
+  const keptIds = new Set(rows.filter((r) => r.id && ownIds.has(r.id)).map((r) => r.id));
+
+  const ops: Prisma.PrismaPromise<unknown>[] = [
+    prisma.poll.update({ where: { id }, data: { question, active, closesAt: closes && !isNaN(closes.getTime()) ? closes : null } }),
+  ];
+  rows.forEach((r, i) => {
+    if (r.id && ownIds.has(r.id)) ops.push(prisma.pollOption.update({ where: { id: r.id }, data: { label: r.label.slice(0, 200), order: i } }));
+    else ops.push(prisma.pollOption.create({ data: { pollId: id, label: r.label.slice(0, 200), order: i } }));
+  });
+  existing.filter((o) => !keptIds.has(o.id) && o.votes === 0).forEach((o) => ops.push(prisma.pollOption.delete({ where: { id: o.id } })));
+  await prisma.$transaction(ops);
+
   revalidatePath('/admin/polls');
   revalidatePath('/docs');
 }
@@ -304,22 +1154,30 @@ export async function createQuiz(formData: FormData): Promise<{ ok: boolean; id?
   // Timer: an explicit close time wins; otherwise now + N hours (default 48).
   const closesAt = resolveClosesAt({ explicit: closesRaw ? new Date(closesRaw) : null, hours: hoursRaw ? Number(hoursRaw) : null });
 
-  if (active) await prisma.quiz.updateMany({ where: { active: true }, data: { active: false } });
-  const quiz = await prisma.quiz.create({
-    data: {
-      title, active, closesAt,
-      questions: {
-        create: questions.map((q, qi) => ({
-          prompt: q.prompt, order: qi,
-          options: { create: q.options.map((o, oi) => ({ label: o.label, correct: o.correct, order: oi })) },
-        })),
+  // Retire the previous active quiz and create the new one in ONE transaction so
+  // a failure can't leave the site with zero (or, under a race, two) active
+  // quizzes — mirroring updateQuiz.
+  const quiz = await prisma.$transaction(async (tx) => {
+    if (active) await tx.quiz.updateMany({ where: { active: true }, data: { active: false } });
+    return tx.quiz.create({
+      data: {
+        title, active, closesAt,
+        questions: {
+          create: questions.map((q, qi) => ({
+            prompt: q.prompt, order: qi,
+            options: { create: q.options.map((o, oi) => ({ label: o.label, correct: o.correct, order: oi })) },
+          })),
+        },
       },
-    },
+    });
   });
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');
   return { ok: true, id: quiz.id, name: title };
 }
+
+type EditQuizOption = { id: string; label: string; correct: boolean };
+type EditQuizQuestion = { id: string; prompt: string; options: EditQuizOption[] };
 
 export async function updateQuiz(formData: FormData) {
   await ensureStaff();
@@ -329,11 +1187,70 @@ export async function updateQuiz(formData: FormData) {
   const closesRaw = ((formData.get('closesAt') as string) || '').trim();
   if (!title) throw new Error('Title is required');
   const closes = closesRaw ? new Date(closesRaw) : null;
-  if (active) await prisma.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
-  await prisma.quiz.update({
-    where: { id },
-    data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) },
+
+  // Structured, non-destructive edit. The client sends the full question/option
+  // tree as JSON; existing rows keep their id so their response counts survive.
+  // New rows have a blank id (created); rows dropped in the editor are deleted
+  // only when they have zero responses — a real tally is never discarded.
+  let raw: unknown = [];
+  try { raw = JSON.parse((formData.get('payload') as string) || '[]'); } catch { raw = []; }
+  const questions: EditQuizQuestion[] = (Array.isArray(raw) ? raw : []).map((q) => {
+    const qq = q as Record<string, unknown>;
+    return {
+      id: typeof qq.id === 'string' ? qq.id : '',
+      prompt: String(qq.prompt || '').trim(),
+      options: (Array.isArray(qq.options) ? qq.options : []).map((o) => {
+        const oo = o as Record<string, unknown>;
+        return { id: typeof oo.id === 'string' ? oo.id : '', label: String(oo.label || '').trim(), correct: !!oo.correct };
+      }).filter((o) => o.label).slice(0, 8),
+    };
+  }).filter((q) => q.prompt && q.options.length >= 2).slice(0, 20);
+  if (questions.length < 1) throw new Error('A quiz needs at least one question with 2+ options');
+
+  const existing = await prisma.quizQuestion.findMany({
+    where: { quizId: id },
+    include: { options: { select: { id: true, count: true } } },
   });
+  // Map each of THIS quiz's question ids → its own option ids. Only ids in here
+  // may be updated/deleted; any other client-supplied id is treated as new, so a
+  // crafted request can never rewrite another quiz's questions or answers.
+  const ownQ = new Map(existing.map((e) => [e.id, new Set(e.options.map((o) => o.id))]));
+  const keptQ = new Set(questions.filter((q) => q.id && ownQ.has(q.id)).map((q) => q.id));
+
+  await prisma.$transaction(async (tx) => {
+    // Retire other active quizzes inside the tx, so a failure can't leave zero active.
+    if (active) await tx.quiz.updateMany({ where: { active: true, id: { not: id } }, data: { active: false } });
+    await tx.quiz.update({ where: { id }, data: { title, active, ...(closes && !isNaN(closes.getTime()) ? { closesAt: closes } : {}) } });
+
+    for (let qi = 0; qi < questions.length; qi++) {
+      const q = questions[qi];
+      const ownO = q.id ? ownQ.get(q.id) : undefined;
+      if (q.id && ownO) {
+        await tx.quizQuestion.update({ where: { id: q.id }, data: { prompt: q.prompt.slice(0, 300), order: qi } });
+        const keptO = new Set(q.options.filter((o) => o.id && ownO.has(o.id)).map((o) => o.id));
+        for (let oi = 0; oi < q.options.length; oi++) {
+          const o = q.options[oi];
+          if (o.id && ownO.has(o.id)) await tx.quizOption.update({ where: { id: o.id }, data: { label: o.label.slice(0, 200), correct: o.correct, order: oi } });
+          else await tx.quizOption.create({ data: { questionId: q.id, label: o.label.slice(0, 200), correct: o.correct, order: oi } });
+        }
+        const existOpts = existing.find((e) => e.id === q.id)?.options ?? [];
+        for (const eo of existOpts) {
+          if (!keptO.has(eo.id) && eo.count === 0) await tx.quizOption.delete({ where: { id: eo.id } });
+        }
+      } else {
+        await tx.quizQuestion.create({
+          data: { quizId: id, prompt: q.prompt.slice(0, 300), order: qi,
+            options: { create: q.options.map((o, oi) => ({ label: o.label.slice(0, 200), correct: o.correct, order: oi })) } },
+        });
+      }
+    }
+    // Drop questions removed in the editor — only when they hold no responses.
+    for (const eq of existing) {
+      const answered = eq.options.some((o) => o.count > 0);
+      if (!keptQ.has(eq.id) && !answered) await tx.quizQuestion.delete({ where: { id: eq.id } });
+    }
+  });
+
   revalidatePath('/admin/quizzes');
   revalidatePath('/docs');
 }
@@ -353,11 +1270,12 @@ export async function saveComic(formData: FormData) {
   const title = ((formData.get('title') as string) || '').trim();
   const image = ((formData.get('image') as string) || '').trim();
   const caption = ((formData.get('caption') as string) || '').trim();
+  const series = ((formData.get('series') as string) || '').trim() || 'Backroom Humor';
   const active = formData.get('active') != null;
   const postedRaw = ((formData.get('postedAt') as string) || '').trim();
   if (!title || !image) throw new Error('A title and image are required');
-  const data: { title: string; image: string; caption: string | null; active: boolean; postedAt?: Date } =
-    { title, image, caption: caption || null, active };
+  const data: { title: string; image: string; caption: string | null; series: string; active: boolean; postedAt?: Date } =
+    { title, image, caption: caption || null, series, active };
   const posted = postedRaw ? new Date(postedRaw) : null;
   if (posted && !isNaN(posted.getTime())) data.postedAt = posted;
   if (id) await prisma.comic.update({ where: { id }, data });
@@ -391,12 +1309,14 @@ export async function saveTag(formData: FormData) {
   if (id) await prisma.tag.update({ where: { id }, data: { name, slug } });
   else await prisma.tag.create({ data: { name, slug } });
   revalidatePath('/admin/tags');
+  revalidateTag('reader-content');
 }
 
 export async function deleteTag(id: string) {
   await ensureStaff();
   await prisma.tag.delete({ where: { id } });
   revalidatePath('/admin/tags');
+  revalidateTag('reader-content');
 }
 
 /* --------------------------------- Pages --------------------------------- */
@@ -412,6 +1332,7 @@ export async function savePage(formData: FormData) {
   if (id) await prisma.page.update({ where: { id }, data: { title, slug, content, status } });
   else await prisma.page.create({ data: { title, slug, content, status } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
   redirect('/admin/pages');
 }
 
@@ -419,12 +1340,14 @@ export async function setPageStatus(id: string, status: string) {
   await ensureStaff();
   await prisma.page.update({ where: { id }, data: { status } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
 }
 
 export async function deletePage(id: string) {
   await ensureStaff();
   await prisma.page.delete({ where: { id } });
   revalidatePath('/admin/pages');
+  revalidateTag('reader-content');
 }
 
 /* --------------------------------- Users --------------------------------- */
@@ -535,7 +1458,7 @@ export async function cancelAdCampaign(id: string) {
 // Save an admin override for an email template's copy (subject + body). Falls
 // back to the built-in default if the row is later reset/removed.
 export async function saveEmailTemplate(formData: FormData) {
-  await ensureStaff();
+  await ensureAdmin(); // vendor-facing email copy — admins only, not editors
   const key = ((formData.get('key') as string) || '').trim();
   if (!EMAIL_TEMPLATES[key]) throw new Error('Unknown template');
   const subject = ((formData.get('subject') as string) || '').trim().slice(0, 300);
@@ -547,7 +1470,7 @@ export async function saveEmailTemplate(formData: FormData) {
 
 // Reset a template to its built-in default (drops the admin override).
 export async function resetEmailTemplate(key: string) {
-  await ensureStaff();
+  await ensureAdmin(); // vendor-facing email copy — admins only, not editors
   await prisma.emailTemplate.deleteMany({ where: { key } });
   revalidatePath('/admin/email-templates');
 }
@@ -560,6 +1483,238 @@ export async function saveVendorContact(formData: FormData) {
   if (!id) throw new Error('vendorId required');
   await updateVendorContact(id, (formData.get('contactEmail') as string) || '', (formData.get('notes') as string) || '');
   revalidatePath('/admin/vendors');
+}
+
+// Admin: edit an advertiser's full reader-facing profile (name, premium flag,
+// website, phone, contact email, blurb, logo, private notes).
+export async function saveVendorProfile(formData: FormData) {
+  await ensureStaff();
+  const id = ((formData.get('id') as string) || '').trim();
+  if (!id) throw new Error('id required');
+  const s = (k: string, max: number) => { const v = ((formData.get(k) as string) || '').trim(); return v ? v.slice(0, max) : null; };
+  const name = s('name', 120);
+  const newPremium = formData.get('premium') === 'on';
+
+  // Premium lifecycle: stamp the timestamps only on a real transition so the
+  // "new arrival" and "leaving grace" windows are accurate.
+  //  • gained premium → premiumSince=now, clear premiumEndedAt (and restore any
+  //    saved entries soft-removed on a prior departure — notes come back).
+  //  • lost premium   → premiumEndedAt=now (starts the phone-book grace).
+  const current = await prisma.vendor.findUnique({ where: { id }, select: { premium: true } });
+  const wasPremium = !!current?.premium;
+  const lifecycle: { premiumSince?: Date; premiumEndedAt?: Date | null } = {};
+  if (!wasPremium && newPremium) { lifecycle.premiumSince = new Date(); lifecycle.premiumEndedAt = null; }
+  else if (wasPremium && !newPremium) { lifecycle.premiumEndedAt = new Date(); }
+
+  await prisma.vendor.update({
+    where: { id },
+    data: {
+      ...(name ? { name } : {}),
+      premium: newPremium,
+      ...lifecycle,
+      website: s('website', 300),
+      supplierUrl: s('supplierUrl', 300),
+      contactName: s('contactName', 120),
+      phone: s('phone', 60),
+      contactEmail: s('contactEmail', 200),
+      blurb: s('blurb', 600),
+      logoUrl: s('logoUrl', 1000),
+      notes: s('notes', 2000),
+    },
+  });
+
+  // Rejoin restore: bring back saved entries that were soft-removed while this
+  // vendor was gone. No-op for a first-time premium or an unchanged save.
+  if (!wasPremium && newPremium) await reactivateSavedSuppliers(id);
+
+  revalidatePath('/admin/vendors');
+  revalidatePath(`/admin/vendors/${id}`);
+  revalidatePath('/docs/suppliers');
+}
+
+// ---- Reader phone book (account-tied) ----
+export async function addSavedSupplier(vendorId: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in to save suppliers.');
+  // Only premium suppliers are in the directory / phone book.
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!v?.premium) throw new Error('That supplier is not available in the Phone Book.');
+  await prisma.savedSupplier.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    // Clear any prior soft-removal: the premium gate above means the supplier is
+    // active, so re-starring must un-hide a lingering removedAt row (self-defensive
+    // even if a future premium path forgot to reactivate).
+    update: { removedAt: null },
+    create: { userId: u.id, vendorId },
+  });
+  revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+export async function removeSavedSupplier(vendorId: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  await prisma.savedSupplier.deleteMany({ where: { userId: u.id, vendorId } });
+  revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+// Save the reader's own note + optional alternative contact for a supplier.
+// Upserts so it works whether or not the supplier is already starred.
+export async function updateSavedSupplier(vendorId: string, data: { note?: string; altEmail?: string; altPhone?: string }) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  // Same premium gate as addSavedSupplier — the create branch here can otherwise
+  // manufacture a saved-supplier row for a non-premium (or wrong) vendor.
+  const v = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!v?.premium) throw new Error('That supplier is not available in the Phone Book.');
+  const note = (data.note ?? '').trim().slice(0, 2000) || null;
+  const altEmail = (data.altEmail ?? '').trim().slice(0, 200) || null;
+  const altPhone = (data.altPhone ?? '').trim().slice(0, 60) || null;
+  await prisma.savedSupplier.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    // removedAt:null — premium-gated above, so saving a note also un-hides a
+    // lingering soft-removed row (mirrors addSavedSupplier).
+    update: { note, altEmail, altPhone, removedAt: null },
+    create: { userId: u.id, vendorId, note, altEmail, altPhone },
+  });
+  revalidatePath('/docs/suppliers');
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+
+// ---- Supplier testimonials ----
+
+// Admin: at spotlight time, open a testimonial request for a premium supplier.
+// Nudges every reader who has them starred (and hasn't vouched yet) via the
+// derived notifications feed. Only one request is active at a time.
+export async function requestSupplierTestimonials(vendorId: string) {
+  await ensureStaff();
+  const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, select: { premium: true } });
+  if (!vendor) throw new Error('Vendor not found');
+  if (!vendor.premium) throw new Error('Only premium suppliers can collect testimonials.');
+  await prisma.$transaction([
+    prisma.testimonialRequest.updateMany({ where: { vendorId, active: true }, data: { active: false } }),
+    prisma.testimonialRequest.create({ data: { vendorId } }),
+  ]);
+  revalidatePath(`/admin/vendors/${vendorId}`);
+}
+
+// Reader: submit (or edit) a testimonial for a supplier they have in their phone
+// book. Re-submitting replaces their own text and returns to PENDING review.
+export async function submitTestimonial(formData: FormData) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in to leave a testimonial.');
+  const vendorId = ((formData.get('vendorId') as string) || '').trim();
+  const body = ((formData.get('body') as string) || '').trim().slice(0, 1500);
+  if (!vendorId) throw new Error('Missing supplier');
+  if (body.length < 10) throw new Error('Please write a little more.');
+  // Gate to savers: a testimonial should come from someone who actually uses them.
+  const saved = await prisma.savedSupplier.findUnique({
+    where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true },
+  });
+  if (!saved) throw new Error('Add this supplier to your Phone Book first.');
+  // Snapshot the account-holder name + store name so the record is stable even if
+  // their profile later changes.
+  const prof = await prisma.user.findUnique({ where: { id: u.id }, select: { storeName: true, memberCode: true } });
+  await prisma.testimonial.upsert({
+    where: { userId_vendorId: { userId: u.id, vendorId } },
+    // Editing returns to PENDING AND pulls it from the vendor document, so edited
+    // text can't be silently re-published — the admin must re-approve + re-add it.
+    update: { body, status: 'PENDING', showOnVendorDashboard: false, authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
+    create: { userId: u.id, vendorId, body, authorName: u.name, storeName: prof?.storeName ?? null, memberCode: prof?.memberCode ?? null },
+  });
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+
+// Admin: approve / reject / reset a submitted testimonial.
+export async function setTestimonialStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') {
+  await ensureStaff();
+  if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) throw new Error('Bad status');
+  const t = await prisma.testimonial.update({
+    where: { id },
+    // Rejecting/un-approving also pulls it from the vendor's document.
+    data: { status, ...(status === 'APPROVED' ? {} : { showOnVendorDashboard: false }) },
+    select: { vendorId: true },
+  });
+  revalidatePath(`/admin/vendors/${t.vendorId}`);
+  revalidatePath('/docs/vendor');
+  revalidatePath('/vendor-testimonials');
+}
+
+// Admin: include / remove an APPROVED testimonial in the advertiser's vendor-
+// dashboard document.
+export async function setTestimonialOnDashboard(id: string, on: boolean) {
+  await ensureStaff();
+  const cur = await prisma.testimonial.findUnique({ where: { id }, select: { status: true, vendorId: true } });
+  if (!cur) throw new Error('Not found');
+  if (on && cur.status !== 'APPROVED') throw new Error('Approve the testimonial first.');
+  await prisma.testimonial.update({ where: { id }, data: { showOnVendorDashboard: on } });
+  revalidatePath(`/admin/vendors/${cur.vendorId}`);
+  revalidatePath('/docs/vendor');
+  revalidatePath('/vendor-testimonials');
+}
+
+// ---- Phone-book sticky notes (private, per reader + supplier) ----
+export async function addSupplierNote(vendorId: string, body: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  const text = (body || '').trim().slice(0, 500);
+  if (!text) throw new Error('Empty note');
+  // Only for suppliers in the reader's phone book.
+  const saved = await prisma.savedSupplier.findUnique({ where: { userId_vendorId: { userId: u.id, vendorId } }, select: { id: true } });
+  if (!saved) throw new Error('Add this supplier to your Phone Book first.');
+  await prisma.supplierNote.create({ data: { userId: u.id, vendorId, body: text } });
+  revalidatePath(`/docs/suppliers/${vendorId}`);
+}
+export async function deleteSupplierNote(id: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  // deleteMany scoped to owner so a reader can only remove their own notes.
+  const note = await prisma.supplierNote.findUnique({ where: { id }, select: { vendorId: true, userId: true } });
+  if (!note || note.userId !== u.id) return;
+  await prisma.supplierNote.deleteMany({ where: { id, userId: u.id } });
+  revalidatePath(`/docs/suppliers/${note.vendorId}`);
+}
+
+// ---- Vendor "update your ads" link (admin-set; shown on the vendor dashboard) ----
+export async function setAdUpdateUrl(formData: FormData) {
+  await ensureStaff();
+  const url = ((formData.get('url') as string) || '').trim().slice(0, 500);
+  await prisma.setting.upsert({ where: { key: AD_UPDATE_URL_KEY }, update: { value: url }, create: { key: AD_UPDATE_URL_KEY, value: url } });
+  revalidatePath('/admin/vendors');
+  revalidatePath('/docs/vendor');
+}
+
+// ---- Vendor self-serve report requests ----
+const REPORT_COOLDOWN_DAYS = 30;
+
+// A vendor asks us to compile a performance report for a period. Rate-limited:
+// one open request at a time, and one new request per 30 days.
+export async function requestVendorReport(period: string) {
+  const u = await getCurrentUser();
+  if (!u) throw new Error('Sign in.');
+  if (!isVendor(entitlementsOf(u))) throw new Error('This is for advertisers.');
+  // Coupled to the premium switch: a de-listed vendor can't queue reports either.
+  if (!(await isActiveVendor(u))) throw new Error('The advertiser dashboard is available to active premium suppliers only.');
+  if (!REPORT_PERIODS[period]) throw new Error('Pick a period.');
+  const vendorId = await vendorIdForBrand(entitlementsOf(u).vendorBrand);
+  if (!vendorId) throw new Error('No advertiser record is linked to your account.');
+
+  const pending = await prisma.adReportRequest.findFirst({ where: { vendorId, status: 'PENDING' }, select: { id: true } });
+  if (pending) throw new Error('You already have a report request in progress — we’ll send it soon.');
+  const recent = await prisma.adReportRequest.findFirst({ where: { vendorId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+  if (recent) {
+    const nextOk = recent.createdAt.getTime() + REPORT_COOLDOWN_DAYS * 864e5;
+    if (Date.now() < nextOk) throw new Error(`You can request another report after ${new Date(nextOk).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`);
+  }
+  await prisma.adReportRequest.create({ data: { vendorId, userId: u.id, period } });
+  revalidatePath('/docs/vendor');
+}
+
+// Admin: mark a report request fulfilled (after building + sending it).
+export async function fulfillReportRequest(id: string) {
+  await ensureStaff();
+  const r = await prisma.adReportRequest.update({ where: { id }, data: { status: 'FULFILLED', fulfilledAt: new Date() }, select: { vendorId: true } });
+  revalidatePath(`/admin/vendors/${r.vendorId}`);
+  revalidatePath('/docs/vendor');
 }
 
 // Competitor groups: advertisers that must never run alongside each other, and
@@ -613,6 +1768,9 @@ export async function generatePerformanceReport(formData: FormData) {
   if (isNaN(d.getTime())) throw new Error('A valid quarter is required');
   const id = await generateReportDraft(vendorId, quarterOf(d));
   revalidatePath('/admin/reports');
+  // Regenerating returns a PUBLISHED report to DRAFT, so it leaves the vendor
+  // dashboard — refresh that surface too.
+  revalidatePath('/docs/vendor');
   redirect(`/admin/reports/${id}`);
 }
 
@@ -694,6 +1852,58 @@ export async function toggleHomeLock(id: string) {
   revalidatePath('/admin/homepage');
 }
 
+// Draft size-lock toggle (used by the layout editor). Freezes the ⅓/⅔/full
+// width control for this module.
+export async function toggleHomeSizeLock(id: string) {
+  await ensureStaff();
+  const layout = await getDraftLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.sizeLocked = !m.sizeLocked;
+  await saveDraftLayout(layout);
+  revalidatePath('/admin/homepage');
+}
+
+// Live-immediate lock toggles, driven from the on-homepage admin toolbar. They
+// publish straight to the live layout (and sync a pending draft) so the lock
+// takes effect in place, unlike the draft-staged editor controls.
+export async function toggleHomeLockLive(id: string) {
+  await ensureStaff();
+  // Compute the target from live ONCE, then apply that absolute value to both live
+  // and the draft — so live and draft can't toggle independently and diverge.
+  const live = await getHomeLayout();
+  const next = !live.find((x) => x.id === id)?.locked;
+  await patchModuleLive(id, (m) => { m.locked = next; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+export async function toggleHomeSizeLockLive(id: string) {
+  await ensureStaff();
+  const live = await getHomeLayout();
+  const next = !live.find((x) => x.id === id)?.sizeLocked;
+  await patchModuleLive(id, (m) => { m.sizeLocked = next; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
+// On-homepage "Arrange" drop: persist the new visible-module order to live (and
+// mirror any pending draft). Locked + hidden modules keep their slots.
+export async function reorderHomeLive(orderedVisibleIds: string[]) {
+  await ensureStaff();
+  if (!Array.isArray(orderedVisibleIds)) return;
+  await reorderLiveLayout(orderedVisibleIds.map(String));
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
+// On-homepage "Arrange" eye toggle: show/hide a module live (mirrors draft).
+export async function setHomeVisibilityLive(id: string, enabled: boolean) {
+  await ensureStaff();
+  await patchModuleLive(id, (m) => { m.enabled = enabled; });
+  revalidatePath('/docs');
+  revalidatePath('/admin/homepage');
+}
+
 export async function setHomeModuleSource(id: string, source: string) {
   await ensureStaff();
   const layout = await getDraftLayout();
@@ -704,6 +1914,40 @@ export async function setHomeModuleSource(id: string, source: string) {
   m.source = source;
   await saveDraftLayout(layout);
   revalidatePath('/admin/homepage');
+}
+
+// Set a module's homepage width (1 = one-third, 2 = two-thirds, 3 = full).
+export async function setHomeModuleSpan(id: string, span: number) {
+  await ensureStaff();
+  const layout = await getDraftLayout();
+  const m = layout.find((x) => x.id === id);
+  if (!m) return;
+  m.span = clampSpan(span);
+  await saveDraftLayout(layout);
+  revalidatePath('/admin/homepage');
+}
+
+// Auto-archive age (months) for published articles; 0 = off. Clears the sweep's
+// throttle so a change takes effect on the next homepage load.
+export async function setAutoArchiveMonths(formData: FormData) {
+  await ensureStaff();
+  const raw = Number(formData.get('months'));
+  const months = Number.isFinite(raw) && raw > 0 ? Math.min(Math.round(raw), 1200) : 0;
+  await prisma.setting.upsert({ where: { key: 'auto_archive_months' }, update: { value: String(months) }, create: { key: 'auto_archive_months', value: String(months) } });
+  await prisma.setting.deleteMany({ where: { key: 'auto_archive_last_run' } });
+  revalidatePath('/admin/articles');
+  revalidatePath('/docs');
+}
+
+// Width for the two pinned top sections (Hero, "Published this week"), which
+// live above the module grid rather than in the layout array. Only Full (3) or
+// ⅔ (2) — never ⅓ — and a ⅔ section just leaves the remaining third open.
+export async function setSectionSpan(key: string, span: number) {
+  await ensureStaff();
+  if (key !== 'home_hero_span' && key !== 'home_week_span') return; // whitelist
+  const value = span === 2 ? '2' : '3';
+  await prisma.setting.upsert({ where: { key }, update: { value }, create: { key, value } });
+  revalidatePath('/docs');
 }
 
 export async function resetHomeLayout() {
@@ -779,8 +2023,10 @@ export async function setCustomModulePublished(id: string, published: boolean): 
   // simply doesn't render live.
   if (published) {
     const mod = await prisma.customModule.findUnique({ where: { id }, select: { tree: true } });
+    let defaultSpan = 3;
     if (mod) {
       const tree = parseTree(mod.tree);
+      defaultSpan = clampSpan(tree.defaultSpan);
       // Materialize any inline poll blocks (legacy) into real Poll records.
       const changed = await materializeModulePolls(tree);
       if (changed) await prisma.customModule.update({ where: { id }, data: { tree: serializeTree(tree) } });
@@ -791,7 +2037,9 @@ export async function setCustomModulePublished(id: string, published: boolean): 
     const layoutId = `custom:${id}`;
     const layout = await getDraftLayout();
     if (!layout.some((m) => m.id === layoutId)) {
-      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false }]);
+      // Seed the placement's width from the module's chosen default width so a
+      // module built as "⅓" lands as ⅓ (the admin can still re-size it per slot).
+      await saveDraftLayout([...layout, { id: layoutId, enabled: true, locked: false, span: defaultSpan }]);
     }
   } else {
     await prisma.customModule.update({ where: { id }, data: { expiresAt: null } });

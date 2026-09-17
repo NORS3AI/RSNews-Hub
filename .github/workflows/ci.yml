@@ -16,7 +16,25 @@ jobs:
     env:
       # CI uses a throwaway SQLite file; no real secrets are needed to lint,
       # test, or type-check. AUTH_SECRET falls back to a dev value in code.
-      DATABASE_URL: "file:./ci.db"
+      # DATABASE_URL: "file:./ci.db"
+      ### Updating to use disposable posgresql service for db update on demo
+      DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/rsnews_ci?schema=public"
+
+    services:
+        postgres:
+          image: postgres:16-alpine
+          env:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_DB: rsnews_ci
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd "pg_isready -U postgres -d rsnews_ci"
+            --health-interval 5s
+            --health-timeout 5s
+            --health-retries 12
+      
     steps:
       - uses: actions/checkout@v4
 
@@ -33,7 +51,7 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: npx --no-install prisma generate
 
       - name: Create CI database
         run: npx prisma db push --skip-generate

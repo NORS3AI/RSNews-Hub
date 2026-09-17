@@ -29,8 +29,15 @@ export const ArrowRight = (p: P) => (<svg {...base(p)}><path d="M5 12h14M13 6l6 
 export const ArrowLeft = (p: P) => (<svg {...base(p)}><path d="M19 12H5M11 6l-6 6 6 6" /></svg>);
 export const Clock = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 export const Calendar = (p: P) => (<svg {...base(p)}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4" /></svg>);
+export const Phone = (p: P) => (<svg {...base(p)}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13 1.05.36 2.06.68 3a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.94.32 1.95.55 3 .68A2 2 0 0 1 22 16.92Z" /></svg>);
+export const Zap = (p: P) => (<svg {...base(p)}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" /></svg>);
+export const Smile = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></svg>);
+export const AlertTriangle = (p: P) => (<svg {...base(p)}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4M12 17h.01" /></svg>);
+export const ArrowUp = (p: P) => (<svg {...base(p)}><path d="M12 19V5M5 12l7-7 7 7" /></svg>);
+export const ArrowDown = (p: P) => (<svg {...base(p)}><path d="M12 5v14M19 12l-7 7-7-7" /></svg>);
 export const Pin = (p: P) => (<svg {...base(p)}><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z" /></svg>);
 export const ExpandLR = (p: P) => (<svg {...base(p)}><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4" /></svg>);
+export const Maximize = (p: P) => (<svg {...base(p)}><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3" /></svg>);
 export const CollapseLR = (p: P) => (<svg {...base(p)}><path d="M4 12h16M4 8l4 4-4 4M20 8l-4 4 4 4" /></svg>);
 export const Eye = (p: P) => (<svg {...base(p)}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>);
 export const Bell = (p: P) => (<svg {...base(p)}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>);
@@ -49,8 +56,12 @@ export const Logout = (p: P) => (<svg {...base(p)}><path d="M9 21H5a2 2 0 0 1-2-
 export const Sparkles = (p: P) => (<svg {...base(p)}><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z" /></svg>);
 export const Ban = (p: P) => (<svg {...base(p)}><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>);
 export const Pause = (p: P) => (<svg {...base(p)}><rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" /></svg>);
+export const Play = (p: P) => (<svg {...base(p)} fill="currentColor" stroke="none"><path d="M7 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 7 5.5Z" /></svg>);
+export const Headphones = (p: P) => (<svg {...base(p)}><path d="M4 14v-2a8 8 0 0 1 16 0v2" /><rect x="2.5" y="14" width="4" height="6" rx="1.5" /><rect x="17.5" y="14" width="4" height="6" rx="1.5" /></svg>);
 export const Star = (p: P) => (<svg {...base(p)}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" /></svg>);
 export const StarFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor', stroke: 'currentColor' })}><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z" strokeWidth="1" strokeLinejoin="round" /></svg>);
+export const ThumbsUp = (p: P) => (<svg {...base(p)}><path d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3Zm0 0 4.2-7.4a1 1 0 0 1 1.7.1l.4.8a3 3 0 0 1 .2 2.3L12.5 9H19a2 2 0 0 1 2 2.3l-1.1 6A2 2 0 0 1 18 19H7" /></svg>);
+export const ThumbsUpFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor' })}><path d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3Z" strokeWidth="1" /><path d="M7 10 11.2 2.6a1 1 0 0 1 1.7.1l.4.8a3 3 0 0 1 .2 2.3L12.5 9H19a2 2 0 0 1 2 2.3l-1.1 6A2 2 0 0 1 18 19H7V10Z" strokeWidth="1" strokeLinejoin="round" /></svg>);
 export const Book = (p: P) => (<svg {...base(p)}><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z" /><path d="M12 6.6V20" /></svg>);
 export const BookFilled = (p: P) => (<svg {...base({ ...p, fill: 'currentColor' })}><path d="M12 6.6C9.5 5.1 6 4.8 3 5.7V19c3-.9 6.5-.6 9 .9 2.5-1.5 6-1.8 9-.9V5.7c-3-.9-6.5-.6-9 .9Z" strokeWidth="1" /></svg>);
 export const ChevronRight = (p: P) => (<svg {...base(p)}><path d="m9 6 6 6-6 6" /></svg>);

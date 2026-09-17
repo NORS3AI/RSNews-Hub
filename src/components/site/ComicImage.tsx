@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSaved } from './StarProvider';
 import { downloadImage } from '@/lib/quoteImage';
 import { track } from '@/lib/analytics/track';
+import { useScrollLock } from '@/lib/useScrollLock';
 import { X, Download, Scissors, Check } from '@/components/icons';
 
 /**
@@ -16,13 +17,13 @@ export default function ComicImage({ src, alt, className }: { src: string; alt: 
   // Already clipped? Don't let the same comic pile up in the clippings.
   const already = clippings.some((c) => (c.kind === 'comic' || !!c.image) && c.image === src);
 
+  useScrollLock(open);
   useEffect(() => {
     if (!open) return;
     setSaved(false);
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.body.classList.add('modal-open');
     window.addEventListener('keydown', onKey);
-    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
   const fileName = `backroom-humor-${(alt || 'comic').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.jpg`;

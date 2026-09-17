@@ -15,6 +15,39 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Saved announcement-bar messages (a reusable library). Which one is live, and
+// whether the bar is on at all, live in Setting rows (announcement:liveId /
+// announcement:enabled) — so saving/editing a message never changes what's
+// published or flips the on/off switch.
+model Announcement {
+  id            String    @id @default(cuid())
+  name          String    @default("") // short library label
+  message       String    @default("")
+  href          String    @default("")
+  hrefLabel     String    @default("")
+  targetAt      DateTime?               // countdown target (null = no countdown)
+  showCountdown Boolean   @default(false)
+  size          String    @default("md")   // sm | md | lg
+  ticker        Boolean   @default(false)  // scroll the message text
+  order         String    @default("message,countdown,button") // element order
+  audience      String    @default("")   // entitlement gate: '' = everyone; else a token (premium|packagehub|…)
+  starred       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// A saved Report-builder configuration: press one to re-open the builder with
+// the chosen scope / range / sections / charts and get freshly-computed numbers.
+// `query` is the builder querystring (scope, days, brand, hide, viz) — nothing
+// is frozen; every open recomputes live from analytics events.
+model ReportTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  query     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Open newsletter signups — anyone (owner, manager or employee) can subscribe
 // with just an email; the daily Industry News digest goes to these addresses.
 // A personal EMAIL digest signup. Identity is the email address, NOT a hub
@@ -61,6 +94,11 @@ model Comic {
   title     String
   image     String   // url/path or data URL
   caption   String?
+  // Which comic strip this belongs to (e.g. "Backroom Humor", "Counter
+  // Productive"). The homepage comic slot shows the most-recent active comic
+  // from ANY series and labels itself with that comic's series, so two series
+  // interleave by postedAt. The archive can filter by series.
+  series    String   @default("Backroom Humor")
   active    Boolean  @default(true)
   order     Int      @default(0)
   postedAt  DateTime @default(now())
@@ -226,12 +264,23 @@ model Ad {
   competitors String   @default("") // comma-separated: hide this ad if any appears in the article
   imageWide   String?  // wide banner creative (~3:1) for the in-article slot; url or data URL
   imageRect   String?  // rectangle creative (~1.2:1) for the bottom slot; url or data URL
+  imageTall   String?  // tall "skyscraper" creative (~1:3) for a vertical module slot; url or data URL
   video       String?  // silent looping video creative (mp4/webm) for the rectangle slot
   videoPoster String?  // poster image shown before play / when reduced-motion is on
   active      Boolean  @default(true)
+  // A reserved one-off creative (e.g. a sponsor's custom ad for their article):
+  // NEVER enters the normal rotation — excluded at loadAds() — but is hand-pickable
+  // by id and rendered where an editor inserts an "Insert sponsor ad" block.
+  reserved    Boolean  @default(false)
+  // EXPLICIT ownership flag: true = an RS-owned house ad (our own brands). This is
+  // the ONLY reliable "is this ours" signal — the absence of a flight/schedule does
+  // NOT imply house (an always-on outside advertiser has neither). Used as the safe
+  // fallback when a vendor-connected article's vendor has no creative, so a
+  // competitor can never fill the gap. Set it on RS's own creatives only.
+  house       Boolean  @default(false)
   // Optional self-scheduling window for a manually-added (non-flighted) ad — lets
   // a one-off outside advertiser go live / come down on a date without a campaign.
-  // Both null = always-on (house ad, for our own brands). Ignored for flighted ads.
+  // Both null = always-on. Ignored for flighted ads.
   liveFrom    DateTime?
   liveUntil   DateTime?
   // Vendor ads belong to a 3-month flight (paid inventory); house ads have no
@@ -273,6 +322,35 @@ model AdSubmission {
   @@index([status, createdAt])
 }
 
+// One sponsored-CONTENT submission (a vendor's article copy + creative) that a
+// JotForm delivers to the hub. Distinct from AdSubmission (which buys ad
+// inventory): this BUILDS a DRAFT article for review. Recorded first (audit +
+// raw), deduped on `submissionId`, then processed into a draft article + a
+// reserved creative. NEVER auto-published. The vendor is matched typo-tolerantly
+// (see lib/vendorMatch): a very close match auto-links; a plausible-but-uncertain
+// match is held as `suggested` for the admin to confirm BEFORE any merge; no
+// match creates a new (flagged) vendor. `confidence` is the 0–100 match score.
+model ContentSubmission {
+  id            String   @id @default(cuid())
+  submissionId  String   @unique                 // JotForm submission id (idempotency key)
+  formId        String?
+  status        String   @default("RECEIVED")     // RECEIVED | PROCESSED | FAILED
+  matchStatus   String   @default("new")          // auto | suggested | new | confirmed
+  matchName     String?                           // vendor name exactly as submitted
+  matchVendorId String?                           // the candidate vendor (auto/suggested/confirmed)
+  confidence    Int      @default(0)              // 0–100 fuzzy-match confidence
+  vendorId      String?                           // finally resolved Vendor (null while a suggestion is pending)
+  articleId     String?                           // draft Article created
+  adId          String?                           // reserved Ad created from the creative
+  headline      String?                           // submitted headline (queue display)
+  error         String?
+  raw           String                            // raw submission JSON (audit)
+  createdAt     DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([matchStatus])
+}
+
 // A vendor's purchase of an ad package. Everything runs in 3-month "flights";
 // packages just chain more flights (3mo = 1, 6mo = 2, 12mo = 4). No creative is
 // ever live longer than one flight — vendors submit fresh ads for each. `plan`
@@ -286,12 +364,150 @@ model Vendor {
   id           String       @id @default(cuid())
   name         String                       // display name, as first entered
   brandKey     String       @unique         // normalized match key (see lib/vendors)
-  contactEmail String?                      // reminders / performance reports (later phases)
+  contactEmail String?                      // ADMIN-CURATED public "official" contact email (phone book); reminders/go-live fall back to it
   notes        String?
+  // Set when the hub auto-created this vendor from an intake submission with no
+  // confident match — surfaced in the intake queue so an admin can review the
+  // new record (merge a duplicate, fill contact details) rather than it landing
+  // silently.
+  autoCreated  Boolean      @default(false)
+  // Supplier fields. `premium` gates inclusion in the phone-book directory; the
+  // rest populate the phone book. `phone` is the official sales line; `website`
+  // is the advertiser's site; `supplierUrl` is their supplier page on our MAIN
+  // website (we link out to it — the hub does not host supplier pages).
+  premium      Boolean      @default(false)
+  // Supplier lifecycle timestamps (set by saveVendorProfile on a premium change):
+  // `premiumSince`   — when this vendor BECAME premium; drives the "New" arrival
+  //                    badge in the directory (cleared per-account once seen).
+  // `premiumEndedAt` — when premium was revoked; starts the phone-book grace. A
+  //                    saved entry stays visible (with a "leaving" badge) for
+  //                    SUPPLIER_GRACE_DAYS, then the sweep deactivates it (soft —
+  //                    notes are retained and restored if the vendor rejoins).
+  premiumSince   DateTime?
+  premiumEndedAt DateTime?
+  website      String?
+  supplierUrl  String?                       // external supplier page on the main site
+  contactName  String?                       // the supplier's contact person (sales rep)
+  phone        String?
+  blurb        String?                       // short description in the phone book
+  logoUrl      String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   campaigns    AdCampaign[]
+  supplierSeens SupplierSeen[]
   reports      PerformanceReport[]
+  savedBy      SavedSupplier[]
+  testimonials Testimonial[]
+  testimonialRequests TestimonialRequest[]
+  supplierNotes SupplierNote[]
+  reportRequests AdReportRequest[]
+}
+
+// A vendor's self-serve request for a performance report over a period. Rate-
+// limited; staff fulfil it (build + send the report) and mark it done.
+model AdReportRequest {
+  id          String   @id @default(cuid())
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period      String   // 'quarter' | '6mo' | 'year' | 'lifetime'
+  status      String   @default("PENDING") // PENDING | FULFILLED
+  createdAt   DateTime @default(now())
+  fulfilledAt DateTime?
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+// An admin ask, at spotlight time, for readers to vouch for a premium supplier.
+// One active request per vendor; readers who have the supplier starred (and
+// haven't submitted yet) get a nudge in their notifications feed.
+model TestimonialRequest {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+}
+
+// A reader's testimonial for a supplier. Submitted PENDING, reviewed in the
+// advertiser admin area; when approved an admin can surface it on the public
+// supplier page and/or that advertiser's vendor dashboard. One per user+vendor
+// (re-submitting edits their own).
+model Testimonial {
+  id                    String   @id @default(cuid())
+  vendorId              String
+  vendor                Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorName            String   // account-holder name snapshot at submit time
+  storeName             String?  // store/business name snapshot at submit time
+  memberCode            String?  // member ID code snapshot (in-house only, never shown to advertisers)
+  body                  String
+  status                String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  showOnVendorDashboard Boolean  @default(false)     // admin included it in the vendor's document
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, vendorId])
+  @@index([vendorId])
+}
+
+// A reader's private sticky notes for a supplier in their phone book. Each note
+// is one square in a grid; add drops a new one, delete removes it.
+model SupplierNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([userId, vendorId])
+}
+
+// A reader's personal "phone book" entry for a supplier (account-tied so it
+// follows them across devices — unlike localStorage favorites). Holds the
+// reader's own notes and OPTIONAL alternative contact details they add
+// themselves (kept separate from the vendor's official contact info).
+model SavedSupplier {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  note      String?
+  altEmail  String?
+  altPhone  String?
+  // Soft-removal: set when the grace period after a vendor loses premium elapses.
+  // The row + its notes are retained (not deleted) so a later rejoin can restore
+  // them; the phone book and star state only ever show rows where this is null.
+  removedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, vendorId])
+  @@index([userId])
+}
+
+// Per-account record that a signed-in store has actually opened a supplier's
+// phone-book detail. Powers the "New" arrival badge: a newly-premium supplier
+// shows "New" to each account until that account has seen it (then a row lands
+// here and the badge clears for them). One row per account+vendor.
+model SupplierSeen {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  seenAt    DateTime @default(now())
+
+  @@unique([userId, vendorId])
+  @@index([userId])
 }
 
 // A set of advertisers that must never advertise alongside each other. If any
@@ -338,6 +554,13 @@ model AdCampaign {
   status      String     @default("DRAFT") // DRAFT | ACTIVE | COMPLETED | CANCELLED
   allowsVideo Boolean    @default(false)
   notes       String?
+  // The person who placed THIS order (from their JotForm submission), archived
+  // with the order so the paper trail shows who to contact about it — each order
+  // can be a different rep. Distinct from the vendor's public phone-book contact.
+  // go-live + reminder emails address this person, falling back to the vendor's
+  // curated contactEmail.
+  contactName  String?
+  contactEmail String?
   createdAt   DateTime   @default(now())
   // Set once we've emailed the vendor to renew (campaign nearing its end), so the
   // nightly job never double-nudges. Cleared implies "renewal reminder still due".
@@ -422,6 +645,8 @@ model User {
   affiliations String        @default("")       // comma-separated keys, e.g. "packagehub"
   vendorBrand  String?       // for vendors: the ad brand they own (favored ads + dashboard)
   storeType    String?       // e.g. franchise | independent | chain (member facet)
+  storeName    String?       // the member's business/store name (from parent profile)
+  memberCode   String?       // human-facing member ID code (in-house only)
   region       String?       // e.g. Northeast | Midwest | South | West
   // Remembered UI theme (light | dark | rs). Lets the chosen theme follow the
   // member across devices; anonymous visitors fall back to localStorage.
@@ -436,10 +661,18 @@ model User {
   subscriptions  Subscription[]
   accountEmails  NewsletterSubscriber[] @relation("AccountEmails")
   readingLogs   ReadingLog[]
+  articleRecommends ArticleRecommend[]
   quizResponses QuizResponse[]
   pollVotes     PollVote[]
   savedItems    SavedItem[]
+  favFolders    FavoriteFolder[]
   clippings     Clipping[]
+  articleRevisions ArticleRevision[]
+  savedSuppliers SavedSupplier[]
+  supplierSeens SupplierSeen[]
+  testimonials  Testimonial[]
+  supplierNotes SupplierNote[]
+  reportRequests AdReportRequest[]
   notes         String?
 }
 
@@ -455,10 +688,31 @@ model SavedItem {
   articleId String
   title     String
   slug      String
+  // For an external pin (e.g. an Industry News link) — the destination to open
+  // instead of the in-site article modal. Null for normal in-house articles.
+  href      String?
+  // Optional favorite folder (only meaningful for kind='favorite'). Nulled when
+  // the folder is deleted so the item falls back to "Unfiled".
+  folderId  String?
+  folder    FavoriteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@unique([userId, kind, articleId])
   @@index([userId, kind])
+  @@index([folderId])
+}
+
+// Member-defined folders for grouping favorites (e.g. "Training", "Front
+// counter", "Marketing"). Per account; deleting one just unfiles its favorites.
+model FavoriteFolder {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime    @default(now())
+  items     SavedItem[]
+
+  @@index([userId])
 }
 
 // Per-account news clippings (highlighted quotes + saved comic images).
@@ -507,16 +761,76 @@ model Article {
   slug        String    @unique
   excerpt     String?
   content     String
+  // Optional display byline that overrides the account name shown as "By …" in
+  // the reader. Lets a colleague post on behalf of another author (e.g. via
+  // Simple upload) without reassigning the article's owning account. Blank/null
+  // = fall back to the author account's name.
+  byline      String?
   coverImage  String?
+  // Optional cover VIDEO (mp4/webm URL). When set, the big single surfaces — the
+  // article reader (page + modal) and the homepage hero — autoplay it muted/looped
+  // with coverImage as the poster/fallback. Everywhere small (cards, grids, social
+  // previews, email) always uses coverImage. Blank/null = image-only cover.
+  coverVideo  String?
+  // Optional focal point for the cover, as a CSS object-position ("50% 30%").
+  // null/blank = center. Honored wherever the cover is object-cover cropped.
+  coverFocus  String?
   status      String    @default("DRAFT")
   // Access gate: '' / 'public' = everyone; else an entitlement token checked
   // against the viewer (premium | vendor | staff | member | an affiliation key
   // like 'packagehub'). Enforced server-side on the article page. See lib/entitlements.
   requirement String    @default("")
+  // Optional editorial genre — the NATURE of the piece (opinion | sponsored |
+  // press_release | update), a separate axis from topic categories. '' = none.
+  // See lib/genre. Shown as a small badge; sponsored doubles as ad disclosure.
+  genre       String    @default("")
+  // Paid-placement window: while this is in the future the article is an ACTIVE
+  // sponsor — it floats into the "Featured" homepage module (below the top three)
+  // and auto-drops out when the date passes. Null = not sponsored. Set per deal
+  // (default +30d). Independent of `genre`, though the two usually pair up.
+  sponsoredUntil DateTime?
+  // When a sponsored article originated from (or is tied to) a vendor's intake
+  // submission, this links it to that Vendor so publishing can send the vendor a
+  // "you're live" message. Plain id link (no FK relation) — the article stands on
+  // its own if the vendor is later removed. sponsorNotifiedAt guards that
+  // go-live message to once. Both null for ordinary editorial articles.
+  sponsorVendorId  String?
+  sponsorNotifiedAt DateTime?
+  // The CONTACT for THIS article — the person + email who submitted it via JotForm.
+  // Pinned per-article (not the vendor's general contact) because the submitter can
+  // differ each time; the go-live email is addressed here first, falling back to the
+  // vendor's latest contact, then the vendor name.
+  sponsorContactName  String?
+  sponsorContactEmail String?
   featured    Boolean   @default(false)
   pinned      Boolean   @default(false)
+  // While pinned, the article floats to the top of the Latest feed. pinnedUntil is
+  // when that auto-releases (default +7d, editor-set); a homepage-load sweep flips
+  // pinned off once it passes. Null while pinned = no expiry (legacy/manual).
+  pinnedUntil DateTime?
   views       Int       @default(0)
+  // Reader endorsements ("Recommend" at the end of the article). Denormalized
+  // count for fast reads/sorting; the per-reader rows (dedup + toggle) live in
+  // ArticleRecommend. Never negative.
+  recommends  Int       @default(0)
   readMinutes Int       @default(1)
+  // Autosaved draft — a work-in-progress copy that NEVER affects the live
+  // article. Autosave writes here (any status); the editor loads these when
+  // present; a manual Save promotes them to the live columns and clears them.
+  // This lets a PUBLISHED article be autosaved without pushing half-typed text
+  // to readers. draftSavedAt is the "has an unsaved draft" flag + its timestamp.
+  draftTitle    String?
+  draftContent  String?
+  draftExcerpt  String?
+  draftCover    String?
+  draftSavedAt  DateTime?
+  // "Listen to article" TTS audio (ElevenLabs → S3). audioHash fingerprints the
+  // spoken text the current MP3 was made from, so we only regenerate on a real
+  // content change. Status: NONE (no audio) | PENDING (queued) | READY | FAILED.
+  audioUrl       String?
+  audioStatus    String    @default("NONE")
+  audioHash      String?
+  audioUpdatedAt DateTime?
   publishedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -533,11 +847,299 @@ model Article {
   authorId    String?
   author      User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
+  // Optional reusable byline from the Byline library (a person: photo + name +
+  // title). Takes precedence over the free-text `byline` and the author account.
+  // Null = no library byline chosen → the generic "RS News Hub Team" default (or
+  // the free-text `byline` if one was typed). onDelete: SetNull so removing a
+  // library byline never deletes articles — they fall back to the default.
+  bylineId    String?
+  bylineRef   Byline?   @relation(fields: [bylineId], references: [id], onDelete: SetNull)
+
+  // A private, shareable draft-preview link secret. Anyone with
+  // /docs/article/<slug>?preview=<token> can see the unpublished article as a
+  // reader would (and leave an approval / change request). Null until generated.
+  previewToken String? @unique
+
   tags        ArticleTag[]
   readingLogs ReadingLog[]
+  revisions   ArticleRevision[]
+  reviews     ArticleReview[]
+  vendorReviews VendorReviewRequest[]
+  recommendedBy ArticleRecommend[]
 
   @@index([status, publishedAt])
   @@index([categoryId])
+}
+
+// An editorial "genre" — the NATURE of a piece (Opinion, Sponsored, …), a
+// separate axis from topic categories, shown as a small badge. Admin-editable so
+// new ones (History, Education, …) can be added. `slug` is the stable token
+// stored on Article.genre and compared in code; `builtin` rows can't be deleted
+// and their slug can't change (the 'sponsored' slug is load-bearing — it drives
+// the paid-content disclosure and the sponsor go-live email). `color` tints the
+// badge. `archived` hides it from the picker without touching existing articles.
+model Genre {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  color     String   @default("#64748b")
+  builtin   Boolean  @default(false)
+  archived  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([archived, sortOrder])
+}
+
+// A reusable byline — a saved author identity (photo + name + title) an editor
+// can attach to articles from a small library, instead of retyping it each time.
+// Not a login account: covers in-house management, council members, and repeat
+// contributors who never sign in. Editing one here updates it on every article
+// that uses it (a title change, a new photo, a name change). `archived` hides it
+// from the picker without breaking articles that already reference it. There is
+// no "team" row — the generic "RS News Hub Team" default is what shows when an
+// article has no byline chosen (see lib/byline.ts).
+model Byline {
+  id        String    @id @default(cuid())
+  name      String
+  // Optional job title / role shown under the name (e.g. "President, RS News").
+  title     String?
+  // Optional headshot URL. Any size — rendered in a fixed circular avatar
+  // (object-cover center-crop), so no specific dimensions are required.
+  photo     String?
+  // Optional short bio. Shown only in the in-article Author card element (never in
+  // the compact top byline). Editing it here updates every linked card.
+  bio       String?
+  archived  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  articles  Article[]
+
+  @@index([archived, name])
+}
+
+// The Newsroom — a shared "OneNote-style" drafts space. Any staffer (ADMIN or
+// EDITOR) can open, read, and edit any doc; each doc is a tab. Bodies autosave as
+// plain prose; the rich formatting/blocks happen in the real composer AFTER a
+// one-button push. Author identity is a denormalized snapshot (id + name), not a
+// FK to User — the same "stands on its own" pattern as ContentSubmission — so the
+// doc keeps a readable trail even if an account changes. `pushedAt` marks a doc
+// that has been handed off to the article editor (then it's hidden from the list).
+model NewsroomDoc {
+  id            String   @id @default(cuid())
+  title         String   @default("Untitled draft")
+  body          String   @default("")
+  archived      Boolean  @default(false)
+  // Set when the doc is pushed into the article composer; a pushed doc is removed
+  // from the Newsroom (it "becomes" the draft article).
+  pushedAt      DateTime?
+  createdById   String?
+  createdByName String?
+  // Who last saved it + when (snapshot), for the "last edited by …" line and to
+  // warn a second editor that someone else just changed the doc.
+  updatedById   String?
+  updatedByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  comments      NewsroomComment[]
+  presence      NewsroomPresence[]
+  flags         NewsroomFlag[]
+
+  @@index([archived, pushedAt, updatedAt])
+}
+
+// A personal "pin" on a draft. Each staffer flags the handful of drafts they're
+// actively juggling; the editor then shows a quick-switcher of just THEIR flagged
+// drafts so they can flip between them without going back to the list. Per-user
+// (unique docId+userId), so one writer's pins never clutter another's rail.
+model NewsroomFlag {
+  id        String      @id @default(cuid())
+  docId     String
+  doc       NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime    @default(now())
+
+  @@unique([docId, userId])
+  @@index([userId])
+}
+
+// A note in a doc's comments thread. The admin's name is captured automatically
+// when they post (auto-tagged authorship), so a thread always reads "who said
+// what" without anyone typing their name.
+model NewsroomComment {
+  id         String      @id @default(cuid())
+  docId      String
+  doc        NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  authorId   String?
+  authorName String
+  body       String
+  // Optional anchor: the passage the writer highlighted when leaving the note, plus
+  // its character offset in the body at that time. Clicking the note re-selects that
+  // passage (offset first, then a text search, since the draft may have shifted).
+  quote      String?
+  quoteStart Int?
+  createdAt  DateTime    @default(now())
+
+  @@index([docId, createdAt])
+}
+
+// Lightweight presence: each staffer viewing a doc upserts a heartbeat row so the
+// others can see who's here (and who's actively typing). "Active" is a recent
+// `lastSeen`; stale rows are pruned opportunistically. No websockets — the client
+// polls a sync action. This is the "live enough" model, not full co-editing.
+model NewsroomPresence {
+  id       String      @id @default(cuid())
+  docId    String
+  doc      NewsroomDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+  userId   String
+  userName String
+  editing  Boolean     @default(false)
+  lastSeen DateTime    @default(now())
+
+  @@unique([docId, userId])
+  @@index([docId, lastSeen])
+}
+
+// The house-style "rule book" — the admin-editable dictionary the Newsroom's
+// style checker enforces. Each row is one term: its `canonical` house spelling
+// plus the off-house `variants` to catch (a comma/newline blob parsed in
+// lib/houseStyle — admins never write regex). `forceLowercase` is for terms we
+// always lowercase (e-commerce). `builtin` rows seed the list and can be edited or
+// disabled but not deleted; custom rows are fully removable. No code keys off a
+// specific canonical, so any term can change.
+model HouseStyleRule {
+  id             String   @id @default(cuid())
+  canonical      String
+  variants       String   @default("")
+  forceLowercase Boolean  @default(false)
+  message        String?
+  builtin        Boolean  @default(false)
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+// The "Tag glossary" — the admin-editable industry vocabulary the tag suggester
+// draws on (RS Dictionary → Tag glossary tab). Each row is one term: its
+// `canonical` tag plus the spelling/plural/phrase `variants` that map to it (a
+// comma/newline blob parsed in lib/houseStyle's splitVariants — admins never write
+// regex). `builtin` rows seed the list and can be edited or disabled but not
+// deleted; custom rows are fully removable. Mirrors HouseStyleRule intentionally.
+model TagGlossaryTerm {
+  id        String   @id @default(cuid())
+  canonical String
+  variants  String   @default("")
+  builtin   Boolean  @default(false)
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+// A recurring "seasonal" placement: a Module Studio module that auto-appears high
+// on the public homepage during a yearly window (start month/day → end month/day,
+// 1-based; a start that sorts after the end wraps the New Year, e.g. Nov 1 → Jan 5)
+// and lifts off when the window closes — hands-free, WITHOUT mutating the saved
+// homepage layout (the homepage renders active seasonal modules as a computed band
+// on top). Also painted on the admin schedule calendar. `moduleId` references a
+// CustomModule by id (plain link, like ContentSubmission — a dangling/unpublished
+// module is simply skipped at render). `priority` orders simultaneously-active ones.
+model SeasonalModule {
+  id         String   @id @default(cuid())
+  label      String
+  moduleId   String
+  startMonth Int
+  startDay   Int
+  endMonth   Int
+  endDay     Int
+  enabled    Boolean  @default(true)
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([enabled, priority])
+}
+
+// One reader's endorsement of one article (the end-of-article "Recommend").
+// A signed-in reader is deduped by (articleId, userId); an anonymous reader by
+// (articleId, sessionId) — Postgres treats NULLs as distinct, so a row carries
+// exactly ONE of the two keys and only collides with its own kind. Deleting the
+// row toggles the recommend off; Article.recommends is the denormalized count.
+model ArticleRecommend {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@unique([articleId, userId])
+  @@unique([articleId, sessionId])
+  @@index([articleId])
+}
+
+// One "push this article to a vendor's dashboard for review" round. The admin
+// creates a row per push (so createdAt is the paper trail of when each round was
+// sent); the logged-in vendor answers Approve / Request changes ONCE, which
+// stamps decision + decidedAt and LOCKS it — they can't reopen or flip it. A
+// later push after edits is a NEW row (a fresh pending item; the old one stays
+// visible + locked). Used for sponsored articles AND for vendors' What's Hot
+// pieces. On the vendor's decision the app also writes an ArticleReview so the
+// response shows in the admin Hub alongside link-reviewer feedback.
+model VendorReviewRequest {
+  id        String    @id @default(cuid())
+  articleId String
+  article   Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  vendorId  String                              // whose dashboard it's pushed to
+  createdAt DateTime  @default(now())           // when the admin pushed it (paper trail)
+  decision  String?                             // null = pending; 'approve' | 'change'
+  message   String    @default("")              // the vendor's change-request text
+  decidedAt DateTime?                           // when the vendor answered (locks the row)
+
+  @@index([vendorId, createdAt])
+  @@index([articleId])
+}
+
+// A reviewer's response on a draft preview. Reviewers aren't logged in — they
+// self-identify by name; the preview token is the access control. Multiple
+// reviewers aggregate per article. A 'change' that isn't resolved keeps the
+// article in "Changes requested"; otherwise approvals show. Status strings are
+// validated in app code (house convention — no DB enums).
+model ArticleReview {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  decision  String   // 'approve' | 'change'
+  message   String   @default("") // free text, long for change requests
+  resolved  Boolean  @default(false) // admin marks a change request handled
+  createdAt DateTime @default(now())
+
+  @@index([articleId, createdAt])
+}
+
+// Point-in-time snapshots of an article's title/body, written on each meaningful
+// save (and before a restore) so an editor can roll back. Capped per article.
+model ArticleRevision {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  excerpt   String?
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([articleId, createdAt])
 }
 
 model ArticleTag {

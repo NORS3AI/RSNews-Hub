@@ -23,10 +23,12 @@ export default async function NotificationsPage() {
   if (!user) {
     return (
       <div className="container-page py-10">
-        <div className="mb-6 flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
-        <div className="card flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[var(--muted)]">Sign in to follow topics and get notified about new articles and Industry News.</p>
-          <Link href="/login?next=/docs/notifications" className="btn-primary btn-sm">Sign in</Link>
+        <div className="module">
+          <div className="mb-6 flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
+          <div className="tile flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[var(--muted)]">Sign in to follow topics and get notified about new articles and Industry News.</p>
+            <Link href="/login?next=/docs/notifications" className="btn-primary btn-sm">Sign in</Link>
+          </div>
         </div>
       </div>
     );
@@ -38,23 +40,16 @@ export default async function NotificationsPage() {
     <div className="container-page py-8 sm:py-10">
       <NotificationsMarkSeen />
 
+      <div className="module mb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2"><Bell className="text-brand-600" /><h1 className="text-2xl font-black">Notifications</h1></div>
         <SubscribeLauncher label="Manage subscriptions" className="btn-primary btn-sm" />
       </div>
 
-      {!hasTopics ? (
-        <div className="card mb-8 p-8 text-center">
-          <Bell width={30} height={30} className="mx-auto mb-3 text-[var(--muted)]" />
-          <p className="mb-1 text-lg font-bold">You&apos;re not following anything yet</p>
-          <p className="mx-auto mb-4 max-w-sm text-sm text-[var(--muted)]">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>
-          <SubscribeLauncher label="Choose topics" className="btn-primary" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="card mb-8 p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
-      ) : (
-        <div className="card mb-8 divide-y divide-[var(--border)] p-0">
+      {items.length > 0 ? (
+        <div className="tile divide-y divide-[var(--border)] p-0">
           {items.map((it, i) => {
+            const key = `${it.type}:${it.href}:${it.date instanceof Date ? it.date.getTime() : it.date}`;
             const inner = (
               <div className="flex items-start gap-3 px-4 py-3.5">
                 <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${it.unread ? 'bg-brand-600' : 'bg-transparent'}`} aria-hidden />
@@ -66,6 +61,12 @@ export default async function NotificationsPage() {
                   <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--muted)]">
                     {it.type === 'industry'
                       ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Industry News</span>
+                      : it.type === 'testimonial'
+                      ? <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: '#E97D3422', color: '#c96a26' }}>Testimonial</span>
+                      : it.type === 'supplier-new'
+                      ? <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-700 dark:bg-green-950/40 dark:text-green-300">New supplier</span>
+                      : it.type === 'supplier-expiring'
+                      ? <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Leaving</span>
                       : it.categoryName && <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: `${it.categoryColor}22`, color: it.categoryColor }}>{it.categoryName}</span>}
                     <span>{it.meta || ago(it.date)}</span>
                     {it.meta && <span>· {ago(it.date)}</span>}
@@ -74,11 +75,21 @@ export default async function NotificationsPage() {
               </div>
             );
             return it.type === 'industry'
-              ? <a key={i} href={it.href} target="_blank" rel="noopener noreferrer" className="block hover:bg-[var(--surface-2)]">{inner}</a>
-              : <Link key={i} href={it.href} className="block hover:bg-[var(--surface-2)]">{inner}</Link>;
+              ? <a key={key} href={it.href} target="_blank" rel="noopener noreferrer" className="block hover:bg-[var(--surface-2)]">{inner}</a>
+              : <Link key={key} href={it.href} className="block hover:bg-[var(--surface-2)]">{inner}</Link>;
           })}
         </div>
+      ) : !hasTopics ? (
+        <div className="tile p-8 text-center">
+          <Bell width={30} height={30} className="mx-auto mb-3 text-[var(--muted)]" />
+          <p className="mb-1 text-lg font-bold">You&apos;re not following anything yet</p>
+          <p className="mx-auto mb-4 max-w-sm text-sm text-[var(--muted)]">Pick the topics you care about — Industry News, Breaking News, whatever matters — and new posts show up right here.</p>
+          <SubscribeLauncher label="Choose topics" className="btn-primary" />
+        </div>
+      ) : (
+        <div className="tile p-8 text-center text-[var(--muted)]">Nothing new in your topics yet. We&apos;ll drop it here the moment there is.</div>
       )}
+      </div>
 
       <AccountEmails />
     </div>

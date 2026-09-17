@@ -5,11 +5,13 @@ import ArticleDetails from './ArticleDetails';
 import ElementInspector from './ElementInspector';
 
 type Cat = { id: string; name: string };
+type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
+type GenreOpt = { slug: string; label: string };
 
 // Right rail: Article details vs the selected element's options. Both stay
 // mounted (just hidden) so the article's form fields always submit — we only
 // flip which one is visible, auto-switching to Element when you select one.
-export default function Inspector({ article, categories }: { article?: any; categories: Cat[] }) {
+export default function Inspector({ article, categories, vendors = [], bylines = [], genres = [] }: { article?: any; categories: Cat[]; vendors?: { id: string; name: string }[]; bylines?: BylineOpt[]; genres?: GenreOpt[] }) {
   const { selected } = useComposer();
   const [tab, setTab] = useState<'article' | 'element'>('article');
   const had = useRef(false);
@@ -24,11 +26,15 @@ export default function Inspector({ article, categories }: { article?: any; cate
 
   return (
     <div>
-      <div className="mb-4 flex gap-1 rounded-xl border border-[var(--border)] p-1">
-        <button type="button" onClick={() => setTab('article')} className={btn(tab === 'article')}>Article details</button>
-        <button type="button" onClick={() => setTab('element')} className={btn(tab === 'element')}>Element{selected ? ' •' : ''}</button>
+      {/* Sticky within the panel's own scroll area, so the tabs stay reachable
+          while a long options list scrolls beneath them. */}
+      <div className="z-10 -mx-4 -mt-4 mb-4 bg-[var(--composer-panel)] px-4 pb-2 pt-4 lg:sticky lg:top-0">
+        <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1">
+          <button type="button" onClick={() => setTab('article')} className={btn(tab === 'article')}>Article details</button>
+          <button type="button" onClick={() => setTab('element')} className={btn(tab === 'element')}>Element{selected ? ' •' : ''}</button>
+        </div>
       </div>
-      <div className={tab === 'article' ? '' : 'hidden'}><ArticleDetails article={article} categories={categories} /></div>
+      <div className={tab === 'article' ? '' : 'hidden'}><ArticleDetails article={article} categories={categories} vendors={vendors} bylines={bylines} genres={genres} /></div>
       <div className={tab === 'element' ? '' : 'hidden'}><ElementInspector /></div>
     </div>
   );

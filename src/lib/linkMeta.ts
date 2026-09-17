@@ -2,6 +2,13 @@
 // Fetches a URL and pulls the headline, source and publish date out of the
 // page's Open Graph / meta tags, so an editor pastes ONE link and the rest
 // fills itself in. Best-effort: anything it can't find is left blank.
+//
+// SSRF: an editor (lower-trust than admin) supplies this URL, so the fetch is
+// routed through safeFetch — it resolves the host and refuses any private/
+// reserved address, and re-validates every redirect hop, so a link can't point
+// the server at cloud metadata (169.254.169.254) or an internal service.
+
+import { safeFetch, SsrfError } from './ssrf';
 
 export type LinkMeta = {
   url: string;
@@ -53,15 +60,17 @@ export async function fetchLinkMeta(rawUrl: string): Promise<LinkMeta | { error:
 
   let html = '';
   try {
-    const res = await fetch(u.toString(), {
+    const res = await safeFetch(u.toString(), {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RSNewsHubBot/1.0; +news-hub)', Accept: 'text/html,*/*' },
-      redirect: 'follow',
       signal: AbortSignal.timeout(9000),
     });
     if (!res.ok) return { error: `Couldn't open that page (HTTP ${res.status}). You can still fill it in by hand.` };
     // Only the <head> matters; cap the read so a huge page can't stall us.
     html = (await res.text()).slice(0, 400_000);
-  } catch {
+  } catch (e) {
+    // A blocked private/internal target reads the same to the editor as any
+    // unreachable link — we don't confirm what's on the internal network.
+    if (e instanceof SsrfError) return { error: "That link points somewhere we can't fetch. Paste a public news URL." };
     return { error: "Couldn't reach that page. Check the link, or fill the fields in by hand." };
   }
 

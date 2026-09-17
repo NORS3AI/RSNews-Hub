@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { collectScheduleEvents, eventsByDay } from './scheduleEvents';
+import { collectScheduleEvents, collectScheduleSpans, eventsByDay } from './scheduleEvents';
 import { serializeTree, normalizeTree } from './studio';
 
 const tree = (children: any[]) => serializeTree(normalizeTree({ shape: 'column', children }));
@@ -36,8 +36,8 @@ describe('collectScheduleEvents', () => {
 
   it('includes poll/quiz closes and campaign start/end', () => {
     const events = collectScheduleEvents({
-      polls: [{ question: 'Best tool?', closesAt: new Date('2026-08-30T00:00:00Z'), kind: 'module' }],
-      quizzes: [{ title: 'Safety quiz', closesAt: new Date('2026-08-28T00:00:00Z') }],
+      polls: [{ question: 'Best tool?', createdAt: new Date('2026-08-01T00:00:00Z'), closesAt: new Date('2026-08-30T00:00:00Z'), kind: 'module' }],
+      quizzes: [{ title: 'Safety quiz', createdAt: new Date('2026-08-01T00:00:00Z'), closesAt: new Date('2026-08-28T00:00:00Z') }],
       campaigns: [{ vendorName: 'Acme', startAt: new Date('2026-08-01T00:00:00Z'), endAt: new Date('2026-11-01T00:00:00Z'), status: 'ACTIVE' }],
     });
     expect(events.some((e) => e.category === 'poll' && e.kind === 'close')).toBe(true);
@@ -45,11 +45,48 @@ describe('collectScheduleEvents', () => {
     expect(events.filter((e) => e.category === 'campaign').map((e) => e.kind).sort()).toEqual(['end', 'start']);
   });
 
+  it('collectScheduleSpans builds bars with running/scheduled/past status', () => {
+    const now = new Date('2026-08-15T00:00:00Z');
+    const spans = collectScheduleSpans({
+      polls: [{ question: 'Best tool?', createdAt: new Date('2026-08-10T00:00:00Z'), closesAt: new Date('2026-08-20T00:00:00Z'), kind: 'module' }],
+      quizzes: [{ title: 'Old quiz', createdAt: new Date('2026-07-01T00:00:00Z'), closesAt: new Date('2026-07-03T00:00:00Z') }],
+      campaigns: [{ vendorName: 'Acme', startAt: new Date('2026-09-01T00:00:00Z'), endAt: new Date('2026-10-01T00:00:00Z'), status: 'ACTIVE' }],
+      sponsored: [{ title: 'PackWise piece', publishedAt: new Date('2026-08-01T00:00:00Z'), sponsoredUntil: new Date('2026-08-31T00:00:00Z') }],
+    }, now);
+    const by = (cat: string) => spans.find((s) => s.category === cat)!;
+    expect(by('poll').status).toBe('running');       // now inside [10th,20th]
+    expect(by('quiz').status).toBe('past');           // ended in July
+    expect(by('sponsored').status).toBe('running');   // Aug 1–31 window
+    expect(by('sponsored').title).toBe('PackWise piece');
+    // Ad campaigns are markers, not bars — they must NOT appear as spans.
+    expect(spans.some((s) => s.category === 'campaign')).toBe(false);
+  });
+
+  it('collectScheduleSpans drops zero/negative windows and missing bounds', () => {
+    const spans = collectScheduleSpans({
+      polls: [
+        { question: 'no close', createdAt: new Date('2026-08-01T00:00:00Z'), closesAt: null, kind: 'module' },
+        { question: 'inverted', createdAt: new Date('2026-08-10T00:00:00Z'), closesAt: new Date('2026-08-05T00:00:00Z'), kind: 'module' },
+      ],
+    }, new Date('2026-08-15T00:00:00Z'));
+    expect(spans).toHaveLength(0);
+  });
+
+  it('marks an unpublished module element window as draft', () => {
+    const spans = collectScheduleSpans({
+      modules: [{ id: 'm', name: 'Draft Mod', published: false, expiresAt: null,
+        tree: tree([{ type: 'ad', settings: {}, startAt: '2026-08-01T00:00:00Z', endAt: '2026-09-01T00:00:00Z' }]) }],
+    }, new Date('2026-08-15T00:00:00Z'));
+    expect(spans).toHaveLength(1);
+    expect(spans[0].category).toBe('element');
+    expect(spans[0].status).toBe('draft');
+  });
+
   it('sorts by date and groups by local day', () => {
     const events = collectScheduleEvents({
       quizzes: [
-        { title: 'B', closesAt: new Date('2026-08-25T10:00:00Z') },
-        { title: 'A', closesAt: new Date('2026-08-20T10:00:00Z') },
+        { title: 'B', createdAt: new Date('2026-08-24T10:00:00Z'), closesAt: new Date('2026-08-25T10:00:00Z') },
+        { title: 'A', createdAt: new Date('2026-08-19T10:00:00Z'), closesAt: new Date('2026-08-20T10:00:00Z') },
       ],
     });
     expect(events.map((e) => e.title)).toEqual(['A', 'B']); // sorted ascending

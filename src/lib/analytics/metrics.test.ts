@@ -63,16 +63,18 @@ describe('aggregateAds', () => {
     ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { viewable: true, aboveFold: true, dwellMs: 2000 } }),
     ev({ type: 'impression', subjectType: 'ad', placement: 'home-top', props: { viewable: true, aboveFold: false, dwellMs: 4000 } }),
     ev({ type: 'click', subjectType: 'ad', placement: 'home-top', props: {} }),
+    ev({ type: 'ad_expand', subjectType: 'ad', placement: 'home-top', props: {} }),
     ev({ type: 'impression', subjectType: 'ad', placement: 'article-bottom', props: { viewable: true, dwellMs: 1000 } }),
     ev({ type: 'impression', subjectType: 'article', placement: 'latest', props: {} }), // ignored
   ];
-  it('groups ads by placement with viewability, dwell, above-fold and CTR', () => {
+  it('groups ads by placement with viewability, dwell, above-fold, CTR and expands', () => {
     const rows = aggregateAds(evs, 'placement');
     const top = rows.find((r) => r.key === 'home-top')!;
     expect(top.impressions).toBe(2);
     expect(top.viewable).toBe(2);
     expect(top.clicks).toBe(1);
     expect(top.ctr).toBe(0.5); // 1 click / 2 viewable
+    expect(top.expands).toBe(1);
     expect(top.avgDwellMs).toBe(3000);
     expect(top.aboveFoldPct).toBe(0.5);
   });
@@ -115,6 +117,23 @@ describe('aggregateReading', () => {
     expect(r.reach[25]).toBe(0.5);
     expect(r.reach[75]).toBe(0.5);
     expect(r.reach[100]).toBe(0);
+  });
+  it('counts recommends CAST in the window (raw adds; removes are not subtracted) + unique recommenders', () => {
+    const r = aggregateReading([
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'add' } }),
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a2', userId: 'u2', props: { action: 'add' } }),
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'remove' } }), // un-recommend: not counted
+    ]);
+    expect(r.recommends).toBe(2);      // two adds cast; the remove doesn't reduce the activity count
+    expect(r.recommenders).toBe(2);    // u1 + u2 both cast at least one add
+  });
+  it('a window of only un-recommends counts zero (never negative)', () => {
+    const r = aggregateReading([
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a1', userId: 'u1', props: { action: 'remove' } }),
+      ev({ type: 'recommend', subjectType: 'article', subjectId: 'a2', userId: 'u2', props: { action: 'remove' } }),
+    ]);
+    expect(r.recommends).toBe(0);
+    expect(r.recommenders).toBe(0);
   });
 });
 
@@ -162,10 +181,54 @@ describe('advertiser reporting (scoped to one brand)', () => {
     // no PostalMate leakage anywhere
     expect(JSON.stringify(r)).not.toMatch(/PostalMate|pm-1/);
   });
+  it('totals fold spelling variants of one brand (no undercount)', () => {
+    // Same advertiser entered two ways: normalized scoping catches both, and the
+    // totals bucket must sum ALL of them — not just the largest campaign variant.
+    const mixed: Ev[] = [
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'Acme', campaignId: 'Acme', creativeId: 'a1', viewable: true } }),
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'acme ', campaignId: 'acme ', creativeId: 'a2', viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', props: { brand: 'acme ', campaignId: 'acme ', creativeId: 'a2' } }),
+    ];
+    const r = advertiserReport(mixed, 'Acme');
+    expect(r.totals.impressions).toBe(2); // both variants, not 1
+    expect(r.totals.clicks).toBe(1);
+    // and totals never undercount the sum of the per-creative rows
+    expect(r.totals.impressions).toBe(r.byCreative.reduce((n, c) => n + c.impressions, 0));
+  });
   it('builds a daily trend', () => {
     const t = adTrend(evs.filter((e) => (e.props as { brand?: string }).brand === 'PackWise'));
     expect(t[0].impressions).toBe(2);
     expect(t[0].clicks).toBe(1);
+  });
+  it('breaks the brand down per sponsored article (only sponsored events, keyed by articleId)', () => {
+    const attributed: Ev[] = [
+      // Two impressions of PackWise's ad inside a sponsored article, plus a click.
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-sponsor', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-r', articleId: 'art-1', articleSlug: 'pw-story', sponsored: true, viewable: true } }),
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', articleId: 'art-1', articleSlug: 'pw-story', sponsored: true, viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', placement: 'article-sponsor', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-r', articleId: 'art-1', sponsored: true } }),
+      // A non-sponsored article impression for the same brand — must be excluded.
+      ev({ type: 'impression', subjectType: 'ad', placement: 'article-top', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', articleId: 'art-2', viewable: true } }),
+    ];
+    const r = advertiserReport(attributed, 'PackWise');
+    expect(r.bySponsoredArticle).toHaveLength(1);          // only art-1 (art-2 not sponsored)
+    const row = r.bySponsoredArticle[0];
+    expect(row.key).toBe('art-1');                          // keyed by articleId
+    expect(row.impressions).toBe(2);                        // both sponsored impressions
+    expect(row.clicks).toBe(1);
+  });
+  it('breaks the brand down per campaign batch (flighted events only, keyed by flightId)', () => {
+    const batched: Ev[] = [
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', flightId: 'f1', flightIndex: 1, viewable: true } }),
+      ev({ type: 'click', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-1', flightId: 'f1', flightIndex: 1 } }),
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-9', flightId: 'f2', flightIndex: 2, viewable: true } }),
+      // An evergreen house-style impression with NO flight — must not appear as a batch.
+      ev({ type: 'impression', subjectType: 'ad', props: { brand: 'PackWise', campaignId: 'PackWise', creativeId: 'pw-x', viewable: true } }),
+    ];
+    const r = advertiserReport(batched, 'PackWise');
+    expect(r.byBatch.map((b) => b.key).sort()).toEqual(['f1', 'f2']);  // two batches, no unflighted bucket
+    const f1 = r.byBatch.find((b) => b.key === 'f1')!;
+    expect(f1.impressions).toBe(1);
+    expect(f1.clicks).toBe(1);
   });
 });
 
@@ -173,5 +236,20 @@ describe('toCsv', () => {
   it('joins rows and escapes commas, quotes and newlines', () => {
     const csv = toCsv(['name', 'note'], [['home-top', 'a,b'], ['x', 'has "quote"'], ['y', 'two\nlines']]);
     expect(csv).toBe('name,note\r\nhome-top,"a,b"\r\nx,"has ""quote"""\r\ny,"two\nlines"');
+  });
+
+  it('neutralizes spreadsheet formula injection in text cells', () => {
+    const csv = toCsv(['name', 'clicks'], [['=HYPERLINK("http://evil")', 5], ['+cmd', 2], ['@SUM(A1)', 1], ['-1x', 0]]);
+    // Each dangerous text cell is prefixed with a single quote so Excel/Sheets
+    // shows it literally instead of evaluating it.
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).toContain("'+cmd");
+    expect(csv).toContain("'@SUM(A1)");
+    expect(csv).toContain("'-1x");
+  });
+
+  it('never prefixes numeric cells (real negatives stay numbers)', () => {
+    const csv = toCsv(['name', 'delta'], [['ok', -5]]);
+    expect(csv).toBe('name,delta\r\nok,-5');
   });
 });

@@ -49,9 +49,9 @@ export async function POST(req: Request) {
     // Best-effort welcome email (a no-op unless an email provider is configured).
     await sendEmail({
       to: user.email,
-      subject: 'Welcome to RSNews Hub',
-      html: renderEmail(`Welcome, ${escapeHtml(name)}`, `<p style="margin:0 0 12px">Your RSNews Hub account is ready. Browse articles, follow topics, save clippings, and take the weekly pop quiz.</p><p style="margin:0"><a href="${process.env.SITE_URL || ''}/docs" style="color:#E97D34;font-weight:700">Start reading →</a></p>`),
-      text: `Welcome, ${name}. Your RSNews Hub account is ready.`,
+      subject: 'Welcome to RS News Hub',
+      html: renderEmail(`Welcome, ${escapeHtml(name)}`, `<p style="margin:0 0 12px">Your RS News Hub account is ready. Browse articles, follow topics, save clippings, and take the weekly pop quiz.</p><p style="margin:0"><a href="${process.env.SITE_URL || ''}/docs" style="color:#E97D34;font-weight:700">Start reading →</a></p>`),
+      text: `Welcome, ${name}. Your RS News Hub account is ready.`,
     });
 
     return NextResponse.json({ ok: true, user: { id: user.id, name: user.name, role: user.role } });

@@ -35,20 +35,24 @@ export async function POST(req: Request, props: { params: Promise<{ id: string }
   if (chosen.length === 0) return NextResponse.json({ error: 'No valid answers' }, { status: 400 });
 
   // One response per account. Reserve the slot first so a duplicate is rejected
-  // cleanly (and a race loses to the unique constraint → 409) before we tally.
+  // cleanly (a race loses to the unique constraint → 409). The response insert
+  // and the tallies commit together in ONE transaction, so a crash between them
+  // can't record a submission whose option counts were never incremented (the
+  // user can't re-submit to fix it).
   try {
-    await prisma.quizResponse.create({ data: { quizId: params.id, userId: user.id, answers: JSON.stringify(answers) } });
+    await prisma.$transaction(async (tx) => {
+      // Reserve the unique response row first; a duplicate throws P2002 here and
+      // aborts before any tally, so a rejected submission never counts.
+      await tx.quizResponse.create({ data: { quizId: params.id, userId: user.id, answers: JSON.stringify(answers) } });
+      for (const optionId of chosen) await tx.quizOption.update({ where: { id: optionId }, data: { count: { increment: 1 } } });
+      await tx.quiz.update({ where: { id: params.id }, data: { submissions: { increment: 1 } } });
+    });
   } catch (e: unknown) {
     if (e && typeof e === 'object' && 'code' in e && (e as { code?: string }).code === 'P2002') {
       return NextResponse.json({ error: 'Already submitted' }, { status: 409 });
     }
     throw e;
   }
-
-  await prisma.$transaction([
-    ...chosen.map((optionId) => prisma.quizOption.update({ where: { id: optionId }, data: { count: { increment: 1 } } })),
-    prisma.quiz.update({ where: { id: params.id }, data: { submissions: { increment: 1 } } }),
-  ]);
 
   return NextResponse.json({ ok: true });
 }

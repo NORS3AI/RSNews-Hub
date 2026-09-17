@@ -1,6 +1,7 @@
 'use client';
 import parse, { Element } from 'html-react-parser';
-import type { AdRow } from '@/lib/ads';
+import type { AdRow, AdContext } from '@/lib/ads';
+import type { BylineCard } from '@/lib/byline';
 import InArticleAd from '@/components/InArticleAd';
 import PollCard, { type PollData } from '@/components/site/PollCard';
 import QuizCard, { type QuizData } from '@/components/site/QuizCard';
@@ -22,35 +23,60 @@ export type LiveQuiz = { data: QuizData; done: boolean };
 // votable cards. Without them — e.g. the composer preview — poll/quiz embeds show
 // a static placeholder using the `polls`/`quizzes` title list.
 export default function ArticleContent({
-  html, polls = [], quizzes = [], ads = [], adBySlot = {}, pollData = [], quizData = [], loggedIn = false,
+  html, polls = [], quizzes = [], ads = [], adBySlot = {}, adById = {}, pollData = [], quizData = [], bylines = {}, loggedIn = false, adminPreview = false, adContext,
 }: {
-  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>;
+  html: string; polls?: EmbedOpt[]; quizzes?: EmbedOpt[]; ads?: AdRow[]; adBySlot?: Record<string, AdRow>; adById?: Record<string, AdRow>;
   pollData?: LivePoll[]; quizData?: LiveQuiz[]; loggedIn?: boolean;
+  // Live values for in-article Author cards linked to a library byline, keyed by
+  // byline id — so editing the person in the library updates every placed card.
+  bylines?: Record<string, BylineCard>;
+  // `adminPreview` = the admin composer preview, where an un-hooked ad slot SHOULD
+  // show a placeholder so the editor sees it. On every live reader surface (page,
+  // modal, shared preview link) this is false → an ad element with no live creative
+  // collapses to nothing. A reader must never see the orange/dashed placeholder.
+  adminPreview?: boolean;
+  // Article attribution for the in-body ad slots' analytics (undefined in the
+  // composer preview, where there's no live article to attribute to).
+  adContext?: AdContext;
 }) {
   let adIdx = 0;
   const content = parse(html || '', {
     replace: (node) => {
       if (!(node instanceof Element) || !node.attribs) return;
       const a = node.attribs;
-      if ('data-author' in a) return <AuthorCard a={a} />;
+      if ('data-author' in a) return <AuthorCard a={a} live={bylines[a['data-bylineid'] || '']} />;
       if ('data-ad-slot' in a) {
         const size = a['data-ad-size'] === 'rectangle' ? 'rectangle' : 'in-article';
         // A slot locked to an advertiser shows that advertiser's live creative in
         // the chosen shape; otherwise it auto-rotates the best-match, competitor-safe ads.
         const locked = a['data-ad-brand'] ? adBySlot[`${a['data-ad-brand']}::${a['data-ad-size'] || 'wide'}`] : undefined;
-        if (locked) return <div className="my-6"><InArticleAd ad={locked} slot="article-inline" size={size} /></div>;
-        if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} /></div>; }
-        return <AdPlaceholder label={a['data-ad-label']} />;
+        if (locked) return <div className="my-6"><InArticleAd ad={locked} slot="article-inline" size={size} placeholder={adminPreview} adContext={adContext} /></div>;
+        if (ads.length) { const ad = ads[adIdx++ % ads.length]; return <div className="my-6"><InArticleAd ad={ad} slot="article-inline" size={size} placeholder={adminPreview} adContext={adContext} /></div>; }
+        // No live ad for this slot: show the placeholder only in the composer;
+        // on a live reader surface collapse to nothing.
+        return adminPreview ? <AdPlaceholder label={a['data-ad-label']} /> : <></>;
+      }
+      // A hand-picked reserved sponsor creative — always a rectangle. If it didn't
+      // resolve (deleted, or DROPPED because it belongs to a different vendor than
+      // this article is locked to), collapse to nothing — never print the missing
+      // ad's brand label, so a competitor's NAME can't surface in a locked article.
+      if ('data-ad-id' in a) {
+        const ad = adById[a['data-ad-id']];
+        if (ad) return <div className="my-6"><InArticleAd ad={ad} slot="article-sponsor" size="rectangle" placeholder={adminPreview} adContext={adContext} /></div>;
+        return <></>;
       }
       if ('data-poll' in a) {
         const live = pollData.find((p) => p.data.id === a['data-poll']);
         if (live) return <div className="my-6"><PollCard poll={live.data} loggedIn={loggedIn} votedOptionId={live.votedOptionId} /></div>;
-        return <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} />;
+        // Unresolved (deleted/closed/never-materialized) poll: show the static
+        // placeholder only in the composer preview; on a live reader surface
+        // collapse to nothing rather than a dead, non-interactive card.
+        return adminPreview ? <EmbedCard kind="Poll" title={polls.find((p) => p.id === a['data-poll'])?.title || a['data-label'] || 'Poll'} /> : <></>;
       }
       if ('data-quiz' in a) {
         const live = quizData.find((q) => q.data.id === a['data-quiz']);
         if (live) return <div className="my-6"><QuizCard quiz={live.data} loggedIn={loggedIn} initialDone={live.done} /></div>;
-        return <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} />;
+        return adminPreview ? <EmbedCard kind="Pop quiz" title={quizzes.find((q) => q.id === a['data-quiz'])?.title || a['data-label'] || 'Pop quiz'} /> : <></>;
       }
       return undefined;
     },
@@ -58,17 +84,20 @@ export default function ArticleContent({
   return <>{content}</>;
 }
 
-function AuthorCard({ a }: { a: Record<string, string> }) {
-  const inhouse = a['data-inhouse'] === '1';
-  const name = inhouse ? 'RS News' : (a['data-name'] || 'Author');
-  const title = inhouse ? 'Editorial Team' : a['data-title'];
-  const bio = inhouse ? '' : a['data-bio'];
+function AuthorCard({ a, live }: { a: Record<string, string>; live?: BylineCard }) {
+  const inhouse = !live && a['data-inhouse'] === '1';
+  // A linked library byline (live) wins — so a title/photo/bio edit propagates.
+  // Fall back to the snapshot baked into the content when there's no live link.
+  const name = inhouse ? 'RS News' : (live?.name || a['data-name'] || 'Author');
+  const title = inhouse ? 'Editorial Team' : (live?.title ?? a['data-title']);
+  const bio = inhouse ? '' : (live?.bio ?? a['data-bio']);
+  const avatar = live?.avatar ?? a['data-avatar'];
   return (
     <div className="author-card">
       {inhouse ? <span className="author-avatar grid place-items-center"><BrandMark size={56} className="rounded-full" /></span>
-        : a['data-avatar']
+        : avatar
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img className="author-avatar" src={a['data-avatar']} alt="" />
+          ? <img className="author-avatar" src={avatar} alt="" />
           : <span className="author-avatar grid place-items-center bg-[var(--card)] text-lg font-black text-[var(--muted)]">{name.slice(0, 1).toUpperCase()}</span>}
       <div className="min-w-0">
         <div className="author-name">{name}</div>

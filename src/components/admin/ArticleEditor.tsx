@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { saveArticle } from '@/lib/actions';
-import { ComposerProvider, type Opt, type Advertiser } from './composer/context';
+import { saveArticle, discardDraft } from '@/lib/actions';
+import { ComposerProvider, type Opt, type Advertiser, type ReservedAdOpt } from './composer/context';
 import Palette from './composer/Palette';
 import Canvas from './composer/Canvas';
 import Inspector from './composer/Inspector';
+import SimpleUpload from './composer/SimpleUpload';
+import PublishConfirm from './composer/PublishConfirm';
+import AutoSave from './AutoSave';
 
 // Warn before leaving with unsaved edits: mark dirty on any edit in the form
 // (typing, field changes), clear it on submit, and gate a tab close / reload on it.
@@ -24,19 +27,22 @@ function useUnsavedGuard(formRef: React.RefObject<HTMLFormElement | null>) {
 }
 
 type Cat = { id: string; name: string; color?: string };
+export type BylineOpt = { id: string; name: string; title: string | null; photo: string | null; bio: string | null };
+export type GenreOpt = { slug: string; label: string };
 type Article = {
-  id: string; title: string; content: string; excerpt: string | null; coverImage: string | null;
-  status: string; requirement?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
+  id: string; title: string; content: string; excerpt: string | null; byline?: string | null; bylineId?: string | null; coverImage: string | null;
+  status: string; requirement?: string; genre?: string; featured: boolean; pinned?: boolean; categoryId: string | null;
   tags: { tag: { name: string } }[]; extraCategories?: { id: string }[]; breakingUntil?: string | Date | null;
-  publishedAt?: string | Date | null; views?: number;
+  sponsoredUntil?: string | Date | null;
+  publishedAt?: string | Date | null; views?: number; draftSavedAt?: string | Date | null;
 };
 
 // The article builder: element palette (left), flowing canvas (center), and a
 // tabbed inspector (right) for Article details vs the selected element — one
 // shared TipTap editor behind all three, via ComposerProvider.
 export default function ArticleEditor({
-  article, categories, polls = [], quizzes = [], advertisers = [], authorName = 'You',
-}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; authorName?: string }) {
+  article, categories, polls = [], quizzes = [], advertisers = [], reservedAds = [], vendors = [], bylines = [], genres = [], authorName = 'You',
+}: { article?: Article; categories: Cat[]; polls?: Opt[]; quizzes?: Opt[]; advertisers?: Advertiser[]; reservedAds?: ReservedAdOpt[]; vendors?: { id: string; name: string }[]; bylines?: BylineOpt[]; genres?: GenreOpt[]; authorName?: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   useUnsavedGuard(formRef);
   return (
@@ -47,28 +53,46 @@ export default function ArticleEditor({
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{article ? 'Edit article' : 'New article'}</h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {article?.id && <AutoSave formRef={formRef} />}
           <Link href="/admin/articles" className="btn-outline btn-sm">Cancel</Link>
-          <button type="submit" className="btn-primary btn-sm">Save</button>
+          {/* data-publish-guard marks THE main Save, so the pre-publish confirm
+              intercepts only this button (not Discard, and not autosave). */}
+          <button type="submit" data-publish-guard="1" className="btn-primary btn-sm">Save</button>
         </div>
       </div>
 
-      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers}>
+      {article?.id && article.draftSavedAt && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+          <span className="text-amber-900 dark:text-amber-200">
+            You&apos;re editing an <b>autosaved draft</b> (saved {new Date(article.draftSavedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}). It isn&apos;t live yet — <b>Save</b> to publish these changes, or discard to go back to the live version.
+          </span>
+          {/* formAction submits to discardDraft instead of saveArticle (no nested form). */}
+          <button type="submit" formAction={discardDraft.bind(null, article.id)}
+            className="btn-outline btn-sm shrink-0" formNoValidate>Discard draft</button>
+        </div>
+      )}
+
+      <ComposerProvider initialHTML={article?.content ?? ''} polls={polls} quizzes={quizzes} advertisers={advertisers} reservedAds={reservedAds} bylines={bylines}>
+        <PublishConfirm categories={categories} genres={genres} bylines={bylines} vendors={vendors} />
         <div className="grid gap-5 lg:grid-cols-[188px_1fr_330px]">
           <aside className="order-2 lg:order-1 lg:sticky lg:top-20 lg:self-start">
-            <div className="card p-3">
+            <div className="card card-soft composer-panel p-3">
               <Palette />
             </div>
           </aside>
 
           <div className="order-1 min-w-0 lg:order-2">
+            <SimpleUpload />
             <Canvas initialTitle={article?.title} categories={categories}
               previewMeta={{ author: authorName, views: article?.views ?? 0 }} />
           </div>
 
           <aside className="order-3 lg:sticky lg:top-20 lg:self-start">
-            <div className="card p-4">
-              <Inspector article={article} categories={categories} />
+            {/* The panel scrolls INTERNALLY (tabs stay pinned) when it's taller than
+                the viewport, so a long options list never runs off the page. */}
+            <div className="card card-soft composer-panel p-4 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              <Inspector article={article} categories={categories} vendors={vendors} bylines={bylines} genres={genres} />
             </div>
           </aside>
         </div>

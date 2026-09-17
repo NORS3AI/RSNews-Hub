@@ -1,11 +1,27 @@
 import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 import { saveEmailTemplate, resetEmailTemplate } from '@/lib/actions';
 import { EMAIL_TEMPLATES, loadTemplateCopy, renderCopy, sampleVars } from '@/lib/emailTemplates';
 import { ActionButtons } from '@/components/admin/RowActions';
+import TemplateBody from '@/components/admin/TemplateBody';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminEmailTemplates() {
+  // Vendor-facing email copy is admins-only — editors can reach /admin but not
+  // rewrite the emails vendors receive (matches the server-action guard).
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'ADMIN') {
+    return (
+      <div className="max-w-4xl">
+        <h1 className="mb-1 text-2xl font-bold">Email templates</h1>
+        <p className="rounded-lg border border-[var(--border)] bg-[var(--card-2)] px-4 py-3 text-sm text-[var(--muted)]">
+          Editing the automated email copy is limited to administrators. Ask an admin if you need a template changed.
+        </p>
+      </div>
+    );
+  }
+
   const overridden = new Set((await prisma.emailTemplate.findMany({ select: { key: true } })).map((r) => r.key));
   const templates = await Promise.all(
     Object.values(EMAIL_TEMPLATES).map(async (def) => {
@@ -44,15 +60,7 @@ export default async function AdminEmailTemplates() {
                 <label className="label text-xs">Subject</label>
                 <input name="subject" defaultValue={copy.subject} className="input" required />
               </div>
-              <div>
-                <label className="label text-xs">Body</label>
-                <textarea name="body" defaultValue={copy.body} rows={10} className="input font-mono text-[13px] leading-relaxed" required />
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {def.tags.map((t) => (
-                  <span key={t.tag} className="badge bg-[var(--bg-soft)] text-[11px]" title={t.desc}><code>{`{${t.tag}}`}</code></span>
-                ))}
-              </div>
+              <TemplateBody name="body" defaultValue={copy.body} tags={def.tags} />
               <div className="flex items-center gap-2">
                 <button className="btn-primary btn-sm">Save</button>
                 {custom && <ActionButtons actions={[{ label: 'Reset to default', run: resetEmailTemplate.bind(null, def.key), confirm: `Reset “${def.label}” to the built-in default? Your custom copy is discarded.` }]} />}

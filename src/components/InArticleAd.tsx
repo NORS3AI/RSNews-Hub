@@ -1,6 +1,7 @@
-import type { AdRow } from '@/lib/ads';
+import type { AdRow, AdContext } from '@/lib/ads';
 import AdSlot from '@/components/AdSlot';
 import VideoAd from '@/components/site/VideoAd';
+import AdExpand from '@/components/site/AdExpand';
 
 /**
  * Presentational house ad shown inside an article. The `ad` is already chosen
@@ -11,67 +12,104 @@ import VideoAd from '@/components/site/VideoAd';
  * back to the neutral placeholder when no safe ad is available.
  */
 export default function InArticleAd({
-  ad, slot, size = 'in-article', tone = 'card',
-}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle'; tone?: 'card' | 'orange' }) {
-  if (!ad) return <AdSlot size={size} slot={slot} />;
-
+  ad, slot, size = 'in-article', tone = 'card', fill = false, placeholder = true, adContext,
+}: { ad: AdRow | null; slot?: string; size?: 'in-article' | 'rectangle' | 'video' | 'skyscraper'; tone?: 'card' | 'orange'; fill?: boolean; placeholder?: boolean; adContext?: AdContext }) {
+  // `placeholder=false` means "never show a filler box" — render nothing when
+  // there's no image creative to show. Used on the live homepage so a reader
+  // never sees an empty ad slot (dashed placeholder OR the orange no-image box);
+  // the slot simply collapses. In-article slots keep placeholder=true.
+  // `fill` drops the rectangle's max-width cap so the ad fills its column
+  // (used on the homepage grid) instead of floating centered at its native size.
+  // video (16:9) and skyscraper (tall ~1:3) are module-only shapes; AdSlot only
+  // knows in-article/rectangle, so map them for the (admin-only) placeholder.
   const rect = size === 'rectangle';
-  // A video creative is silent/looping and only fits the rectangle slot.
-  if (rect && ad.video) {
-    return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} />;
+  const video = size === 'video';
+  const sky = size === 'skyscraper';
+  if (!ad) return placeholder ? <AdSlot size={rect || sky ? 'rectangle' : 'in-article'} slot={slot} className={fill ? 'max-w-none' : undefined} /> : null;
+
+  // A silent looping video creative fits the rectangle and the widescreen video slot.
+  if ((rect || video) && ad.video) {
+    return <VideoAd id={ad.id} href={ad.href} brand={ad.brand} slot={slot} src={ad.video} poster={ad.videoPoster} accent={ad.accent} size={video ? 'video' : 'rectangle'} />;
   }
-  const image = rect ? (ad.imageRect || ad.imageWide) : (ad.imageWide || ad.imageRect);
+  // Pick the creative that best fits the slot shape. Skyscraper prefers the tall
+  // creative; the widescreen video slot (no video creative) uses a wide image.
+  const image = sky ? (ad.imageTall || ad.imageRect || ad.imageWide)
+    : video ? (ad.imageWide || ad.imageRect)
+    : rect ? (ad.imageRect || ad.imageWide)
+    : (ad.imageWide || ad.imageRect);
   const orange = tone === 'orange';
 
   // Analytics: separate placement (slot) / creative (ad id) / campaign (brand)
   // identifiers + format + shape, so the same ad can be compared across slots.
+  // When rendered inside an article we also carry the article id/slug + a
+  // `sponsored` flag, so an ad event is attributable to the exact (sponsored)
+  // article it ran in — see AnalyticsProvider → advertiserReport.bySponsoredArticle.
+  // A flighted (paid) ad also carries its batch identity (the AdFlight = one
+  // campaign batch), so a vendor's performance can be split per batch — evergreen
+  // house ads have no flight, so they carry none (correctly excluded from batches).
+  const trkProps = {
+    brand: ad.brand, campaignId: ad.brand, creativeId: ad.id,
+    format: image ? 'image' : 'text', shape: sky ? 'skyscraper' : video ? 'video' : rect ? 'rectangle' : 'banner',
+    ...(ad.flightId ? { flightId: ad.flightId, flightIndex: ad.flightIndex ?? null } : {}),
+    ...(adContext?.articleId ? { articleId: adContext.articleId } : {}),
+    ...(adContext?.articleSlug ? { articleSlug: adContext.articleSlug } : {}),
+    ...(adContext?.sponsored ? { sponsored: true } : {}),
+  };
   const trk = {
     'data-trk-type': 'ad',
     'data-trk-id': ad.id,
     'data-trk-place': slot,
-    'data-trk-props': JSON.stringify({ brand: ad.brand, campaignId: ad.brand, creativeId: ad.id, format: image ? 'image' : 'text', shape: rect ? 'rectangle' : 'banner' }),
+    'data-trk-props': JSON.stringify(trkProps),
   } as const;
 
   // Image creative — render the artwork with a small "Ad" chip. On the homepage
   // the card is orange and pads the art into a frame; in-article stays neutral.
+  // A small zoom button (AdExpand) sits outside the anchor so tapping it enlarges
+  // the ad instead of navigating.
   if (image) {
+    // Fixed aspect (cover-cropped) for the shaped module slots; natural height for
+    // the classic banner/rectangle so existing creatives are untouched.
+    const imgShape = video ? 'aspect-video object-cover' : sky ? 'aspect-[1/3] object-cover' : '';
+    const wrapMax = sky ? 'max-w-[220px]' : rect && !fill ? 'max-w-[360px]' : '';
     return (
-      <a
-        href={ad.href}
+      <div className={`relative mx-auto w-full ${wrapMax}`}>
+        <a
+          href={ad.href}
+          data-ad-slot={slot}
+          data-ad-brand={ad.brand}
+          {...trk}
+          aria-label={`Advertisement: ${ad.brand}`}
+          className={`relative block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'}`}
+          style={{ boxShadow: 'var(--shadow-card)' }}
+        >
+          <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image} alt={ad.brand} className={`block w-full ${imgShape} ${orange ? 'rounded-lg' : ''}`} />
+        </a>
+        <AdExpand kind="image" brand={ad.brand} href={ad.href} cta={ad.cta} subjectId={ad.id} placement={slot} trkProps={trkProps} src={image} />
+      </div>
+    );
+  }
+
+  // No image creative on file for this slot. On surfaces that opt out of fillers
+  // (the live homepage) collapse to nothing rather than show an empty box.
+  if (!placeholder) return null;
+  // Otherwise (in-article): we don't run word ads — show a themed, correctly-
+  // shaped placeholder (a horizontal banner for the in-article slot, a rectangle
+  // for the bottom slot) in the site's orange, awaiting the advertiser's image.
+  return (
+    <div className={`mx-auto w-full ${rect && !fill ? 'max-w-[340px]' : ''}`}>
+      <div
         data-ad-slot={slot}
         data-ad-brand={ad.brand}
         {...trk}
         aria-label={`Advertisement: ${ad.brand}`}
-        className={`relative mx-auto block w-full overflow-hidden ${orange ? 'ad-orange rounded-2xl bg-brand-600 p-2' : 'rounded-xl border border-[var(--border)] bg-[var(--card)]'} ${rect ? 'max-w-[360px]' : ''}`}
+        className={`flex flex-col items-center justify-center gap-1.5 rounded-xl bg-brand-600 px-4 py-6 text-center text-white ${rect ? 'min-h-[250px]' : 'min-h-[140px]'}`}
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
-        <span className="absolute left-3 top-3 z-10 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white">Ad</span>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image} alt={ad.brand} className={`block w-full ${orange ? 'rounded-lg' : ''}`} />
-      </a>
-    );
-  }
-
-  return (
-    <div
-      data-ad-slot={slot}
-      data-ad-brand={ad.brand}
-      {...trk}
-      aria-label="Advertisement"
-      className={`mx-auto w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] ${rect ? 'max-w-[340px]' : ''}`}
-      style={{ boxShadow: 'var(--shadow-card)' }}
-    >
-      <div className="h-1" style={{ background: ad.accent }} />
-      <div className="p-4">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="rounded px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-white" style={{ background: ad.accent }}>Ad</span>
-          <span className="text-xs font-bold text-[var(--fg)]">{ad.brand}</span>
-          {ad.label && <span className="ml-auto text-[11px] text-[var(--muted)]">{ad.label}</span>}
-        </div>
-        <p className="text-[15px] font-semibold leading-snug text-[var(--fg)]">{ad.headline}</p>
-        <a href={ad.href} className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold text-white" style={{ background: ad.accent }}>
-          {ad.cta} →
-        </a>
+        <span className="rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]">Ad</span>
+        <span className="text-base font-extrabold">{ad.brand}</span>
+        {ad.label && <span className="text-[11px] font-medium text-white/80">{ad.label}</span>}
       </div>
     </div>
   );

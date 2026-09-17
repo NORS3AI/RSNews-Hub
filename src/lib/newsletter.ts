@@ -14,7 +14,20 @@ import { linkSource } from './industry';
 import { parseTopics, gatherSince, ALL, INDUSTRY, type TopicKey } from './subscriptions';
 
 const LAST_DIGEST_KEY = 'newsletter:lastDigestAt';
+const ENABLED_KEY = 'newsletter:enabled';
 function base(): string { return (siteUrl || '').replace(/\/$/, ''); }
+
+/** Master on/off for the whole email-digest feature (admin-controlled). Default
+ *  ON; only an explicit 'false' disables it. When off, no digests send and the
+ *  subscribe UI hides the email option. On-site notifications are unaffected. */
+export async function isNewsletterEnabled(): Promise<boolean> {
+  const row = await prisma.setting.findUnique({ where: { key: ENABLED_KEY } });
+  return row?.value !== 'false';
+}
+export async function setNewsletterEnabled(on: boolean): Promise<void> {
+  const value = on ? 'true' : 'false';
+  await prisma.setting.upsert({ where: { key: ENABLED_KEY }, update: { value }, create: { key: ENABLED_KEY, value } });
+}
 
 async function lastDigestAt(): Promise<Date> {
   const row = await prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } });
@@ -28,11 +41,19 @@ async function setCheckpoint(now: Date): Promise<void> {
 type Gathered = Awaited<ReturnType<typeof gatherSince>>;
 function itemCount(g: Gathered) { return g.industry.length + g.articles.length; }
 
+// Only http(s) links belong in the digest. An editor-authored industry URL with
+// a javascript:/data: scheme is escaped anyway (no attribute breakout), but we
+// also drop the href entirely as defense-in-depth so nothing odd rides into a
+// reader's mail client.
+function safeHref(href: string): string {
+  return /^https?:\/\//i.test(href) ? href : '#';
+}
+
 function digestHtml(g: Gathered, unsubUrl: string): string {
   const b = base();
   const row = (title: string, href: string, meta: string) =>
     `<tr><td style="padding:10px 0;border-bottom:1px solid #eee">` +
-    `<a href="${escapeHtml(href)}" style="color:#232a36;font-weight:700;font-size:16px;text-decoration:none">${escapeHtml(title)}</a>` +
+    `<a href="${escapeHtml(safeHref(href))}" style="color:#232a36;font-weight:700;font-size:16px;text-decoration:none">${escapeHtml(title)}</a>` +
     (meta ? `<div style="color:#8a8f98;font-size:13px;margin-top:2px">${escapeHtml(meta)}</div>` : '') + `</td></tr>`;
   let body = '';
   if (g.industry.length) {
@@ -41,17 +62,20 @@ function digestHtml(g: Gathered, unsubUrl: string): string {
     body += `</table>`;
   }
   if (g.articles.length) {
-    body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:22px 0 6px">New on RSNews Hub</h2><table role="presentation" width="100%">`;
+    body += `<h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#E97D34;margin:22px 0 6px">New on RS News Hub</h2><table role="presentation" width="100%">`;
     body += g.articles.map((a) => row(a.title, `${b}/docs/article/${a.slug}`, a.category?.name || '')).join('');
     body += `</table>`;
   }
-  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this RSNews Hub digest for the topics you picked. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
-  return renderEmail('Your RSNews Hub digest', body);
+  body += `<p style="color:#8a8f98;font-size:12px;margin-top:22px">You're getting this RS News Hub digest for the topics you picked. <a href="${escapeHtml(unsubUrl)}" style="color:#8a8f98">Unsubscribe</a>.</p>`;
+  return renderEmail('Your RS News Hub digest', body);
 }
 
 /** Send each active subscriber their own digest for their own topics. Skips a
  *  subscriber with nothing new; records the checkpoint once at the end. */
-export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; skippedEmpty: number; subscribers: number }> {
+export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<{ sent: number; failed: number; skippedEmpty: number; subscribers: number; disabled?: boolean }> {
+  // Master switch: when the digest feature is turned off, send nothing and don't
+  // move the checkpoint (so re-enabling picks up where it left off).
+  if (!(await isNewsletterEnabled())) return { sent: 0, failed: 0, skippedEmpty: 0, subscribers: 0, disabled: true };
   const since = await lastDigestAt();
   const now = new Date();
   const subs = await prisma.newsletterSubscriber.findMany({ where: { active: true }, select: { email: true, token: true, topics: true } });
@@ -63,15 +87,24 @@ export async function sendDailyDigests(opts: { force?: boolean } = {}): Promise<
     // to everyone already emailed on the next run.
     try {
       const keys: TopicKey[] = parseTopics(s.topics);
+      // No viewer → only open articles. A broadcast email can't verify each
+      // address's tier, so tier-gated pieces (Premium, PackageHub, …) never
+      // ride out to the list; recipients still click through to the gated page,
+      // which enforces access there.
       const g = await gatherSince(keys.length ? keys : [INDUSTRY], since, now, 40);
       if (!opts.force && itemCount(g) === 0) { skippedEmpty++; continue; }
       const unsub = `${base()}/newsletter/unsubscribe?token=${s.token}`;
       const n = itemCount(g);
-      const r = await sendEmail({ to: s.email, subject: `RSNews Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
+      const r = await sendEmail({ to: s.email, subject: `RS News Hub — ${n} update${n === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
       if (r.ok) sent++; else failed++;
     } catch { failed++; }
   }
-  await setCheckpoint(now);
+  // Advance the checkpoint UNLESS the whole batch failed (e.g. the email provider
+  // is down): otherwise a total outage would mark this window delivered and that
+  // day's items would be silently dropped for everyone with no retry. A partial
+  // failure still advances (the few failures miss this window) rather than
+  // re-sending to everyone who already received it.
+  if (!(sent === 0 && failed > 0)) await setCheckpoint(now);
   return { sent, failed, skippedEmpty, subscribers: subs.length };
 }
 
@@ -84,18 +117,19 @@ export async function sendTestTo(emailRaw: string): Promise<{ ok: boolean; error
   const keys: TopicKey[] = existing ? parseTopics(existing.topics) : [ALL];
   const g = await gatherSince(keys.length ? keys : [ALL], new Date(Date.now() - 7 * 24 * 3600 * 1000), new Date(), 40);
   const unsub = `${base()}/newsletter/unsubscribe?token=${existing?.token || 'test'}`;
-  const r = await sendEmail({ to: email, subject: `[Test] RSNews Hub — ${itemCount(g)} update${itemCount(g) === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
+  const r = await sendEmail({ to: email, subject: `[Test] RS News Hub — ${itemCount(g)} update${itemCount(g) === 1 ? '' : 's'}`, html: digestHtml(g, unsub) });
   return { ok: r.ok, skipped: r.skipped, error: r.error };
 }
 
 export async function newsletterStatus() {
   const now = new Date();
-  const [total, active, last] = await Promise.all([
+  const [total, active, last, enabled] = await Promise.all([
     prisma.newsletterSubscriber.count(),
     prisma.newsletterSubscriber.count({ where: { active: true } }),
     prisma.setting.findUnique({ where: { key: LAST_DIGEST_KEY } }),
+    isNewsletterEnabled(),
   ]);
   const since = last?.value ? new Date(last.value) : new Date(now.getTime() - 24 * 3600 * 1000);
   const g = await gatherSince([ALL], since, now, 40); // everything new — the max any subscriber could receive
-  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: itemCount(g), emailReady: isEmailConfigured() };
+  return { total, active, lastSentAt: last?.value ? new Date(last.value) : null, pending: itemCount(g), emailReady: isEmailConfigured(), enabled };
 }

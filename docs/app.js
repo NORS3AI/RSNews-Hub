@@ -1,4 +1,4 @@
-/* RSNews Hub — static preview. Sidebar nav, module-forward layout,
+/* RS News Hub — static preview. Sidebar nav, module-forward layout,
    favorites (★) + read-later (📖) + history, flat orange (#E97D34). */
 (function () {
   'use strict';
@@ -27,6 +27,8 @@
     pinMd: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3-1-6Z"/></svg>',
     expandLR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>',
     collapseLR: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12h16M4 8l4 4-4 4M20 8l-4 4 4 4"/></svg>',
+    chevL: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg>',
+    chevR: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>',
     x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     clock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     clockLg: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" style="display:inline;vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
@@ -260,7 +262,7 @@
       ctx.fillStyle = p.logoBg; roundRect(ctx, pad, by + 34, 68, 68, 15); ctx.fill();
       ctx.fillStyle = p.logoText; ctx.font = '900 32px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('RS', pad + 34, by + 34 + 36); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RSNews Hub', pad + 86, by + 40);
+      ctx.fillStyle = p.footerText; ctx.font = '800 32px ui-sans-serif, Arial'; ctx.fillText('RS News Hub', pad + 86, by + 40);
       ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad + 86, by + 78); urlY = -1;
     }
     if (urlY >= 0) { ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillStyle = p.footerSub; ctx.font = '500 24px ui-sans-serif, Arial'; ctx.fillText(o.url || '', pad, urlY); }
@@ -328,8 +330,28 @@
       : '<button class="strip-clear" data-strip-clear="1" title="Clear all pinned">Clear all</button>';
     wrap.innerHTML = '<div class="strip-wrap"><div class="strip' + (stripExpanded ? ' expanded' : '') + '"><div class="strip-inner">' +
       '<button class="strip-icon-btn" data-strip-expand="1" title="' + (stripExpanded ? 'Collapse' : 'Expand — show all titles') + '">' + (stripExpanded ? ICON.collapseLR : ICON.expandLR) + '</button>' +
-      '<span class="strip-label">' + ICON.pinMd + ' Pinned</span><div class="chips">' + chips + '</div>' +
+      '<span class="strip-label">Pinned</span>' +
+      '<button class="strip-arrow" data-strip-page="-1" aria-label="Show earlier pinned">' + ICON.chevL + '</button>' +
+      '<div class="chips">' + chips + '</div>' +
+      '<button class="strip-arrow" data-strip-page="1" aria-label="Show more pinned">' + ICON.chevR + '</button>' +
       '<div class="strip-clear-wrap">' + clear + '</div></div></div></div>';
+    var row = wrap.querySelector('.chips');
+    if (row) row.addEventListener('scroll', updateStripArrows, { passive: true });
+    updateStripArrows();
+  }
+  window.addEventListener('resize', updateStripArrows);
+  // Show the arrows only when the chip row actually overflows (mouse users can't
+  // swipe); disable whichever direction has nothing more to reveal.
+  function updateStripArrows() {
+    var wrap = el('strip'); if (!wrap) return;
+    var row = wrap.querySelector('.chips'); if (!row) return;
+    var l = wrap.querySelector('[data-strip-page="-1"]');
+    var r = wrap.querySelector('[data-strip-page="1"]');
+    var over = row.scrollWidth - row.clientWidth > 2;
+    var canL = row.scrollLeft > 2;
+    var canR = row.scrollLeft + row.clientWidth < row.scrollWidth - 2;
+    if (l) l.classList.toggle('hide', !over || !canL);
+    if (r) r.classList.toggle('hide', !over || !canR);
   }
   function syncButtons() {
     document.querySelectorAll('[data-fav]').forEach(function (b) {
@@ -673,7 +695,7 @@
     { id: 'postalmate', brand: 'PostalMate', group: 'shipping-software', label: 'Shipping & POS software', headline: 'PostalMate — all-in-one shipping, POS & mailbox management for retail counters.', cta: 'Start free trial', href: '#', accent: '#2f6f4f' },
     { id: 'shiprite', brand: 'ShipRite', group: 'shipping-software', label: 'Shipping software', headline: 'ShipRite — multi-carrier shipping and store management, built for pack-and-ship stores.', cta: 'Book a demo', href: '#', accent: '#2b5a86' },
     { id: 'stripe', brand: 'Stripe', group: 'payments', label: 'Payments', headline: 'Stripe — accept payments and grow revenue with a few lines of code.', cta: 'Get started', href: '#', accent: '#5a54d6' },
-    { id: 'rsnews-pro', brand: 'RSNews Pro', group: null, label: 'RSNews Hub', headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.', cta: 'Upgrade', href: '#', accent: '#E97D34' },
+    { id: 'rsnews-pro', brand: 'RSNews Pro', group: null, label: 'RS News Hub', headline: 'Read faster with RSNews Pro — ad-free articles, offline clippings, and daily digests.', cta: 'Upgrade', href: '#', accent: '#E97D34' },
     { id: 'clouddesk', brand: 'CloudDesk', group: null, label: 'Support software', headline: 'CloudDesk — the helpdesk your team will actually enjoy using.', cta: 'Try it free', href: '#', accent: '#2b7a8c' },
     { id: 'brewcrate', brand: 'BrewCrate', group: null, label: 'Coffee club', headline: 'BrewCrate — freshly-roasted specialty coffee, delivered to your desk monthly.', cta: 'Shop now', href: '#', accent: '#8a5a2b' },
     { id: 'ledgerlite', brand: 'LedgerLite', group: null, label: 'Accounting', headline: 'LedgerLite — simple bookkeeping and invoicing for small businesses.', cta: 'Learn more', href: '#', accent: '#4a6b8a' }
@@ -1328,7 +1350,7 @@
     if (e.target.closest('[data-dlg-close]')) { e.preventDefault(); closeDialog(); return; }
     var shareBtn = e.target.closest('[data-share]'); if (shareBtn) { e.preventDefault(); e.stopPropagation(); openShare(shareBtn.getAttribute('data-share')); return; }
     var copyLink = e.target.closest('[data-copy-link]'); if (copyLink) { e.preventDefault(); if (navigator.clipboard) navigator.clipboard.writeText(copyLink.getAttribute('data-copy-link')); toast('Link copied!'); return; }
-    var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RSNews Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
+    var nativeShare = e.target.closest('[data-native-share]'); if (nativeShare) { e.preventDefault(); var ns = nativeShare.getAttribute('data-native-share'), na = bySlug[ns]; if (navigator.share) navigator.share({ title: na ? na.title : 'RS News Hub', url: shareUrlFor(ns) }).catch(function () {}); return; }
     var clipSave = e.target.closest('[data-clip-save]'); if (clipSave) { e.preventDefault();
       if (dialogData && !dialogData.saved) {
         saveClipping({ id: 'c' + Date.now(), quote: dialogData.text, title: dialogData.o.title, author: dialogData.o.author, slug: dialogData.slug, ts: Date.now() });
@@ -1380,6 +1402,7 @@
     var sClr = e.target.closest('[data-strip-clear]'); if (sClr) { e.preventDefault(); stripConfirmClear = true; renderStrip(); return; }
     var sYes = e.target.closest('[data-strip-clear-yes]'); if (sYes) { e.preventDefault(); stripConfirmClear = false; clearRead(); return; }
     var sNo = e.target.closest('[data-strip-clear-no]'); if (sNo) { e.preventDefault(); stripConfirmClear = false; renderStrip(); return; }
+    var sPg = e.target.closest('[data-strip-page]'); if (sPg) { e.preventDefault(); var row = document.querySelector('#strip .chips'); if (row) row.scrollBy({ left: parseInt(sPg.getAttribute('data-strip-page'), 10) * 240, behavior: 'smooth' }); return; }
     var fFolder = e.target.closest('[data-favfolder]'); if (fFolder) { e.preventDefault(); favView = fFolder.getAttribute('data-favfolder'); favNewOpen = false; renderFavorites(); return; }
     var fNew = e.target.closest('[data-fav-newfolder]'); if (fNew) { e.preventDefault(); favNewOpen = true; renderFavorites(); var ni = el('main').querySelector('[data-fav-newfolder-input]'); if (ni) ni.focus(); return; }
     var fAdd = e.target.closest('[data-fav-newfolder-add]'); if (fAdd) { e.preventDefault(); var ai = el('main').querySelector('[data-fav-newfolder-input]'); var nid = addFavFolder(ai ? ai.value : ''); favNewOpen = false; if (nid) favView = nid; renderFavorites(); return; }

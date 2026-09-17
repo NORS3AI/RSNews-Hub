@@ -55,6 +55,8 @@ export async function provisionFromMember(m: Member) {
     vendorBrand: m.vendorBrand ?? null,
     region: m.region ?? null,
     storeType: m.storeType ?? null,
+    storeName: m.storeName ?? null,
+    memberCode: m.memberCode ?? null,
   };
   const user = await prisma.user.upsert({
     where: { externalId: m.externalId },

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db';
-import { saveAd, deleteAd } from '@/lib/actions';
+import { saveAd, deleteAd, swapAdImages } from '@/lib/actions';
 import { ActionButtons } from '@/components/admin/RowActions';
 import InArticleAd from '@/components/InArticleAd';
 import AdImageInput from '@/components/admin/AdImageInput';
@@ -29,18 +29,21 @@ const FieldSet = ({ ad }: { ad?: any }) => (
     </div>
     <AdImageInput name="imageWide" label="Banner image (wide ~3:1)" defaultValue={ad?.imageWide ?? ''} hint="Shown in the in-article slot. Leave blank to use the text card." />
     <AdImageInput name="imageRect" label="Rectangle image (~1.2:1)" defaultValue={ad?.imageRect ?? ''} hint="Shown in the bottom slot (300×250-ish)." />
+    <AdImageInput name="imageTall" label="Skyscraper image (tall ~1:3)" defaultValue={(ad as { imageTall?: string } | undefined)?.imageTall ?? ''} hint="Optional. Shown in a tall vertical module ad slot (160×600-ish). Leave blank if you don't run skyscrapers — the slot falls back to a house ad or hides." />
     <AdImageInput name="video" kind="video" label="Rectangle video (silent, ~1:1)" defaultValue={ad?.video ?? ''} hint="Optional mp4/webm — plays muted &amp; looping in the rectangle slot (overrides the rectangle image). Tracks 25/50/75/100% completion." />
     <AdImageInput name="videoPoster" label="Video poster (optional)" defaultValue={ad?.videoPoster ?? ''} hint="Still image shown before play and for reduced-motion viewers." />
     <div className="flex items-center gap-4">
-      <div><label className="label">Accent</label><input name="accent" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
+      <div><label className="label">Accent</label><input name="accent" aria-label="Accent color" type="color" defaultValue={ad?.accent ?? '#E97D34'} className="input h-10 w-16 p-1" /></div>
       <label className="mt-5 flex items-center gap-2 text-sm font-medium"><input type="checkbox" name="active" defaultChecked={ad ? ad.active : true} className="h-4 w-4" /> Active</label>
+      <label className="mt-5 flex items-center gap-2 text-sm font-medium" title="A one-off sponsor creative: never rotates; only shows where you insert it into a specific article."><input type="checkbox" name="reserved" defaultChecked={ad?.reserved ?? false} className="h-4 w-4" /> Reserved (one-off)</label>
+      <label className="mt-5 flex items-center gap-2 text-sm font-medium" title="An RS-owned creative. Only house ads are used as the safe fallback inside a vendor-connected (sponsored / What's Hot) article. Never tick this for an outside advertiser."><input type="checkbox" name="house" defaultChecked={(ad as { house?: boolean } | undefined)?.house ?? false} className="h-4 w-4" /> House ad (RS-owned)</label>
     </div>
     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-soft)] p-3">
       <div className="grid grid-cols-2 gap-3">
-        <div><label className="label">Live from (optional)</label><input name="liveFrom" type="datetime-local" defaultValue={toLocalInput(ad?.liveFrom)} className="input" /></div>
-        <div><label className="label">Live until (optional)</label><input name="liveUntil" type="datetime-local" defaultValue={toLocalInput(ad?.liveUntil)} className="input" /></div>
+        <div><label className="label">Live from (optional)</label><input name="liveFrom" aria-label="Live from" type="datetime-local" defaultValue={toLocalInput(ad?.liveFrom)} className="input" /></div>
+        <div><label className="label">Live until (optional)</label><input name="liveUntil" aria-label="Live until" type="datetime-local" defaultValue={toLocalInput(ad?.liveUntil)} className="input" /></div>
       </div>
-      <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Leave both blank for an always-on ad</strong> — that&apos;s the default for our own brands (Retail Shipping Associates, PackageHub). Set a window for a one-off outside advertiser who isn&apos;t going through JotForm.</p>
+      <p className="mt-1.5 text-xs text-[var(--muted)]"><strong>Leave both blank for an always-on ad</strong> — that&apos;s the default for our own brands (Retail Shipping Associates, PackageHub) and for a sponsor&apos;s <strong>reserved</strong> in-article creative, which stays evergreen. To make a reserved sponsor ad <em>limited-time</em>, set <strong>Live until</strong> — it drops out of the article on that date (on its own timer; the article itself is untouched). Also use a window for a one-off outside advertiser who isn&apos;t going through JotForm.</p>
     </div>
   </>
 );
@@ -79,6 +82,8 @@ export default async function AdminAds() {
                   <span className="h-3 w-3 rounded-full" style={{ backgroundColor: ad.accent }} />
                   {ad.brand}
                   {!ad.active && <span className="badge bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">paused</span>}
+                  {ad.reserved && <span className="badge bg-violet-100 text-violet-700" title="One-off — not in rotation; inserted into a specific article">reserved</span>}
+                  {(ad as { house?: boolean }).house && <span className="badge bg-brand-100 text-brand-700" title="RS-owned — used as the safe fallback inside vendor-connected articles">house</span>}
                 </span>
                 <span className="max-w-[45%] truncate text-xs text-[var(--muted)]">{ad.competitors ? `vs ${ad.competitors}` : 'no competitors set'}</span>
               </summary>
@@ -88,12 +93,19 @@ export default async function AdminAds() {
                   <FieldSet ad={ad} />
                   <div className="flex items-center justify-between">
                     <button className="btn-primary btn-sm">Save</button>
-                    <ActionButtons actions={[{ label: 'Delete', run: deleteAd.bind(null, ad.id), danger: true, confirm: `Delete the ${ad.brand} ad?` }]} />
+                    <ActionButtons actions={[{ label: 'Delete', run: deleteAd.bind(null, ad.id), danger: true, confirm: `Delete the ${ad.brand} ad permanently? This can't be undone.` }]} />
                   </div>
                 </form>
                 <div>
                   <div className="label mb-2">Live preview</div>
                   <InArticleAd ad={ad} slot="preview" size="in-article" />
+                  {(ad.imageWide || ad.imageRect) && (
+                    <form action={swapAdImages.bind(null, ad.id)} className="mt-3">
+                      <button className="btn-outline btn-sm" title="Swap the banner and rectangle images — handy if an import slotted them the wrong way round">
+                        ⇄ Swap banner ↔ rectangle
+                      </button>
+                    </form>
+                  )}
                 </div>
               </div>
             </details>

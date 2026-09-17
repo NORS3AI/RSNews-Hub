@@ -34,6 +34,9 @@ export function splitDim(e: Ev, dim: string): string {
     case 'position': return `slot ${num(e.props.pos)}`;
     case 'creative': return String(e.props.creativeId ?? e.subjectId ?? '—');
     case 'campaign': return String(e.props.campaignId ?? e.props.brand ?? '—');
+    case 'article': return String(e.props.articleId ?? e.props.articleSlug ?? '—');
+    case 'flight': return String(e.props.flightId ?? '—');
+    case 'all': return 'all'; // fold everything into one bucket (for grand totals)
     case 'format': return String(e.props.format ?? '—');
     case 'shape': return String(e.props.shape ?? '—');
     case 'category': return String(e.props.category ?? '—');
@@ -41,12 +44,13 @@ export function splitDim(e: Ev, dim: string): string {
   }
 }
 
-type AdRow = { key: string; impressions: number; viewable: number; clicks: number; ctr: number; avgDwellMs: number; aboveFoldPct: number };
+type AdRow = { key: string; impressions: number; viewable: number; clicks: number; ctr: number; expands: number; avgDwellMs: number; aboveFoldPct: number };
 
-// Ads: exposure (impression/viewable/above-fold/dwell) + interaction (clicks).
+// Ads: exposure (impression/viewable/above-fold/dwell) + interaction (clicks) +
+// how often readers opened the zoom overlay (expands — a readability signal).
 export function aggregateAds(evs: Ev[], splitBy: string): AdRow[] {
-  const g = new Map<string, { imp: number; view: number; clk: number; dwell: number; dwellN: number; af: number }>();
-  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, view: 0, clk: 0, dwell: 0, dwellN: 0, af: 0 }; g.set(k, v); } return v; };
+  const g = new Map<string, { imp: number; view: number; clk: number; exp: number; dwell: number; dwellN: number; af: number }>();
+  const ensure = (k: string) => { let v = g.get(k); if (!v) { v = { imp: 0, view: 0, clk: 0, exp: 0, dwell: 0, dwellN: 0, af: 0 }; g.set(k, v); } return v; };
   for (const e of evs) {
     if (e.subjectType !== 'ad') continue;
     const row = ensure(splitDim(e, splitBy));
@@ -57,10 +61,12 @@ export function aggregateAds(evs: Ev[], splitBy: string): AdRow[] {
       const d = num(e.props.dwellMs ?? e.value);
       if (d > 0) { row.dwell += d; row.dwellN++; }
     } else if (e.type === 'click') row.clk++;
+    else if (e.type === 'ad_expand') row.exp++;
   }
   return [...g.entries()].map(([key, r]) => ({
     key, impressions: r.imp, viewable: r.view, clicks: r.clk,
-    ctr: ctr(r.clk, r.view || r.imp), avgDwellMs: r.dwellN ? Math.round(r.dwell / r.dwellN) : 0, aboveFoldPct: pct(r.af, r.imp),
+    ctr: ctr(r.clk, r.view || r.imp), expands: r.exp,
+    avgDwellMs: r.dwellN ? Math.round(r.dwell / r.dwellN) : 0, aboveFoldPct: pct(r.af, r.imp),
   })).sort((a, b) => b.impressions - a.impressions);
 }
 
@@ -117,6 +123,12 @@ export function aggregateReading(evs: Ev[]) {
   // read counts at most once per bucket — never >100%).
   const denom = reads.length || 1;
   const reached = (m: number) => reads.filter((e) => num(e.props.scrollPct) >= m).length;
+  // "Recommend" is a reading OUTCOME (they finished, then endorsed). Count the
+  // recommends CAST in the window (raw add actions — same activity semantics as
+  // Saves), plus unique recommenders. Un-recommends aren't subtracted here: this
+  // is windowed activity, not a live total (the all-time per-article total lives
+  // in Article.recommends and drives the rankings).
+  const recAdds = evs.filter((e) => e.type === 'recommend' && e.props.action === 'add');
   return {
     opens: opens.length,
     uniqueReaders: uniq(opens.map((e) => e.visitorId)),
@@ -124,6 +136,8 @@ export function aggregateReading(evs: Ev[]) {
     avgScrollPct: scrolls.length ? Math.round(scrolls.reduce((a, b) => a + b, 0) / scrolls.length) : 0,
     reach: { 25: pct(reached(25), denom), 50: pct(reached(50), denom), 75: pct(reached(75), denom), 100: pct(reached(100), denom) },
     bounces: reads.filter((e) => num(e.props.activeMs ?? e.value) < 5000).length,
+    recommends: recAdds.length,
+    recommenders: uniq(recAdds.map((e) => e.userId ?? e.visitorId)),
   };
 }
 
@@ -166,6 +180,11 @@ export function aggregateOverview(evs: Ev[]) {
 // ---- Advertiser-scoped reporting (a vendor sees only their own brand) ----
 
 const brandOf = (e: Ev): string => String(e.props.campaignId ?? e.props.brand ?? '');
+// Match key for a brand string — trim + lowercase, mirroring lib/entitlements'
+// brandKey. Kept inline so this module stays DB/import-free and unit-testable.
+// Ensures the admin "Build report" hand-off (which passes the vendor's *display
+// name*) still matches events keyed on campaignId/brand across casing/whitespace.
+const brandMatchKey = (s: unknown): string => (typeof s === 'string' ? s.trim() : String(s ?? '')).toLowerCase();
 
 // Distinct advertiser/brand names present in the ad events.
 export function advertiserList(evs: Ev[]): string[] {
@@ -189,9 +208,27 @@ export function adTrend(evs: Ev[]): { key: string; impressions: number; clicks: 
 // Full report for one advertiser — totals + per-creative + per-placement +
 // daily trend, scoped strictly to that brand's events.
 export function advertiserReport(evs: Ev[], brand: string) {
-  const ads = evs.filter((e) => e.subjectType === 'ad' && brandOf(e) === brand);
-  const totals = aggregateAds(ads, 'campaign')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, avgDwellMs: 0, aboveFoldPct: 0 };
-  return { brand, totals, byCreative: aggregateAds(ads, 'creative'), byPlacement: aggregateAds(ads, 'placement'), trend: adTrend(ads) };
+  const key = brandMatchKey(brand);
+  const ads = evs.filter((e) => e.subjectType === 'ad' && brandMatchKey(brandOf(e)) === key);
+  // Totals fold ALL of the brand's ad events into one bucket. (Splitting by
+  // 'campaign' and taking [0] would keep only the largest spelling variant when a
+  // brand was entered two ways — undercounting, and disagreeing with byCreative.)
+  const totals = aggregateAds(ads, 'all')[0] ?? { key: brand, impressions: 0, viewable: 0, clicks: 0, ctr: 0, expands: 0, avgDwellMs: 0, aboveFoldPct: 0 };
+  // Per-sponsored-article breakdown: how this brand's ads performed inside each
+  // vendor-connected sponsored piece (their embedded sponsor ad + any locked
+  // slots). Keyed by articleId; the dashboard resolves ids → titles for display.
+  const sponsored = ads.filter((e) => e.props.sponsored === true);
+  // Per-batch: only flighted (paid campaign) events carry a flightId, so this is
+  // exactly the vendor's individual campaign batches — house/evergreen ads have none.
+  const flighted = ads.filter((e) => !!e.props.flightId);
+  return {
+    brand, totals,
+    byCreative: aggregateAds(ads, 'creative'),
+    byPlacement: aggregateAds(ads, 'placement'),
+    bySponsoredArticle: aggregateAds(sponsored, 'article'),
+    byBatch: aggregateAds(flighted, 'flight'),
+    trend: adTrend(ads),
+  };
 }
 
 export function tally<T>(items: T[], keyFn: (t: T) => string): { key: string; count: number }[] {

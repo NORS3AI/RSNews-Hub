@@ -1,4 +1,4 @@
-import { getDraftLayout, hasDraftChanges, moduleSource, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
+import { getDraftLayout, hasDraftChanges, moduleSource, clampSpan, MODULE_CATALOG, type ModuleId } from '@/lib/homepage';
 import { isCustomModuleId, customIdOf, parseTree, blockLabel } from '@/lib/studio';
 import { prisma } from '@/lib/db';
 import HomeLayoutEditor from '@/components/admin/HomeLayoutEditor';
@@ -47,8 +47,10 @@ export default async function AdminHomepage() {
         description: c ? `Custom module · ${c.shape}${c.published ? '' : ' · draft'}` : 'This custom module no longer exists — remove it.',
         enabled: m.enabled,
         locked: !!m.locked,
+        sizeLocked: !!m.sizeLocked,
         sources: null,
         source: null,
+        span: clampSpan(m.span),
       };
     }
     const def = MODULE_CATALOG[m.id as ModuleId];
@@ -58,8 +60,10 @@ export default async function AdminHomepage() {
       description: def.description,
       enabled: m.enabled,
       locked: !!m.locked,
+      sizeLocked: !!m.sizeLocked,
       sources: def.sources ?? null,
       source: moduleSource(m) ?? null,
+      span: clampSpan(m.span),
     };
   });
 

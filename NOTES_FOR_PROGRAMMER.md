@@ -1,14 +1,65 @@
-# Notes for the Programmer — RSNews Hub
+# Notes for the Programmer — RS News Hub
 
 > **Purpose.** A running list of everything that needs a human developer / infra
-> to take this from the current build to live on the real RSNews Hub site. We
+> to take this from the current build to live on the real RS News Hub site. We
 > add to it as we build. Near completion we'll review it together, do whatever
 > we can ourselves, and turn the rest into a concrete step-by-step for the dev.
 >
 > **Legend:** ✅ done · 🔵 Claude can do this in-repo · 🟠 needs a developer/infra ·
 > ❓ open question for the team
 >
-> _Last updated: 2026-08-04 (v0.30.0)_
+> _Last updated: 2026-08-18_
+
+---
+
+## 0a. Latest session (2026-08-18) — hardening, resilience, a11y
+
+Recent in-repo work (all merged, tests green). Context for the dev + a short
+list of things only your side can finish.
+
+**Shipped in-repo (🔵 done):**
+- **Reader-page data caching** — category / tag / categories-index / static-page
+  queries are wrapped in Next's data cache (60s TTL, tag `reader-content`), so
+  traffic spikes don't hammer Postgres. Content mutations call
+  `revalidateTag('reader-content')` for instant freshness. `homepageData` /
+  article stay per-request (personalized).
+- **Security fixes** (from a fresh 3-angle audit): suspended sessions now rejected
+  live in local-auth mode; local session JWT pins HS256 + requires `exp`; the
+  article preview token compares in constant time; `/api/search` is rate-limited
+  (unindexed `ILIKE` over `content` — was an unthrottled DoS).
+- **Ad-analytics attribution is now server-authoritative** — `recordEvents`
+  resolves each ad event's brand from the real `Ad` row (by `subjectId = Ad.id`)
+  and drops events with a bogus ad id, so a forged beacon can no longer credit or
+  poison an advertiser's report. **Note:** this fixes *brand forgery*, not
+  *volume* — spamming a real ad's own counter is still bounded only by the rate
+  limiter, which needs **S1** (below) to be effective.
+- **App Content-Security-Policy** — nonce-based `script-src` (second lock behind
+  the HTML sanitizer) set per-request in `middleware.ts`; the inline theme
+  bootstrap in `app/layout.tsx` is nonce-stamped. `style-src` keeps
+  `'unsafe-inline'` (React inline style attributes). `/uploads` keeps its strict
+  sandbox. Verified: 0 CSP violations across reader + admin in a real browser.
+
+**🟠 Dev/infra to finish (the short list):**
+1. **Wire the rate-limiter to the trusted edge IP** — this is **S1** below. It now
+   *also* closes the ad-click-volume residual above, not just login/register. Put
+   the hub behind a proxy/LB that **overwrites** `X-Forwarded-For` (or adjust
+   `clientIp` in `src/lib/rateLimit.ts` to your proxy's hop count).
+2. **Turn on S3/R2 for uploads** (§2 item 7) — local disk is the default and does
+   **not** survive redeploys or multiple instances. Set the `S3_*` env vars.
+3. **Point a scheduler at the cron endpoints** — `/api/ads/maintenance`,
+   `/api/cron/newsletter`, `/api/analytics/rollup` (needs `CRON_SECRET` +
+   `PROD_URL`). Until then the admin dashboard flags them "Never run" and
+   **newsletters don't send**. The committed `nightly.yml` Action does this if you
+   set the repo secrets, or use the host's native scheduler.
+4. **Create the first admin via `/admin-setup`, not by registering** — on a fresh
+   *local-auth* deploy the first account to self-register is auto-promoted to
+   ADMIN (bootstrap foot-gun). In delegated (production) auth, self-registration
+   is disabled, so this only matters for a standalone install. Use the token-gated
+   `/admin-setup` flow (or set `SEED_ADMIN_*`, item 4 in §1).
+
+**❓ Owner (not code):** the brand-orange contrast fix (still open — see §1b L5;
+the form-label / in-text-link a11y items from the same axis are now fixed in
+repo), the legal-page blanks (§1b L1), and real editorial content.
 
 ---
 
@@ -48,10 +99,10 @@ reading, analytics) to that account id.
 | # | Item | Status | Who |
 |---|------|--------|-----|
 | 1 | **Host the app on a Node server** (Railway / Vercel / Render / Fly). GitHub Pages only serves the static `docs/` preview. | 🟠 dev picks a host — steps in DEPLOYMENT.md (+ `Dockerfile`, standalone output ready). |
-| 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Turnkey** — schema is Postgres-ready, init SQL generated (`deploy/init.postgres.sql`), 1-line provider switch documented. 🟠 dev provisions the DB. |
+| 2 | **Move off SQLite to a hosted database** (Postgres). | ✅ **Done** — now on PostgreSQL: provider switched, real migrations in `prisma/migrations/`, Docker + `docker-compose.example.yml` set up. 🟠 dev provisions the prod DB. |
 | 3 | **Set real environment secrets** — `DATABASE_URL`, `AUTH_SECRET`. | ✅ **Enforced in code** — `src/lib/env.ts` refuses weak/placeholder `AUTH_SECRET` in prod (login 500s, `/api/health` flags it). 🟠 dev sets the values. |
 | 4 | **No default admin login in prod.** | ✅ **Done** — seed reads `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` and **refuses to run in production** without them. 🟠 dev sets them. |
-| 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Ready** — `db:migrate` / `db:migrate:deploy` scripts + init SQL; DEPLOYMENT.md Step 4. 🟠 dev runs `migrate dev --name init` against Postgres once. |
+| 5 | **Adopt Prisma migrations** (was `db push`). | ✅ **Done** — a full migration history (`_init` + 15 more) is committed in `prisma/migrations/`; verified to apply cleanly on a fresh DB with zero drift. 🟠 on deploy the dev runs `npm run db:migrate:deploy` (`prisma migrate deploy`) against the prod DB — **not** `migrate dev` (that authors new migrations). DEPLOYMENT.md Step 4. |
 | 6 | **Confirm `docs/` preview deploy** (Pages) & whether it stays public. | 🟠 dev — covered in DEPLOYMENT.md §9. |
 | 7 | **Health check** for the host. | ✅ **Done** — `GET /api/health` (DB up/down + config report). |
 | 8 | ✅ **Dependency security — `npm audit` is clean (0 vulnerabilities).** Upgraded to **Next 15** + **React 19** (v0.34.0) and pinned Next's bundled `sharp`/`postcss` to patched versions via `overrides`. | ✅ done |
@@ -67,6 +118,36 @@ reading, analytics) to that account id.
 > for a clean audit. When you eventually move to 16, drop the overrides and
 > re-audit.
 
+> **Security review (v0.176.x).** A full code + dependency security audit was run
+> (auth/role boundaries, ingest-webhook auth, XSS/sanitization, IDOR, SQL
+> injection, session/secret handling, data exposure). **No critical or high
+> issues in the application logic; `npm audit` is clean (0 vulns).** Three code
+> hardenings were applied (header-auth now fails closed in prod, and
+> `/api/analytics/collect` + `/api/reading` are per-IP rate-limited). Two items
+> need a **human to confirm at deploy** — they can't be settled in-repo:
+
+| # | Item | Status | Who |
+|---|------|--------|-----|
+| S1 | **Rate limits assume a trusted reverse proxy.** The login/register lockout, the ingest-secret throttle, and the analytics/reading flood caps all key on the **first `X-Forwarded-For`** value (`src/lib/rateLimit.ts` → `clientIp`). That's only trustworthy if the hub is reachable **only** through a proxy/load-balancer that **overwrites** (not appends) `X-Forwarded-For`. If a bare server is exposed to the internet, a caller can send a fresh `X-Forwarded-For` per request → a new rate-limit bucket each time → the lockouts are bypassable. **Confirm the deployment sits behind a proxy that overwrites XFF** (most managed platforms / ALBs do; a plain `node server.js` on a public port does not). | ✅ limiter in place · 🟠 **dev/infra confirms the proxy overwrites `X-Forwarded-For`** |
+| S2 | **`AUTH_MODE=header` now requires `PARENT_PROXY_SECRET` in production.** If you run the trusted-proxy identity mode, the proxy must send the shared `x-proxy-secret` and you must set `PARENT_PROXY_SECRET` — otherwise the hub trusts **no** header identity in prod (fails closed, so admins simply can't log in until it's set). Nothing to do unless you use header mode. | ✅ enforced in code · 🟠 dev sets `PARENT_PROXY_SECRET` **if** using header mode |
+
+---
+
+## 1b. Legal & compliance — DO BEFORE LAUNCH _(added v0.121.0)_
+
+> These are the items most likely to be missed because the *code* is done but a
+> human still has to supply real values / wording. None block the app from
+> booting; all matter legally once real members and emails are live.
+
+| # | Item | Status | Who |
+|---|------|--------|-----|
+| L1 | **Fill the legal pages.** `Privacy Policy`, `Terms of Service`, and `Copyright & DMCA` ship as **starter templates with `[bracketed]` blanks** (business name, address, jurisdiction, contact + DMCA-agent emails). Edit them in **Admin → Pages** (or `prisma/seed.ts`) and have counsel review before public launch. | ✅ pages exist + linked in the footer · 🟠 owner/counsel fills the blanks |
+| L2 | **Set the CAN-SPAM mailing address.** `MAILING_ADDRESS` + `ORG_LEGAL_NAME` env vars feed the physical-address line every commercial email must carry. Until set, the email footer shows a visible `[Set MAILING_ADDRESS…]` placeholder. | ✅ enforced in `email.ts` (single footer) · 🟠 dev sets the env vars |
+| L3 | **Cookie consent + analytics opt-out** — a first-visit notice writes a choice to `localStorage` + a mirrored cookie; declining suppresses first-party analytics beacons and view-count bumps (verified end-to-end). No action needed unless your jurisdiction requires *opt-in* (this is notice + opt-out). | ✅ done · ❓ confirm opt-out is sufficient for your market |
+| L4 | **Newsletter digest is CAN-SPAM-shaped** — every issue has a working unsubscribe link + (once L2 is set) the physical address. The digest is already on the nightly cron (`/api/cron/newsletter`, needs `CRON_SECRET`). | ✅ done · 🟠 dev sets `CRON_SECRET` |
+| L5 | **Accessibility (ADA/WCAG)** — structural pass done (landmarks, skip link, alt text, labelled controls, heading order). **One open item:** brand-orange `#E97D34` with white text fails WCAG AA contrast (~2.1–2.9:1) across buttons/nav. Left as an **owner design decision** (recommended fix: dark-ink text on orange). See `ACCESSIBILITY.md`. | ✅ structure done · ❓ owner signs off on the contrast fix |
+| L6 | **Register a DMCA agent with the U.S. Copyright Office** (~$6, online at dmca.copyright.gov). The Copyright/DMCA page + takedown flow only confer **safe-harbor** from liability for user/vendor-submitted content if a designated agent is *registered*. Since the hub is a gated area of the existing RS News site, **first check whether the parent site already has a registered agent and whether its designation lists this hub property** (name/domain); if so, add the hub to that existing designation (cheap amendment) rather than filing new. | 🟠 owner/dev confirms parent's registration + that it covers the hub, else files/amends |
+
 ---
 
 ## 2. Should-have (soon after launch)
@@ -78,7 +159,7 @@ reading, analytics) to that account id.
 | 9 | ✅ **Email delivery** — wired turnkey (`src/lib/email.ts`). Safe-by-default: logs (redacted) until a provider is set. Dev just sets `RESEND_API_KEY` + `EMAIL_FROM`. See §3. | ✅ done · 🟠 dev provisions provider |
 | 10 | ✅ **Error tracking + logging** — structured logs + one capture chokepoint (`src/lib/logger.ts`) wired at every error site. Sentry is a one-line activation. See §3. | ✅ done · 🟠 dev provisions Sentry (optional) |
 | 11 | ✅ **SEO basics** — `robots.ts`, `sitemap.ts` (dynamic, from published content), per-article canonical + Open Graph/Twitter metadata. Domain/DNS/TLS/CDN remain 🟠 dev. | ✅ done · 🟠 dev does DNS/TLS/CDN |
-| 12 | ✅ **Content moderation** — reusable `moderateText` (`src/lib/moderation.ts`, pure + tested): ok/flag/block with cleaned text + reasons, env-tunable blocklist. Applied to the one persisted user-authored field today (registration name). **Note:** the hub has **no public UGC** yet (no comments/reviews); this is defense-in-depth + the ready gate for when member-authored public content is added — drop `moderateText()` in front of it. | ✅ done |
+| 12 | ✅ **Content moderation** — reusable `moderateText` (`src/lib/moderation.ts`, pure + tested): ok/flag/block with cleaned text + reasons, env-tunable blocklist. Applied to the registration name on submit. **Member-authored public content today = supplier testimonials**, which are gated by **admin approval** (submit → `PENDING`; only `APPROVED` + opted-in testimonials ever display — `setTestimonialStatus` / `testimonials.ts`), so nothing member-written goes public unreviewed. `moderateText()` is not yet wired into the testimonial submit path; adding it there is the obvious next defense-in-depth step if the review queue grows. No comments/reviews/forums exist. | ✅ done · 🔵 optional: moderate testimonial body on submit |
 | 13 | **Analytics phase 2+** — see the roadmap just below. | 🔵 Claude can extend · 🟠 dev sizes the DB |
 
 ### Analytics roadmap (phase 2+)
@@ -218,6 +299,20 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   400, not a possible 500. (3) **Postgres** — the schema is verified to generate
   clean Postgres DDL (validate + migrate diff); a live boot against a provisioned
   Postgres is the one remaining infra step (see DEPLOYMENT).
+- ✅ **Full security + bug audit** _(v0.121.0)_ — three-angle pass (authz,
+  injection/XSS/SSRF, correctness) over the whole codebase. Fixes: **SSRF** in
+  the Industry-News link-metadata fetcher (now routes through `src/lib/ssrf.ts`
+  — resolves the host, rejects all private/reserved IPv4+IPv6 ranges, and
+  re-validates every redirect hop); **open redirect** on the `?next=` login param
+  (internal paths only); login **user-enumeration timing** oracle (dummy bcrypt on
+  unknown email); newsletter link hrefs restricted to http(s); `rsnews_reader`
+  cookie gets `secure` in prod; the committed dev `AUTH_SECRET` is now rejected in
+  staging/preview too (not just `production`); optional `PARENT_PROXY_SECRET`
+  gate for header auth mode; **HSTS** header added. Also fixed a correctness bug
+  where the Simple-Upload auto-ad placer dropped both ads if a sub-heading sat at
+  the first target. **Verdict: no exploitable holes for an ordinary user**; the
+  "View as" admin preview was confirmed un-spoofable (honored only for real
+  admins). `npm audit` clean; 370 tests pass.
 - ✅ **Ad-sales security pass** _(v0.48.0)_ — adversarial review of the vendor /
   gating / JotForm surfaces. Fixes: the content gate is now enforced on **every**
   content-serving path, not just the article page — the article JSON API
@@ -249,8 +344,10 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
   limited to **one per account**, enforced by DB unique constraints (`PollVote`,
   `QuizResponse (quizId,userId)`), not just client-side. Routes return
   401 (anon) / 409 (duplicate). _(v0.26.0)_
-- ✅ **Automated tests** — Vitest suite (37 tests): pure logic + API-route tests
-  that lock the auth/one-per-account behavior. Run `npm test`. _(v0.26.0)_
+- ✅ **Automated tests** — Vitest suite (**370 tests** as of v0.121.0, grown from
+  37 at v0.26.0): pure logic, API-route auth/one-per-account behavior, and
+  DB-backed integration tests (ad-sales money/gate/reminder paths). Run
+  `npm test`. _(started v0.26.0)_
 - ✅ **CI** — GitHub Actions (`.github/workflows/ci.yml`): install → prisma
   generate → type-check → test → build, on every PR and push to main. _(v0.26.0)_
 - ✅ **Smart in-article ads** — competitor ads are suppressed inside articles
@@ -317,12 +414,16 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
 
 ## 4. Repo facts & gotchas the dev needs to know
 
-- **Stack:** Next.js 15 (App Router) · React 19 · TypeScript · Prisma · Tailwind. DB is
-  SQLite in dev (`prisma/schema.prisma`, `DATABASE_URL=file:./dev.db`).
-- **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required in
-  prod (validated in `src/lib/env.ts` — a weak `AUTH_SECRET` is rejected at
-  runtime, not silently accepted). Admin seed needs `SEED_ADMIN_EMAIL` /
-  `SEED_ADMIN_PASSWORD` in prod. Full deploy: `DEPLOYMENT.md`.
+- **Stack:** Next.js 15.5 (App Router) · React 19 · TypeScript · Prisma 5.22 ·
+  Tailwind. DB is PostgreSQL in every environment (`prisma/schema.prisma`
+  provider=postgresql — no SQLite mode); local via
+  `docker compose -f docker-compose.example.yml up db`.
+- **Env vars:** see `.env.example`. `DATABASE_URL` + `AUTH_SECRET` required
+  outside local dev (validated in `src/lib/env.ts` — the committed dev
+  `AUTH_SECRET` is rejected at runtime in prod/staging, not silently accepted).
+  Admin seed needs `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` in prod. Email
+  compliance needs `MAILING_ADDRESS` / `ORG_LEGAL_NAME` (see §1b). Full deploy:
+  `DEPLOYMENT.md`.
 - **Two front-ends in one repo:**
   - `src/` — the real Next.js app (dynamic, DB-backed).
   - `docs/` — a **static** snapshot for the GitHub Pages preview (`app.js`,
@@ -330,11 +431,47 @@ The v1 pipeline (§3) already captures the events; these are additions on top of
     `scripts/build-static.mjs` (`npm run build:static`). It has **no backend or
     login**, so interactive features there (poll/quiz) are localStorage demos
     only. Don't confuse it with production behavior.
-- **Version badge** lives in the footer in two places: `docs/index.html` and
-  `src/lib/constants.ts` (kept in sync on each shipped change).
-- **Data collected by new features:** quiz responses + poll votes (low
-  sensitivity). Accounts already existed on the site, so this feature does **not**
-  introduce new account/PII collection.
+- **Version badge** lives in two places. `src/lib/constants.ts` (`APP_VERSION`)
+  is the **authoritative** app version, bumped each shipped change. The static
+  preview's badge in `docs/index.html` is only refreshed when
+  `npm run build:static` is run, so it lags the app (currently v0.97.3 vs the
+  app's v0.121.0) — regenerate it if the Pages preview needs to match.
+- **Data collected (privacy-relevant — reflect in the Privacy Policy):** the hub
+  now stores more than the original poll/quiz responses. Members' logins come
+  from the parent site (no new password store here), but the hub collects:
+  **newsletter subscriber email addresses** (`NewsletterSubscriber` — PII, with
+  unsubscribe), **first-party usage analytics** (`AnalyticsEvent` / reading logs —
+  gathered under a notice + opt-out, no third-party trackers), **per-account
+  saves** (favorites / to-read / clippings), and **supplier phone-book entries +
+  testimonials**. All are covered by the Privacy Policy (§1b L1) and the consent
+  notice; none use third-party ad/tracking cookies.
+
+- **Data/view seam (keep the UI swappable — a deliberate design goal).** The app
+  is being kept split into three loosely-coupled layers so the **interface** can
+  be replaced (up to a fully AI-composed, per-user frontend) without disturbing
+  the **information** or **logic** layers. Two concrete seams exist today and new
+  code should respect them:
+  - **The article-card DTO lives once, in `src/lib/cards.ts`** (`cardSelect` +
+    `toCard` + the `ArticleCard` type). **Every** reader-facing list/grid/feed
+    surface — homepage, endless feed, recommendations, search, category, tag —
+    fetches through it. **Do not fork the select.** If a new surface writes its
+    own `select`, it will silently drop the derived `sponsored` flag and the
+    story will lose its **"Partner content" FTC disclosure** (this exact drift
+    was the bug on the category/tag pages — fixed by routing them through
+    `cards.ts`). Need an extra field? Spread it: `{ ...cardSelect, foo: true }`.
+    The DTO ships a derived `sponsored` boolean and **never** the raw
+    `sponsorVendorId`.
+  - **The homepage's data layer is `getHomepageData()` (`src/lib/homepageData.ts`)**
+    — one function that does all the fetching/derivation and returns a typed
+    `HomepageData` bundle; `docs/page.tsx` is a pure renderer over it (plus a
+    little request-local render state). An alternate frontend can call
+    `getHomepageData()` and render the same data however it likes. Keep new
+    homepage data-fetching in that function, not inlined in the page.
+  - **Disclosure is centralized** in `isPartnerContent()` (`ArticleBadges.tsx`);
+    render `<PartnerContentBadge/>` wherever an article title/summary is shown to
+    readers (cards, the reader page, the modal, and the homepage custom-markup
+    spotlight/split/headline slots all do). A new reader surface that shows
+    article titles must gate the badge on `isPartnerContent(...)` too.
 
 ### New database models added this project (must exist in the prod DB)
 `Comic`, `Poll` + `PollOption` + `PollVote`, `Quiz` + `QuizQuestion` +
@@ -344,6 +481,10 @@ campaign now FKs to a `Vendor` by normalized `brandKey`, run `scripts/backfill-v
 `Setting` row for the homepage layout. See `prisma/schema.prisma`. `User` also
 gained cached entitlement columns mirrored from the SSO token — `accountType`,
 `tier`, `affiliations` (comma list), `vendorBrand`, `region`, `storeType`.
+Later phases added `NewsletterSubscriber`, `EmailTemplate`, `CustomModule`
+(Module Studio), the legal/CMS `Page` rows (`privacy` / `terms` / `copyright` /
+`about`), and the `Article.byline` + `Article.coverVideo` columns. All of these
+are covered by `prisma migrate deploy` + `npm run db:seed` — no manual DDL.
 
 ---
 

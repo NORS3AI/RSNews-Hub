@@ -33,14 +33,14 @@ export default async function AdminCampaigns() {
     <div className="max-w-5xl">
       <h1 className="mb-1 text-2xl font-bold">Ad campaigns</h1>
       <p className="mb-5 max-w-3xl text-sm text-[var(--muted)]">
-        A campaign is a vendor&apos;s purchase. Every package runs in <strong>3-month flights</strong> — no creative is ever up longer than one flight, so multi-month packages need fresh ads each flight. Schedule a flight to put its ads live; they come down automatically at the flight&apos;s end.
+        A campaign is a vendor&apos;s purchase. Every package runs in <strong>3-month batches</strong> — no creative is ever up longer than one batch, so multi-month packages need fresh ads each batch. Schedule a batch to put its ads live; they come down automatically at the batch&apos;s end.
       </p>
 
       {(draftCount > 0 || failedSubs > 0) && (
         <div className="mb-5 space-y-2">
           {draftCount > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
-              <strong>{draftCount} draft campaign{draftCount === 1 ? '' : 's'}</strong> awaiting review — some arrive from JotForm submissions. Open one, assign its creatives to a flight, then schedule it to go live. Drafts never serve.
+              <strong>{draftCount} draft campaign{draftCount === 1 ? '' : 's'}</strong> awaiting review — some arrive from JotForm submissions. Open one, assign its creatives to a batch, then schedule it to go live. Drafts never serve.
             </div>
           )}
           {failedSubs > 0 && (
@@ -91,7 +91,7 @@ export default async function AdminCampaigns() {
                   {c.status === 'ACTIVE' && <> · {countdownLabel(c.endAt, now)}</>}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
-                  <span className="badge bg-[var(--bg-soft)]">{c.flights.length} flight{c.flights.length === 1 ? '' : 's'}</span>
+                  <span className="badge bg-[var(--bg-soft)]">{c.flights.length} batch{c.flights.length === 1 ? '' : 'es'}</span>
                   {scheduled > 0 && <span className="badge bg-green-100 text-green-700">{scheduled} live/scheduled</span>}
                   {needCreatives > 0 && <span className="badge bg-amber-100 text-amber-700">{needCreatives} need creatives</span>}
                 </div>

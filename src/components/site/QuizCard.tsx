@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Clock, Check, X } from '@/components/icons';
+import { useScrollLock } from '@/lib/useScrollLock';
 
 export type QuizOption = { id: string; label: string };
 export type QuizQuestion = { id: string; prompt: string; options: QuizOption[] };
@@ -37,12 +38,12 @@ export default function QuizCard({ quiz, loggedIn, initialDone = false }: { quiz
     return () => clearInterval(t);
   }, []);
 
+  useScrollLock(open);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.body.classList.add('modal-open');
     window.addEventListener('keydown', onKey);
-    return () => { document.body.classList.remove('modal-open'); window.removeEventListener('keydown', onKey); };
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
   const left = closeMs - now;

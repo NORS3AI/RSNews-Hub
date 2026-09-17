@@ -7,7 +7,11 @@ import { BrandLockup } from './BrandLogo';
 export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get('next') || '/docs';
+  // Only follow an INTERNAL path after auth — never an absolute/scheme-relative
+  // URL — so a crafted ?next=https://evil.example can't turn a real login into an
+  // open-redirect to a phishing origin. Must start with a single "/".
+  const nextRaw = params.get('next') || '/docs';
+  const next = nextRaw.startsWith('/') && !nextRaw.startsWith('//') && !nextRaw.startsWith('/\\') ? nextRaw : '/docs';
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -63,13 +67,20 @@ export default function AuthForm({ mode }: { mode: 'login' | 'register' }) {
           <button type="submit" disabled={loading} className="btn-primary w-full">
             {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
+          {mode === 'register' && (
+            <p className="text-center text-xs text-[var(--muted)]">
+              By creating an account you agree to our{' '}
+              <Link href="/docs/page/terms" className="text-brand-600 underline">Terms</Link> and{' '}
+              <Link href="/docs/page/privacy" className="text-brand-600 underline">Privacy Policy</Link>.
+            </p>
+          )}
         </form>
 
         <p className="mt-4 text-center text-sm text-[var(--muted)]">
           {mode === 'login' ? (
-            <>Don&apos;t have an account? <Link href="/register" className="text-brand-600 hover:underline">Sign up</Link></>
+            <>Don&apos;t have an account? <Link href="/register" className="font-semibold text-brand-600 underline">Sign up</Link></>
           ) : (
-            <>Already have an account? <Link href="/login" className="text-brand-600 hover:underline">Sign in</Link></>
+            <>Already have an account? <Link href="/login" className="font-semibold text-brand-600 underline">Sign in</Link></>
           )}
         </p>
       </div>

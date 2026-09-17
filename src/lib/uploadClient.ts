@@ -35,3 +35,6 @@ export async function uploadFile(file: File, kind: UploadKind = 'image'): Promis
 
 /** Image-only convenience wrapper (existing callers). */
 export const uploadImage = (file: File) => uploadFile(file, 'image');
+
+/** Video convenience wrapper (cover video, Studio video block). */
+export const uploadVideo = (file: File) => uploadFile(file, 'video');

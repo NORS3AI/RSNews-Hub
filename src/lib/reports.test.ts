@@ -46,10 +46,17 @@ describe('parseSnapshot', () => {
     expect(snap.totals.clicks).toBe(2);
     expect(snap.byCreative).toHaveLength(1);
   });
+  it('round-trips the per-batch and per-sponsored-article breakdowns', () => {
+    const snap = parseSnapshot(JSON.stringify({ brand: 'PackWise', byBatch: [{ key: 'Batch 1 · Jan 1–Mar 31, 2026' }], bySponsoredArticle: [{ key: 'Their story' }, { key: 'Another' }] }));
+    expect(snap.byBatch).toHaveLength(1);
+    expect(snap.bySponsoredArticle).toHaveLength(2);
+  });
   it('never throws on garbage — returns an empty snapshot', () => {
     const snap = parseSnapshot('not json');
     expect(snap.brand).toBe('');
     expect(snap.totals.impressions).toBe(0);
     expect(snap.byCreative).toEqual([]);
+    expect(snap.byBatch).toEqual([]);
+    expect(snap.bySponsoredArticle).toEqual([]);
   });
 });
